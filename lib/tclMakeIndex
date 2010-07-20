@@ -1,0 +1,4 @@
+#!/usr/bin/tclsh8.4
+
+set dir [pwd]
+auto_mkindex $dir *.tcl

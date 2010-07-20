@@ -1,0 +1,15 @@
+#!/bin/ksh
+#CMOI_LEVEL usr
+#CMOI_PLATFORM op_f
+
+eval 
+arch=`uname -s`
+if [[ "$arch" = "Linux" ]]; then
+   #TCLSH=/home/binops/afsi/ssm/sw/linux26-i686/bin/tclsh8.4
+   TCLSH=/home/binops/afsi/ssm/domain2/linux26-i686/bin/wish8.5
+else
+   echo xflow is only supported on Linux platforms
+   exit
+fi
+
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl -main $*
