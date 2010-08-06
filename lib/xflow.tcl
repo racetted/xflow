@@ -554,7 +554,7 @@ proc out {} {
 
 proc getNodeDisplayPrefText { node } {
    set text ""
-   if { [$node cget -flow.type] == "task" } {
+   if { [$node cget -flow.type] == "task" || [$node cget -flow.type] == "npass_task"  } {
       switch [getNodeDisplayPref] {
          2 {
             set text "([$node cget -catchup])"
@@ -697,6 +697,10 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
       "task" {
          ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
       }
+
+      "npass_task" {
+         ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
+      }
       "loop" {
          set text "${text}\n[::FlowNodes::getLoopInfo $node]"
          ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
@@ -773,16 +777,22 @@ proc nodeMenu { canvas node x y } {
       $popMenu add command -label "Node Batch" -command [list batchCallback $node $canvas $popMenu ]
       $popMenu add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
       $popMenu add separator
-      if { [$node cget -flow.type] != "task" } {
+      if { [$node cget -flow.type] != "task" && [$node cget -flow.type] != "npass_task"} {
          $popMenu add command -label "Submit" -command [list submitCallback $node $canvas $popMenu continue ]
       } else {
-         $popMenu add command -label "Submit & Continue" -command [list submitCallback $node $canvas $popMenu continue ]
-         $popMenu add command -label "Submit & Stop" -command [list submitCallback $node $canvas $popMenu stop ]
-         $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
+         if { [$node cget -flow.type] == "npass_task"} {
+            $popMenu add command -label "Submit & Continue" -command [list submitNpassTaskCallback $node $canvas $popMenu continue ]
+            $popMenu add command -label "Submit & Stop" -command [list submitNpassTaskCallback $node $canvas $popMenu stop ]
+            $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
+         } else {
+            $popMenu add command -label "Submit & Continue" -command [list submitCallback $node $canvas $popMenu continue ]
+            $popMenu add command -label "Submit & Stop" -command [list submitCallback $node $canvas $popMenu stop ]
+            $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
+         }
       }
       $popMenu add command -label "Node Config" -command [list configCallback $node $canvas $popMenu ]
       $popMenu add separator
-      if { [$node cget -flow.type] != "task" } {
+      if { [$node cget -flow.type] != "task" && [$node cget -flow.type] != "npass_task"} {
          $popMenu add command -label "Initbranch" -command [list initbranchCallback $node $canvas $popMenu]
       } else {
          $popMenu add command -label "Initnode" -command [list initnodeCallback $node $canvas $popMenu]
@@ -846,12 +856,13 @@ proc newWindowCallback { node canvas caller_menu } {
 }
 
 proc historyCallback { node canvas caller_menu history {full_loop 0} } {
-   DEBUG "historyCallback node:$node canvas:$canvas" 5
+   DEBUG "historyCallback node:$node canvas:$canvas $full_loop" 5
    set seqExec [getGlobalValue SEQ_UTILS_BIN]/nodehistory
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
+   DEBUG "historyCallback nodeExt:$nodeExt" 5
    if { $nodeExt == "-1" } {
       raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
    } else {
@@ -1124,6 +1135,34 @@ proc submitLoopCallback { node canvas caller_menu flow} {
    destroy $caller_menu
 }
 
+proc submitNpassTaskCallback { node canvas caller_menu flow} {
+   DEBUG "submitNpassTaskCallback node:$node canvas:$canvas" 5
+   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+
+   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+
+   set seqNode [::FlowNodes::getSequencerNode $node]
+   # retrieve index value from widget
+   set indexListW "${canvas}.[${node} cget flow.name]"
+   set indexListValue ""
+   if { [winfo exists ${indexListW}] } {
+      set indexListValue [${indexListW} get]
+   DEBUG "submitNpassTaskCallback indexListValue:$indexListValue" 5
+   }
+   if { ${indexListValue} == "latest" } {
+      raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+   } else {
+      set seqNpassTaskArgs [::FlowNodes::getNpassTaskArgs ${node} ${indexListValue}]
+   
+      if { $seqNpassTaskArgs == "-1" } {
+         raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+      } else {
+         Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow $seqNpassTaskArgs   
+      }
+   }
+   destroy $caller_menu
+}
+
 proc listingCallback { node canvas caller_menu {full_loop 0} } {
    DEBUG "listingCallback node:$node canvas:$canvas" 5
    set listingExec [getGlobalValue SEQ_UTILS_BIN]/nodelister
@@ -1162,7 +1201,7 @@ proc allListingCallback { node canvas caller_menu type } {
    #if { $nodeExt != "" } {
    #   set nodeExt ".${nodeExt}"
    #}
-   set cmd "export SEQ_EXP_HOME=$suitePath; $listerPath -n ${node} -type $type -list > $tmpfile 2>&1"
+   set cmd "export SEQ_EXP_HOME=$suitePath; $listerPath -n ${seqNode} -type $type -list > $tmpfile 2>&1"
    DEBUG "allListingCallback ksh -c $cmd" 5
    catch { eval [exec ksh -c $cmd ] }
 
@@ -1253,6 +1292,20 @@ proc cleanLogCallback { canvas caller_menu } {
    puts [ $suiteRecord cget -read_offset ]
    # LogReader_readFile $suiteRecord
 
+   drawflow $canvas
+}
+
+
+proc npassTaskSelectionCallback { node canvas combobox_w} {
+   DEBUG "npassTaskSelectionCallback node:$node $combobox_w" 5
+
+   set member [${combobox_w} get]
+
+   # LogReader_readFile $suiteRecord
+   if { $member != "latest" && [lindex $member 0] != "+" } {
+      set member +${member}
+   }
+   $node configure -current $member
    drawflow $canvas
 }
 
@@ -1377,19 +1430,10 @@ proc getNodeResources { node suite_path {is_recursive 0} } {
          raiseError . "Get Node Resource" $message
          return 0
       }
-      eval [exec cat ${outputFile}]
-      proc out {} {
-      if [catch {open "$outputFile" "r"} fileId] {
-         puts stderr "Cannot open $outputFile: $outputFile"
-         return 0
-      } else {
-         while {[gets $fileId line] >= 0} {
-            #puts "getNodeResources data:$line"
-            eval $line
-         }
+      if [ catch { eval eval [exec cat ${outputFile}] } message ] {
+         puts "\n$message"
       }
       catch { close $fileId }
-      }
    }
 
    if { $is_recursive } {
@@ -1480,6 +1524,7 @@ proc createMainMenus { _top } {
 proc setErrorMessages {} {
   global ERROR_MSG_LIST
   set ERROR_MSG_LIST(NO_LOOP_SELECT) "Cannot retrieve loop member for parent loop container! Please select a loop index."
+  set ERROR_MSG_LIST(NO_INDEX_SELECT) "You must provide an index value for this node!"
 }
 
 proc getErrorMsg { key } {

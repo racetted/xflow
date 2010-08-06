@@ -55,6 +55,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
                            CASE_ITEM "FlowOutlet outlet"
                            CASE "FlowCase case"
                            MODULE "FlowModule module"
+                           NPASS_TASK "FlowNpassTask npass_task"
                        }
 
    set xmlNodeName [$xml_node nodeName]
@@ -70,7 +71,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    #puts "createNodeFromXml() newFlowDirname:$newFlowDirname"
    $flowCreateCmd $newFlowDirname
    $newFlowDirname configure -flow.name $nodeName -flow.type $flowType -flow.parent $actualFlowParent
-   ::FlowNodes::setMemberStatus $newFlowDirname "latest" "init"
+   #::FlowNodes::setMemberStatus $newFlowDirname "latest" "init"
 
 #   if { $flowType == "family" } {
       # get the next parent that is of type family excluding myself
@@ -86,7 +87,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    set parentContainer "[$actualFlowParent cget -flow.container]"
    set parentName "[$actualFlowParent cget -flow.name]"
    puts "createNodeFromXml() parentContainer:$parentContainer"
-   if { [$actualFlowParent cget -flow.type] == "task" } {
+   if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npasstask"} {
       $newFlowDirname configure -flow.container "$parentContainer"
    } else {
       if { ${parentContainer} == "" } {
@@ -100,7 +101,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # of the real node to the flow node. A real node is the value that is required by the
    # sequencer API.
    if { [::FlowNodes::searchForTask $actualFlowParent] != "" } {
-      if { [$actualFlowParent cget -flow.type] == "task" } {
+      if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npasstask" } {
          ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$nodeName $newFlowDirname
       } else {
          ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$parentName/$nodeName $newFlowDirname
@@ -131,12 +132,15 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
    set parentFlowNode $parent_flow_node
    set newParentNode ""
    switch $xmlNodeName {
-      "TASK" {
+      "TASK" -
+      "NPASS_TASK" -
+      "CASE_ITEM" -
+      "FAMILY" {
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
       }
       "MODULE" { 
          set suiteName [$suite cget -suite_name]
-	 set nodeName [$current_xml_node getAttribute name]
+	      set nodeName [$current_xml_node getAttribute name]
          #set newXmlFile $env(SEQ_EXP_HOME)/modules/$nodeName/flow.xml
          set newXmlFile [$suite cget -suite_path]/modules/$nodeName/flow.xml
          puts "ParseXmlNode:: suite_path: [$suite cget -suite_path]" 
@@ -144,9 +148,6 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node] 
          readMasterfile $newXmlFile [$suite cget -suite_path] $newParentNode $suite
          set parseChild 0
-      }
-      "FAMILY" {
-         set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
       }
       "LOOP" {
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
@@ -160,9 +161,6 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          }
          $newParentNode configure -loop_type $type -start $start -step $step -end $end \
                      -sets $setValue
-      }
-      "CASE_ITEM" {
-         set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
       }
       "CASE" {
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]

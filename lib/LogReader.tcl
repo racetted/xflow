@@ -174,74 +174,79 @@ proc LogReader_processLine { calling_thread_id suite_record line {is_startup 0} 
             set msg [string range $line $msgStartIndex end]
          }
 
-         DEBUG "node=$node flowNode:$flowNode type=$type" 5
-         DEBUG "message=$msg" 5
-         switch [string tolower $type] {
-            "init" -
-            "begin" -
-            "submit" -
-            "end" -
-            "wait" -
-            "catchup" -
-            "abort" {
-               if { [record exists instance $flowNode] } {
-                  set textDisplay [$flowNode cget -flow.name]
-                  if { [$flowNode cget -flow.type] == "loop" } {
-                     set loopInfoDisplay "[::FlowNodes::getLoopInfo $flowNode]"
-                     if { $loopExt != "" } {
-                        # we got an update on a loop iteration
-                        set extDisplay [::FlowNodes::getExtDisplay $flowNode $loopExt ]
-                        #set textDisplay "${textDisplay}\n${extDisplay}\n${loopInfoDisplay}"
-                        set textDisplay "${textDisplay}${extDisplay}\n${loopInfoDisplay}"
-                        if { [string tolower $type] == "init" } {
-                           FlowNodes::setMemberStatus $flowNode $loopExt $type 1
-                        } else {
-                           FlowNodes::setMemberStatus $flowNode $loopExt $type 0
-                        }
-                     } else {
-                        # we got an update on the whole loop
-                        #set textDisplay "${textDisplay}\n${loopInfoDisplay}"
-                        set textDisplay "${textDisplay}\n${loopInfoDisplay}"
-                        if { [string tolower $type] == "init" } {
-                           FlowNodes::resetAllStatus $flowNode init 1
-                        } else {
-                           FlowNodes::setMemberStatus $flowNode all $type
-                        }
-                     }
+         DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
+         DEBUG "LogReader_processLine message=$msg" 5
+         if { [record exists instance $flowNode] } {
+            # first we take care of setting the node status
+            if { [string tolower $type] == "init" } {
+               if { [$flowNode cget -flow.type] == "loop" } {
+                  if { $loopExt != "" } {
+                     FlowNodes::setMemberStatus $flowNode $loopExt $type 1
                   } else {
-                     if { [string tolower $type] == "init" } {
-                        if { [$flowNode cget -flow.loops] != "" } {
-                           FlowNodes::setMemberStatus $flowNode $loopExt $type 1
-                        } else {
-                           ::FlowNodes::resetNodeStatus $flowNode 
-                        }
-                     }
-                     FlowNodes::setMemberStatus $flowNode $loopExt $type
-                     if { $loopExt != "" } {
-                        # we got an update on a loop iteration
-                        set extDisplay [::FlowNodes::getExtDisplay $flowNode $loopExt ]
-                        #set textDisplay "${textDisplay}\n${extDisplay}"
-                        set textDisplay "${textDisplay}${extDisplay}"
-                     }
+                     # we got an update on the whole loop
+                     FlowNodes::resetAllStatus $flowNode init 1
                   }
-                  if { [string tolower $type] == "init" && $is_startup == "0"} {
-                     #thread::send ${calling_thread_id} \
-                     #   "redrawAllFlow ${suite_record}"
-                     redrawAllFlow ${suite_record}
-                  }
-                  # is display refresh required ?
-                  if { [::FlowNodes::isDisplayUpdate $flowNode $loopExt] } {
-                     ::DrawUtils::drawNodeStatus $flowNode [getShawdowStatus]
-                     set dispPref [getNodeDisplayPrefText $flowNode]
-                     if { $dispPref != "" } {
-                        set textDisplay "${textDisplay}\n${dispPref}"
-                     }
-                     ::DrawUtils::drawNodeText $flowNode $textDisplay
+               } else { 
+                  # current node is not loop
+                  if { [$flowNode cget -flow.loops] != "" } {
+                     # part of parent loop container
+                     FlowNodes::setMemberStatus $flowNode $loopExt $type 1
+                  } else {
+                     ::FlowNodes::resetNodeStatus $flowNode 
                   }
                }
+            } else {
+               # not init state, any other
+               if { [$flowNode cget -flow.type] == "npass_task" && $loopExt != "" } {
+                  ::DrawUtils::updateNpassTaskIndex  $flowNode $loopExt
+               }
+               if { [$flowNode cget -flow.type] == "loop" || [$flowNode cget -flow.type] == "npass_task" } {
+                  if { $loopExt != "" } {
+                     # we got an update on a loop iteration
+                     FlowNodes::setMemberStatus $flowNode $loopExt $type 0
+                  } else {
+                     # we got an update on the whole loop
+                     FlowNodes::setMemberStatus $flowNode all $type
+                  }
+               } else { 
+                  # current node is not loop
+                  FlowNodes::setMemberStatus $flowNode $loopExt $type
+               }
             }
-            default {
-               puts "LogReader_processLine unhandled type:$type"
+
+            # the we refresh the display... redisplay the node text?
+            set textDisplay [$flowNode cget -flow.name]
+            if { [$flowNode cget -flow.type] == "loop" } {
+               set loopInfoDisplay "[::FlowNodes::getLoopInfo $flowNode]"
+               if { $loopExt != "" } {
+                  # we got an update on a loop iteration
+                  set extDisplay [::FlowNodes::getExtDisplay $flowNode $loopExt ]
+                  set textDisplay "${textDisplay}${extDisplay}\n${loopInfoDisplay}"
+               } else {
+                  # we got an update on the whole loop
+                  set textDisplay "${textDisplay}\n${loopInfoDisplay}"
+               }
+            } else { 
+               # current node is not loop
+               if { $loopExt != "" } {
+                  # we got an update on a loop iteration
+                  set extDisplay [::FlowNodes::getExtDisplay $flowNode $loopExt ]
+                  set textDisplay "${textDisplay}${extDisplay}"
+               }
+            }
+            if { [string tolower $type] == "init" && $is_startup == "0"} {
+               #thread::send ${calling_thread_id} \
+               #   "redrawAllFlow ${suite_record}"
+               redrawAllFlow ${suite_record}
+            }
+            # is display refresh required ?
+            if { [::FlowNodes::isDisplayUpdate $flowNode $loopExt] } {
+               ::DrawUtils::drawNodeStatus $flowNode [getShawdowStatus]
+               set dispPref [getNodeDisplayPrefText $flowNode]
+               if { $dispPref != "" } {
+                  set textDisplay "${textDisplay}\n${dispPref}"
+               }
+               ::DrawUtils::drawNodeText $flowNode $textDisplay
             }
          }
       }

@@ -46,6 +46,7 @@ proc ::DrawUtils::init {} {
       family rectangle
       module rectangle
       task rectangle
+      npass_task rectangle
       loop oval
       outlet oval
       case losange
@@ -170,6 +171,34 @@ proc ::DrawUtils::drawNodeText { node new_text {canvas ""} } {
    foreach canvas $canvasList {
       if { [$canvas type $canvasTextTag] == "text" } {
          $canvas itemconfigure $canvasTextTag -text $new_text
+      }
+   }
+}
+
+proc ::DrawUtils::updateNpassTaskIndex { node node_index {canvas ""} } {
+   DEBUG "::DrawUtils::updateNpassTaskIndex node:$node node_index:$node_index" 5
+
+   if { $canvas == "" } {
+      # get the list of all canvases where the node appears
+      set canvasList [::FlowNodes::getDisplayList $node]
+   } else {
+      set canvasList $canvas
+   }
+   if { [$node cget -flow.type] == "family" || [$node cget -flow.type] == "module"} {
+      set new_text "/$new_text"
+   }
+
+   #      ${loopBar} configure -value $extensions -width [string length [$binder cget flow.name]]
+   set indexValue [::FlowNodes::getIndexValue $node_index]
+   foreach canvas $canvasList {
+      set indexListW "${canvas}.[$node cget flow.name]"
+      if { [winfo exists ${indexListW}] } {
+         set listValues [${indexListW} cget -value]
+         if { [lsearch ${listValues} ${indexValue}] == -1 } {
+            # not exist, need to add new index
+            lappend listValues ${indexValue}
+            ${indexListW} configure -values [lsort $listValues]
+         }
       }
    }
 }
@@ -511,8 +540,32 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill ca
    set suite [::SuiteNode::getSuiteRecord $canvas]
    if { $sy2 > [::SuiteNode::getDisplayNextY $suite $canvas] } {
       ::SuiteNode::setDisplayNextY $suite $canvas $ny2
-      #::SuiteNode::setDisplayNextY $suite $canvas $sy2
    }
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
-   #::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $sx2 $sy2 $sx2 $sy2]
+   if { [$binder cget -record_type] == "FlowNpassTask" } {
+      set indexListW "${canvas}.[$binder cget flow.name]"
+      if { ! [winfo exists ${indexListW}] } {
+         ttk::combobox ${indexListW}
+         set extensions {latest}
+         ${indexListW} set latest
+         foreach { nodeIndex nodeStatus } [$binder cget flow.statuses] {
+            if { $nodeIndex != "latest" } {
+               lappend extensions [::FlowNodes::getIndexValue $nodeIndex]
+            }
+         }
+         set extensions  [lsort -unique $extensions]
+         if { [string length [$binder cget flow.name]] < 12 } {
+            ${indexListW} configure -value $extensions -width [string length [$binder cget flow.name]]
+         } else {
+            ${indexListW} configure -value $extensions -width 12
+         }
+         bind ${indexListW} <<ComboboxSelected>> [list npassTaskSelectionCallback $binder $canvas %W]
+      }
+      pack ${indexListW} -fill both
+      set barY [expr $sy2 + 15]
+      set barX [expr ($nx1 + $nx2)/2]
+      $canvas create window $barX $barY -window  ${indexListW}
+      ::SuiteNode::setDisplayNextY $suite $canvas [expr $barY + [winfo height  ${indexListW}] + 20]
+   }
+
 }

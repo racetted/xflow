@@ -1,4 +1,3 @@
-# test
 proc DEBUG { output {level 2} } {
    set debugOn [getGlobalValue "DEBUG_TRACE"]
    set debugLevel [getGlobalValue "DEBUG_LEVEL"]
