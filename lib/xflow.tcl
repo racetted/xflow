@@ -740,6 +740,7 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
 
 # callback when user click on a box with button 3
 proc nodeMenu { canvas node x y } {
+   global ignoreDep
    DEBUG "nodeMenu() node:$node" 5
    set popMenu .popupMenu
    if { [winfo exists $popMenu] } {
@@ -783,10 +784,12 @@ proc nodeMenu { canvas node x y } {
          if { [$node cget -flow.type] == "npass_task"} {
             $popMenu add command -label "Submit & Continue" -command [list submitNpassTaskCallback $node $canvas $popMenu continue ]
             $popMenu add command -label "Submit & Stop" -command [list submitNpassTaskCallback $node $canvas $popMenu stop ]
+	    $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep 
             $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
          } else {
             $popMenu add command -label "Submit & Continue" -command [list submitCallback $node $canvas $popMenu continue ]
             $popMenu add command -label "Submit & Stop" -command [list submitCallback $node $canvas $popMenu stop ]
+	    $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep  
             $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
          }
       }
@@ -1104,7 +1107,8 @@ proc batchCallback { node canvas caller_menu {full_loop 0} } {
    destroy $caller_menu
 }
 
-proc submitCallback { node canvas caller_menu flow} {
+proc submitCallback { node canvas caller_menu flow } {
+   global ignoreDep
    set seqExec "[getGlobalValue SEQ_BIN]/maestro"
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
@@ -1114,7 +1118,7 @@ proc submitCallback { node canvas caller_menu flow} {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       raiseError $canvas "node submit" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow $seqLoopArgs
+      Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow $ignoreDep $seqLoopArgs
    }
 
    destroy $caller_menu
@@ -1137,6 +1141,7 @@ proc submitLoopCallback { node canvas caller_menu flow} {
 
 proc submitNpassTaskCallback { node canvas caller_menu flow} {
    DEBUG "submitNpassTaskCallback node:$node canvas:$canvas" 5
+   global ignoreDep
    set seqExec "[getGlobalValue SEQ_BIN]/maestro"
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
@@ -1157,7 +1162,7 @@ proc submitNpassTaskCallback { node canvas caller_menu flow} {
       if { $seqNpassTaskArgs == "-1" } {
          raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
-         Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow $seqNpassTaskArgs   
+         Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow $ignoreDep $seqNpassTaskArgs   
       }
    }
    destroy $caller_menu
