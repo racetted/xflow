@@ -763,6 +763,7 @@ proc nodeMenu { canvas node x y } {
       $popMenu add command -label "Member Node Batch" -command [list batchCallback $node $canvas $popMenu 0]
       $popMenu add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
       $popMenu add separator
+      $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep 
       $popMenu add command -label "Loop Submit" -command [list submitLoopCallback $node $canvas $popMenu continue ]
       $popMenu add command -label "Member Submit" -command [list submitCallback $node $canvas $popMenu continue ]
       $popMenu add separator
@@ -778,18 +779,17 @@ proc nodeMenu { canvas node x y } {
       $popMenu add command -label "Node Batch" -command [list batchCallback $node $canvas $popMenu ]
       $popMenu add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
       $popMenu add separator
+      $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep 
       if { [$node cget -flow.type] != "task" && [$node cget -flow.type] != "npass_task"} {
          $popMenu add command -label "Submit" -command [list submitCallback $node $canvas $popMenu continue ]
       } else {
          if { [$node cget -flow.type] == "npass_task"} {
             $popMenu add command -label "Submit & Continue" -command [list submitNpassTaskCallback $node $canvas $popMenu continue ]
             $popMenu add command -label "Submit & Stop" -command [list submitNpassTaskCallback $node $canvas $popMenu stop ]
-	    $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep 
             $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
          } else {
             $popMenu add command -label "Submit & Continue" -command [list submitCallback $node $canvas $popMenu continue ]
             $popMenu add command -label "Submit & Stop" -command [list submitCallback $node $canvas $popMenu stop ]
-	    $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep  
             $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
          }
       }
