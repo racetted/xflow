@@ -191,7 +191,7 @@ proc ::DrawUtils::updateNpassTaskIndex { node node_index {canvas ""} } {
    #      ${loopBar} configure -value $extensions -width [string length [$binder cget flow.name]]
    set indexValue [::FlowNodes::getIndexValue $node_index]
    foreach canvas $canvasList {
-      set indexListW "${canvas}.[$node cget flow.name]"
+      set indexListW "${canvas}.[string tolower [$node cget flow.name]]"
       if { [winfo exists ${indexListW}] } {
          set listValues [${indexListW} cget -value]
          if { [lsearch ${listValues} ${indexValue}] == -1 } {
@@ -543,7 +543,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill ca
    }
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
    if { [$binder cget -record_type] == "FlowNpassTask" } {
-      set indexListW "${canvas}.[$binder cget flow.name]"
+      set indexListW "${canvas}.[string tolower [$binder cget flow.name]]"
       if { ! [winfo exists ${indexListW}] } {
          ttk::combobox ${indexListW}
          set extensions {latest}
