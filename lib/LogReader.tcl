@@ -1,5 +1,6 @@
 proc LogReader_readFile { suite_record {is_overview 0} {calling_thread_id ""} {is_startup 0} } {
 
+   DEBUG "LogReader_readFile suite_record:$suite_record is_overview:$is_overview calling_thread_id:$calling_thread_id"
    # first cancel any other waiting read for this suite
    LogReader_cancelAfter $suite_record
    set suitePath [$suite_record cget -suite_path]
@@ -32,24 +33,35 @@ proc LogReader_readFile { suite_record {is_overview 0} {calling_thread_id ""} {i
       # view history mode
       set logfile $suitePath/logs/${monitorLog}_nodelog
    }
-   puts "LogReader_readFile calling_thread_id:$calling_thread_id date:[exec date] suite:[$suite_record cget -suite_path] file:[file tail $logfile]"
+   DEBUG "LogReader_readFile calling_thread_id:$calling_thread_id date:[exec date] suite:[$suite_record cget -suite_path] file:[file tail $logfile]"
 
    if { [file exists $logfile] } {
       set f_logfile [ open $logfile r ]
       flush stdout
       
-      set logFileOffset [$suite_record cget -read_offset]
+      if { $is_startup == 0 } {
+         set logFileOffset [$suite_record cget -read_offset]
+      } else {
+         set logFileOffset 0
+      }
 
       # position yourself in the file
       seek $f_logfile $logFileOffset
       
-      while {[gets $f_logfile line] >= 0} {
+      while {[gets $f_logfile line] >= 0} {   
          if { $is_overview == "1" && $calling_thread_id != "" } {
             LogReader_processOverviewLine $calling_thread_id $suite_record $line $is_startup
          }
          LogReader_processLine $calling_thread_id $suite_record $line $is_startup
       }
       
+      # Need to notify the main thread that this child is done reading
+      # the log file for initialization
+      if { $is_startup && $is_overview == "1" && $calling_thread_id != "" } {
+            thread::send -async ${calling_thread_id} \
+               "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id}"
+      }
+
       $suite_record configure -read_offset [tell $f_logfile]
       close $f_logfile
    } else {
@@ -57,14 +69,14 @@ proc LogReader_readFile { suite_record {is_overview 0} {calling_thread_id ""} {i
       close [open $logfile a]
    }
 
-   LogReader_readAgain $suite_record $calling_thread_id
+   LogReader_readAgain $is_overview $suite_record $calling_thread_id
 }
 
-proc LogReader_readAgain { suite_record calling_thread_id } {
+proc LogReader_readAgain { is_overview suite_record calling_thread_id } {
    global ${suite_record}_READ_LOG_IDS
    
    set READ_INTERVAL [$suite_record cget -read_interval]
-   catch { set ${suite_record}_READ_LOG_IDS [after $READ_INTERVAL [list LogReader_readFile $suite_record 0 $calling_thread_id]]}
+   catch { set ${suite_record}_READ_LOG_IDS [after $READ_INTERVAL [list LogReader_readFile $suite_record $is_overview $calling_thread_id]]}
 }
 
 proc LogReader_cancelAfter { suite_record } {
@@ -78,6 +90,7 @@ proc LogReader_cancelAfter { suite_record } {
 # this is meant to be running inside a child thread
 proc LogReader_processOverviewLine { calling_thread_id suite_record line {is_startup 0} } {  
    DEBUG "LogReader_processOverviewLine suite_record:$suite_record line:$line" 5
+
    set nodeIndex [string first "SEQNODE=" $line]
    set typeIndex [string first "MSGTYPE=" $line $nodeIndex]
    set loopIndex [string first "SEQLOOP=" $line $typeIndex]
@@ -106,7 +119,8 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record line {is_sta
    if { $nodeIndex == -1 || $typeIndex == -1 } {
       puts "LogReader_processOverviewLine invalid line ignored:$line"   
    } else {
-      set timestamp [string range $line 0 [expr $nodeIndex - 2]]
+      # TIMESTAMP=20100908.19:19:42
+      set timestamp [string range $line 10 [expr $nodeIndex - 2]]
       set node [string range $line $nodeStartIndex $nodeEndIndex]
       set type [string range $line $typeStartIndex $typeEndIndex]
       set msg ""
@@ -117,12 +131,13 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record line {is_sta
          if { $msgIndex != -1 } {
             set msg [string range $line $msgStartIndex end]
          }
-         if { "$node" == "/[$suite_record cget -suite_name]" } {
+         if { ${node} == [${suite_record} cget -root_node] } {
+            set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
             DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
             # Overview_updateExp $suite_record $type $timestamp
-            thread::send -async ${calling_thread_id} \
-               "Overview_updateExp ${suite_record} ${type} ${timestamp} ${is_startup}"
-         } 
+               thread::send -async ${calling_thread_id} \
+                  "Overview_updateExp  ${suite_record} ${currentDatestamp} ${type} ${timestamp} ${is_startup}"
+         }
       }
    }
 }
@@ -162,6 +177,7 @@ proc LogReader_processLine { calling_thread_id suite_record line {is_startup 0} 
    if { $nodeIndex == -1 || $typeIndex == -1 } {
       puts "LogReader_processLine invalid line ignored:$line"   
    } else {
+      set timestamp [string range $line 10 27]
       set node [string range $line $nodeStartIndex $nodeEndIndex]
       set flowNode [::SuiteNode::getFlowNodeMapping $suite_record $node]
       set type [string range $line $typeStartIndex $typeEndIndex]
@@ -172,6 +188,10 @@ proc LogReader_processLine { calling_thread_id suite_record line {is_startup 0} 
          }
          if { $msgIndex != -1 } {
             set msg [string range $line $msgStartIndex end]
+         }
+         # send message to message center
+         if { ${type} == "abort" || ${type} == "info"} {
+            Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
          }
 
          DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
@@ -261,3 +281,5 @@ proc LogReader_getAvailableDates { exp_path } {
    DEBUG "LogReader_getAvailableDates exp logs: $expLogs" 5
    return $expLogs
 }
+
+

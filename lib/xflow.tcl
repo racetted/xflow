@@ -170,7 +170,7 @@ proc addDatestampWidget { parent } {
 
 proc logsMonitorChanged { parent_w } {
    global MONITORING_LATEST
-   puts "logsMonitorChanged called"
+   DEBUG "logsMonitorChanged called"
    if { $parent_w == "." } {
       set parent_w ""
    }
@@ -613,7 +613,7 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
    if { $parent_node == "" } {
       set linex2 20
       set liney2 20
-      puts "drawNode linex2:$linex2 liney2:$liney2"
+      DEBUG "drawNode linex2:$linex2 liney2:$liney2"
    } else {
       # use a dashline leading to modules, elsewhere use a solid line
       switch [$node cget -flow.type] {
@@ -628,7 +628,7 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
       }
 
       set displayInfo [::FlowNodes::getDisplayCoords $parent_node $canvas]
-      puts "drawNode displayInfo:$displayInfo"
+      DEBUG "drawNode displayInfo:$displayInfo"
       set px1 [lindex $displayInfo 0]
       set px2 [lindex $displayInfo 2]
       set py1 [lindex $displayInfo 1]
@@ -660,9 +660,7 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
 
    set normalTxtFill [getGlobalValue NORMAL_RUN_TEXT]
    set colors $::DrawUtils::nodeStatusColorMap(init)
-   puts "colors:$colors"
    set normalFill [lindex $colors 1]
-   puts "normalFill:$normalFill"
    set outline [getGlobalValue NORMAL_RUN_OUTLINE]
 
    # now draw the node
@@ -1301,7 +1299,6 @@ proc npassTaskSelectionCallback { node canvas combobox_w} {
 
    set member [${combobox_w} get]
 
-   # LogReader_readFile $suiteRecord
    if { $member != "latest" && [lindex $member 0] != "+" } {
       set member +${member}
    }
@@ -1314,7 +1311,6 @@ proc loopSelectionCallback { node canvas combobox_w} {
 
    set member [${combobox_w} get]
 
-   # LogReader_readFile $suiteRecord
    if { $member != "latest" && [lindex $member 0] != "+" } {
       set member +${member}
    }
@@ -1390,7 +1386,7 @@ proc drawflow { canvas {initial_display "1"} } {
 
 proc createTabs { parent suiteList bind_cmd {page_h 1} {page_w 1}} {
    global env
-   puts "createTabs parent:$parent suiteList:$suiteList bind_cmd:$bind_cmd "
+   DEBUG "createTabs parent:$parent suiteList:$suiteList bind_cmd:$bind_cmd "
    set tabsetWidget $parent
 
    set count 0
@@ -1409,13 +1405,16 @@ proc createTabs { parent suiteList bind_cmd {page_h 1} {page_w 1}} {
       set entryMod [file tail $entryModTruePath]
 
       readMasterfile ${suitePath}/EntryModule/flow.xml $suitePath "" ""
-      getNodeResources /$entryMod $suitePath 1
+      set suiteRecord [::SuiteNode::formatSuiteRecord $suitePath]
+      set rootNode [${suiteRecord} cget -root_node]
+      getNodeResources ${rootNode} $suitePath 1
       incr count
    }
 }
 
 proc getNodeResources { node suite_path {is_recursive 0} } {
    global env
+   DEBUG "getNodeResources node:$node"
    set nodeInfoExec "[getGlobalValue SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]
@@ -1433,6 +1432,7 @@ proc getNodeResources { node suite_path {is_recursive 0} } {
       if [ catch { eval eval [exec cat ${outputFile}] } message ] {
          puts "\n$message"
       }
+
       catch { close $fileId }
    }
 
@@ -1450,7 +1450,7 @@ proc getNodeResources { node suite_path {is_recursive 0} } {
 proc selectSuiteTab { parent suite_record } {
    global MONITOR_DATESTAMP
 
-   puts "selectSuiteTab parent:$parent suite_record:$suite_record"
+   DEBUG "selectSuiteTab parent:$parent suite_record:$suite_record"
 
    set title "xflow experiment path = [$suite_record cget -suite_path]"
    wm title . $title
@@ -1563,149 +1563,183 @@ proc quitXflow {} {
 
    DEBUG "exiting Xflow ..." 5
    set suiteRecord [getActiveSuite]
-   LogReader_cancelAfter $suiteRecord
 
    if { $MAIN == 0 } {
-      destroy .
+      set childWidgets [winfo children .]
+      foreach childW ${childWidgets} {
+         destroy ${childW}
+      }
+      if { [getGlobalValue CALLING_THREAD_ID] != [thread::id] } {
+         # we are in overview mode
+            thread::send -async [getGlobalValue CALLING_THREAD_ID] \
+            "Overview_childQuit $suiteRecord [thread::id]"
+      }
+      wm withdraw .
    } else {
+      LogReader_cancelAfter $suiteRecord
       exit
    }
 }
 
-proc launchXflow {} {
-   global env
+proc launchXflow { calling_thread_id is_overview } {
+   global env MAIN
 
-   setGlobalValue FONT_PRIMARY "*-courier-medium-r-*-120-*-iso8859-1"
-   setGlobalValue FONT_SECOND "lucida 10"
-   setGlobalValue FONT_BOLD "-adobe-courier-bold-r-normal--14-100-100-100-m-90-iso8859-1"
-   setGlobalValue FONT_BOLD_SMALL "-adobe-courier-bold-r-normal--10-100-100-100-m-90-iso8859-1"
-   setGlobalValue FONT_BOLD_MEDIUM "-adobe-courier-bold-r-normal--16-100-100-100-m-90-iso8859-1"
-   setGlobalValue FONT_BOLD_BIG "-adobe-courier-bold-r-normal--18-100-100-100-m-90-iso8859-1"
-   setGlobalValue CELL_HIGHLIGHT_COLOR black
-   setGlobalValue CELL_HIGHLIGHT_THICK 2
-   setGlobalValue JOB_NOF_ATTRIBUTES 14
-   setGlobalValue FONT_BOLD_BIG "-adobe-courier-bold-r-normal--18-100-100-100-m-90-iso8859-1"
-   
-   setGlobalValue CANVAS_BOX_WIDTH 90
-   setGlobalValue CANVAS_BOX_HEIGHT 43
-   setGlobalValue CANVAS_PAD_X 30
-   setGlobalValue CANVAS_PAD_Y 15
-   setGlobalValue CANVAS_PAD_TXT_X 4
-   setGlobalValue CANVAS_PAD_TXT_Y 23
-   
-   # default element outline color
-   setGlobalValue NORMAL_RUN_OUTLINE black
-   setGlobalValue NORMAL_RUN_FILL #6D7886
-   setGlobalValue NORMAL_RUN_TEXT blue
-   
-   setGlobalValue SHADOW_COLOR grey
-   
-   setGlobalValue CANVAS_COLOR cornsilk3
-   setGlobalValue SHADOW_COLOR #676559
-   setGlobalValue DRAWSHADOW on
-      
-   setGlobalValue JOB_LENGTH 7
-   setGlobalValue LOOP_LENGTH 3
-      
-   setErrorMessages
-   
-   set count 0
-   
-   set suiteList {}
-   set suitesFile $env(HOME)/.suites/.xflow.suites.xml
-   if { [info exists env(SEQ_EXP_HOME)] } {
-      set activeSuite $env(SEQ_EXP_HOME)
-      set suiteList [linsert $suiteList 0 $env(SEQ_EXP_HOME)] 
-   } elseif { [file exists $suitesFile] } {
-      ExpXmlReader_readExperiments $suitesFile
-      set suiteList [ExpXmlReader_getExpList]
-      puts "suiteList: $suiteList"
-      set activeSuite [lindex $suiteList 0]
-   } else {
-      FatalError . "Xflow Startup Error" "\${HOME}/.suites/.xflow.suites.xml configuration file does not exists & SEQ_EXP_HOME not set! Exiting..."
-   }
-
-   wm iconify .
-   
-   setTkOptions
-   initGlobals
-   setHostInfos
-   keynav::enableMnemonics .
-   
-   # .top is the first widget
    set topFrame .top
-   #ttk::frame $topFrame -style Xflow.Menu
-   ttk::frame $topFrame
-   addFileMenu $topFrame
-   addViewMenu $topFrame
-   addHelpMenu $topFrame
-   grid $topFrame -row 0 -column 0 -sticky w -padx 2 -pady 2
+   if { ! [winfo exists ${topFrame}] } { 
+      DEBUG "launchXflow ${calling_thread_id} ${calling_thread_id}" 5
+      setGlobalValue CALLING_THREAD_ID ${calling_thread_id}
    
-   # date bar is the 2nd widget
-   set dateFrame .date
-   set dateFrameHidden .date_hidden
-   ttk::frame $dateFrame
-   tooltip::tooltip $dateFrame "Double-click to hide"
-   ttk::labelframe $dateFrameHidden -text "Hidden Date Controls"
-   tooltip::tooltip $dateFrameHidden "Double-click to expand"
-   addDatestampWidget $dateFrame
-   # monitor date
-   addMonitorDateWidget $dateFrame
-   bind $dateFrame <Double-Button-1> [list viewHideDateButtons . $dateFrame $dateFrameHidden 20 ]
-   bind $dateFrameHidden <Double-Button-1> [list viewHideDateButtons . $dateFrameHidden $dateFrame "" ]
-   grid $dateFrame -row 1 -column 0 -sticky nsew -padx 0 -pady 0 -columnspan 2
-   # start in hidden mode
-   viewHideDateButtons . $dateFrame $dateFrameHidden 20
-
-   #add list buttons
-   set openListButtonsFrame .list_buttons
-   set hiddenListButtonsFrame .list_buttons_hidden
-   ttk::labelframe $openListButtonsFrame  -text "Listing buttons"
-   tooltip::tooltip $openListButtonsFrame "Double-click to hide"
-   ttk::labelframe $hiddenListButtonsFrame  -text "Hidden Listing buttons"
-   tooltip::tooltip $hiddenListButtonsFrame "Double-click to expand"
-   addListButtonsWidget $openListButtonsFrame
-   bind $openListButtonsFrame <Double-Button-1> [list viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20 ]
-   bind $hiddenListButtonsFrame <Double-Button-1> [list viewHideListButtons . $hiddenListButtonsFrame $openListButtonsFrame "" ]
-   grid $openListButtonsFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      setGlobalValue FONT_PRIMARY "*-courier-medium-r-*-120-*-iso8859-1"
+      setGlobalValue FONT_SECOND "lucida 10"
+      setGlobalValue FONT_BOLD "-adobe-courier-bold-r-normal--14-100-100-100-m-90-iso8859-1"
+      setGlobalValue FONT_BOLD_SMALL "-adobe-courier-bold-r-normal--10-100-100-100-m-90-iso8859-1"
+      setGlobalValue FONT_BOLD_MEDIUM "-adobe-courier-bold-r-normal--16-100-100-100-m-90-iso8859-1"
+      setGlobalValue FONT_BOLD_BIG "-adobe-courier-bold-r-normal--18-100-100-100-m-90-iso8859-1"
+      setGlobalValue CELL_HIGHLIGHT_COLOR black
+      setGlobalValue CELL_HIGHLIGHT_THICK 2
+      setGlobalValue JOB_NOF_ATTRIBUTES 14
+      setGlobalValue FONT_BOLD_BIG "-adobe-courier-bold-r-normal--18-100-100-100-m-90-iso8859-1"
+      
+      setGlobalValue CANVAS_BOX_WIDTH 90
+      setGlobalValue CANVAS_BOX_HEIGHT 43
+      setGlobalValue CANVAS_PAD_X 30
+      setGlobalValue CANVAS_PAD_Y 15
+      setGlobalValue CANVAS_PAD_TXT_X 4
+      setGlobalValue CANVAS_PAD_TXT_Y 23
+      
+      # default element outline color
+      setGlobalValue NORMAL_RUN_OUTLINE black
+      setGlobalValue NORMAL_RUN_FILL #6D7886
+      setGlobalValue NORMAL_RUN_TEXT blue
+      
+      setGlobalValue SHADOW_COLOR grey
+      
+      setGlobalValue CANVAS_COLOR cornsilk3
+      setGlobalValue SHADOW_COLOR #676559
+      setGlobalValue DRAWSHADOW on
+         
+      setGlobalValue JOB_LENGTH 7
+      setGlobalValue LOOP_LENGTH 3
+         
+      setErrorMessages
+      
+      set count 0
+      
+      set suiteList {}
+      set suitesFile $env(HOME)/.suites/.xflow.suites.xml
+      if { [info exists env(SEQ_EXP_HOME)] } {
+         set activeSuite $env(SEQ_EXP_HOME)
+         set suiteList [linsert $suiteList 0 $env(SEQ_EXP_HOME)] 
+      } elseif { [file exists $suitesFile] } {
+         ExpXmlReader_readExperiments $suitesFile
+         set suiteList [ExpXmlReader_getExpList]
+         DEBUG "suiteList: $suiteList"
+         set activeSuite [lindex $suiteList 0]
+      } else {
+         FatalError . "Xflow Startup Error" "\${HOME}/.suites/.xflow.suites.xml configuration file does not exists & SEQ_EXP_HOME not set! Exiting..."
+      }
    
-   # start in hidden mode
-   viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20
-
-   # .tabs is the 3nd widget
-   set tabFrame .tabs
-   #ttk::labelframe .tabs -text "Flow" -labelanchor n
-   ttk::frame .tabs
-   createTabs .tabs $suiteList "selectSuiteCallback"
+      wm iconify .
+      
+      setTkOptions
+      initGlobals
+      setHostInfos
+      keynav::enableMnemonics .
+      
+      # .top is the first widget
+      #ttk::frame $topFrame -style Xflow.Menu
+      ttk::frame $topFrame
+      addFileMenu $topFrame
+      addViewMenu $topFrame
+      addHelpMenu $topFrame
+      grid $topFrame -row 0 -column 0 -sticky w -padx 2 -pady 2
+      
+      # date bar is the 2nd widget
+      set dateFrame .date
+      set dateFrameHidden .date_hidden
+      ttk::frame $dateFrame
+      tooltip::tooltip $dateFrame "Double-click to hide"
+      ttk::labelframe $dateFrameHidden -text "Hidden Date Controls"
+      tooltip::tooltip $dateFrameHidden "Double-click to expand"
+      addDatestampWidget $dateFrame
+      # monitor date
+      addMonitorDateWidget $dateFrame
+      bind $dateFrame <Double-Button-1> [list viewHideDateButtons . $dateFrame $dateFrameHidden 20 ]
+      bind $dateFrameHidden <Double-Button-1> [list viewHideDateButtons . $dateFrameHidden $dateFrame "" ]
+      grid $dateFrame -row 1 -column 0 -sticky nsew -padx 0 -pady 0 -columnspan 2
+      # start in hidden mode
+      viewHideDateButtons . $dateFrame $dateFrameHidden 20
    
-   grid .tabs  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
-   grid columnconfigure . 0 -weight 1
-   grid columnconfigure . 1 -weight 1
-   grid rowconfigure . 3 -weight 2
+      #add list buttons
+      set openListButtonsFrame .list_buttons
+      set hiddenListButtonsFrame .list_buttons_hidden
+      ttk::labelframe $openListButtonsFrame  -text "Listing buttons"
+      tooltip::tooltip $openListButtonsFrame "Double-click to hide"
+      ttk::labelframe $hiddenListButtonsFrame  -text "Hidden Listing buttons"
+      tooltip::tooltip $hiddenListButtonsFrame "Double-click to expand"
+      addListButtonsWidget $openListButtonsFrame
+      bind $openListButtonsFrame <Double-Button-1> [list viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20 ]
+      bind $hiddenListButtonsFrame <Double-Button-1> [list viewHideListButtons . $hiddenListButtonsFrame $openListButtonsFrame "" ]
+      grid $openListButtonsFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      
+      # start in hidden mode
+      viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20
    
-   ttk::sizegrip .sizeGrip
-   grid .sizeGrip -row 3 -column 1 -sticky se
+      # .tabs is the 3nd widget
+      set tabFrame .tabs
+      ttk::frame .tabs
+      createTabs .tabs $suiteList "selectSuiteCallback"
+      
+      grid .tabs  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      grid columnconfigure . 0 -weight 1
+      grid columnconfigure . 1 -weight 1
+      grid rowconfigure . 3 -weight 2
    
-   wm geometry . =1200x800
+      ttk::sizegrip .sizeGrip
+      grid .sizeGrip -row 3 -column 1 -sticky se
+      
+      wm geometry . =1200x800
+      
+      set activeSuiteRecord [SuiteNode::getSuiteRecordFromPath $activeSuite]
+      #puts "startup:: activeSuite:$activeSuite activeSuiteRecord:$activeSuiteRecord"
+      setActiveSuite $activeSuiteRecord
+      
+      set suiteRecordList [record show instances SuiteInfo]
+      DEBUG "suiteRecordList :$suiteRecordList"
+      #foreach suiteRecord $suiteRecordList {
+      #   LogReader_readFile $suiteRecord $is_overview $calling_thread_id 1
+      #}
+      if { ${MAIN} == "1" } {
+         LogReader_readFile $activeSuiteRecord $is_overview $calling_thread_id 1
+      }
+      selectSuiteTab .tabs $activeSuiteRecord 
+      set activeSuiteName [$activeSuiteRecord cget -suite_name]
+      set activeSuitePath [$activeSuiteRecord cget -suite_path]
+      set topNode "/${activeSuiteName}"
+      expandAllCallback $topNode .tabs.[::SuiteNode::formatName ${activeSuitePath}].canvas ""
    
-   set activeSuiteRecord [SuiteNode::getSuiteRecordFromPath $activeSuite]
-   #puts "startup:: activeSuite:$activeSuite activeSuiteRecord:$activeSuiteRecord"
-   setActiveSuite $activeSuiteRecord
-   
-   set suiteRecordList [record show instances SuiteInfo]
-   puts "suiteRecordList :$suiteRecordList"
-   foreach suiteRecord $suiteRecordList {
-      LogReader_readFile $suiteRecord 0 [thread::id] 1
+      wm deiconify .
    }
-   
-   selectSuiteTab .tabs $activeSuiteRecord 
-   set activeSuiteName [$activeSuiteRecord cget -suite_name]
-   set activeSuitePath [$activeSuiteRecord cget -suite_path]
-   set topNode "/${activeSuiteName}"
-   expandAllCallback $topNode .tabs.[::SuiteNode::formatName ${activeSuitePath}].canvas ""
+   # Console_create
+}
 
-   #.tabs configure -text [$activeSuiteRecord cget -suite_path]
-   wm deiconify .
+proc Console_create {} {
+   # create console
+   set consoleW .expConsole
+   toplevel ${consoleW}
+   set textF ${consoleW}.textframe 
+   set textW ${textF}.textwidget
+   ttk::frame ${textF}
+   text ${textW}
+   pack ${textF} -expand 1 -fill both
+   pack ${textW} -expand 1 -fill both
+}
+
+proc Console_insertMessage { msg } {
+   set textW .expConsole.textframe.textwidget
+   if { [winfo exists ${textW}] } {
+      ${textW} insert end "${msg}\n"
+   }
 }
 
 proc parseCmdOptions {} {
@@ -1735,11 +1769,12 @@ proc dateChanged { suite_record } {
 }
 
 global MAIN
+setGlobalValue "DEBUG_TRACE" 1
 
 wm protocol . WM_DELETE_WINDOW quitXflow
 
 parseCmdOptions
 puts "xflow MAIN:$MAIN"
 if { $MAIN == 1 } {
-   launchXflow
+   launchXflow [thread::id] 0
 }

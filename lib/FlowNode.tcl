@@ -261,7 +261,7 @@ proc ::FlowNodes::printFamilyList {} {
    variable families
    #puts "::FlowNodes::printFamilyList()"
    foreach family $families {
-      puts "family:$family"
+      #puts "family:$family"
    }
 }
 

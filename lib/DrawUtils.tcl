@@ -135,21 +135,23 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
    set canvasList [::FlowNodes::getDisplayList $node]
    foreach canvas $canvasList {
       # $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
-      if { $shadow_status == "1" } {
-         $canvas itemconfigure $canvasTextTag -fill "black"
-         $canvas itemconfigure $canvasTag -fill white
-         if { $status == "init" } {
-            $canvas itemconfigure $canvasTag -outline [getGlobalValue NORMAL_RUN_OUTLINE]
-            $canvas itemconfigure ${canvasShadowTag} -fill [getGlobalValue SHADOW_COLOR]
+      if { [winfo exists $canvas] } {
+         if { $shadow_status == "1" } {
+            $canvas itemconfigure $canvasTextTag -fill "black"
+            $canvas itemconfigure $canvasTag -fill white
+            if { $status == "init" } {
+               $canvas itemconfigure $canvasTag -outline [getGlobalValue NORMAL_RUN_OUTLINE]
+               $canvas itemconfigure ${canvasShadowTag} -fill [getGlobalValue SHADOW_COLOR]
+            } else {
+               $canvas itemconfigure $canvasTag -outline [lindex $colors 1]
+               $canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
+            }
          } else {
-            $canvas itemconfigure $canvasTag -outline [lindex $colors 1]
-            $canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
+            $canvas itemconfigure $canvasTextTag -fill [lindex $colors 0]
+            $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
+            #$canvas itemconfigure $canvasTag -outline [getGlobalValue NORMAL_RUN_OUTLINE]
+            #$canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
          }
-      } else {
-         $canvas itemconfigure $canvasTextTag -fill [lindex $colors 0]
-         $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
-         #$canvas itemconfigure $canvasTag -outline [getGlobalValue NORMAL_RUN_OUTLINE]
-         #$canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
       }
    }
 }
@@ -169,7 +171,7 @@ proc ::DrawUtils::drawNodeText { node new_text {canvas ""} } {
    }
    DEBUG "::DrawUtils::drawNodeText new_text:$new_text " 5
    foreach canvas $canvasList {
-      if { [$canvas type $canvasTextTag] == "text" } {
+      if { [winfo exists $canvas] && [$canvas type $canvasTextTag] == "text" } {
          $canvas itemconfigure $canvasTextTag -text $new_text
       }
    }
@@ -438,6 +440,35 @@ proc ::DrawUtils::drawline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColo
 
 proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColor} {
     DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
+
+    if { $x1 < $x2 } {
+      set x2 [expr $x2 - 3 ]
+
+      #set shadow values
+      set sx1 [expr $x1 + 2 ]
+      set sx2 $x2
+      set sy1 [expr $y1 + 2 ]
+      set sy2 $sy1
+    } else {
+      
+      #set shadow values
+      set sx1 [expr $x1 + 2]
+      set sx2 $sx1
+      set sy1 [expr $y1 + 2]
+      set sy2 $y2
+    }
+
+    if { $drawshadow == "on" } {
+      # draw shadow
+      $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.5 -arrow $arrow -fill $shadowColor -dash { 4 3 }
+    }
+
+    # draw line
+    $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.5 -arrow $arrow -fill $fill -dash { 4 3 }
+}
+
+proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
+    DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1" 5
 
     if { $x1 < $x2 } {
       set x2 [expr $x2 - 3 ]

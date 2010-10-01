@@ -86,6 +86,103 @@ proc quit { {message ""} } {
    exit
 }
 
+# input 20100903.18:50:24
+# returns 18:50:24
+# I'm using the dot as a separator
+proc Utils_getTimeFromDatestamp { datestamp_field } {
+   return [string range ${datestamp_field} [expr [string first . ${datestamp_field}] + 1] end]
+}
+
+# input 20100903.18:50:24
+# returns 20100903
+# I'm using the dot as a separator
+proc Utils_getDateFromDatestamp { datestamp_field } {
+   return [string range ${datestamp_field} 0 [expr [string first . ${datestamp_field}] -1] ]
+}
+
+# input hh:mm:ss
+# returns hh, if hh=09 returns 9
+proc Utils_getHourFromTime { timevalue  { keep_zero "no" } } {
+   set splittedTime [split ${timevalue} :]
+   set hourValue [lindex ${splittedTime} 0]
+
+   if { ${keep_zero} == "no" } {
+      # convert 09 to 9
+      scan ${hourValue} %d hourValue
+   }
+   return ${hourValue}
+}
+
+
+
+# test if two rectangles overlap each other
+# b1x1 b1y1 b1x2 b1y2 is the coordinates of the first box
+# b2x1 b2y1 b2x2 b2y2 is the coordinates of the second box
+proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
+   DEBUG "Utils_isOverlap b1x1:$b1x1 b1y1:$b1y1 b1x2:$b1x2 b1y2:$b1y2 b2x1:$b2x1 b2y1:$b2y1 b2x2:$b2x2 b2y2:$b2y2"
+   set xOverlap 0
+   set yOverlap 0
+   set isOverlap 0
+   if { ([expr ${b1x1} >= ${b2x1}] && [expr ${b1x1} <= ${b2x2}]) ||
+      ([expr ${b1x2} >= ${b2x1}] && [expr ${b1x2} <= ${b2x2}]) } {
+      puts "xOverlap 1"
+      set xOverlap 1
+   }
+   if { ([expr ${b1y1} >= ${b2y1}] && [expr ${b1y1} <= ${b2y2}]) ||
+      ([expr ${b1y2} >= ${b2y1}] && [expr ${b1y2} <= ${b2y2}]) } {
+      puts "yOverlap 1"
+      set yOverlap 1
+   }
+   if { ${yOverlap} && ! ${xOverlap} } {
+      # if y overlap and one box is entirely within the other on the x axias,
+      # we have overlap
+      if { [expr ${b1x1} <= ${b2x1}] && [expr ${b1x2} >= ${b2x1}] ||
+           [expr ${b2x1} <= ${b1x1}] && [expr ${b2x2} >= ${b1x1}] } {
+         set xOverlap 1
+      puts "xOverlap 1 within"
+      }
+   }
+   if { ${xOverlap} && ! ${yOverlap} } {
+      # if x overlap and one box is entirely within the other on the y axis,
+      # we have overlap
+      if { [expr ${b1y1} <= ${b2y1}] && [expr ${b1y2} >= ${b2y1}] ||
+           [expr ${b2y1} <= ${b1y1}] && [expr ${b2y2} >= ${b1y1}] } {
+      puts "yOverlap 1 within"
+         set xOverlap 1
+      }
+   }
+
+   if { ${xOverlap} && ${yOverlap} } {
+      set isOverlap 1
+   }
+   return ${isOverlap}
+}
+
+# input hh:mm:ss
+# returns mm, if mm=08 returns 8
+proc Utils_getMinuteFromTime { timevalue { keep_zero "no" } } {
+   set splittedTime [split ${timevalue} :]
+   set minuteValue [lindex ${splittedTime} 1]
+
+   if { ${keep_zero} == "no" } {
+      # convert 09 to 9
+      scan ${minuteValue} %d minuteValue
+   }
+   return ${minuteValue}
+}
+
+proc Utils_getNonPaddedValue { value } {
+   scan ${value} %d value
+   return ${value}
+}
+
+proc Utils_getPaddedValue { value } {
+   if { [::tcl::mathop::< ${value} 10] &&  [::tcl::mathop::>= ${value} 0]} {
+      return "0${value}"
+   }
+   return ${value}
+}
+
 setGlobalValue SEQ_BIN [Sequencer_getPath]
 setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 setGlobalValue DEBUG_TRACE 1

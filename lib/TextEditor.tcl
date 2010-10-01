@@ -24,7 +24,8 @@ proc tw_reset {w} {
 }
 
 proc getImageDir {} {
-   set value /home/ordenv/ssm-domains/ssm-setup-1.0-ops/xflow_1.0_multi/etc/images
+   global env
+   set value $env(SEQ_XFLOW_BIN)/../etc/images
    return $value
 }
 
@@ -193,7 +194,21 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
       if { $filesize > $maxSize } {
          #read only the last $maxSize bytes if the file is too big
          
+         set UP_ENDARROW_IMG .up_endarrow_image
+         set DOWN_ENDARROW_IMG .down_endarrow_image
+         set LEFT_ENDARROW_IMG .left_endarrow_image
+         set RIGHT_ENDARROW_IMG .right_endarrow_image
+         set LEFT_ARROW_IMG .left_arrow_image
+         set RIGHT_ARROW_IMG .right_arrow_image
+
          set imageDir [getImageDir]
+         image create photo $DOWN_ENDARROW_IMG -file ${imageDir}/endarrow.small.down.ppm
+         image create photo $UP_ENDARROW_IMG -file ${imageDir}/endarrow.small.up.ppm
+         image create photo $LEFT_ENDARROW_IMG -file ${imageDir}/endarrow.small.left.ppm
+         image create photo $RIGHT_ENDARROW_IMG -file ${imageDir}/endarrow.small.right.ppm
+         image create photo $LEFT_ARROW_IMG -file ${imageDir}/arrow.small.left.ppm
+         image create photo $RIGHT_ARROW_IMG -file ${imageDir}/arrow.small.right.ppm
+
          set downArrow $w.mbar.downArrow
          button $downArrow -image $LEFT_ARROW_IMG \
             -command [list getNextPage $w $fileId $position $readChunkSize 0]
