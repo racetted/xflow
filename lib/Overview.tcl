@@ -391,7 +391,7 @@ proc Overview_ExpCreateStartIcon { canvas suite_record timevalue } {
    set startY [expr [${groupRecord} cget -y] +  $expEntryHeight/2 - (${iconSize}/2)]
 
    # get the x coord for the given time
-   set startX [Overview_getXCoordTime ${timevalue}]
+   set startX [expr [Overview_getXCoordTime ${timevalue}] - ${iconSize}]
 
    # if { [${canvas} coords ${expPath}] == "" } {
       set labelX [expr $startX + 10]
