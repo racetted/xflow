@@ -201,7 +201,7 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
       }
       set recordName "/$suiteName"
       $suiteRecord configure -type "user" -suite_name $suiteName -suite_path $suite_path -root_node ${recordName}
-      SharedData_setRootNode ${suite_path} ${recordName}
+      SharedData_setSuiteData ${suite_path} ROOT_NODE ${recordName}
       # create the top node of our flow tree
       if { ! [record exists instance ${recordName}] } {
          FlowModule $recordName

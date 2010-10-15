@@ -81,8 +81,8 @@ proc addFileMenu { parent } {
    set menuButtonW ${parent}.menub
    set menuW $menuButtonW.menu
 
-   #ttk::menubutton $menuButtonW -text File -underline 0 -menu $menuW
-   menubutton $menuButtonW -text File -underline 0 -menu $menuW -relief raised
+   menubutton $menuButtonW -text File -underline 0 -menu $menuW \
+      -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
 
    $menuW add command -label "Quit" -underline 0 -command "quitXflow" 
@@ -98,7 +98,8 @@ proc addViewMenu { parent } {
    set menuW $menuButtonW.menu
 
    #ttk::menubutton $menuButtonW -text View -underline 0 -menu $menuW -relief raised
-   menubutton $menuButtonW -text View -underline 0 -menu $menuW -relief raised
+   menubutton $menuButtonW -text View -underline 0 -menu $menuW \
+      -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
 
    $menuW add checkbutton -label "Monitor Latest Logs" -variable MONITORING_LATEST \
@@ -141,12 +142,32 @@ proc addHelpMenu { parent } {
    set menuButtonW ${parent}.helpb
    set menuW $menuButtonW.menu
 
-   #ttk::menubutton $menuButtonW -text Help -underline 0 -menu $menuW
-   menubutton $menuButtonW -text Help -underline 0 -menu $menuW -relief raised
+   menubutton $menuButtonW -text Help -underline 0 -menu $menuW  \
+      -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
 
    pack $menuButtonW -side left -pady 2 -padx 2
    $menuButtonW configure -state disabled
+}
+
+proc xflow_createToolbar { parent } {
+   puts "xflow_createToolbar ${parent}"
+   global MSG_CENTER_THREAD_ID
+   set mesgCenterW ${parent}.button_msgcenter
+   set closeW ${parent}.button_close
+
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+
+   image create photo ${parent}.msg_center -file ${imageDir}/open_mail_sh.ppm
+   button ${mesgCenterW} -image ${parent}.msg_center -command {
+      thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
+   }
+   ::tooltip::tooltip ${mesgCenterW} "Show Message Center."
+   image create photo ${parent}.close -file ${imageDir}/cancel.ppm
+   button ${closeW} -image ${parent}.close -command [list quitXflow]
+   ::tooltip::tooltip ${closeW} "Close Application."
+
+   grid ${mesgCenterW} ${closeW} -sticky w -padx 2
 }
 
 proc addDatestampWidget { parent } {
@@ -234,9 +255,9 @@ proc viewHideListButtons { parent currentFrame replacementFrame height } {
    grid forget $currentFrame
    if { $height != "" } {
        $replacementFrame configure -height $height
-       grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+       grid $replacementFrame -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
    } else {
-       grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+       grid $replacementFrame -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
    }
 }
 
@@ -244,9 +265,9 @@ proc viewHideDateButtons { parent currentFrame replacementFrame height } {
    grid forget $currentFrame
    if { $height != "" } {
        $replacementFrame configure -height $height
-       grid $replacementFrame -row 1 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+       grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
    } else {
-       grid $replacementFrame -row 1 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+       grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
    }
 }
 
@@ -1376,8 +1397,22 @@ proc drawflow { canvas {initial_display "1"} } {
    drawNode $canvas $rootNode "" 0 5 $callback
    set canvasArea [$canvas bbox all]
    $canvas  configure -scrollregion $canvasArea -yscrollincrement 5 -xscrollincrement 5
-  #::FlowNodes::printFamilyList
-   #update idletasks
+
+   # resize the window depending on size of canvas elements
+   set boxCoords [${canvas} bbox all]
+   set heightMax 800
+   set widthMax 1200
+   set canvasH [expr [lindex ${boxCoords} 3] - [lindex ${boxCoords} 1]]
+   set canvasW [expr [lindex ${boxCoords} 2] - [lindex ${boxCoords} 0]]
+   set windowH [expr ${canvasH} + 135]
+   set windowW [expr ${canvasW} + 50]
+   if { [expr ${windowH} > ${heightMax}] } {
+      set windowH ${heightMax}
+   }
+   if { [expr ${windowW} > ${widthMax}] } {
+      set windowW ${widthMax}
+   }
+   wm geometry . =${windowW}x${windowH}
 
    if { $initial_display == "1" } {
       $canvas yview moveto 0
@@ -1630,6 +1665,7 @@ proc launchXflow { calling_thread_id is_overview } {
       if { [info exists env(SEQ_EXP_HOME)] } {
          set activeSuite $env(SEQ_EXP_HOME)
          set suiteList [linsert $suiteList 0 $env(SEQ_EXP_HOME)] 
+         SharedData_setSuiteData $env(SEQ_EXP_HOME) THREAD_ID [thread::id]
       } elseif { [file exists $suitesFile] } {
          ExpXmlReader_readExperiments $suitesFile
          set suiteList [ExpXmlReader_getExpList]
@@ -1652,7 +1688,12 @@ proc launchXflow { calling_thread_id is_overview } {
       addFileMenu $topFrame
       addViewMenu $topFrame
       addHelpMenu $topFrame
-      grid $topFrame -row 0 -column 0 -sticky w -padx 2 -pady 2
+      grid $topFrame -row 0 -column 0 -sticky w -padx 2
+
+      set toolbarFrame .toolbar
+      ttk::frame ${toolbarFrame}
+      xflow_createToolbar ${toolbarFrame}
+      grid ${toolbarFrame} -row 1 -column 0 -sticky w -padx 2
       
       # date bar is the 2nd widget
       set dateFrame .date
@@ -1666,7 +1707,7 @@ proc launchXflow { calling_thread_id is_overview } {
       addMonitorDateWidget $dateFrame
       bind $dateFrame <Double-Button-1> [list viewHideDateButtons . $dateFrame $dateFrameHidden 20 ]
       bind $dateFrameHidden <Double-Button-1> [list viewHideDateButtons . $dateFrameHidden $dateFrame "" ]
-      grid $dateFrame -row 1 -column 0 -sticky nsew -padx 0 -pady 0 -columnspan 2
+      grid $dateFrame -row 2 -column 0 -sticky nsew -padx 0 -pady 0 -columnspan 2
       # start in hidden mode
       viewHideDateButtons . $dateFrame $dateFrameHidden 20
    
@@ -1680,7 +1721,7 @@ proc launchXflow { calling_thread_id is_overview } {
       addListButtonsWidget $openListButtonsFrame
       bind $openListButtonsFrame <Double-Button-1> [list viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20 ]
       bind $hiddenListButtonsFrame <Double-Button-1> [list viewHideListButtons . $hiddenListButtonsFrame $openListButtonsFrame "" ]
-      grid $openListButtonsFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      grid $openListButtonsFrame -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
       
       # start in hidden mode
       viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20
@@ -1690,13 +1731,13 @@ proc launchXflow { calling_thread_id is_overview } {
       ttk::frame .tabs
       createTabs .tabs $suiteList "selectSuiteCallback"
       
-      grid .tabs  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      grid .tabs  -row 4 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
       grid columnconfigure . 0 -weight 1
       grid columnconfigure . 1 -weight 1
-      grid rowconfigure . 3 -weight 2
+      grid rowconfigure . 4 -weight 2
    
       ttk::sizegrip .sizeGrip
-      grid .sizeGrip -row 3 -column 1 -sticky se
+      grid .sizeGrip -row 4 -column 1 -sticky se
       
       wm geometry . =1200x800
       
@@ -1768,13 +1809,15 @@ proc dateChanged { suite_record } {
    getDateStamp $dateFrame $suite_record
 }
 
-global MAIN
+global MAIN MSG_CENTER_THREAD_ID
 setGlobalValue "DEBUG_TRACE" 1
+set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
 
 wm protocol . WM_DELETE_WINDOW quitXflow
 
 parseCmdOptions
 puts "xflow MAIN:$MAIN"
 if { $MAIN == 1 } {
+   SharedData_init
    launchXflow [thread::id] 0
 }

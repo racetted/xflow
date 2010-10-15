@@ -21,9 +21,6 @@ namespace eval ::DrawUtils {
    variable hostColorMap
 }
 
-proc out {} {
-}
-
 proc ::DrawUtils::init {} {
    variable nodeStatusColorMap
    variable nodeTypeMap
@@ -40,6 +37,7 @@ proc ::DrawUtils::init {} {
       end "white DodgerBlue4"
       unknown "white black"
       shadow "white black"
+      late "white DarkViolet"
    }
 
    array set nodeTypeMap {
@@ -71,9 +69,21 @@ proc ::DrawUtils::getStatusColor { node_status } {
    if { [info exists nodeStatusColorMap($node_status)] } {
       set colors $nodeStatusColorMap($node_status)
    } else {
-      set colors "white black"
+      set colors $nodeStatusColorMap(unknown)
    }
    return $colors
+}
+
+proc ::DrawUtils::getFgStatusColor { node_status } {
+   set colors [getStatusColor ${node_status}]
+   set value [lindex ${colors} 0]
+   return ${value}
+}
+
+proc ::DrawUtils::getBgStatusColor { node_status } {
+   set colors [getStatusColor ${node_status}]
+   set value [lindex ${colors} 1]
+   return ${value}
 }
 
 proc ::DrawUtils::clearCanvas { canvas } {
@@ -600,3 +610,49 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill ca
    }
 
 }
+
+proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
+   DEBUG "::DrawUtils::pointNode ${suite_record} node:${node}" 5
+   set canvasList ${canvas}
+   if { ${canvas} == "" } {
+      set canvasList [::SuiteNode::getCanvasList ${suite_record}]
+   }
+   foreach canvasW ${canvasList} {
+      set newcords [${canvasW} coords ${node}]
+   
+      if { [string length $newcords] == 0 } {
+         DEBUG "cb_findjob_no_widget can't find node:${node}" 5
+         return 0
+      }
+      # the "target"s are the top-left and bottom-right
+      # coordinates for the job box
+      set target_x  [expr round([lindex $newcords 0])]
+      set target_y  [expr round([lindex $newcords 1])]
+      set target_x2 [expr round([lindex $newcords 2])]
+      set target_y2 [expr round([lindex $newcords 3])]
+   
+      set x_offset 25
+      set y_offset 25
+   
+      # draw four lines with arrows pointing at the job
+      ${canvasW} create line $target_x $target_y [expr $target_x - $x_offset] \
+      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      ${canvasW} create line $target_x2 $target_y [expr $target_x2 + $x_offset] \
+      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      ${canvasW} create line $target_x $target_y2 [expr $target_x - $x_offset] \
+      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      ${canvasW} create line $target_x2 $target_y2 [expr $target_x2 + $x_offset] \
+      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+   
+      # after 5 seconds, delete the lines pointing at the job
+      after 5000 [list ::DrawUtils::delPointNode ${canvasW}]
+   }
+}
+
+proc  ::DrawUtils::delPointNode {canvas } {
+
+    if { [winfo exists $canvas] } {
+        $canvas delete ${canvas}searchlines
+    }
+}
+   

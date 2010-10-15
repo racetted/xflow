@@ -131,18 +131,20 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record line {is_sta
          if { $msgIndex != -1 } {
             set msg [string range $line $msgStartIndex end]
          }
-         if { ${node} == [${suite_record} cget -root_node] } {
-            set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
-            DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
-            # Overview_updateExp $suite_record $type $timestamp
+         if { ${type} == "init" || ${type} == "begin" || ${type} == "abort" || ${type} == "end" } {
+            if { ${node} == [${suite_record} cget -root_node] } {
+               set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
+               DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
                thread::send -async ${calling_thread_id} \
                   "Overview_updateExp  ${suite_record} ${currentDatestamp} ${type} ${timestamp} ${is_startup}"
+            }
          }
       }
    }
 }
 
 proc LogReader_processLine { calling_thread_id suite_record line {is_startup 0} } {
+   global MSG_CENTER_THREAD_ID
    DEBUG "LogReader_processLine line:$line" 5
    # node & signal is mandatory to be processed
    # else the line is ignored
@@ -177,7 +179,7 @@ proc LogReader_processLine { calling_thread_id suite_record line {is_startup 0} 
    if { $nodeIndex == -1 || $typeIndex == -1 } {
       puts "LogReader_processLine invalid line ignored:$line"   
    } else {
-      set timestamp [string range $line 10 27]
+      set timestamp [string range $line 10 26]
       set node [string range $line $nodeStartIndex $nodeEndIndex]
       set flowNode [::SuiteNode::getFlowNodeMapping $suite_record $node]
       set type [string range $line $typeStartIndex $typeEndIndex]
@@ -190,7 +192,10 @@ proc LogReader_processLine { calling_thread_id suite_record line {is_startup 0} 
             set msg [string range $line $msgStartIndex end]
          }
          # send message to message center
-         if { ${type} == "abort" || ${type} == "info"} {
+         if { ${type} == "abort" || ${type} == "info" || ${type} == "event" } {
+            set expPath [${suite_record} cget -suite_path]
+            thread::send -async ${MSG_CENTER_THREAD_ID} \
+               "MsgCenterThread_newMessage ${timestamp} ${type} ${node} ${expPath} \"${msg}\""
             Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
          }
 

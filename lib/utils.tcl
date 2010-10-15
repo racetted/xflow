@@ -8,14 +8,16 @@ proc DEBUG { output {level 2} } {
 }
 
 proc setGlobalValue { key value } {
-   global GLOBAL_LIST
-   set GLOBAL_LIST($key) $value
+   #global GLOBAL_LIST
+   #set GLOBAL_LIST($key) $value
+   SharedData_setMiscData ${key} ${value}
 }
 
 proc getGlobalValue {key} {
-   global GLOBAL_LIST
-   set value $GLOBAL_LIST($key)
-   return $value
+   #global GLOBAL_LIST
+   #set value $GLOBAL_LIST($key)
+   #return $value
+   set value [SharedData_getMiscData ${key}]
 }
 
 proc bindMouseWheel { widget } {
@@ -114,6 +116,30 @@ proc Utils_getHourFromTime { timevalue  { keep_zero "no" } } {
 }
 
 
+proc Utils_isListEqual { list_a list_b } {
+   set isEqual false
+   set count [llength ${list_a}]
+   set counter 0
+   set done false
+   if { [llength ${list_a}] > 0 && [llength ${list_a}] == [llength ${list_b}] } {
+      while { ${done} == "false" } {
+         if { [lindex ${list_a} ${counter}] != [lindex ${list_b} ${counter}] } {
+            puts "[lindex ${list_a} ${counter}] != [lindex ${list_b} ${counter}]"
+            break
+         }
+         incr counter
+         if { ${count} == ${counter} } {
+            set done true
+         }
+      }
+   }
+
+   if { ${counter} == ${count} } {
+      set isEqual true
+   }
+
+   return ${isEqual}
+}
 
 # test if two rectangles overlap each other
 # b1x1 b1y1 b1x2 b1y2 is the coordinates of the first box
@@ -151,10 +177,19 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
          set xOverlap 1
       }
    }
+   # if one box is entirely in the other one, we have an overlap
+   if { ( [expr ${b1x1} <= ${b2x1}] && [expr ${b1x2} >= ${b2x1}] &&
+             [expr ${b1y1} <= ${b2y1}] && [expr ${b1y2} >= ${b2y1}] ) ||
+        ( [expr ${b2x1} <= ${b1x1}] && [expr ${b2x2} >= ${b1x1}] &&
+             [expr ${b2y1} <= ${b1y1}] && [expr ${b2y2} >= ${b1y1}] ) } {
+      set xOverlap 1
+      set yOverlap 1
+   }
 
    if { ${xOverlap} && ${yOverlap} } {
       set isOverlap 1
    }
+
    return ${isOverlap}
 }
 

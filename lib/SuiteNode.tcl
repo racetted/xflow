@@ -215,6 +215,16 @@ proc ::SuiteNode::setStatusInfo { suite status status_info } {
    ${suite} configure -last_status ${status}
 }
 
+proc ::SuiteNode::getReferenceClockValue { suite status } {
+   if { ${status} == "start" } {
+      set timevalue [${suite} cget -ref_start]
+   } elseif { ${status} == "end" } {
+      set timevalue [${suite} cget -ref_end]
+   }
+   set clockValue [clock scan ${timevalue}]
+   return ${clockValue}
+}
+
 # returns the status date & time as an integer value
 # empty string is returned if no value is found
 proc ::SuiteNode::getStatusClockValue { suite status } {
@@ -229,6 +239,27 @@ proc ::SuiteNode::getStatusClockValue { suite status } {
    }
    return ${value}
 }
+
+# gives the date & time in seconds that should be
+# used to compare with the overview grid limits
+# if the start time is greater than current time && 
+# end reference time (hh::mm) is prior to current time, 
+# return previous day value for the start time
+# else return today's value value
+proc ::SuiteNode::getStartRelativeClockValue { ref_start_time ref_end_time } {
+   set currentDateTime [clock seconds]
+   set currentTime [clock format ${currentDateTime} -format "%H:%M" -gmt 1]
+   set startDateTime [clock scan ${ref_start_time}]
+   set endDateTime [clock scan ${ref_end_time}]
+   if { ${startDateTime} > ${currentDateTime} && ${endDateTime} < ${currentDateTime} } {
+      set value [clock add ${startDateTime} -24 hours ]
+   } else {
+      set value ${startDateTime}
+   }
+
+   return ${value}
+}
+
 
 proc ::SuiteNode::setLastStatusInfo { suite status datestamp date time } {
    ::SuiteNode::setStatusInfo ${suite} ${status} "${datestamp} ${date} ${time}"   
