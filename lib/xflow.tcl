@@ -34,17 +34,8 @@ package require FlowNodes
 ::DrawUtils::init
 
 proc setTkOptions {} {
-   #option add *Background $DEFAULT_COLORS(background)
-   #option add *Foreground $DEFAULT_COLORS(foreground)
-   option add *activeBackground LightBlue
-   #option add *activeForeground $DEFAULT_COLORS(foreground)
-   option add *selectBackground LightBlue
-   #option add *selectForeground $DEFAULT_COLORS(foreground)
-   #option add *selectColor red
-   #option add *troughColor $DEFAULT_COLORS(trough)
-   #option add *Scrollbar*background $DEFAULT_COLORS(background2)
-   #option add *Text*background $DEFAULT_COLORS(background)
-   #option add *Button*background $DEFAULT_COLORS(button)   
+   option add *activeBackground [SharedData_getColor ACTIVE_BG]
+   option add *selectBackground [SharedData_getColor SELECT_BG]
 
    ttk::style configure Xflow.Menu -background cornsilk4
 }
@@ -69,7 +60,6 @@ proc getHostInfo { host_name  } {
    if { [expr $counter == 3] } {
       set counter 0
    }
-   #return $HOST_INFO($host_name)
    return [lindex $colors $counter]
 }
 
@@ -91,6 +81,7 @@ proc addFileMenu { parent } {
 }
 
 proc addViewMenu { parent } {
+   global AUTO_MSG_DISPLAY
    if { $parent == "." } {
       set parent ""
    }
@@ -101,6 +92,12 @@ proc addViewMenu { parent } {
    menubutton $menuButtonW -text View -underline 0 -menu $menuW \
       -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
+
+   if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
+      $menuW add checkbutton -label "Auto Message Display" -variable AUTO_MSG_DISPLAY \
+         -command [list xflow_setAutoMsgDisplay] \
+         -onvalue true -offvalue false
+   }
 
    $menuW add checkbutton -label "Monitor Latest Logs" -variable MONITORING_LATEST \
       -onvalue 1 -offvalue 0 -command [ list logsMonitorChanged $parent ]
@@ -130,6 +127,12 @@ proc addViewMenu { parent } {
    pack $menuButtonW -side left -pady 2 -padx 2
 }
 
+proc xflow_setAutoMsgDisplay {} {
+   global AUTO_MSG_DISPLAY
+   DEBUG "xflow_setAutoMsgDisplay new value: ${AUTO_MSG_DISPLAY}" 5
+   SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
+}
+
 # generic callback for whoever wants to call the selectSuiteTab
 proc selectSuiteCallback { } {
    selectSuiteTab [getTabsParentW] [getActiveSuite]
@@ -150,24 +153,66 @@ proc addHelpMenu { parent } {
    $menuButtonW configure -state disabled
 }
 
+proc xflow_testAddCanvasBg { canvas height width } {
+   puts "xflow_testAddCanvasBg ${canvas}"
+   # image already created at canvas creaton time
+   set imageBg ${canvas}.bg_image
+   set imageTagName ${canvas}_bg_image
+
+   ${canvas} delete ${imageTagName}
+   ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags ${imageTagName}
+   ${canvas} lower ${imageTagName}
+}
+
 proc xflow_createToolbar { parent } {
    puts "xflow_createToolbar ${parent}"
    global MSG_CENTER_THREAD_ID
-   set mesgCenterW ${parent}.button_msgcenter
+   set msgCenterW ${parent}.button_msgcenter
+   set nodeKillW ${parent}.button_nodekill
+   set nodeListW ${parent}.button_nodelist
+   set nodeAbortListW ${parent}.button_nodeabortlist
+
    set closeW ${parent}.button_close
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
 
-   image create photo ${parent}.msg_center -file ${imageDir}/open_mail_sh.ppm
-   button ${mesgCenterW} -image ${parent}.msg_center -command {
+   image create photo ${parent}.msg_center_img -file ${imageDir}/open_mail_sh.ppm
+   image create photo ${parent}.msg_center_new_img -file ${imageDir}/open_mail_new.ppm
+   image create photo ${parent}.node_kill_img -file ${imageDir}/node_kill.ppm
+   image create photo ${parent}.node_list_img -file ${imageDir}/node_list.ppm
+   image create photo ${parent}.node_abort_list_img -file ${imageDir}/node_abort_list.ppm
+   image create photo ${parent}.close -file ${imageDir}/cancel.ppm
+
+   button ${msgCenterW} -padx 0 -pady 0 -image ${parent}.msg_center_img -command {
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
    }
-   ::tooltip::tooltip ${mesgCenterW} "Show Message Center."
-   image create photo ${parent}.close -file ${imageDir}/cancel.ppm
-   button ${closeW} -image ${parent}.close -command [list quitXflow]
-   ::tooltip::tooltip ${closeW} "Close Application."
+   ::tooltip::tooltip ${msgCenterW} "Show Message Center."
 
-   grid ${mesgCenterW} ${closeW} -sticky w -padx 2
+   button ${nodeKillW} -image ${parent}.node_kill_img -command [list nodeKillDisplay ${parent} ]
+   tooltip::tooltip ${nodeKillW}  "Open job killing dialog"
+
+   button ${nodeListW} -image ${parent}.node_list_img  -state disabled
+   tooltip::tooltip ${nodeListW} "Open succesfull node listing dialog -- future feature."
+
+   button ${nodeAbortListW} -image ${parent}.node_abort_list_img -state disabled
+   tooltip::tooltip ${nodeAbortListW} "Open abort node listing dialog -- future feature."
+
+   button ${closeW} -image ${parent}.close -command [list quitXflow]
+   ::tooltip::tooltip ${closeW} "Close application."
+
+   if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
+      set overviewW ${parent}.button_overview
+      image create photo ${parent}.overview -file ${imageDir}/calendar_clock.ppm
+      button ${overviewW} -image ${parent}.overview -command {
+         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+         thread::send -async ${overviewThreadId} "Overview_toFront"
+      }
+      ::tooltip::tooltip ${overviewW} "Show overview window."
+      ::tooltip::tooltip ${closeW} "Close window."
+      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${nodeListW}  ${nodeAbortListW} ${closeW} -sticky w -padx 2
+   } else {
+      grid ${msgCenterW} ${nodeKillW} ${nodeListW} ${nodeAbortListW} ${closeW} -sticky w -padx 2
+   }
 }
 
 proc addDatestampWidget { parent } {
@@ -176,17 +221,58 @@ proc addDatestampWidget { parent } {
    }
 
    #ttk::label $parent.dt_label -text "Datestamp:"
-   set dtFrame [ ttk::labelframe $parent.dt -text "Exp Datestamp (yyyymmddhh)" ]
-   set dateEntry [ttk::entry $dtFrame.entry -width 11 ]
+   #set dtFrame [ ttk::labelframe $parent.dt -text "Exp Datestamp (yyyymmddhh)" ]
+   set dtFrame [ labelframe $parent.dt -text "Exp Datestamp (yyyymmddhh)" ]
+   bind $dtFrame <Double-Button-1> [list viewHideDateButtons . .date .date_hidden "" ]
+   tooltip::tooltip $dtFrame "Double-click to hide"
 
-   set setButton [ttk::button $dtFrame.set_button -text Set \
+   #set dateEntry [ttk::entry $dtFrame.entry -width 11 ]
+   set dateEntry [entry $dtFrame.entry -width 11 ]
+   tooltip::tooltip $dateEntry "Enter a value then set the experiment datestamp."
+
+   #set buttonFrame [ttk::frame ${dtFrame}.button_frame]
+   set buttonFrame [frame ${dtFrame}.button_frame]
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.ppm
+   image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.ppm
+
+   set setButton [button ${buttonFrame}.set_button -image ${buttonFrame}.set_image \
       -command [list setDateStamp $parent]]
-   set refreshButton [ttk::button $dtFrame.refresh_button -text Refresh \
+   tooltip::tooltip ${setButton} "Sets new datestamp value."
+
+   set refreshButton [button ${buttonFrame}.refresh_button -image ${buttonFrame}.refresh_image \
       -command [list getDateStamp $parent]]
+   tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
+
+   pack $setButton $refreshButton -side left -pady 2 -padx 5
+   pack $dateEntry -side left -pady 2 -padx 2
+   pack $buttonFrame -pady 2 -side left
+   pack $dtFrame -side left -pady 2 -padx 2 -fill x -expand 1
+
+   proc out {} {
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   image create photo ${dtFrame}.set_image -file ${imageDir}/ok.ppm
+   image create photo ${dtFrame}.refresh_image -file ${imageDir}/refresh.ppm
+
+   #set setButton [ttk::button $dtFrame.set_button -text Set \
+   #   -command [list setDateStamp $parent]]
+   set setButton [button $dtFrame.set_button -image ${dtFrame}.set_image \
+      -command [list setDateStamp $parent]]
+
+   #set refreshButton [ttk::button $dtFrame.refresh_button -text Refresh \
+   #   -command [list getDateStamp $parent]]
+   set refreshButton [button $dtFrame.refresh_button -image ${dtFrame}.refresh_image \
+      -command [list getDateStamp $parent]]
+
    tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
    pack $dtFrame -side left -pady 2 -padx 2 -fill x
    tooltip::tooltip $dtFrame "Enter a value then set the experiment datestamp."
-   pack $dateEntry $setButton $refreshButton -side left -pady 2 -padx 2
+
+   #pack $dateEntry $setButton $refreshButton -side left -pady 2 -padx 2
+   pack $dateEntry -side left -pady 2 -padx {5 2}
+   pack $setButton -side right -pady 2 -padx { 2 5 }
+   pack $refreshButton -side right -pady 2
+   }
 }
 
 proc logsMonitorChanged { parent_w } {
@@ -197,7 +283,7 @@ proc logsMonitorChanged { parent_w } {
    }
    set monitorFrame .date.monitor_frame
    set monitorEntryCombo ${monitorFrame}.entry_combo
-   set setButton ${monitorFrame}.set_button
+   set setButton ${monitorFrame}.button_frame.set_button
    if { $MONITORING_LATEST == 0 } {
       set status normal
    } else {
@@ -217,9 +303,13 @@ proc logsMonitorChanged { parent_w } {
          $suiteRecord configure -read_offset 0
          ::FlowNodes::resetNodeStatus $topNode
          selectSuiteTab [getTabsParentW] $suiteRecord
-         set mainid [thread::id]
-
-         LogReader_readFile $suiteRecord 0 $mainid 1
+         set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+         if { ${isOverviewMode} == "true" } {
+            set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+            LogReader_readFile $suiteRecord ${overviewThreadId}
+         } else {
+            LogReader_readFile $suiteRecord [thread::id]
+         }
       }
    }
 
@@ -230,22 +320,50 @@ proc addMonitorDateWidget { parent } {
    if { $parent == "." } {
       set parent ""
    }
-   set monitorFrame [ ttk::labelframe $parent.monitor_frame -text "Monitoring Datestamp (yyyymmddhh)" ]
+
+   #set monitorFrame [ ttk::labelframe $parent.monitor_frame -text "Monitoring Datestamp (yyyymmddhh)" ]
+   set monitorFrame [ labelframe $parent.monitor_frame -text "Monitoring Datestamp (yyyymmddhh)" ]
    set monitorEntryCombo ${monitorFrame}.entry_combo
+   bind $monitorFrame <Double-Button-1> [list viewHideDateButtons . .date .date_hidden "" ]
+   tooltip::tooltip $monitorFrame "Double-click to hide"
 
    ttk::combobox ${monitorFrame}.entry_combo
+   #combobox ${monitorFrame}.entry_combo
 
-   set setButton [ttk::button $monitorFrame.set_button -text Set \
-      -command [list setMonitorDate $parent] ]
+   #set buttonFrame [ttk::frame ${monitorFrame}.button_frame]
+   set buttonFrame [frame ${monitorFrame}.button_frame]
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.ppm
+   image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.ppm
 
-   set refreshButton [ttk::button $monitorFrame.refresh_button -text Refresh \
-      -command [list populateMonitorDate $parent ] ]
-
+   set setButton [button ${buttonFrame}.set_button -image ${buttonFrame}.set_image \
+      -command [list setMonitorDate $parent]]
    tooltip::tooltip $setButton "Sets the datestamp value being displayed in the flow."
+
+   set refreshButton [button ${buttonFrame}.refresh_button -image ${buttonFrame}.refresh_image \
+      -command [list populateMonitorDate $parent]]
    tooltip::tooltip $refreshButton "Refresh the datestamp list."
-   pack $monitorFrame -side left -pady 2 -padx 2 -fill x
-   tooltip::tooltip $monitorFrame "Select value of the date being displayed in the flow."
-   pack $monitorEntryCombo $setButton $refreshButton  -side left -pady 2 -padx 2
+
+   #set setButton [button $monitorFrame.set_button -text Set \
+   #   -command [list setMonitorDate $parent] ]
+
+   #set refreshButton [button $monitorFrame.refresh_button -text Refresh \
+   #   -command [list populateMonitorDate $parent ] ]
+
+   #tooltip::tooltip $setButton "Sets the datestamp value being displayed in the flow."
+   #tooltip::tooltip $refreshButton "Refresh the datestamp list."
+   #pack $monitorFrame -side left -pady 2 -padx 2 -fill x
+   #tooltip::tooltip $monitorFrame "Select value of the date being displayed in the flow."
+   #pack $monitorEntryCombo $setButton $refreshButton  -side left -pady 2 -padx 2
+
+   pack $setButton $refreshButton -side left -pady 2 -padx 5
+   pack $monitorEntryCombo -side left -pady 2 -padx 2 -fill x
+   pack $buttonFrame -pady 2 -side left
+   pack $monitorFrame -side left -pady 2 -padx 2 -fill x -expand 1
+   #tooltip::tooltip $monitorFrame "Select value of the date being displayed in the flow."
+
+   tooltip::tooltip $monitorEntryCombo "Select value of the date being displayed in the flow."
+
 }
 
 # this function is called when the user click on the arrows to
@@ -266,8 +384,10 @@ proc viewHideDateButtons { parent currentFrame replacementFrame height } {
    if { $height != "" } {
        $replacementFrame configure -height $height
        grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+       #grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew
    } else {
-       grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      #grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew
    }
 }
 
@@ -277,6 +397,26 @@ proc addListButtonsWidget { monitorFrame } {
    if { $monitorFrame == "." } {
       set monitorFrame ""
    }
+   set imageNodeKill ${monitorFrame}.node_kill_img
+   set imageNodeList ${monitorFrame}.node_list_img
+   set imageNodeAbortList ${monitorFrame}.node_abort_list_img
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+
+   image create photo ${imageNodeKill} -file ${imageDir}/node_kill.ppm
+   image create photo ${imageNodeList} -file ${imageDir}/node_list.ppm
+   image create photo ${imageNodeAbortList} -file ${imageDir}/node_abort_list.ppm
+
+   set killButton [button $monitorFrame.kill_button -image ${imageNodeKill} -text "Nodekill" \
+      -command [list nodeKillDisplay $monitorFrame ] ]
+   tooltip::tooltip $killButton "Open job killing dialog"
+   set listerButton [button $monitorFrame.list_button -image ${imageNodeList} -text "Nodelister ( success )" \
+      -command [list nodeListDisplay $monitorFrame success ] ]
+   tooltip::tooltip $listerButton "Open succesfull node listing dialog -- future feature."
+   set abortListerButton [button $monitorFrame.abortlist_button -image ${imageNodeAbortList} -text "Nodelister ( abort )" \
+      -command [list nodeListDisplay $monitorFrame abort ] ]
+   tooltip::tooltip $abortListerButton "Open abort node listing dialog -- future feature."
+
+   proc out {} {
    set killButton [ttk::button $monitorFrame.kill_button -text "Nodekill" \
       -command [list nodeKillDisplay $monitorFrame ] ]
    tooltip::tooltip $killButton "Open job killing dialog"
@@ -286,6 +426,8 @@ proc addListButtonsWidget { monitorFrame } {
    set abortListerButton [ttk::button $monitorFrame.abortlist_button -text "Nodelister ( abort )" \
       -command [list nodeListDisplay $monitorFrame abort ] ]
    tooltip::tooltip $abortListerButton "Open abort node listing dialog -- future feature."
+   }
+
    $abortListerButton configure -state disabled
    $listerButton configure -state disabled
    pack $monitorFrame.kill_button -side left -pady 2 -padx 2
@@ -297,8 +439,8 @@ proc addListButtonsWidget { monitorFrame } {
 proc nodeKillDisplay { parent_w } {
 
    global env
-   set shadowColor [getGlobalValue SHADOW_COLOR]
-   set bgColor [getGlobalValue CANVAS_COLOR]
+   set shadowColor [SharedData_getColor SHADOW_COLOR]
+   set bgColor [SharedData_getColor CANVAS_COLOR]
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
@@ -330,15 +472,19 @@ proc nodeKillDisplay { parent_w } {
    scrollbar $soloWindow.yscroll -command "$soloWindow.list yview"  -bg $bgColor
    scrollbar $soloWindow.xscroll -command "$soloWindow.list xview" -orient horizontal -bg $bgColor
 
-   set cancelButton [ttk::button $soloWindow.cancel_button -text "Cancel" \
+   #set cancelButton [ttk::button $soloWindow.cancel_button -text "Cancel" \
+   #   -command [list destroy $soloWindow ]]
+   set cancelButton [button $soloWindow.cancel_button -text "Cancel" \
       -command [list destroy $soloWindow ]]
    tooltip::tooltip $cancelButton "Close this window"
-   pack $cancelButton -side right
+   pack $cancelButton -side right -padx 4 -pady 2
 
-   set killButton [ttk::button $soloWindow.kill_button -text "Kill Selected Jobs" \
+   #set killButton [ttk::button $soloWindow.kill_button -text "Kill Selected Jobs" \
+   #   -command [list killNode $soloWindow.list ]]
+   set killButton [button $soloWindow.kill_button -text "Kill Selected Jobs" \
       -command [list killNode $soloWindow.list ]]
    tooltip::tooltip $killButton "Send kill signals to selected job_ID"
-   pack $killButton -side right
+   pack $killButton -side right -pady 2
 
 
 
@@ -359,6 +505,7 @@ proc nodeKillDisplay { parent_w } {
 proc killNode { list_widget } {
 
    set indexlist [ $list_widget curselection ]
+   DEBUG "killNode list_widget:$list_widget indexlist:$indexlist" 5
    set listOfNodes ""
    for {set iterator 0} {$iterator < [llength $indexlist]} {incr iterator} {
       set listOfNodes [ linsert $listOfNodes end [ $list_widget get [ lindex $indexlist $iterator ]]]
@@ -370,12 +517,15 @@ proc killNode { list_widget } {
 
    for {set iterator 0} {$iterator < $numOfEntries} {incr iterator} {
       set listEntryValue [ split [ lindex $listOfNodes $iterator ] " " ]
-      set jobPath [string range [lindex $listEntryValue 8] [string length $suitePath/sequencing/jobinfo] end]
-      set splitPath [split $jobPath /]
-      set nodeID [lindex $splitPath [ expr [ llength $splitPath ] -1 ] ]
-      set node [string range $jobPath 0 [expr [string length $jobPath] - [string length $nodeID] -1 ] ][lindex $listEntryValue 11 ]
+      set jobPath [string range [lindex $listEntryValue 9] [string length $suitePath/sequencing/jobinfo] end]
+      #set splitPath [split $jobPath /]
+      #set nodeID [lindex $splitPath [ expr [ llength $splitPath ] -1 ] ]
+      set nodeID [file tail ${jobPath}]
+      set node [file dirname ${jobPath}]/[lindex $listEntryValue end]
+      DEBUG "killNode node:$node nodeID:$nodeID" 5
+      #set node [string range $jobPath 0 [expr [string length $jobPath] - [string length $nodeID] -1 ] ][lindex $listEntryValue 11 ]
     ##  set seqNode  [::FlowNodes::getSequencerNode $node]
-      Sequencer_runCommand $suitePath $seqExec "Node Kill [file tail $node]" -n $node -job_id $nodeID
+     Sequencer_runCommand $suitePath $seqExec "Node Kill [file tail $node]" -n $node -job_id $nodeID
    }
 
 }
@@ -390,7 +540,8 @@ proc getMonitorDate { parent_w { suite_record "" } } {
 
    set monitorFrame .date.monitor_frame
    set monitorEntryCombo ${monitorFrame}.entry_combo
-   set setButton ${monitorFrame}.set_button
+   #set setButton ${monitorFrame}.set_button
+   set setButton ${monitorFrame}.button_frame.set_button
    
    # flush the current list
    $monitorEntryCombo configure -values ""
@@ -453,15 +604,59 @@ proc setMonitorDate { parent_w } {
       } else {
          DEBUG "setMonitorDate ${dateValue}0000" 5
          set MONITOR_DATESTAMP ${dateValue}0000
+         proc out {} {
          $suiteRecord configure -read_offset 0 -active_log ${dateValue}0000
          set topNode "/${suiteName}"
          ::FlowNodes::resetNodeStatus $topNode
          selectSuiteTab [getTabsParentW] $suiteRecord
-         LogReader_readFile $suiteRecord 0 [thread::id] 1
+         set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+         if { ${isOverviewMode} == "true" } {
+            set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+            LogReader_readFile $suiteRecord ${overviewThreadId}
+         } else {
+            LogReader_readFile $suiteRecord [thread::id]
+         }
+         }
+
+         set monitorThreadId [xflow_getMonitoredThread]
+         thread::send -async ${monitorThreadId} \
+            "xflowThread_monitorNewDate ${MONITOR_DATESTAMP}"
+
       }
    }
 
    normalCursor $top
+}
+
+proc newMonitorDate { suite_record datestamp } {
+}
+
+proc xflow_getMonitoredThread {} {
+   global MONITORED_THREAD_ID
+   if { ! [info exists MONITORED_THREAD_ID] || ${MONITORED_THREAD_ID} == "" } {
+      DEBUG "xflow_getMonitoredThread Creating new thread..." 5
+      set MONITORED_THREAD_ID [thread::create {
+         global env this_id
+         set lib_dir $env(SEQ_XFLOW_BIN)/../lib
+         set auto_path [linsert $auto_path 0 $lib_dir ]
+
+         set this_id [thread::id]
+         proc xflowThread_monitorNewDate { datestamp } {
+            global MAIN MONITORING_LATEST
+            set MAIN 1
+            set MONITORING_LATEST 0
+            set MONITOR_DATESTAMP ${datestamp}
+            xflow_init
+            launchXflow [thread::id]
+         }
+
+         # enter event loop
+         thread::wait
+      }]
+   }
+
+   DEBUG "xflow_getMonitoredThread returning id: ${MONITORED_THREAD_ID}" 5
+   return ${MONITORED_THREAD_ID}
 }
 
 proc getDateStamp { parent_w {suite_record ""} } {
@@ -518,7 +713,14 @@ proc setDateStamp { parent_w } {
       set topNode "/${suiteName}"
       ::FlowNodes::resetNodeStatus $topNode
       selectSuiteTab [getTabsParentW] $suiteRecord
-      LogReader_readFile $suiteRecord 0 [thread::id] 1
+
+      set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+      if { ${isOverviewMode} == "true" } {
+         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+         LogReader_readFile $suiteRecord ${overviewThreadId}
+      } else {
+         LogReader_readFile $suiteRecord [thread::id]
+      }
    }
 
    normalCursor $top
@@ -618,6 +820,11 @@ proc getShawdowStatus {} {
    return $SHADOW_STATUS
 }
 
+proc xflow_findNode { suite_record real_node } {
+   set flowNode [::SuiteNode::getFlowNodeMapping ${suite_record} ${real_node}]
+   ::DrawUtils::pointNode ${suite_record} ${flowNode}
+}
+
 # parent_node is the previous_node in the flow that is submitting this node
 proc drawNode { canvas node parent_node position run_catchup {callback test} } {
    DEBUG "drawNode drawing sub node:$node parent_node:$parent_node position:$position" 5
@@ -626,8 +833,8 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
    set pady [getGlobalValue CANVAS_PAD_Y]
    set padTx [getGlobalValue CANVAS_PAD_TXT_X]
    set padTy [getGlobalValue CANVAS_PAD_TXT_Y]
-   set shadowColor [getGlobalValue SHADOW_COLOR]
-   set drawshadow [getGlobalValue DRAWSHADOW]
+   set shadowColor [SharedData_getColor SHADOW_COLOR]
+   set drawshadow on
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    ::FlowNodes::initNode $node $canvas
@@ -637,14 +844,13 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
       DEBUG "drawNode linex2:$linex2 liney2:$liney2"
    } else {
       # use a dashline leading to modules, elsewhere use a solid line
+      set lineColor [SharedData_getColor FLOW_SUBMIT_ARROW]
       switch [$node cget -flow.type] {
          "module" {
             set drawline "drawdashline"
-            set lineColor black
           }
           default {
             set drawline "drawline"
-            set lineColor black
           }
       }
 
@@ -679,11 +885,9 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
       }
    }
 
-   set normalTxtFill [getGlobalValue NORMAL_RUN_TEXT]
-   set colors $::DrawUtils::nodeStatusColorMap(init)
-   set normalFill [lindex $colors 1]
-   set outline [getGlobalValue NORMAL_RUN_OUTLINE]
-
+   set normalTxtFill [SharedData_getColor NORMAL_RUN_TEXT]
+   set normalFill [::DrawUtils::getBgStatusColor init]
+   set outline [SharedData_getColor NORMAL_RUN_OUTLINE]
    # now draw the node
    set tx1 [expr $linex2 + $padTx]
    set ty1 $liney2
@@ -735,7 +939,7 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
       }
    }
    ::DrawUtils::drawNodeStatus $node [getShawdowStatus]
-   bindMouseWheel $canvas
+   xflow_bindMouseWheel $canvas
    $canvas bind $node <Double-Button-1> [ list $callback $canvas $node %X %Y]
    $canvas bind $node <Button-2> [ list historyCallback $node $canvas "" 48] 
    $canvas bind $node <Button-3> [ list nodeMenu $canvas $node %X %Y]
@@ -757,14 +961,25 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
    DEBUG "drawNode drawing sub node:$node done" 5
 }
 
+proc xflow_bindMouseWheel { widget_ } {
+   bind ${widget_} <4> {
+      %W yview scroll -2 units
+   }
+   bind ${widget_} <5> {
+      %W yview scroll 2 units
+   }
+}
+
 # callback when user click on a box with button 3
 proc nodeMenu { canvas node x y } {
+   global ignoreDep
    DEBUG "nodeMenu() node:$node" 5
    set popMenu .popupMenu
    if { [winfo exists $popMenu] } {
       destroy $popMenu
    }
-   menu $popMenu -bg [getGlobalValue CANVAS_COLOR]
+   #menu $popMenu -bg [SharedData_getColor CANVAS_COLOR]
+   menu $popMenu -bg "#d1d1d1"
    set children [$node cget -flow.children]
    set isCollapsed [::FlowNodes::isCollapsed $node $canvas]
    if { $children != "" && $isCollapsed } {
@@ -781,6 +996,7 @@ proc nodeMenu { canvas node x y } {
       $popMenu add command -label "Member Node Batch" -command [list batchCallback $node $canvas $popMenu 0]
       $popMenu add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
       $popMenu add separator
+      $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
       $popMenu add command -label "Loop Submit" -command [list submitLoopCallback $node $canvas $popMenu continue ]
       $popMenu add command -label "Member Submit" -command [list submitCallback $node $canvas $popMenu continue ]
       $popMenu add separator
@@ -796,6 +1012,7 @@ proc nodeMenu { canvas node x y } {
       $popMenu add command -label "Node Batch" -command [list batchCallback $node $canvas $popMenu ]
       $popMenu add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
       $popMenu add separator
+      $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
       if { [$node cget -flow.type] != "task" && [$node cget -flow.type] != "npass_task"} {
          $popMenu add command -label "Submit" -command [list submitCallback $node $canvas $popMenu continue ]
       } else {
@@ -852,12 +1069,13 @@ proc newWindowCallback { node canvas caller_menu } {
 
    set formattedName [::SuiteNode::formatName [$suiteRecord cget -suite_path]]
    set drawFrame ${topWidget}.${formattedName}
-   ttk::frame $drawFrame
+   #ttk::frame $drawFrame
+   frame $drawFrame
    set newCanvas [createFlowCanvas $drawFrame]
    grid $drawFrame -sticky nsew
 
    set sizeGripWidget [ttk::sizegrip $topWidget.sizeGrip]
-   grid $sizeGripWidget -sticky se
+   grid ${sizeGripWidget} -sticky se
 
    # make the drawing expand x y directions
    grid rowconfigure $topWidget 0 -weight 1
@@ -1005,8 +1223,8 @@ proc abortCallback { node canvas caller_menu } {
 proc killNodeFromDropdown { node canvas caller_menu } {
 
    global env
-   set shadowColor [getGlobalValue SHADOW_COLOR]
-   set bgColor [getGlobalValue CANVAS_COLOR]
+   set shadowColor [SharedData_getColor SHADOW_COLOR]
+   set bgColor [SharedData_getColor CANVAS_COLOR]
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
@@ -1035,12 +1253,16 @@ proc killNodeFromDropdown { node canvas caller_menu } {
    scrollbar $soloWindow.yscroll -command "$soloWindow.list yview"  -bg $bgColor
    scrollbar $soloWindow.xscroll -command "$soloWindow.list xview" -orient horizontal -bg $bgColor
 
-   set cancelButton [ttk::button $soloWindow.cancel_button -text "Cancel" \
+   #set cancelButton [ttk::button $soloWindow.cancel_button -text "Cancel" \
+   #   -command [list destroy $soloWindow ]]
+   set cancelButton [button $soloWindow.cancel_button -text "Cancel" \
       -command [list destroy $soloWindow ]]
    tooltip::tooltip $cancelButton "Close this window"
    pack $cancelButton -side right
 
-   set killButton [ttk::button $soloWindow.kill_button -text "Kill Selected Jobs" \
+   #set killButton [ttk::button $soloWindow.kill_button -text "Kill Selected Jobs" \
+   #   -command [list killNode $soloWindow.list ]]
+   set killButton [button $soloWindow.kill_button -text "Kill Selected Jobs" \
       -command [list killNode $soloWindow.list ]]
    tooltip::tooltip $killButton "Send kill signals to selected job_ID"
    pack $killButton -side right
@@ -1124,6 +1346,8 @@ proc batchCallback { node canvas caller_menu {full_loop 0} } {
 }
 
 proc submitCallback { node canvas caller_menu flow} {
+   global ignoreDep
+
    set seqExec "[getGlobalValue SEQ_BIN]/maestro"
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
@@ -1133,7 +1357,8 @@ proc submitCallback { node canvas caller_menu flow} {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       raiseError $canvas "node submit" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow $seqLoopArgs
+      Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow $ignoreDep $seqLoopArgs
+
    }
 
    destroy $caller_menu
@@ -1155,6 +1380,8 @@ proc submitLoopCallback { node canvas caller_menu flow} {
 }
 
 proc submitNpassTaskCallback { node canvas caller_menu flow} {
+   global ignoreDep
+
    DEBUG "submitNpassTaskCallback node:$node canvas:$canvas" 5
    set seqExec "[getGlobalValue SEQ_BIN]/maestro"
 
@@ -1176,7 +1403,8 @@ proc submitNpassTaskCallback { node canvas caller_menu flow} {
       if { $seqNpassTaskArgs == "-1" } {
          raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
-         Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow $seqNpassTaskArgs   
+         Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow $ignoreDep $seqNpassTaskArgs
+
       }
    }
    destroy $caller_menu
@@ -1203,8 +1431,8 @@ proc listingCallback { node canvas caller_menu {full_loop 0} } {
 
 proc allListingCallback { node canvas caller_menu type } {
   global env
-   set shadowColor [getGlobalValue SHADOW_COLOR]
-   set bgColor [getGlobalValue CANVAS_COLOR]
+   set shadowColor [SharedData_getColor SHADOW_COLOR]
+   set bgColor [SharedData_getColor CANVAS_COLOR]
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
@@ -1386,36 +1614,39 @@ proc redrawAllFlow { suite_record } {
 
 proc drawflow { canvas {initial_display "1"} } {
    DEBUG "drawflow() canvas:$canvas" 5
-   ::DrawUtils::clearCanvas $canvas
+   if { [winfo exists ${canvas}] } {
+      ::DrawUtils::clearCanvas $canvas
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
-   # reset the default spacing for drawing flow
-   ::SuiteNode::resetDisplayNextY $suiteRecord $canvas
-   set rootNode [::SuiteNode::getDisplayRoot $suiteRecord $canvas]
-
-   set callback changeCollapsed
-   drawNode $canvas $rootNode "" 0 5 $callback
-   set canvasArea [$canvas bbox all]
-   $canvas  configure -scrollregion $canvasArea -yscrollincrement 5 -xscrollincrement 5
-
-   # resize the window depending on size of canvas elements
-   set boxCoords [${canvas} bbox all]
-   set heightMax 800
-   set widthMax 1200
-   set canvasH [expr [lindex ${boxCoords} 3] - [lindex ${boxCoords} 1]]
-   set canvasW [expr [lindex ${boxCoords} 2] - [lindex ${boxCoords} 0]]
-   set windowH [expr ${canvasH} + 135]
-   set windowW [expr ${canvasW} + 50]
-   if { [expr ${windowH} > ${heightMax}] } {
-      set windowH ${heightMax}
-   }
-   if { [expr ${windowW} > ${widthMax}] } {
-      set windowW ${widthMax}
-   }
-   wm geometry . =${windowW}x${windowH}
-
-   if { $initial_display == "1" } {
-      $canvas yview moveto 0
+      set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+      # reset the default spacing for drawing flow
+      ::SuiteNode::resetDisplayNextY $suiteRecord $canvas
+      set rootNode [::SuiteNode::getDisplayRoot $suiteRecord $canvas]
+   
+      set callback changeCollapsed
+      drawNode $canvas $rootNode "" 0 5 $callback
+      set canvasArea [$canvas bbox all]
+      $canvas  configure -scrollregion $canvasArea -yscrollincrement 5 -xscrollincrement 5
+   
+      # resize the window depending on size of canvas elements
+      set boxCoords [${canvas} bbox all]
+      set heightMax 800
+      set widthMax 1200
+      set canvasH [expr [lindex ${boxCoords} 3] - [lindex ${boxCoords} 1]]
+      set canvasW [expr [lindex ${boxCoords} 2] - [lindex ${boxCoords} 0]]
+      set windowH [expr ${canvasH} + 135]
+      set windowW [expr ${canvasW} + 50]
+      if { [expr ${windowH} > ${heightMax}] } {
+         set windowH ${heightMax}
+      }
+      if { [expr ${windowW} > ${widthMax}] } {
+         set windowW ${widthMax}
+      }
+      wm geometry . =${windowW}x${windowH}
+   
+      if { $initial_display == "1" } {
+         $canvas yview moveto 0
+      }
+      xflow_testAddCanvasBg ${canvas} ${canvasH} ${canvasW}
    }
 }
 
@@ -1428,7 +1659,8 @@ proc createTabs { parent suiteList bind_cmd {page_h 1} {page_w 1}} {
    foreach suitePath $suiteList {
       set suiteName [file tail $suitePath]
       set drawFrame $parent.[::SuiteNode::formatName $suitePath]
-      ttk::frame $drawFrame
+      #ttk::frame $drawFrame  
+      frame $drawFrame
 
       grid columnconfigure $parent 0 -weight 1
       grid rowconfigure $parent 0 -weight 1
@@ -1504,20 +1736,26 @@ proc selectSuiteTab { parent suite_record } {
 
 proc createFlowCanvas { parent } {
    DEBUG "createFlowCanvas parent:$parent " 5
+   set canvasBgImageWidth 3000
+   set canvasBgImageHeight 1500
    set drawFrame $parent
    set canvas ${drawFrame}.canvas
-   set canvasColor [getGlobalValue CANVAS_COLOR]
+   set canvasColor [SharedData_getColor CANVAS_COLOR]
    if { ! [winfo exists $canvas] } {
 
       set canvas ${drawFrame}.canvas
 
       if { [winfo exists ${drawFrame}.yscroll] == 0 } {
-         ttk::frame ${drawFrame}.xframe
+         #ttk::frame ${drawFrame}.xframe
+         frame ${drawFrame}.xframe
       
-         ttk::scrollbar ${drawFrame}.yscroll -command [list $canvas yview ]
-         ttk::scrollbar ${drawFrame}.xscroll -orient horizontal -command [list $canvas xview]
+         #ttk::scrollbar ${drawFrame}.yscroll -command [list $canvas yview ]
+         scrollbar ${drawFrame}.yscroll -command [list $canvas yview ]
+         #ttk::scrollbar ${drawFrame}.xscroll -orient horizontal -command [list $canvas xview]
+         scrollbar ${drawFrame}.xscroll -orient horizontal -command [list $canvas xview]
          set pad 12
-         ttk::frame ${drawFrame}.pad -width $pad -height $pad
+         #ttk::frame ${drawFrame}.pad -width $pad -height $pad
+         frame ${drawFrame}.pad -width $pad -height $pad
    
          grid ${drawFrame}.xframe -row 2 -column 0 -columnspan 2 -sticky ewns
          grid ${drawFrame}.yscroll -row 0 -column 1 -sticky ns
@@ -1534,8 +1772,14 @@ proc createFlowCanvas { parent } {
       }
       canvas $canvas -yscrollcommand [list ${drawFrame}.yscroll set] \
          -xscrollcommand [list ${drawFrame}.xscroll set] -relief raised -bg $canvasColor
+
+      # add bg image
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      image create photo ${canvas}.bg_image -width ${canvasBgImageWidth} -height ${canvasBgImageHeight} -file ${imageDir}/Sheet_Music_6.ppm
+
       grid $canvas -row 0 -column 0 -sticky nsew
-      
+
+
       # make the canvas expandable to right & bottom
       grid columnconfigure ${drawFrame} 0 -weight 1
       grid rowconfigure ${drawFrame} 0 -weight 1
@@ -1616,25 +1860,47 @@ proc quitXflow {} {
    }
 }
 
-proc launchXflow { calling_thread_id is_overview } {
+# not used for now
+proc xflow_resizeCallback { source_widget } {
+   DEBUG "xflow_resizeCallback source_widget:$source_widget" 5
+   set suiteRecord [getActiveSuite]
+   set thisTop [winfo toplevel ${source_widget}]
+   set canvasList [::SuiteNode::getCanvasList ${suiteRecord}]
+   foreach canvasWidget ${canvasList} {
+      set canvasWidgetTop [winfo toplevel ${canvasWidget}]
+      if { ${thisTop} == ${canvasWidgetTop} } {
+         set canvasH [winfo height ${canvasWidget}]
+         set canvasW [expr [winfo width ${canvasWidget} ] + 20]
+         DEBUG "xflow_resizeCallback found canvas:${canvasWidget} height:${canvasH} width:${canvasW}" 5
+         xflow_testAddCanvasBg ${canvasWidget} ${canvasH} ${canvasW}
+      }
+   }
+}
+
+proc xflow_newMessageCallback { has_new_msg } {
+   DEBUG "xflow_newMessageCallback has_new_msg:$has_new_msg" 5
+   set msgCenterWidget .toolbar.button_msgcenter
+   set noNewMsgImage .toolbar.msg_center_img
+   set hasNewMsgImage .toolbar.msg_center_new_img
+   set normalBgColor [option get ${msgCenterWidget} background Button]
+   set newMsgBgColor  [SharedData_getColor MSG_CENTER_ABORT_BG]
+   if { [winfo exists ${msgCenterWidget}] } {
+      set currentImage [${msgCenterWidget} cget -image]
+      if { ${has_new_msg} == "true" && ${currentImage} != ${hasNewMsgImage} } {
+         ${msgCenterWidget} configure -image ${hasNewMsgImage} -bg ${newMsgBgColor} -bd 1
+      } elseif { ${has_new_msg} == "false" && ${currentImage} != ${noNewMsgImage} } {
+         ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor} -bd 1
+      }
+   }
+}
+
+proc launchXflow { calling_thread_id } {
    global env MAIN
 
    set topFrame .top
    if { ! [winfo exists ${topFrame}] } { 
-      DEBUG "launchXflow ${calling_thread_id} ${calling_thread_id}" 5
-      setGlobalValue CALLING_THREAD_ID ${calling_thread_id}
-   
-      setGlobalValue FONT_PRIMARY "*-courier-medium-r-*-120-*-iso8859-1"
-      setGlobalValue FONT_SECOND "lucida 10"
-      setGlobalValue FONT_BOLD "-adobe-courier-bold-r-normal--14-100-100-100-m-90-iso8859-1"
-      setGlobalValue FONT_BOLD_SMALL "-adobe-courier-bold-r-normal--10-100-100-100-m-90-iso8859-1"
-      setGlobalValue FONT_BOLD_MEDIUM "-adobe-courier-bold-r-normal--16-100-100-100-m-90-iso8859-1"
-      setGlobalValue FONT_BOLD_BIG "-adobe-courier-bold-r-normal--18-100-100-100-m-90-iso8859-1"
-      setGlobalValue CELL_HIGHLIGHT_COLOR black
-      setGlobalValue CELL_HIGHLIGHT_THICK 2
-      setGlobalValue JOB_NOF_ATTRIBUTES 14
-      setGlobalValue FONT_BOLD_BIG "-adobe-courier-bold-r-normal--18-100-100-100-m-90-iso8859-1"
-      
+      DEBUG "launchXflow ${calling_thread_id}" 5
+      setGlobalValue CALLING_THREAD_ID ${calling_thread_id}   
       setGlobalValue CANVAS_BOX_WIDTH 90
       setGlobalValue CANVAS_BOX_HEIGHT 43
       setGlobalValue CANVAS_PAD_X 30
@@ -1642,20 +1908,6 @@ proc launchXflow { calling_thread_id is_overview } {
       setGlobalValue CANVAS_PAD_TXT_X 4
       setGlobalValue CANVAS_PAD_TXT_Y 23
       
-      # default element outline color
-      setGlobalValue NORMAL_RUN_OUTLINE black
-      setGlobalValue NORMAL_RUN_FILL #6D7886
-      setGlobalValue NORMAL_RUN_TEXT blue
-      
-      setGlobalValue SHADOW_COLOR grey
-      
-      setGlobalValue CANVAS_COLOR cornsilk3
-      setGlobalValue SHADOW_COLOR #676559
-      setGlobalValue DRAWSHADOW on
-         
-      setGlobalValue JOB_LENGTH 7
-      setGlobalValue LOOP_LENGTH 3
-         
       setErrorMessages
       
       set count 0
@@ -1684,23 +1936,27 @@ proc launchXflow { calling_thread_id is_overview } {
       
       # .top is the first widget
       #ttk::frame $topFrame -style Xflow.Menu
-      ttk::frame $topFrame
+      #ttk::frame $topFrame
+      frame $topFrame
       addFileMenu $topFrame
       addViewMenu $topFrame
       addHelpMenu $topFrame
       grid $topFrame -row 0 -column 0 -sticky w -padx 2
 
       set toolbarFrame .toolbar
-      ttk::frame ${toolbarFrame}
+      #ttk::frame ${toolbarFrame}
+      frame ${toolbarFrame}
       xflow_createToolbar ${toolbarFrame}
       grid ${toolbarFrame} -row 1 -column 0 -sticky w -padx 2
-      
+
       # date bar is the 2nd widget
       set dateFrame .date
       set dateFrameHidden .date_hidden
-      ttk::frame $dateFrame
+      #ttk::frame $dateFrame
+      frame $dateFrame
       tooltip::tooltip $dateFrame "Double-click to hide"
-      ttk::labelframe $dateFrameHidden -text "Hidden Date Controls"
+      #ttk::labelframe $dateFrameHidden -text "Hidden Date Controls"
+      labelframe $dateFrameHidden -text "Hidden Date Controls"
       tooltip::tooltip $dateFrameHidden "Double-click to expand"
       addDatestampWidget $dateFrame
       # monitor date
@@ -1708,36 +1964,40 @@ proc launchXflow { calling_thread_id is_overview } {
       bind $dateFrame <Double-Button-1> [list viewHideDateButtons . $dateFrame $dateFrameHidden 20 ]
       bind $dateFrameHidden <Double-Button-1> [list viewHideDateButtons . $dateFrameHidden $dateFrame "" ]
       grid $dateFrame -row 2 -column 0 -sticky nsew -padx 0 -pady 0 -columnspan 2
+      #grid $dateFrame -row 2 -column 0 -padx 0 -pady 0 -columnspan 2
+
       # start in hidden mode
       viewHideDateButtons . $dateFrame $dateFrameHidden 20
    
       #add list buttons
       set openListButtonsFrame .list_buttons
       set hiddenListButtonsFrame .list_buttons_hidden
-      ttk::labelframe $openListButtonsFrame  -text "Listing buttons"
+      #ttk::labelframe $openListButtonsFrame  -text "Listing buttons"
+      labelframe $openListButtonsFrame  -text "Listing buttons"
       tooltip::tooltip $openListButtonsFrame "Double-click to hide"
-      ttk::labelframe $hiddenListButtonsFrame  -text "Hidden Listing buttons"
-      tooltip::tooltip $hiddenListButtonsFrame "Double-click to expand"
-      addListButtonsWidget $openListButtonsFrame
-      bind $openListButtonsFrame <Double-Button-1> [list viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20 ]
-      bind $hiddenListButtonsFrame <Double-Button-1> [list viewHideListButtons . $hiddenListButtonsFrame $openListButtonsFrame "" ]
-      grid $openListButtonsFrame -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      #ttk::labelframe $hiddenListButtonsFrame  -text "Hidden Listing buttons"
+      #tooltip::tooltip $hiddenListButtonsFrame "Double-click to expand"
+      # addListButtonsWidget $openListButtonsFrame
+      # bind $openListButtonsFrame <Double-Button-1> [list viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20 ]
+      # bind $hiddenListButtonsFrame <Double-Button-1> [list viewHideListButtons . $hiddenListButtonsFrame $openListButtonsFrame "" ]
+      # grid $openListButtonsFrame -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
       
       # start in hidden mode
-      viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20
+      # viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20
    
       # .tabs is the 3nd widget
       set tabFrame .tabs
-      ttk::frame .tabs
+      #ttk::frame .tabs
+      frame .tabs
       createTabs .tabs $suiteList "selectSuiteCallback"
       
-      grid .tabs  -row 4 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      grid .tabs  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
       grid columnconfigure . 0 -weight 1
       grid columnconfigure . 1 -weight 1
-      grid rowconfigure . 4 -weight 2
+      grid rowconfigure . 3 -weight 2
    
       ttk::sizegrip .sizeGrip
-      grid .sizeGrip -row 4 -column 1 -sticky se
+      grid .sizeGrip -row 3 -column 1 -sticky se
       
       wm geometry . =1200x800
       
@@ -1747,11 +2007,9 @@ proc launchXflow { calling_thread_id is_overview } {
       
       set suiteRecordList [record show instances SuiteInfo]
       DEBUG "suiteRecordList :$suiteRecordList"
-      #foreach suiteRecord $suiteRecordList {
-      #   LogReader_readFile $suiteRecord $is_overview $calling_thread_id 1
-      #}
+
       if { ${MAIN} == "1" } {
-         LogReader_readFile $activeSuiteRecord $is_overview $calling_thread_id 1
+         LogReader_readFile $activeSuiteRecord $calling_thread_id
       }
       selectSuiteTab .tabs $activeSuiteRecord 
       set activeSuiteName [$activeSuiteRecord cget -suite_name]
@@ -1760,8 +2018,14 @@ proc launchXflow { calling_thread_id is_overview } {
       expandAllCallback $topNode .tabs.[::SuiteNode::formatName ${activeSuitePath}].canvas ""
    
       wm deiconify .
+   } else {
+      xflow_toFront
    }
    # Console_create
+}
+
+proc xflow_toFront {} {
+   wm withdraw . ; wm deiconify .
 }
 
 proc Console_create {} {
@@ -1804,20 +2068,42 @@ proc parseCmdOptions {} {
    }
 }
 
-proc dateChanged { suite_record } {
+proc datestampChanged { suite_record } {
    set dateFrame .date
    getDateStamp $dateFrame $suite_record
 }
 
-global MAIN MSG_CENTER_THREAD_ID
-setGlobalValue "DEBUG_TRACE" 1
-set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
+proc xflow_init {} {
+   global DEBUG_ON DEBUG_LEVEL
+   global MSG_CENTER_THREAD_ID
 
-wm protocol . WM_DELETE_WINDOW quitXflow
+   wm protocol . WM_DELETE_WINDOW quitXflow
+
+   SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
+   SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
+
+   set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
+   set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
+   set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
+}
+global MAIN
 
 parseCmdOptions
 puts "xflow MAIN:$MAIN"
 if { $MAIN == 1 } {
+   #global DEBUG_ON DEBUG_LEVEL
+   global MAIN MSG_CENTER_THREAD_ID AUTO_MSG_DISPLAY
+
    SharedData_init
-   launchXflow [thread::id] 0
+   set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
+   #SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
+   #SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
+
+   #set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
+   #set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
+   #set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
+   xflow_init
+   launchXflow [thread::id]
+   SharedData_setMiscData STARTUP_DONE true
+   SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 }

@@ -67,40 +67,40 @@ proc SharedData_setColor { key_ color_ } {
 
 proc SharedData_initColors {} {
    if { ! [tsv::exists colors CANVAS_COLOR] } {
-      SharedData_setColor CANVAS_COLOR cornsilk3
+
+      SharedData_setColor FLOW_SUBMIT_ARROW "#787878"
+      SharedData_setColor FLOW_SUBMIT_ARROW "#787878"
+
+      SharedData_setColor CANVAS_COLOR "#ececec"
       SharedData_setColor SHADOW_COLOR "#676559"
       SharedData_setColor NORMAL_RUN_OUTLINE black
       SharedData_setColor NORMAL_RUN_FILL "#6D7886"
       SharedData_setColor NORMAL_RUN_TEXT blue
-      SharedData_setColor ACTIVE_BG blue
-      SharedData_setColor SELECT_BG blue
-      SharedData_setColor DEFAULT_BG cornsilk3
-      SharedData_setColor DEFAULT_HEADER_BG cornsilk4
+      SharedData_setColor ACTIVE_BG "#509df4"
+      SharedData_setColor SELECT_BG "#509df4"
+      #SharedData_setColor SELECT_BG "#3875d7"
+      SharedData_setColor DEFAULT_BG "#ececec"
+      SharedData_setColor DEFAULT_HEADER_BG "#ececec"
       SharedData_setColor DEFAULT_HEADER_FG "#FFF8DC"
       SharedData_setColor DEFAULT_ROW_FG "#FFF8DC"
-      SharedData_setColor DEFAULT_ROW_BG "cornsilk3"
+      SharedData_setColor DEFAULT_ROW_BG "#ececec"
+      SharedData_setColor MSG_CENTER_ABORT_BG "#8B1012"
+      SharedData_setColor MSG_CENTER_NORMAL_FG "black"
+      SharedData_setColor MSG_CENTER_ALT_BG "black"
+      SharedData_setColor MSG_CENTER_ABORT_FG "white"
 
-      SharedData_setColor STATUS_INIT_BG "cornsilk4"
-      SharedData_setColor STATUS_INIT_FG "#FFF8DC"
-      SharedData_setColor STATUS_SUBMIT_BG "cornsilk3"
-      SharedData_setColor STATUS_SUBMIT_FG "white"
-      SharedData_setColor STATUS_BEGIN_BG "#108B5C"
-      SharedData_setColor STATUS_BEGIN_FG "white"
-      SharedData_setColor STATUS_END_BG "DodgerBlue4"
-      SharedData_setColor STATUS_END_FG "white"
-      SharedData_setColor STATUS_ABORT_BG "#8B1012"
-      SharedData_setColor STATUS_ABORT_FG "white"
-      SharedData_setColor STATUS_WAIT_BG "Sandybrown"
-      SharedData_setColor STATUS_ABORT_FG "black"
-      SharedData_setColor STATUS_CATCHUP_BG "Magenta2"
-      SharedData_setColor STATUS_CATCHUP_FG "white"
-      SharedData_setColor STATUS_UNKNOWN_BG "black"
-      SharedData_setColor STATUS_UNKNOWN_FG "white"
-      SharedData_setColor STATUS_SHADOW_BG "black"
-      SharedData_setColor STATUS_SHADOW_FG "white"
+      # the key is the status
+      # first color is fg, second color is bg, 3rd is overview box outline
+      SharedData_setColor STATUS_begin "white #016e11 #016e11"
+      SharedData_setColor STATUS_init "black #ececec black"
+      SharedData_setColor STATUS_submit "white #016e11 #016e11"
+      SharedData_setColor STATUS_abort "white #8B1012 #8B1012"
+      SharedData_setColor STATUS_end "white DodgerBlue4 DodgerBlue4"
+      SharedData_setColor STATUS_catchup "white #913b9c #913b9c"
+      SharedData_setColor STATUS_wait "black #e7ce69 #e7ce69"
 
-      SharedData_setColor NORMAL_MSG_FG "black"
-      SharedData_setColor ABORT_MSG_ALTERNATE_BG "black"
+      SharedData_setColor STATUS_SHADOW "white black black"
+      SharedData_setColor STATUS_UNKNOWN "white black black"
    }
 }
 
@@ -119,6 +119,13 @@ proc SharedData_setMsgCenterThreadId { thread_id } {
 
 proc SharedData_init {} {
    SharedData_initColors
+   SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
+   SharedData_setMiscData DEBUG_TRACE 1
+   SharedData_setMiscData DEBUG_LEVEL 5
+
+   SharedData_setMiscData AUTO_MSG_DISPLAY true
+   SharedData_setMiscData STARTUP_DONE false 
+   SharedData_setMiscData OVERVIEW_MODE false
    SharedData_setMiscData MENU_RELIEF flat
-   SharedData_setMiscData IMAGE_DIR /data/bowmore/afsisul/downloads/icons/
+   SharedData_setMiscData IMAGE_DIR /users/dor/afsi/sul/icons
 }

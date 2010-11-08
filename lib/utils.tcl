@@ -1,7 +1,8 @@
 proc DEBUG { output {level 2} } {
-   set debugOn [getGlobalValue "DEBUG_TRACE"]
-   set debugLevel [getGlobalValue "DEBUG_LEVEL"]
-   if { $debugOn && $debugLevel >= $level} {
+   global DEBUG_ON DEBUG_LEVEL
+   #set debugOn [getGlobalValue "DEBUG_TRACE"]
+   #set debugLevel [getGlobalValue "DEBUG_LEVEL"]
+   if { $DEBUG_ON && $DEBUG_LEVEL >= $level} {
       puts "$output"
       flush stdout
    }
@@ -218,8 +219,8 @@ proc Utils_getPaddedValue { value } {
    return ${value}
 }
 
-setGlobalValue SEQ_BIN [Sequencer_getPath]
-setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
-setGlobalValue DEBUG_TRACE 1
-setGlobalValue DEBUG_LEVEL 5
+#setGlobalValue SEQ_BIN [Sequencer_getPath]
+#setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
+#setGlobalValue DEBUG_TRACE 1
+#setGlobalValue DEBUG_LEVEL 5
 

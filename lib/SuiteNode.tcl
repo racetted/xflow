@@ -198,19 +198,17 @@ proc ::SuiteNode::getStatusInfo { suite status } {
 
 # example ::SuiteNode::setStatusInfo $suite begin "20100707000000 20100929 19:05:13"
 proc ::SuiteNode::setStatusInfo { suite status status_info } {
-   puts "::SuiteNode::setStatusInfo $suite $status $status_info"
    array set infoList [$suite cget -status_info]
    set statusInfo ""
    set infoList(${status}) ${status_info}
    if { ${status} == "init" } {
-      set infoList(begin) { "" "" "" }
-      set infoList(end) { "" "" "" }
-      set infoList(abort) { "" "" "" }
+      set infoList(begin) ""
+      set infoList(end) ""
+      set infoList(abort) ""
    } elseif { ${status} == "begin" } {
-      set infoList(end) { "" "" "" }
-      set infoList(abort) { "" "" "" }
+      set infoList(end) ""
+      set infoList(abort) ""
    }
-
    ${suite} configure -status_info [array get infoList]
    ${suite} configure -last_status ${status}
 }
@@ -262,8 +260,18 @@ proc ::SuiteNode::getStartRelativeClockValue { ref_start_time ref_end_time } {
 
 
 proc ::SuiteNode::setLastStatusInfo { suite status datestamp date time } {
-   ::SuiteNode::setStatusInfo ${suite} ${status} "${datestamp} ${date} ${time}"   
-   ${suite} configure -last_status ${status}
+   # if the status is beginx and the suite already has a begin value... I don't
+   # store the begin time.. this means that it is a ripple effect and I don't want
+   # the overview box to be moved to the new time...
+   if { ${status} == "beginx" } {
+      if { [::SuiteNode::getStatusInfo ${suite} begin ] == "" } {
+         ::SuiteNode::setStatusInfo ${suite} begin "${datestamp} ${date} ${time}"   
+      }
+      ${suite} configure -last_status begin
+   } else {
+      ::SuiteNode::setStatusInfo ${suite} ${status} "${datestamp} ${date} ${time}"   
+      ${suite} configure -last_status ${status}
+   }
 }
 
 proc ::SuiteNode::getLastStatus { suite } {
@@ -275,6 +283,14 @@ proc ::SuiteNode::getLastStatusDateTime { suite } {
    set lastStatus [${suite} cget -last_status]
    set statusInfo [::SuiteNode::getStatusInfo ${suite} ${lastStatus}]
    set value [lrange ${statusInfo} 1 2]
+
+   return  ${value}
+}
+
+proc ::SuiteNode::getLastStatusDatestamp { suite } {
+   set lastStatus [${suite} cget -last_status]
+   set statusInfo [::SuiteNode::getStatusInfo ${suite} ${lastStatus}]
+   set value [lindex ${statusInfo} 0]
 
    return  ${value}
 }
