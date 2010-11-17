@@ -84,6 +84,7 @@ proc SharedData_initColors {} {
       SharedData_setColor DEFAULT_HEADER_FG "#FFF8DC"
       SharedData_setColor DEFAULT_ROW_FG "#FFF8DC"
       SharedData_setColor DEFAULT_ROW_BG "#ececec"
+
       SharedData_setColor MSG_CENTER_ABORT_BG "#8B1012"
       SharedData_setColor MSG_CENTER_NORMAL_FG "black"
       SharedData_setColor MSG_CENTER_ALT_BG "black"
@@ -93,7 +94,7 @@ proc SharedData_initColors {} {
       # first color is fg, second color is bg, 3rd is overview box outline
       SharedData_setColor STATUS_begin "white #016e11 #016e11"
       SharedData_setColor STATUS_init "black #ececec black"
-      SharedData_setColor STATUS_submit "white #016e11 #016e11"
+      SharedData_setColor STATUS_submit "white #b8bdc3 #016e11"
       SharedData_setColor STATUS_abort "white #8B1012 #8B1012"
       SharedData_setColor STATUS_end "white DodgerBlue4 DodgerBlue4"
       SharedData_setColor STATUS_catchup "white #913b9c #913b9c"
@@ -119,13 +120,22 @@ proc SharedData_setMsgCenterThreadId { thread_id } {
 
 proc SharedData_init {} {
    SharedData_initColors
+
+   SharedData_setMiscData CANVAS_BOX_WIDTH 90
+   SharedData_setMiscData CANVAS_BOX_HEIGHT 43
+   SharedData_setMiscData CANVAS_PAD_X 30
+   SharedData_setMiscData CANVAS_PAD_Y 15
+   SharedData_setMiscData CANVAS_PAD_TXT_X 4
+   SharedData_setMiscData CANVAS_PAD_TXT_Y 23
+
+   SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
+
    SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData DEBUG_TRACE 1
    SharedData_setMiscData DEBUG_LEVEL 5
-
+   SharedData_setMiscData AUTO_LAUNCH true
    SharedData_setMiscData AUTO_MSG_DISPLAY true
    SharedData_setMiscData STARTUP_DONE false 
    SharedData_setMiscData OVERVIEW_MODE false
    SharedData_setMiscData MENU_RELIEF flat
-   SharedData_setMiscData IMAGE_DIR /users/dor/afsi/sul/icons
 }

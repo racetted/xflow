@@ -1,8 +1,9 @@
 proc LogReader_readFile { suite_record calling_thread_id } {
-
+   global MONITOR_THREAD_ID
    DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id"
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
+   set thisThreadId [thread::id]
 
    # first cancel any other waiting read for this suite
    LogReader_cancelAfter $suite_record
@@ -27,12 +28,15 @@ proc LogReader_readFile { suite_record calling_thread_id } {
          # new log detected, advise main thread of this event
          if { "${isOverviewMode}" == "false" } {
             thread::send -async ${calling_thread_id} \
-            "datestampChanged ${suite_record}"
-         } else {
+            "xflow_datestampChanged ${suite_record}"
+         } elseif { ${thisThreadId} != ${MONITOR_THREAD_ID} } {
             puts "LogReader_readFile reading new log file $logfile"
+            # send event to overview
             set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
             thread::send -async ${overviewThreadId} \
             "Overview_ExpDateStampChanged ${suite_record} ${logfile}"
+            # send event to own xflow
+            thread::send ${thisThreadId} "xflow_datestampChanged ${suite_record}"
          }
          ${suite_record} configure -read_offset 0 -exp_log ${logfile}
          puts "LogReader_readFile reading new log file $logfile"
@@ -57,7 +61,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       seek $f_logfile $logFileOffset
       
       while {[gets $f_logfile line] >= 0} {   
-         if { ${isOverviewMode} == "true" } {
+         if { ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
             LogReader_processOverviewLine $calling_thread_id $suite_record $line
          }
          LogReader_processLine $calling_thread_id $suite_record $line
@@ -65,7 +69,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       
       # Need to notify the main thread that this child is done reading
       # the log file for initialization
-      if { ${isStartupDone}== "false" && ${isOverviewMode} == "true" } {
+      if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
             thread::send -async ${calling_thread_id} \
                "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id}"
       }

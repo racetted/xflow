@@ -40,8 +40,8 @@ proc bindMouseWheel { widget } {
 proc normalCursor { w } {
    if { [winfo exists $w] } {
       catch {
-         $w configure -cursor arrow
-         #blt::busy forget $w
+         # $w configure -cursor arrow
+         $w configure -cursor ""
          update idletasks
       }
    }
@@ -52,21 +52,6 @@ proc busyCursor { w } {
       $w configure -cursor watch
       #blt::busy hold $w
       update idletasks
-   }
-}
-
-proc isBusy { w } {
-   if [
-      catch {
-         if { [winfo exists $w] } {
-            if { [blt::busy status $w] == 1 } {
-               return 1
-            } else {
-               return 0
-            }
-         }
-      } ] {
-      return 0
    }
 }
 

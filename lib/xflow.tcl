@@ -37,32 +37,8 @@ proc setTkOptions {} {
    option add *activeBackground [SharedData_getColor ACTIVE_BG]
    option add *selectBackground [SharedData_getColor SELECT_BG]
 
-   ttk::style configure Xflow.Menu -background cornsilk4
+   # ttk::style configure Xflow.Menu -background cornsilk4
 }
-
-proc setHostInfos {} {
-   global HOST_INFO
-
-   array set HOST_INFO { castor cornflowerblue \
-                         dorval-ib cyan4 \
-                         maia IndianRed2 }
-}
-
-proc getHostInfo { host_name  } {
-   global HOST_INFO
-   global counter
-   set colors {cornflowerblue cyan4 IndianRed2}
-   if { ! [info exists counter] } {
-      set counter 0
-   }
-
-   incr counter
-   if { [expr $counter == 3] } {
-      set counter 0
-   }
-   return [lindex $colors $counter]
-}
-
 
 proc addFileMenu { parent } {
    if { $parent == "." } {
@@ -88,7 +64,6 @@ proc addViewMenu { parent } {
    set menuButtonW ${parent}.viewb
    set menuW $menuButtonW.menu
 
-   #ttk::menubutton $menuButtonW -text View -underline 0 -menu $menuW -relief raised
    menubutton $menuButtonW -text View -underline 0 -menu $menuW \
       -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
@@ -129,7 +104,7 @@ proc addViewMenu { parent } {
 
 proc xflow_setAutoMsgDisplay {} {
    global AUTO_MSG_DISPLAY
-   DEBUG "xflow_setAutoMsgDisplay new value: ${AUTO_MSG_DISPLAY}" 5
+   DEBUG "xflow_setAutoMsgDisplay AUTO_MSG_DISPLAY new value: ${AUTO_MSG_DISPLAY}" 5
    SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
 }
 
@@ -162,6 +137,7 @@ proc xflow_testAddCanvasBg { canvas height width } {
    ${canvas} delete ${imageTagName}
    ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags ${imageTagName}
    ${canvas} lower ${imageTagName}
+   puts "xflow_testAddCanvasBg ${canvas} done"
 }
 
 proc xflow_createToolbar { parent } {
@@ -220,17 +196,13 @@ proc addDatestampWidget { parent } {
       set parent ""
    }
 
-   #ttk::label $parent.dt_label -text "Datestamp:"
-   #set dtFrame [ ttk::labelframe $parent.dt -text "Exp Datestamp (yyyymmddhh)" ]
    set dtFrame [ labelframe $parent.dt -text "Exp Datestamp (yyyymmddhh)" ]
    bind $dtFrame <Double-Button-1> [list viewHideDateButtons . .date .date_hidden "" ]
    tooltip::tooltip $dtFrame "Double-click to hide"
 
-   #set dateEntry [ttk::entry $dtFrame.entry -width 11 ]
    set dateEntry [entry $dtFrame.entry -width 11 ]
    tooltip::tooltip $dateEntry "Enter a value then set the experiment datestamp."
 
-   #set buttonFrame [ttk::frame ${dtFrame}.button_frame]
    set buttonFrame [frame ${dtFrame}.button_frame]
    set imageDir [SharedData_getMiscData IMAGE_DIR]
    image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.ppm
@@ -249,30 +221,6 @@ proc addDatestampWidget { parent } {
    pack $buttonFrame -pady 2 -side left
    pack $dtFrame -side left -pady 2 -padx 2 -fill x -expand 1
 
-   proc out {} {
-   set imageDir [SharedData_getMiscData IMAGE_DIR]
-   image create photo ${dtFrame}.set_image -file ${imageDir}/ok.ppm
-   image create photo ${dtFrame}.refresh_image -file ${imageDir}/refresh.ppm
-
-   #set setButton [ttk::button $dtFrame.set_button -text Set \
-   #   -command [list setDateStamp $parent]]
-   set setButton [button $dtFrame.set_button -image ${dtFrame}.set_image \
-      -command [list setDateStamp $parent]]
-
-   #set refreshButton [ttk::button $dtFrame.refresh_button -text Refresh \
-   #   -command [list getDateStamp $parent]]
-   set refreshButton [button $dtFrame.refresh_button -image ${dtFrame}.refresh_image \
-      -command [list getDateStamp $parent]]
-
-   tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
-   pack $dtFrame -side left -pady 2 -padx 2 -fill x
-   tooltip::tooltip $dtFrame "Enter a value then set the experiment datestamp."
-
-   #pack $dateEntry $setButton $refreshButton -side left -pady 2 -padx 2
-   pack $dateEntry -side left -pady 2 -padx {5 2}
-   pack $setButton -side right -pady 2 -padx { 2 5 }
-   pack $refreshButton -side right -pady 2
-   }
 }
 
 proc logsMonitorChanged { parent_w } {
@@ -293,8 +241,8 @@ proc logsMonitorChanged { parent_w } {
    set topNode "/[$suiteRecord cget -suite_name]"
    $suiteRecord configure -active_log ""
    $setButton configure -state $status
-   $monitorEntryCombo configure -state $status
-   $monitorEntryCombo set latest
+   ${monitorEntryCombo} configure -state $status
+   ${monitorEntryCombo} set latest
 
    set top [winfo toplevel $parent_w]
    busyCursor $top
@@ -321,16 +269,13 @@ proc addMonitorDateWidget { parent } {
       set parent ""
    }
 
-   #set monitorFrame [ ttk::labelframe $parent.monitor_frame -text "Monitoring Datestamp (yyyymmddhh)" ]
    set monitorFrame [ labelframe $parent.monitor_frame -text "Monitoring Datestamp (yyyymmddhh)" ]
    set monitorEntryCombo ${monitorFrame}.entry_combo
    bind $monitorFrame <Double-Button-1> [list viewHideDateButtons . .date .date_hidden "" ]
    tooltip::tooltip $monitorFrame "Double-click to hide"
 
    ttk::combobox ${monitorFrame}.entry_combo
-   #combobox ${monitorFrame}.entry_combo
 
-   #set buttonFrame [ttk::frame ${monitorFrame}.button_frame]
    set buttonFrame [frame ${monitorFrame}.button_frame]
    set imageDir [SharedData_getMiscData IMAGE_DIR]
    image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.ppm
@@ -344,25 +289,12 @@ proc addMonitorDateWidget { parent } {
       -command [list populateMonitorDate $parent]]
    tooltip::tooltip $refreshButton "Refresh the datestamp list."
 
-   #set setButton [button $monitorFrame.set_button -text Set \
-   #   -command [list setMonitorDate $parent] ]
-
-   #set refreshButton [button $monitorFrame.refresh_button -text Refresh \
-   #   -command [list populateMonitorDate $parent ] ]
-
-   #tooltip::tooltip $setButton "Sets the datestamp value being displayed in the flow."
-   #tooltip::tooltip $refreshButton "Refresh the datestamp list."
-   #pack $monitorFrame -side left -pady 2 -padx 2 -fill x
-   #tooltip::tooltip $monitorFrame "Select value of the date being displayed in the flow."
-   #pack $monitorEntryCombo $setButton $refreshButton  -side left -pady 2 -padx 2
-
    pack $setButton $refreshButton -side left -pady 2 -padx 5
-   pack $monitorEntryCombo -side left -pady 2 -padx 2 -fill x
+   pack ${monitorEntryCombo} -side left -pady 2 -padx 2 -fill x
    pack $buttonFrame -pady 2 -side left
    pack $monitorFrame -side left -pady 2 -padx 2 -fill x -expand 1
-   #tooltip::tooltip $monitorFrame "Select value of the date being displayed in the flow."
 
-   tooltip::tooltip $monitorEntryCombo "Select value of the date being displayed in the flow."
+   tooltip::tooltip ${monitorEntryCombo} "Select value of the date being displayed in the flow."
 
 }
 
@@ -384,10 +316,8 @@ proc viewHideDateButtons { parent currentFrame replacementFrame height } {
    if { $height != "" } {
        $replacementFrame configure -height $height
        grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
-       #grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew
    } else {
       grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
-      #grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew
    }
 }
 
@@ -415,18 +345,6 @@ proc addListButtonsWidget { monitorFrame } {
    set abortListerButton [button $monitorFrame.abortlist_button -image ${imageNodeAbortList} -text "Nodelister ( abort )" \
       -command [list nodeListDisplay $monitorFrame abort ] ]
    tooltip::tooltip $abortListerButton "Open abort node listing dialog -- future feature."
-
-   proc out {} {
-   set killButton [ttk::button $monitorFrame.kill_button -text "Nodekill" \
-      -command [list nodeKillDisplay $monitorFrame ] ]
-   tooltip::tooltip $killButton "Open job killing dialog"
-   set listerButton [ttk::button $monitorFrame.list_button -text "Nodelister ( success )" \
-      -command [list nodeListDisplay $monitorFrame success ] ]
-   tooltip::tooltip $listerButton "Open succesfull node listing dialog -- future feature."
-   set abortListerButton [ttk::button $monitorFrame.abortlist_button -text "Nodelister ( abort )" \
-      -command [list nodeListDisplay $monitorFrame abort ] ]
-   tooltip::tooltip $abortListerButton "Open abort node listing dialog -- future feature."
-   }
 
    $abortListerButton configure -state disabled
    $listerButton configure -state disabled
@@ -472,15 +390,11 @@ proc nodeKillDisplay { parent_w } {
    scrollbar $soloWindow.yscroll -command "$soloWindow.list yview"  -bg $bgColor
    scrollbar $soloWindow.xscroll -command "$soloWindow.list xview" -orient horizontal -bg $bgColor
 
-   #set cancelButton [ttk::button $soloWindow.cancel_button -text "Cancel" \
-   #   -command [list destroy $soloWindow ]]
    set cancelButton [button $soloWindow.cancel_button -text "Cancel" \
       -command [list destroy $soloWindow ]]
    tooltip::tooltip $cancelButton "Close this window"
    pack $cancelButton -side right -padx 4 -pady 2
 
-   #set killButton [ttk::button $soloWindow.kill_button -text "Kill Selected Jobs" \
-   #   -command [list killNode $soloWindow.list ]]
    set killButton [button $soloWindow.kill_button -text "Kill Selected Jobs" \
       -command [list killNode $soloWindow.list ]]
    tooltip::tooltip $killButton "Send kill signals to selected job_ID"
@@ -517,66 +431,66 @@ proc killNode { list_widget } {
 
    for {set iterator 0} {$iterator < $numOfEntries} {incr iterator} {
       set listEntryValue [ split [ lindex $listOfNodes $iterator ] " " ]
-      set jobPath [string range [lindex $listEntryValue 9] [string length $suitePath/sequencing/jobinfo] end]
-      #set splitPath [split $jobPath /]
-      #set nodeID [lindex $splitPath [ expr [ llength $splitPath ] -1 ] ]
+      set jobPath [string range [lindex $listEntryValue 8] [string length $suitePath/sequencing/jobinfo] end]
       set nodeID [file tail ${jobPath}]
       set node [file dirname ${jobPath}]/[lindex $listEntryValue end]
-      DEBUG "killNode node:$node nodeID:$nodeID" 5
-      #set node [string range $jobPath 0 [expr [string length $jobPath] - [string length $nodeID] -1 ] ][lindex $listEntryValue 11 ]
-    ##  set seqNode  [::FlowNodes::getSequencerNode $node]
-     Sequencer_runCommand $suitePath $seqExec "Node Kill [file tail $node]" -n $node -job_id $nodeID
+      Sequencer_runCommand $suitePath $seqExec "Node Kill [file tail $node]" -n $node -job_id $nodeID
    }
 
 }
 
 proc getMonitorDate { parent_w { suite_record "" } } {
-   global MONITOR_DATESTAMP
-   if { $suite_record == "" } {
+   global MONITOR_DATESTAMP MONITORING_LATEST
+   if { ${suite_record} == "" } {
       set suite_record [getActiveSuite]
    }
-   set suitePath [$suite_record cget -suite_path]
+   set suitePath [${suite_record} cget -suite_path]
    set dateList [LogReader_getAvailableDates $suitePath]
 
    set monitorFrame .date.monitor_frame
    set monitorEntryCombo ${monitorFrame}.entry_combo
-   #set setButton ${monitorFrame}.set_button
    set setButton ${monitorFrame}.button_frame.set_button
    
    # flush the current list
-   $monitorEntryCombo configure -values ""
+   ${monitorEntryCombo} configure -values ""
    set values ""
-   foreach date $dateList {
+   foreach date ${dateList} {
       set values "$values [string range $date 0 9]"
    }
-   $monitorEntryCombo configure -values $values
-
-   if { [$suite_record cget -active_log] == "" } {
-      $monitorEntryCombo configure -state disabled
-      $setButton configure -state disabled
-      $monitorEntryCombo set latest
+   ${monitorEntryCombo} configure -values $values
+   puts "getMonitorDate MONITOR_DATESTAMP:$MONITOR_DATESTAMP -active_log? [${suite_record} cget -active_log]"
+   if { ${MONITORING_LATEST} == 0 && ${MONITOR_DATESTAMP} != "" } {
+      ${suite_record} configure -active_log ${MONITOR_DATESTAMP} -read_offset 0
+      ${monitorEntryCombo} set ${MONITOR_DATESTAMP}
    } else {
-      $monitorEntryCombo set [string range [$suite_record cget -active_log] 0 9]
-      set MONITOR_DATESTAMP [$suite_record cget -active_log]
+      if { [${suite_record} cget -active_log] == "" } {
+         ${monitorEntryCombo} configure -state disabled
+         ${setButton} configure -state disabled
+         ${monitorEntryCombo} set latest
+      } else {
+         ${monitorEntryCombo} set [string range [${suite_record} cget -active_log] 0 9]
+         set MONITOR_DATESTAMP [${suite_record} cget -active_log]
+      }
    }
+   puts "getMonitorDate 2 MONITOR_DATESTAMP:$MONITOR_DATESTAMP"
 }
 
 proc populateMonitorDate { parent_w {suite_record ""} } {
-   if { $suite_record == "" } {
+   if { ${suite_record} == "" } {
       set suite_record [getActiveSuite]
    }
-   set suitePath [$suite_record cget -suite_path]
+   set suitePath [${suite_record} cget -suite_path]
    set dateList [LogReader_getAvailableDates $suitePath]
    set monitorFrame .date.monitor_frame
    set monitorEntryCombo ${monitorFrame}.entry_combo
    
    # flush the current list
-   $monitorEntryCombo configure -values ""
+   ${monitorEntryCombo} configure -values ""
    set values ""
    foreach date $dateList {
       set values "$values [string range $date 0 9]"
    }
-   $monitorEntryCombo configure -values $values
+   ${monitorEntryCombo} configure -values $values
 }
 
 proc setMonitorDate { parent_w } {
@@ -605,22 +519,31 @@ proc setMonitorDate { parent_w } {
          DEBUG "setMonitorDate ${dateValue}0000" 5
          set MONITOR_DATESTAMP ${dateValue}0000
          proc out {} {
-         $suiteRecord configure -read_offset 0 -active_log ${dateValue}0000
-         set topNode "/${suiteName}"
-         ::FlowNodes::resetNodeStatus $topNode
-         selectSuiteTab [getTabsParentW] $suiteRecord
+            $suiteRecord configure -read_offset 0 -active_log ${dateValue}0000
+            set topNode "/${suiteName}"
+            ::FlowNodes::resetNodeStatus $topNode
+            selectSuiteTab [getTabsParentW] $suiteRecord
+            set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+            if { ${isOverviewMode} == "true" } {
+               set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+               LogReader_readFile $suiteRecord ${overviewThreadId}
+            } else {
+               LogReader_readFile $suiteRecord [thread::id]
+            }
+         }
          set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
          if { ${isOverviewMode} == "true" } {
-            set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-            LogReader_readFile $suiteRecord ${overviewThreadId}
+            set monitorThreadId [xflow_getMonitoredThread]
+            #thread::send -async ${monitorThreadId} \
+            #   "xflowThread_monitorNewDate ${MONITOR_DATESTAMP}"
+            thread::send ${monitorThreadId} "xflowThread_monitorNewDate ${MONITOR_DATESTAMP}"
          } else {
+            $suiteRecord configure -read_offset 0 -active_log ${MONITOR_DATESTAMP}
+            set topNode "/${suiteName}"
+            ::FlowNodes::resetNodeStatus $topNode
+            selectSuiteTab [getTabsParentW] $suiteRecord
             LogReader_readFile $suiteRecord [thread::id]
          }
-         }
-
-         set monitorThreadId [xflow_getMonitoredThread]
-         thread::send -async ${monitorThreadId} \
-            "xflowThread_monitorNewDate ${MONITOR_DATESTAMP}"
 
       }
    }
@@ -632,21 +555,22 @@ proc newMonitorDate { suite_record datestamp } {
 }
 
 proc xflow_getMonitoredThread {} {
-   global MONITORED_THREAD_ID
-   if { ! [info exists MONITORED_THREAD_ID] || ${MONITORED_THREAD_ID} == "" } {
+   global MONITOR_THREAD_ID
+   if { ${MONITOR_THREAD_ID} == "" } {
       DEBUG "xflow_getMonitoredThread Creating new thread..." 5
-      set MONITORED_THREAD_ID [thread::create {
-         global env this_id
+      set MONITOR_THREAD_ID [thread::create {
+         global env
          set lib_dir $env(SEQ_XFLOW_BIN)/../lib
          set auto_path [linsert $auto_path 0 $lib_dir ]
 
-         set this_id [thread::id]
          proc xflowThread_monitorNewDate { datestamp } {
-            global MAIN MONITORING_LATEST
-            set MAIN 1
+            global XFLOW_STANDALONE MONITORING_LATEST MONITOR_DATESTAMP MONITOR_THREAD_ID
+            xflow_init
+            set XFLOW_STANDALONE 1
             set MONITORING_LATEST 0
             set MONITOR_DATESTAMP ${datestamp}
-            xflow_init
+            set MONITOR_THREAD_ID [thread::id]
+            DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} overview_mode? [SharedData_getMiscData OVERVIEW_MODE]" 5
             launchXflow [thread::id]
          }
 
@@ -655,16 +579,16 @@ proc xflow_getMonitoredThread {} {
       }]
    }
 
-   DEBUG "xflow_getMonitoredThread returning id: ${MONITORED_THREAD_ID}" 5
-   return ${MONITORED_THREAD_ID}
+   DEBUG "xflow_getMonitoredThread returning id: ${MONITOR_THREAD_ID}" 5
+   return ${MONITOR_THREAD_ID}
 }
 
 proc getDateStamp { parent_w {suite_record ""} } {
-   global MONITOR_DATESTAMP
-   if { $suite_record == "" } {
+   global MONITOR_DATESTAMP MONITORING_LATEST
+   if { ${suite_record} == "" } {
       set suite_record [getActiveSuite]
    }
-   set dateStamp [retrieveDateStamp $parent_w $suite_record]
+   set dateStamp [retrieveDateStamp $parent_w ${suite_record}]
    set shortDatestamp [string range $dateStamp 0 9]
    if { [winfo toplevel $parent_w]  == "." } {
       set dateEntry .date.dt.entry
@@ -672,7 +596,9 @@ proc getDateStamp { parent_w {suite_record ""} } {
    $dateEntry delete 0 end
    $dateEntry insert 0 $shortDatestamp
 
-   set MONITOR_DATESTAMP $dateStamp
+   if { ${MONITORING_LATEST} == 1 } {
+      set MONITOR_DATESTAMP $dateStamp
+   }
 
    DEBUG "getDateStamp dateStamp:$shortDatestamp" 5
 }
@@ -680,7 +606,7 @@ proc getDateStamp { parent_w {suite_record ""} } {
 proc retrieveDateStamp { parent_w suite_record } {
 
    set dateExec "[getGlobalValue SEQ_BIN]/tictac"
-   set suitePath [$suite_record cget -suite_path]
+   set suitePath [${suite_record} cget -suite_path]
    set cmd "export SEQ_EXP_HOME=$suitePath;$dateExec -f '%Y%M%D%H%Min%S'"
    set dateStamp ""
    if [ catch { set dateStamp [exec ksh -c $cmd] } message ] {
@@ -765,16 +691,6 @@ proc initGlobals {} {
    set MONITORING_LATEST 1
 }
 
-proc out {} {
-   $labelMenu add radiobutton -label "normal" -variable NODE_DISPLAY_PREF -value 1
-   $labelMenu add radiobutton -label "catchup" -variable NODE_DISPLAY_PREF -value 2
-   $labelMenu add radiobutton -label "cpu" -variable NODE_DISPLAY_PREF -value 3
-   $labelMenu add radiobutton -label "machine_queue" -variable NODE_DISPLAY_PREF -value 4
-   $labelMenu add radiobutton -label "memory" -variable NODE_DISPLAY_PREF -value 5
-   $labelMenu add radiobutton -label "mpi" -variable NODE_DISPLAY_PREF -value 6
-   $labelMenu add radiobutton -label "wallclock" -variable NODE_DISPLAY_PREF -value 7
-}
-
 proc getNodeDisplayPrefText { node } {
    set text ""
    if { [$node cget -flow.type] == "task" || [$node cget -flow.type] == "npass_task"  } {
@@ -828,11 +744,11 @@ proc xflow_findNode { suite_record real_node } {
 # parent_node is the previous_node in the flow that is submitting this node
 proc drawNode { canvas node parent_node position run_catchup {callback test} } {
    DEBUG "drawNode drawing sub node:$node parent_node:$parent_node position:$position" 5
-   set boxW [getGlobalValue CANVAS_BOX_WIDTH]
-   set boxH [getGlobalValue CANVAS_BOX_HEIGHT]
-   set pady [getGlobalValue CANVAS_PAD_Y]
-   set padTx [getGlobalValue CANVAS_PAD_TXT_X]
-   set padTy [getGlobalValue CANVAS_PAD_TXT_Y]
+   set boxW [SharedData_getMiscData CANVAS_BOX_WIDTH]
+   set boxH [SharedData_getMiscData CANVAS_BOX_HEIGHT]
+   set pady [SharedData_getMiscData CANVAS_PAD_Y]
+   set padTx [SharedData_getMiscData CANVAS_PAD_TXT_X]
+   set padTy [SharedData_getMiscData CANVAS_PAD_TXT_Y]
    set shadowColor [SharedData_getColor SHADOW_COLOR]
    set drawshadow on
 
@@ -1069,7 +985,7 @@ proc newWindowCallback { node canvas caller_menu } {
 
    set formattedName [::SuiteNode::formatName [$suiteRecord cget -suite_path]]
    set drawFrame ${topWidget}.${formattedName}
-   #ttk::frame $drawFrame
+
    frame $drawFrame
    set newCanvas [createFlowCanvas $drawFrame]
    grid $drawFrame -sticky nsew
@@ -1253,15 +1169,11 @@ proc killNodeFromDropdown { node canvas caller_menu } {
    scrollbar $soloWindow.yscroll -command "$soloWindow.list yview"  -bg $bgColor
    scrollbar $soloWindow.xscroll -command "$soloWindow.list xview" -orient horizontal -bg $bgColor
 
-   #set cancelButton [ttk::button $soloWindow.cancel_button -text "Cancel" \
-   #   -command [list destroy $soloWindow ]]
    set cancelButton [button $soloWindow.cancel_button -text "Cancel" \
       -command [list destroy $soloWindow ]]
    tooltip::tooltip $cancelButton "Close this window"
    pack $cancelButton -side right
 
-   #set killButton [ttk::button $soloWindow.kill_button -text "Kill Selected Jobs" \
-   #   -command [list killNode $soloWindow.list ]]
    set killButton [button $soloWindow.kill_button -text "Kill Selected Jobs" \
       -command [list killNode $soloWindow.list ]]
    tooltip::tooltip $killButton "Send kill signals to selected job_ID"
@@ -1488,7 +1400,7 @@ proc showAllListingItem { suite_record listw list_type} {
    DEBUG "showAllListingItem selection: [$listw curselection]" 5
    set selectedIndexes [$listw curselection]
    set listingExec [getGlobalValue SEQ_UTILS_BIN]/nodelister
-   set suitePath [$suite_record cget -suite_path]
+   set suitePath [${suite_record} cget -suite_path]
 
    foreach selectIndex $selectedIndexes {
       set selectedValue [$listw get $selectIndex]
@@ -1606,7 +1518,7 @@ proc changeCollapsed { canvas binder x y } {
 }
 
 proc redrawAllFlow { suite_record } {
-   set canvasList [::SuiteNode::getCanvasList $suite_record]
+   set canvasList [::SuiteNode::getCanvasList ${suite_record}]
    foreach canvasW $canvasList {
       drawflow $canvasW 0
    }
@@ -1659,7 +1571,6 @@ proc createTabs { parent suiteList bind_cmd {page_h 1} {page_w 1}} {
    foreach suitePath $suiteList {
       set suiteName [file tail $suitePath]
       set drawFrame $parent.[::SuiteNode::formatName $suitePath]
-      #ttk::frame $drawFrame  
       frame $drawFrame
 
       grid columnconfigure $parent 0 -weight 1
@@ -1715,19 +1626,18 @@ proc getNodeResources { node suite_path {is_recursive 0} } {
 }
 
 proc selectSuiteTab { parent suite_record } {
-   global MONITOR_DATESTAMP
 
-   DEBUG "selectSuiteTab parent:$parent suite_record:$suite_record"
+   DEBUG "selectSuiteTab parent:$parent suite_record:${suite_record}"
 
-   set title "xflow experiment path = [$suite_record cget -suite_path]"
+   set title "xflow experiment path = [${suite_record} cget -suite_path]"
    wm title . $title
 
-   setActiveSuite $suite_record
-   set formattedName [::SuiteNode::formatName [$suite_record cget -suite_path]]
+   setActiveSuite ${suite_record}
+   set formattedName [::SuiteNode::formatName [${suite_record} cget -suite_path]]
    set drawFrame ${parent}.${formattedName}
    set canvas [createFlowCanvas $drawFrame]
-   getDateStamp $parent $suite_record
-   getMonitorDate $parent $suite_record
+   getDateStamp $parent ${suite_record}
+   getMonitorDate $parent ${suite_record}
 
    catch {
       drawflow $canvas
@@ -1746,15 +1656,11 @@ proc createFlowCanvas { parent } {
       set canvas ${drawFrame}.canvas
 
       if { [winfo exists ${drawFrame}.yscroll] == 0 } {
-         #ttk::frame ${drawFrame}.xframe
          frame ${drawFrame}.xframe
       
-         #ttk::scrollbar ${drawFrame}.yscroll -command [list $canvas yview ]
          scrollbar ${drawFrame}.yscroll -command [list $canvas yview ]
-         #ttk::scrollbar ${drawFrame}.xscroll -orient horizontal -command [list $canvas xview]
          scrollbar ${drawFrame}.xscroll -orient horizontal -command [list $canvas xview]
          set pad 12
-         #ttk::frame ${drawFrame}.pad -width $pad -height $pad
          frame ${drawFrame}.pad -width $pad -height $pad
    
          grid ${drawFrame}.xframe -row 2 -column 0 -columnspan 2 -sticky ewns
@@ -1838,21 +1744,20 @@ proc listToString { inputList } {
 }
 
 proc quitXflow {} {
-   global MAIN
+   global XFLOW_STANDALONE MONITOR_THREAD_ID
 
    DEBUG "exiting Xflow ..." 5
    set suiteRecord [getActiveSuite]
+   set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
 
-   if { $MAIN == 0 } {
+   if { ${isOverviewMode} == "true" } {
+      # we are in overview mode
       set childWidgets [winfo children .]
       foreach childW ${childWidgets} {
          destroy ${childW}
       }
-      if { [getGlobalValue CALLING_THREAD_ID] != [thread::id] } {
-         # we are in overview mode
-            thread::send -async [getGlobalValue CALLING_THREAD_ID] \
-            "Overview_childQuit $suiteRecord [thread::id]"
-      }
+      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+      thread::send -async ${overviewThreadId} "Overview_childQuit ${suiteRecord} [thread::id]"
       wm withdraw .
    } else {
       LogReader_cancelAfter $suiteRecord
@@ -1895,22 +1800,11 @@ proc xflow_newMessageCallback { has_new_msg } {
 }
 
 proc launchXflow { calling_thread_id } {
-   global env MAIN
+   global env XFLOW_STANDALONE
 
    set topFrame .top
    if { ! [winfo exists ${topFrame}] } { 
       DEBUG "launchXflow ${calling_thread_id}" 5
-      setGlobalValue CALLING_THREAD_ID ${calling_thread_id}   
-      setGlobalValue CANVAS_BOX_WIDTH 90
-      setGlobalValue CANVAS_BOX_HEIGHT 43
-      setGlobalValue CANVAS_PAD_X 30
-      setGlobalValue CANVAS_PAD_Y 15
-      setGlobalValue CANVAS_PAD_TXT_X 4
-      setGlobalValue CANVAS_PAD_TXT_Y 23
-      
-      setErrorMessages
-      
-      set count 0
       
       set suiteList {}
       set suitesFile $env(HOME)/.suites/.xflow.suites.xml
@@ -1929,14 +1823,7 @@ proc launchXflow { calling_thread_id } {
    
       wm iconify .
       
-      setTkOptions
-      initGlobals
-      setHostInfos
-      keynav::enableMnemonics .
-      
       # .top is the first widget
-      #ttk::frame $topFrame -style Xflow.Menu
-      #ttk::frame $topFrame
       frame $topFrame
       addFileMenu $topFrame
       addViewMenu $topFrame
@@ -1944,7 +1831,6 @@ proc launchXflow { calling_thread_id } {
       grid $topFrame -row 0 -column 0 -sticky w -padx 2
 
       set toolbarFrame .toolbar
-      #ttk::frame ${toolbarFrame}
       frame ${toolbarFrame}
       xflow_createToolbar ${toolbarFrame}
       grid ${toolbarFrame} -row 1 -column 0 -sticky w -padx 2
@@ -1952,10 +1838,8 @@ proc launchXflow { calling_thread_id } {
       # date bar is the 2nd widget
       set dateFrame .date
       set dateFrameHidden .date_hidden
-      #ttk::frame $dateFrame
       frame $dateFrame
       tooltip::tooltip $dateFrame "Double-click to hide"
-      #ttk::labelframe $dateFrameHidden -text "Hidden Date Controls"
       labelframe $dateFrameHidden -text "Hidden Date Controls"
       tooltip::tooltip $dateFrameHidden "Double-click to expand"
       addDatestampWidget $dateFrame
@@ -1964,30 +1848,18 @@ proc launchXflow { calling_thread_id } {
       bind $dateFrame <Double-Button-1> [list viewHideDateButtons . $dateFrame $dateFrameHidden 20 ]
       bind $dateFrameHidden <Double-Button-1> [list viewHideDateButtons . $dateFrameHidden $dateFrame "" ]
       grid $dateFrame -row 2 -column 0 -sticky nsew -padx 0 -pady 0 -columnspan 2
-      #grid $dateFrame -row 2 -column 0 -padx 0 -pady 0 -columnspan 2
 
       # start in hidden mode
       viewHideDateButtons . $dateFrame $dateFrameHidden 20
    
       #add list buttons
       set openListButtonsFrame .list_buttons
-      set hiddenListButtonsFrame .list_buttons_hidden
-      #ttk::labelframe $openListButtonsFrame  -text "Listing buttons"
+      #set hiddenListButtonsFrame .list_buttons_hidden
       labelframe $openListButtonsFrame  -text "Listing buttons"
       tooltip::tooltip $openListButtonsFrame "Double-click to hide"
-      #ttk::labelframe $hiddenListButtonsFrame  -text "Hidden Listing buttons"
-      #tooltip::tooltip $hiddenListButtonsFrame "Double-click to expand"
-      # addListButtonsWidget $openListButtonsFrame
-      # bind $openListButtonsFrame <Double-Button-1> [list viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20 ]
-      # bind $hiddenListButtonsFrame <Double-Button-1> [list viewHideListButtons . $hiddenListButtonsFrame $openListButtonsFrame "" ]
-      # grid $openListButtonsFrame -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
-      
-      # start in hidden mode
-      # viewHideListButtons . $openListButtonsFrame $hiddenListButtonsFrame 20
    
       # .tabs is the 3nd widget
       set tabFrame .tabs
-      #ttk::frame .tabs
       frame .tabs
       createTabs .tabs $suiteList "selectSuiteCallback"
       
@@ -2008,7 +1880,7 @@ proc launchXflow { calling_thread_id } {
       set suiteRecordList [record show instances SuiteInfo]
       DEBUG "suiteRecordList :$suiteRecordList"
 
-      if { ${MAIN} == "1" } {
+      if { ${XFLOW_STANDALONE} == "1" } {
          LogReader_readFile $activeSuiteRecord $calling_thread_id
       }
       selectSuiteTab .tabs $activeSuiteRecord 
@@ -2048,10 +1920,11 @@ proc Console_insertMessage { msg } {
 }
 
 proc parseCmdOptions {} {
-   global argv MAIN
+   global argv XFLOW_STANDALONE AUTO_MSG_DISPLAY
    if { [info exists argv] } {
       set options {
          {main ""}
+         {noautomsg ""}
       }
       
       set usage "\[options] \noptions:"
@@ -2059,51 +1932,69 @@ proc parseCmdOptions {} {
          puts "\n$message"
          exit 1
       }
-      set MAIN 0
+      set XFLOW_STANDALONE 0
       if { $params(main) } {
-         set MAIN 1
+         set XFLOW_STANDALONE 1
+      }
+      set AUTO_MSG_DISPLAY true
+      if { $params(noautomsg) } {
+         set AUTO_MSG_DISPLAY false
       }
    } else {
-      set MAIN 0
+      set XFLOW_STANDALONE 0
    }
 }
 
-proc datestampChanged { suite_record } {
+proc xflow_datestampChanged { suite_record } {
    set dateFrame .date
-   getDateStamp $dateFrame $suite_record
+   if { [winfo exists $dateFrame] } {
+      getDateStamp $dateFrame ${suite_record}
+   }
 }
 
 proc xflow_init {} {
-   global DEBUG_ON DEBUG_LEVEL
-   global MSG_CENTER_THREAD_ID
+   global env DEBUG_ON DEBUG_LEVEL
+   global NODE_DISPLAY_PREF AUTO_MSG_DISPLAY
+   global SHADOW_STATUS MONITORING_LATEST
+   global MSG_CENTER_THREAD_ID MONITOR_THREAD_ID
 
-   wm protocol . WM_DELETE_WINDOW quitXflow
+   set MONITOR_THREAD_ID ""
+   set NODE_DISPLAY_PREF 1
+   set SHADOW_STATUS 0
+   set MONITORING_LATEST 1
 
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
+   SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
 
    set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
    set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
    set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
+   SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
+   if { ! [info exists AUTO_MSG_DISPLAY] } {
+      set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
+   } else {
+      puts "xflow_init SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}"
+      SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
+   }
+
+   setErrorMessages
+
+   setTkOptions
+
+   # initGlobals
+
+   keynav::enableMnemonics .
+   wm protocol . WM_DELETE_WINDOW quitXflow
 }
-global MAIN
+
+global XFLOW_STANDALONE
 
 parseCmdOptions
-puts "xflow MAIN:$MAIN"
-if { $MAIN == 1 } {
-   #global DEBUG_ON DEBUG_LEVEL
-   global MAIN MSG_CENTER_THREAD_ID AUTO_MSG_DISPLAY
+if { ${XFLOW_STANDALONE} == 1 } {
 
    SharedData_init
-   set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
-   #SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
-   #SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
-
-   #set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
-   #set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
-   #set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
    xflow_init
    launchXflow [thread::id]
    SharedData_setMiscData STARTUP_DONE true
-   SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 }

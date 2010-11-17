@@ -340,7 +340,8 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
 }
 
 proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
-   global MSG_ALARM_ON MSG_ALARM_ID
+   global MSG_ALARM_ON MSG_ALARM_ID MSG_BELL_TRIGGER
+   global MSG_ALARM_COUNTER
 
    set autoMsgDisplay [SharedData_getMiscData AUTO_MSG_DISPLAY]
 
@@ -349,6 +350,8 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
    set raiseAlarm false
 
+   incr MSG_ALARM_COUNTER
+   DEBUG "MsgCengter_processAlarm MSG_ALARM_COUNTER:${MSG_ALARM_COUNTER} MSG_BELL_TRIGGER:${MSG_BELL_TRIGGER}" 5
    # only raise alarm if no other alarm already exists
    if { ${MSG_ALARM_ON} == "true"} {
       if { ${repeat_alarm} == "true" } {
@@ -363,7 +366,9 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    if { ${autoMsgDisplay} == "true" } {
       if { ${raiseAlarm} == "true" } {
          MsgCenter_setHeaderStatus ${table_w_} alarm
-         # bell
+         if { [expr ${MSG_ALARM_COUNTER} > ${MSG_BELL_TRIGGER}] } {
+            bell
+         }
          set MSG_ALARM_ID [after 1500 [list MsgCengter_processAlarm ${table_w_} true]]
       }
    
@@ -372,8 +377,10 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
 }
 
 proc MsgCenter_stopBell { table_w_ } {
-   global MSG_ALARM_ON MSG_ALARM_ID
+   global MSG_ALARM_ON MSG_ALARM_ID MSG_ALARM_COUNTER
+
    set MSG_ALARM_ON false
+   set MSG_ALARM_COUNTER 0
    wm attributes . -topmost 0
    if { [info exists MSG_ALARM_ID] } {
       after cancel ${MSG_ALARM_ID}
@@ -591,7 +598,7 @@ proc MsgCenter_init {} {
    global MSG_ALARM_ON RowNumberMap
    global MSG_TABLE MSG_COUNTER
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
-   global DEBUG_ON DEBUG_LEVEL
+   global DEBUG_ON DEBUG_LEVEL MSG_BELL_TRIGGER
    global TimestampColNumber DatestampColNumber TypeColNumber NodeColNumber MessageColNumber SuiteColNumber
 
    set TimestampColNumber 0
@@ -603,8 +610,10 @@ proc MsgCenter_init {} {
 
    set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
    set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
+   set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
    set MSG_ALARM_ON false
+   set MSG_ALARM_COUNTER 0
 
    array set RowNumberMap {
       Menu 0

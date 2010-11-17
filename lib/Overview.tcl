@@ -48,7 +48,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
       set sleepTime 3600000
    }
    if { ${new_hour} == "24" } {
-      set nextHour 0
+      set nextHour 1
    } else {
       set nextHour [expr ${new_hour} + 1]
    }
@@ -64,7 +64,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    set canvasW [Overview_getCanvas]
 
    # refresh current Time 
-   set timeHour [Utils_getHourFromTime "${new_hour}:00"]
+   set timeHour [Utils_getPaddedValue ${new_hour}]
    set currenTime "${timeHour}:00"
    Overview_setCurrentTime ${canvasW} ${currenTime}
 
@@ -99,9 +99,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
          set expAdvanceHour true
          set currentExpCoords [Overview_getExpBoundaries ${canvasW} ${suiteRecord}]
          set adjustMiddleBoxCmd ""
-         if { [${canvasW} coords ${exp}] != "" } {
-            set currentExpEndBoxCoords [${canvasW} coords ${exp}]
-         }
          set currentX [lindex ${currentExpCoords} 0]
          set currentEndX [lindex ${currentExpCoords} 2]
          # not moving exps that that are at x origin and needs to be there
@@ -111,7 +108,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
             if { [::SuiteNode::isHomeless ${suiteRecord}] } {
                set expAdvanceHour false
                DEBUG "Overview_GridAdvanceHour not advancing homeless ${exp}" 5
-            } elseif { ${lastStatus} == "begin" || ${lastStatus} == "end" || ${lastStatus} == "abort" } {
+            } elseif { ${lastStatus} == "begin" || ${lastStatus} == "abort" } {
                # begin state siting at 0 must not be shifted
                set expAdvanceHour false
                DEBUG "Overview_GridAdvanceHour not advancing [::SuiteNode::getLastStatus ${suiteRecord}] ${exp}" 5
@@ -305,7 +302,7 @@ proc Overview_ExpInitiateBox { canvas suite_record } {
 
       # add reference
       if { ${refEndTime} != "" } {
-         if { [expr ${startDateTime} > ${refEndDateTime}] } {
+         if { [expr ${currentDateTime} > ${refEndDateTime}] } {
             # we are late
             set referenceBoxTime ${currentTime}
             set lateReference true
@@ -496,11 +493,11 @@ proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_refere
    if { ${late_reference} } {
       if { [expr ${endX} < ${startX}] } {
          # for some reason the whole run has started before the reference end time
-         if { [::SuiteNode::getLastStatus ${suite_record}] != "end" } {
-            set endX [lindex [${canvas} bbox ${expPath}.text] 2]
-            set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} \
-               -dash { 4 3 } -outline DarkViolet -tag "${expPath} ${expPath}.reference"]
-         }
+         #if { [::SuiteNode::getLastStatus ${suite_record}] != "end" } {
+         #   set endX [lindex [${canvas} bbox ${expPath}.text] 2]
+         #   set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} \
+         #      -dash { 4 3 } -outline DarkViolet -tag "${expPath} ${expPath}.reference"]
+         #}
          ${canvas} itemconfigure ${expPath}.text -fill DarkViolet
       } else {
          set startX [expr ${endX} - 4]
@@ -637,7 +634,7 @@ proc Overview_updateExpBox { canvas suite_record status { timevalue "" } } {
                # we are late
                set referenceBoxTime ${currentTime}
                set endX [expr [lindex [${canvas} bbox ${expPath}.text] 2] + 1]
-               set endBoxTime [Overview_getTimeFromCoord ${endX}]
+               set endBoxTime ${currentTime}
                set lateReference true
             } else {
                # we're still on time
@@ -664,11 +661,11 @@ proc Overview_updateExpBox { canvas suite_record status { timevalue "" } } {
    
          set middleBoxTime ${currentTime}
          if { ${refEndTime} != "" } {
-            if { ${startDateTime} > ${refEndDateTime} } {
+            if { ${currentDateTime} > ${refEndDateTime} } {
                # we are late
                set referenceBoxTime ${currentTime}
                set endX [expr [lindex [${canvas} bbox ${expPath}.text] 2] + 1]
-               set endBoxTime [Overview_getTimeFromCoord ${endX}]
+               set endBoxTime ${currentTime}
                set lateReference true
             } else {
                # we're still on time
@@ -1464,12 +1461,13 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 }
 
 proc Overview_init {} {
-   global AUTO_LAUNCH AUTO_MSG_DISPLAY
+   global env AUTO_LAUNCH
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
    global expBoxLength startEndIconSize
 
    set AUTO_LAUNCH 1
-   set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
+
+   SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
 
    # hor size of graph
    set graphX 1225
@@ -1494,7 +1492,7 @@ proc Overview_init {} {
 
 proc Overview_readExperiments {} {
    global env
-   set suitesFile [getGlobalValue SUITES_FILE]
+   set suitesFile [SharedData_getMiscData OVERVIEW_SUITES_FILE]
    set suiteList {}
    if { [file exists $suitesFile] } {
       puts "Overview_readExperiments from file: $suitesFile"
@@ -1518,27 +1516,31 @@ proc Overview_quit {} {
 
 proc Overview_parseCmdOptions {} {
    global argv env 
+   global AUTO_MSG_DISPLAY
+
    if { [info exists argv] } {
       set options {
-         {main ""}
+         {noautomsg "No automatic message display"}
          {suites.arg "" "suites definition file"}
       }
-   
-      puts "parseCmdlineOptions arguments list: $argv"
    
       set usage "\[options] \noptions:"
       if [ catch { array set params [::cmdline::getoptions argv $options $usage] } message ] {
          puts "\n$message"
          exit 1
       }
-      if { ! ($params(suites) == "") } {
-         DEBUG "parseCmdlineOptions using suites definition file :$params(suites)" 5
-         setGlobalValue SUITES_FILE $params(suites)
+      if { $params(noautomsg) == "0" } {
+         SharedData_setMiscData AUTO_MSG_DISPLAY true
       } else {
-         setGlobalValue SUITES_FILE $env(HOME)/.suites/.xflow.suites.xml
+         SharedData_setMiscData AUTO_MSG_DISPLAY false
+      } 
+      if { ! ($params(suites) == "") } {
+         SharedData_setMiscData OVERVIEW_SUITES_FILE $params(suites)
+      } else {
+         SharedData_setMiscData OVERVIEW_SUITES_FILE $env(HOME)/.suites/.xflow.suites.xml
       }
-   } else {
-      setGlobalValue MAIN 0
+      # DEBUG "Overview_parseCmdOptions AUTO_MSG_DISPLAY: ${AUTO_MSG_DISPLAY}" 5
+      # DEBUG "Overview_parseCmdOptions OVERVIEW_SUITES_FILE: [SharedData_getMiscData OVERVIEW_SUITES_FILE]" 5
    }
 }
 
@@ -1561,19 +1563,19 @@ proc Overview_toFront {} {
 }
 
 proc Overview_addPrefMenu { parent } {
+   global AUTO_MSG_DISPLAY
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
-
    menubutton $menuButtonW -text Preferences -underline 0 -menu $menuW
    menu $menuW -tearoff 0
 
    $menuW add checkbutton -label "Auto Launch" -variable AUTO_LAUNCH \
-      -onvalue 1 -offvalue 0
+      -onvalue 1 -offvalue 0 -command [list Overview_setAutoLaunch]
 
+   set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
    $menuW add checkbutton -label "Auto Message Display" -variable AUTO_MSG_DISPLAY \
       -command [list Overview_setAutoMsgDisplay] \
       -onvalue true -offvalue false
-
    ::tooltip::tooltip $menuW -index 1 "Automatic launch of flow when experiment starts."
    ::tooltip::tooltip $menuW -index 2 "Automatic message window on new alarm."
    pack $menuButtonW -side left -padx 2
@@ -1591,12 +1593,22 @@ proc Overview_addHelpMenu { parent } {
 
 proc Overview_createMenu { toplevel_ } {
    set topFrame ${toplevel_}.topframe
-   #ttk::frame ${topFrame} -relief [SharedData_getMiscData MENU_RELIEF]
    frame ${topFrame} -relief [SharedData_getMiscData MENU_RELIEF]
    grid ${topFrame} -row 0 -column 0 -sticky nsew -padx 2
    Overview_addFileMenu ${topFrame}
    Overview_addPrefMenu ${topFrame}
    Overview_addHelpMenu ${topFrame}
+}
+
+proc Overview_setAutoMsgDisplay {} {
+   global AUTO_MSG_DISPLAY
+   DEBUG "Overview_setAutoMsgDisplay AUTO_MSG_DISPLAY new value: ${AUTO_MSG_DISPLAY}" 5
+   SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
+}
+
+proc Overview_setAutoLaunch {} {
+   global AUTO_LAUNCH
+   DEBUG "Overview_setAutoLaunch AUTO_LAUNCH:$AUTO_LAUNCH" 5
 }
 
 proc Overview_newMessageCallback { has_new_msg } {
@@ -1605,7 +1617,6 @@ proc Overview_newMessageCallback { has_new_msg } {
    set noNewMsgImage .overview_top.toolbar.msg_center_img
    set hasNewMsgImage .overview_top.toolbar.msg_center_new_img
    set normalBgColor [option get ${msgCenterWidget} background Button]
-   #set newMsgBgColor  [SharedData_getColor SELECT_BG]
    set newMsgBgColor  [SharedData_getColor MSG_CENTER_ABORT_BG]
    if { [winfo exists ${msgCenterWidget}] } {
       set currentImage [${msgCenterWidget} cget -image]
@@ -1641,12 +1652,6 @@ proc Overview_createToolbar { toplevel_ } {
 
    grid ${mesgCenterW} ${closeW} -sticky w -padx 2
    grid ${toolbarW} -row 1 -column 0 -sticky nsew -padx 2
-}
-
-proc Overview_setAutoMsgDisplay {} {
-   global AUTO_MSG_DISPLAY
-   DEBUG "Overview_setAutoMsgDisplay new value: ${AUTO_MSG_DISPLAY}" 5
-   SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
 }
 
 proc Overview_addCanvasImage { canvas } {
