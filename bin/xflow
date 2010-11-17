@@ -9,4 +9,24 @@ else
    exit
 fi
 
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main
+function showhelp
+{
+print "
+\t     Usage: xflow [-h] [-noautomsg]
+\t\t        Where:
+\t\t\t        -h show help
+\t\t\t        -noautomsg turns off automatic alarm message display
+"
+}
+
+[[ "$1" = --help || "$1" = -h ]] && showhelp && exit 0
+
+arguments=$*
+eval `cclargs_lite -D "" $0 \
+  -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
+  ++ $arguments 2>/dev/null`
+
+test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
+
+echo "$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt}"
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt}

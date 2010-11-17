@@ -8,8 +8,36 @@ if [[ "$arch" = "Linux" ]]; then
    #TCLSH=/home/binops/afsi/ssm/sw/linux26-i686/bin/tclsh8.4
    TCLSH=/home/binops/afsi/ssm/domain2/linux26-i686/bin/wish8.5
 else
-   echo xflow is only supported on Linux platforms
+   echo xflow_overview is only supported on Linux platforms
    exit
 fi
 
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl -main $*
+function showhelp
+{
+print "
+\t     Usage: xflow_overview [-h] [-noautomsg] [-suites suite_list]
+\t\t        Where:
+\t\t\t        -h : show help
+\t\t\t        -noautomsg : turns off automatic alarm message display
+\t\t\t        -suites suite_list : starts with given suites list file
+"
+}
+
+[[ "$1" = --help || "$1" = -h ]] && showhelp && exit 0
+
+arguments=$*
+eval `cclargs_lite -D "" $0 \
+  -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
+  -suites ""                    ""                           "[Suites List File]" \
+    ++ $arguments 2>/dev/null`
+
+test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
+suites_opt=""
+if [[ "${suites}" != "" ]] then
+   print "\n suites file ${suites}"
+   [[ ! -f ${suites} ]] && print "\nxflow_overview ERROR: file not found ${suites}" && exit 1
+   suites_opt="-suites ${suites}"
+fi
+
+print "\n$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}"
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}

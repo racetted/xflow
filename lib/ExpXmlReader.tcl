@@ -12,6 +12,9 @@ record define DisplayGroup {
    exp_list {}
    x {0}
    y {0}
+   {miny 0}
+   {maxy 0}
+   {group_y 0}
 }
 
 # reads an xml file for a list of folders

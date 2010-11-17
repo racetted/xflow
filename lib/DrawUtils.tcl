@@ -11,9 +11,6 @@ namespace eval ::DrawUtils {
    namespace export init clearCanvas drawTrapeze \
       drawNodeStatus getStatusColor
 
-   # maps a status name to text color / background color
-   variable nodeStatusColorMap
-
    # maps a family to image representation
    variable nodeTypeMap
 
@@ -21,26 +18,11 @@ namespace eval ::DrawUtils {
    variable hostColorMap
 }
 
-proc out {} {
-}
-
 proc ::DrawUtils::init {} {
-   variable nodeStatusColorMap
    variable nodeTypeMap
    variable hostColorMap
    variable constants
-
-   array set nodeStatusColorMap {
-      begin "white #108B5C"
-      init "#FFF8DC cornsilk4"
-      submit "white #ACB112"
-      abort "white #8B1012"
-      wait "black Sandybrown"
-      catchup "white Magenta2"
-      end "white DodgerBlue4"
-      unknown "white black"
-      shadow "white black"
-   }
+   variable rippleStatusMap
 
    array set nodeTypeMap {
       family rectangle
@@ -61,19 +43,62 @@ proc ::DrawUtils::init {} {
       unknown "black"
    }
 
+   array set rippleStatusMap {
+      abortx abort
+      abort  abort
+      end    end
+      endx   end
+      begin  begin
+      beginx begin
+      init   init
+      submit submit
+      wait   wait
+      catchup catchup
+   }
+
    array set constants {
       border_width "3"
    }
 }
 
 proc ::DrawUtils::getStatusColor { node_status } {
-   variable nodeStatusColorMap
-   if { [info exists nodeStatusColorMap($node_status)] } {
-      set colors $nodeStatusColorMap($node_status)
-   } else {
-      set colors "white black"
+   DEBUG "::DrawUtils::getStatusColor ${node_status}" 5
+   catch { set node_status $::DrawUtils::rippleStatusMap(${node_status}) }
+   switch ${node_status} {
+      init -
+      begin -
+      end -
+      abort -
+      catchup -
+      wait -
+      submit {
+         set key STATUS_${node_status}
+         set colors [SharedData_getColor ${key}]
+      }
+      default {
+         set colors [SharedData_getColor STATUS_UNKNOWN]
+      }
    }
+
    return $colors
+}
+
+proc ::DrawUtils::getFgStatusColor { node_status } {
+   set colors [getStatusColor ${node_status}]
+   set value [lindex ${colors} 0]
+   return ${value}
+}
+
+proc ::DrawUtils::getBgStatusColor { node_status } {
+   set colors [getStatusColor ${node_status}]
+   set value [lindex ${colors} 1]
+   return ${value}
+}
+
+proc ::DrawUtils::getOutlineStatusColor { node_status } {
+   set colors [getStatusColor ${node_status}]
+   set value [lindex ${colors} 2]
+   return ${value}
 }
 
 proc ::DrawUtils::clearCanvas { canvas } {
@@ -126,8 +151,10 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
    set canvasTag $node.$imageType
    set canvasTextTag $node.text
    set canvasShadowTag $node.shadow
-   set colors $nodeStatusColorMap(init)
-   catch { set colors $nodeStatusColorMap($status) }
+   #set colors $nodeStatusColorMap(init)
+   set colors [::DrawUtils::getStatusColor init]
+   #catch { set colors $nodeStatusColorMap($status) }
+   catch { set colors [::DrawUtils::getStatusColor $status] }
 
    DEBUG "::DrawUtils::drawNodeStatus node=$node canvasTag=$canvasTag canvasTextTag=$canvasTextTag status=$status font=[lindex $colors 0] fill=[lindex $colors 1]" 5
 
@@ -135,21 +162,23 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
    set canvasList [::FlowNodes::getDisplayList $node]
    foreach canvas $canvasList {
       # $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
-      if { $shadow_status == "1" } {
-         $canvas itemconfigure $canvasTextTag -fill "black"
-         $canvas itemconfigure $canvasTag -fill white
-         if { $status == "init" } {
-            $canvas itemconfigure $canvasTag -outline [getGlobalValue NORMAL_RUN_OUTLINE]
-            $canvas itemconfigure ${canvasShadowTag} -fill [getGlobalValue SHADOW_COLOR]
+      if { [winfo exists $canvas] } {
+         if { $shadow_status == "1" } {
+            $canvas itemconfigure $canvasTextTag -fill "black"
+            $canvas itemconfigure $canvasTag -fill white
+            if { $status == "init" } {
+               $canvas itemconfigure $canvasTag -outline [SharedData_getColor NORMAL_RUN_OUTLINE]
+               $canvas itemconfigure ${canvasShadowTag} -fill [SharedData_getColor SHADOW_COLOR]
+            } else {
+               $canvas itemconfigure $canvasTag -outline [lindex $colors 1]
+               $canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
+            }
          } else {
-            $canvas itemconfigure $canvasTag -outline [lindex $colors 1]
-            $canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
+            $canvas itemconfigure $canvasTextTag -fill [lindex $colors 0]
+            $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
+            #$canvas itemconfigure $canvasTag -outline [SharedData_getColor NORMAL_RUN_OUTLINE]
+            #$canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
          }
-      } else {
-         $canvas itemconfigure $canvasTextTag -fill [lindex $colors 0]
-         $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
-         #$canvas itemconfigure $canvasTag -outline [getGlobalValue NORMAL_RUN_OUTLINE]
-         #$canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
       }
    }
 }
@@ -169,7 +198,7 @@ proc ::DrawUtils::drawNodeText { node new_text {canvas ""} } {
    }
    DEBUG "::DrawUtils::drawNodeText new_text:$new_text " 5
    foreach canvas $canvasList {
-      if { [$canvas type $canvasTextTag] == "text" } {
+      if { [winfo exists $canvas] && [$canvas type $canvasTextTag] == "text" } {
          $canvas itemconfigure $canvasTextTag -text $new_text
       }
    }
@@ -226,7 +255,7 @@ proc ::DrawUtils::drawTrapeze { canvas tx1 ty1 text textfill outline fill callba
    DEBUG "drawTrapeze canvas:$canvas tx1:$tx1 ty1:$ty1 text:$text callback:$callback binder:$binder" 5
    set newtx1 [expr ${tx1} + 15]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
-      -justify center -anchor w -font [getGlobalValue FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData FONT_BOLD] -tags "$binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    #set nx1 [expr [lindex $boxArea 0] -15]
@@ -257,7 +286,7 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill callba
    #DEBUG "drawLosange canvas:$canvas text:$text callback:$callback binder:$binder" 5
    set newtx1 [expr ${tx1} + 30]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
-      -justify center -anchor w -font [getGlobalValue FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    set nx1 [expr [lindex $boxArea 0] -30]
@@ -302,7 +331,7 @@ proc ::DrawUtils::drawBucket { canvas tx1 ty1 text textfill outline fill callbac
    set newtx1 ${tx1}
    set newty1 [expr ${ty1} - 5]
    $canvas create text ${newtx1} ${newty1} -text $text -fill $textfill \
-      -justify center -anchor w -font [getGlobalValue FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    set nx1 [expr [lindex $boxArea 0] -5]
@@ -340,7 +369,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill ca
    #set newtx1 $tx1
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [getGlobalValue FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    $canvas itemconfigure ${binder}.text -text $txt
@@ -411,33 +440,62 @@ proc ::DrawUtils::drawline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColo
     DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
 
     if { $x1 < $x2 } {
-      set x2 [expr $x2 - 3 ]
+      set x2 [expr $x2 - 2 ]
 
       #set shadow values
-      set sx1 [expr $x1 + 2 ]
+      set sx1 [expr $x1 + 1 ]
       set sx2 $x2
-      set sy1 [expr $y1 + 2 ]
+      set sy1 [expr $y1 + 1 ]
       set sy2 $sy1
     } else {
       
       #set shadow values
-      set sx1 [expr $x1 + 2]
+      set sx1 [expr $x1 + 1]
       set sx2 $sx1
-      set sy1 [expr $y1 + 2]
-      set sy2 [expr $y2 + 3]
+      set sy1 [expr $y1 + 1]
+      set sy2 [expr $y2 + 2]
     }
     if { $drawshadow == "on" } {
       # draw shadow
-      $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.5 -arrow $arrow -fill $shadowColor
+      $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.0 -arrow $arrow -fill $shadowColor
     }
 
     # draw line
-    $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.5 -arrow $arrow -fill $fill 
+    $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.0 -arrow $arrow -fill $fill 
 
 }
 
 proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColor} {
     DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
+
+    if { $x1 < $x2 } {
+      set x2 [expr $x2 - 3 ]
+
+      #set shadow values
+      set sx1 [expr $x1 + 1 ]
+      set sx2 $x2
+      set sy1 [expr $y1 + 1 ]
+      set sy2 $sy1
+    } else {
+      
+      #set shadow values
+      set sx1 [expr $x1 + 1]
+      set sx2 $sx1
+      set sy1 [expr $y1 + 1]
+      set sy2 $y2
+    }
+
+    if { $drawshadow == "on" } {
+      # draw shadow
+      $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.0 -arrow $arrow -fill $shadowColor -dash { 4 3 }
+    }
+
+    # draw line
+    $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.0 -arrow $arrow -fill $fill -dash { 4 3 }
+}
+
+proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
+    DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1" 5
 
     if { $x1 < $x2 } {
       set x2 [expr $x2 - 3 ]
@@ -470,7 +528,7 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
    DEBUG "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill callback:$callback binder:$binder" 5
    set family [$binder cget -flow.family]
    $canvas create text ${tx1} ${ty1} -text /$maxtext -fill $textfill \
-      -justify center -anchor w -font [getGlobalValue FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
@@ -511,7 +569,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill ca
    set family [$binder cget -flow.family]
 
    $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [getGlobalValue FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
@@ -569,3 +627,51 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill ca
    }
 
 }
+
+proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
+   DEBUG "::DrawUtils::pointNode ${suite_record} node:${node}" 5
+   set canvasList ${canvas}
+   if { ${canvas} == "" } {
+      set canvasList [::SuiteNode::getCanvasList ${suite_record}]
+   }
+   foreach canvasW ${canvasList} {
+      set newcords [${canvasW} coords ${node}]
+   
+      if { [string length $newcords] == 0 } {
+         DEBUG "cb_findjob_no_widget can't find node:${node}" 5
+         return 0
+      }
+      # the "target"s are the top-left and bottom-right
+      # coordinates for the job box
+      set target_x  [expr round([lindex $newcords 0])]
+      set target_y  [expr round([lindex $newcords 1])]
+      set target_x2 [expr round([lindex $newcords 2])]
+      set target_y2 [expr round([lindex $newcords 3])]
+   
+      set x_offset 25
+      set y_offset 25
+   
+      # draw four lines with arrows pointing at the job
+      ${canvasW} create line $target_x $target_y [expr $target_x - $x_offset] \
+      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      ${canvasW} create line $target_x2 $target_y [expr $target_x2 + $x_offset] \
+      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      ${canvasW} create line $target_x $target_y2 [expr $target_x - $x_offset] \
+      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      ${canvasW} create line $target_x2 $target_y2 [expr $target_x2 + $x_offset] \
+      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+   
+      # bring to front
+      wm withdraw .; wm deiconify .
+      # after 5 seconds, delete the lines pointing at the job
+      after 5000 [list ::DrawUtils::delPointNode ${canvasW}]
+   }
+}
+
+proc  ::DrawUtils::delPointNode {canvas } {
+
+    if { [winfo exists $canvas] } {
+        $canvas delete ${canvas}searchlines
+    }
+}
+   

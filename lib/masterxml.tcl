@@ -69,20 +69,11 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    set flowCreateCmd [lindex [string map $FlowNodeTypeMap $xmlNodeName] 0]
    set flowType [lindex [string map $FlowNodeTypeMap $xmlNodeName] 1]
    #puts "createNodeFromXml() newFlowDirname:$newFlowDirname"
-   $flowCreateCmd $newFlowDirname
+   if { ! [record exists instance $newFlowDirname] } {
+      $flowCreateCmd $newFlowDirname
+   }
    $newFlowDirname configure -flow.name $nodeName -flow.type $flowType -flow.parent $actualFlowParent
-   #::FlowNodes::setMemberStatus $newFlowDirname "latest" "init"
 
-#   if { $flowType == "family" } {
-      # get the next parent that is of type family excluding myself
-#      puts "createNodeFromXml-> actualFlowParent=$actualFlowParent"
-#      set family [::FlowNodes::searchForFamily $actualFlowParent]
-
-#   } else {
-      # get the next parent of type family
-#      set family [::FlowNodes::searchForFamily $newFlowDirname]
-#   }
-   
    # I'm storing the closest container of the node
    set parentContainer "[$actualFlowParent cget -flow.container]"
    set parentName "[$actualFlowParent cget -flow.name]"
@@ -201,20 +192,20 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
    set topXmlNode [$rootNode selectNodes /MODULE]
    set recordName [$topXmlNode getAttribute name]
    
-   # replace "/" with "_"
-   regsub -all "/" $parent_flow_node _ recordName
-   set suiteRecord SuiteInfo.[::SuiteNode::formatName $suite_path]
+   set suiteRecord [::SuiteNode::formatSuiteRecord $suite_path]
    if { $parent_flow_node == "" } {
       set suiteName [$topXmlNode getAttribute name]
       if { ! [record exists instance $suiteRecord] } {
          DEBUG "parseModuleMasterfile $suiteRecord does not exists"
          SuiteInfo $suiteRecord
       }
-      $suiteRecord configure -type "user" -suite_name $suiteName -suite_path $suite_path
-      DEBUG "parseModuleMasterfile suiteName:$suiteName"
       set recordName "/$suiteName"
+      $suiteRecord configure -type "user" -suite_name $suiteName -suite_path $suite_path -root_node ${recordName}
+      SharedData_setSuiteData ${suite_path} ROOT_NODE ${recordName}
       # create the top node of our flow tree
-      FlowModule $recordName
+      if { ! [record exists instance ${recordName}] } {
+         FlowModule $recordName
+      }
       $recordName configure -flow.name $suiteName -flow.type module -flow.family $recordName
    } else {
       DEBUG "parseModuleMasterfile suite_record:$suite_record"
