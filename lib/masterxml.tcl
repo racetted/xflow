@@ -77,8 +77,8 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I'm storing the closest container of the node
    set parentContainer "[$actualFlowParent cget -flow.container]"
    set parentName "[$actualFlowParent cget -flow.name]"
-   puts "createNodeFromXml() parentContainer:$parentContainer"
-   if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npasstask"} {
+   puts "createNodeFromXml() parentContainer:$parentContainer $parentName $flowType [$actualFlowParent cget -flow.type]"
+   if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npass_task"} {
       $newFlowDirname configure -flow.container "$parentContainer"
    } else {
       if { ${parentContainer} == "" } {
