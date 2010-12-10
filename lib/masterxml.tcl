@@ -77,8 +77,8 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I'm storing the closest container of the node
    set parentContainer "[$actualFlowParent cget -flow.container]"
    set parentName "[$actualFlowParent cget -flow.name]"
-   puts "createNodeFromXml() parentContainer:$parentContainer"
-   if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npasstask"} {
+   puts "createNodeFromXml() parentContainer:$parentContainer $parentName $flowType [$actualFlowParent cget -flow.type]"
+   if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npass_task"} {
       $newFlowDirname configure -flow.container "$parentContainer"
    } else {
       if { ${parentContainer} == "" } {
@@ -92,7 +92,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # of the real node to the flow node. A real node is the value that is required by the
    # sequencer API.
    if { [::FlowNodes::searchForTask $actualFlowParent] != "" } {
-      if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npasstask" } {
+      if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npass_task" } {
          ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$nodeName $newFlowDirname
       } else {
          ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$parentName/$nodeName $newFlowDirname

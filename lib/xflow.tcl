@@ -128,8 +128,7 @@ proc addHelpMenu { parent } {
    $menuButtonW configure -state disabled
 }
 
-proc xflow_testAddCanvasBg { canvas height width } {
-   puts "xflow_testAddCanvasBg ${canvas}"
+proc xflow_AddCanvasBg { canvas } {
    # image already created at canvas creaton time
    set imageBg ${canvas}.bg_image
    set imageTagName ${canvas}_bg_image
@@ -137,11 +136,11 @@ proc xflow_testAddCanvasBg { canvas height width } {
    ${canvas} delete ${imageTagName}
    ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags ${imageTagName}
    ${canvas} lower ${imageTagName}
-   puts "xflow_testAddCanvasBg ${canvas} done"
+   puts "xflow_AddCanvasBg ${canvas} done"
 }
 
 proc xflow_createToolbar { parent } {
-   puts "xflow_createToolbar ${parent}"
+   DEBUG "xflow_createToolbar ${parent}" 5
    global MSG_CENTER_THREAD_ID
    set msgCenterW ${parent}.button_msgcenter
    set nodeKillW ${parent}.button_nodekill
@@ -431,12 +430,18 @@ proc killNode { list_widget } {
 
    for {set iterator 0} {$iterator < $numOfEntries} {incr iterator} {
       set listEntryValue [ split [ lindex $listOfNodes $iterator ] " " ]
-      set jobPath [string range [lindex $listEntryValue 8] [string length $suitePath/sequencing/jobinfo] end]
-      set nodeID [file tail ${jobPath}]
-      set node [file dirname ${jobPath}]/[lindex $listEntryValue end]
-      Sequencer_runCommand $suitePath $seqExec "Node Kill [file tail $node]" -n $node -job_id $nodeID
+      set jobFullPath [lindex $listEntryValue 8]
+      if { [string first "/sequencing/jobinfo/" ${jobFullPath}] != -1 } {
+         set jobStartIndex [expr [string first "/sequencing/jobinfo/" ${jobFullPath}] + [string length "/sequencing/jobinfo/"] - 1]
+         set jobPath [string range ${jobFullPath} ${jobStartIndex} end]
+         set nodeID [file tail ${jobPath}]
+         set node [file dirname ${jobPath}]/[lindex $listEntryValue end]
+         DEBUG "killNode command: $seqExec  -n $node -job_id $nodeID" 5
+         Sequencer_runCommand $suitePath $seqExec "Node Kill [file tail $node]" -n $node -job_id $nodeID
+      } else {
+         raiseError [winfo toplevel ${list_widget}] "Kill Node" "Application Error: Unable to retrieve Task Id."
+      }
    }
-
 }
 
 proc getMonitorDate { parent_w { suite_record "" } } {
@@ -562,6 +567,8 @@ proc xflow_getMonitoredThread {} {
          global env
          set lib_dir $env(SEQ_XFLOW_BIN)/../lib
          set auto_path [linsert $auto_path 0 $lib_dir ]
+         package require SuiteNode
+         package require Tk
 
          proc xflowThread_monitorNewDate { datestamp } {
             global XFLOW_STANDALONE MONITORING_LATEST MONITOR_DATESTAMP MONITOR_THREAD_ID
@@ -736,14 +743,52 @@ proc getShawdowStatus {} {
    return $SHADOW_STATUS
 }
 
+# find a node in the flow and point to it
+# the real_node might have an extension attached to
+# it example: /a/b/c+12+1
+# if multiple indexes are given... the last one can be either a npt or loop index
+# the others can only be loop indexes
 proc xflow_findNode { suite_record real_node } {
-   set flowNode [::SuiteNode::getFlowNodeMapping ${suite_record} ${real_node}]
+   DEBUG "xflow_findNode ${suite_record} ${real_node}" 5
+   set nodeWithouExt [::FlowNodes::getNodeFromDisplayFormat ${real_node}]
+   set extensionPart [::FlowNodes::getExtFromDisplayFormat ${real_node}]
+   set flowNode [::SuiteNode::getFlowNodeMapping ${suite_record} ${nodeWithouExt}]
+
+   # how many indexes do we have
+   set numberIndexes [expr [llength [split ${extensionPart} +]] -1 ]
+   set refreshNode ""
+   if { ${numberIndexes} > 0 } {
+      set indexCount 0
+      set loopList [${flowNode} cget -flow.loops]
+      # we need to select the indexes for loop members and/or npt nodes
+      while { ${indexCount} <= [expr ${numberIndexes} -1] } {
+         if { ${indexCount} == [expr ${numberIndexes} -1] && [${flowNode} cget -flow.type] == "npass_task" } {
+            # the current node ian npt... the last part must be for the npt index
+            set leafEx [::FlowNodes::getExtAtIndex ${extensionPart} ${indexCount}]
+            ${flowNode} configure -current ${leafEx}
+         } else {
+            # must be a loop extension
+            set loopNode [lindex ${loopList} ${indexCount}]
+            set loopExt [::FlowNodes::getExtLeftSlice ${extensionPart} ${indexCount}]
+            ${loopNode} configure -current ${loopExt}
+         }
+         if { ${refreshNode} == "" } {
+            set refreshNode ${loopNode}
+         }
+         incr indexCount
+      }
+   }
+   
+   if { ${refreshNode} != "" } {
+      xflow_redrawNodes ${refreshNode}
+   }
+
    ::DrawUtils::pointNode ${suite_record} ${flowNode}
 }
 
-# parent_node is the previous_node in the flow that is submitting this node
-proc drawNode { canvas node parent_node position run_catchup {callback test} } {
-   DEBUG "drawNode drawing sub node:$node parent_node:$parent_node position:$position" 5
+proc drawNode { canvas node position callback } {
+   global REFRESH_MODE
+   DEBUG "drawNode drawing sub node:$node position:$position" 5
    set boxW [SharedData_getMiscData CANVAS_BOX_WIDTH]
    set boxH [SharedData_getMiscData CANVAS_BOX_HEIGHT]
    set pady [SharedData_getMiscData CANVAS_PAD_Y]
@@ -754,9 +799,10 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    ::FlowNodes::initNode $node $canvas
-   if { $parent_node == "" } {
-      set linex2 20
-      set liney2 20
+   set parentNode [${node} cget -flow.parent]
+   if { $parentNode == "" } {
+      set linex2 [SharedData_getMiscData CANVAS_X_START]
+      set liney2 [SharedData_getMiscData CANVAS_Y_START]
       DEBUG "drawNode linex2:$linex2 liney2:$liney2"
    } else {
       # use a dashline leading to modules, elsewhere use a solid line
@@ -770,7 +816,7 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
           }
       }
 
-      set displayInfo [::FlowNodes::getDisplayCoords $parent_node $canvas]
+      set displayInfo [::FlowNodes::getDisplayCoords $parentNode $canvas]
       DEBUG "drawNode displayInfo:$displayInfo"
       set px1 [lindex $displayInfo 0]
       set px2 [lindex $displayInfo 2]
@@ -779,25 +825,33 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
       # first draw left arrow, the shape depends on the position of the
       # subnode and previous nodes being drawn
       # if position is 0, means first node job so same level as parent node only x coords changes
+      set lineTagName ${node}.submit_tag
       if { $position == 0 } {
          set linex1 $px2
          set liney1 [expr $py1 + ($py2 - $py1) / 2 ]
          set liney2 $liney1
          set linex2 [expr $linex1 + $boxW/2]
-         ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor $drawshadow $shadowColor
+         ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor $drawshadow $shadowColor ${lineTagName}
       } else {
          # draw L-shape arrow
          # first draw vertical line
-         set nextY [::SuiteNode::getDisplayNextY $suiteRecord $canvas]
+         if { $REFRESH_MODE == "true" } {
+            # drawing at same position
+            set nextY [::FlowNodes::getDisplayY $node $canvas]
+         } else {
+            set nextY [::SuiteNode::getDisplayNextY $suiteRecord $canvas]
+         }
+         ::FlowNodes::setDisplayY ${node} $canvas ${nextY}
+
          set linex1 [expr $px2 + $boxW/4]
          set linex2 $linex1
          set liney1 [expr $py1 + ($py2 - $py1) / 2 ]
          set liney2 [expr $nextY + ($boxH/4) + $pady]
-         ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 none $lineColor $drawshadow $shadowColor
+         ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 none $lineColor $drawshadow $shadowColor ${lineTagName}
          # then draw hor line with arrow at end
          set linex2 [expr $px2 + $boxW/2]
          set liney1 $liney2
-         ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor  $drawshadow $shadowColor
+         ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor  $drawshadow $shadowColor ${lineTagName}
       }
    }
 
@@ -815,7 +869,6 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
    }
    set nodeExtension [::FlowNodes::getNodeExtension $node]
    set extDisplay [::FlowNodes::getExtDisplay $node $nodeExtension]
-   set maxExtDisplay "${text}[::FlowNodes::getExtDisplayWidth $node]"
    if { $extDisplay != "" } {
       set text "${text}${extDisplay}"
    }
@@ -827,28 +880,28 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
    
    switch [$node cget -flow.type] {
       "family" {
-         ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
+         ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
          ::FlowNodes::addToFamilyList $node
       }
       "module" {
-	 ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
+	 ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
       }
       "task" {
-         ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
+         ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
       }
 
       "npass_task" {
-         ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
+         ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
       }
       "loop" {
          set text "${text}\n[::FlowNodes::getLoopInfo $node]"
-         ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
+         ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
       }
       "case" {
          ::DrawUtils::drawLosange $canvas $tx1 $ty1 $text $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
       }
       "outlet" {
-         ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $maxExtDisplay $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
+         ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $callback $node $drawshadow $shadowColor
       }
       default {
          error "Invalid node type:[$node cget -flow.type] in proc drawNode()"
@@ -868,7 +921,7 @@ proc drawNode { canvas node parent_node position run_catchup {callback test} } {
          foreach child $children {
             #DEBUG "drawNode drawing subjob:$subjob" 5
             set childNode $node/$child
-            drawNode $canvas $childNode $node $nodePosition $run_catchup $callback
+            drawNode $canvas $childNode $nodePosition $callback
             incr nodePosition
          }
       }
@@ -901,26 +954,13 @@ proc nodeMenu { canvas node x y } {
    if { $children != "" && $isCollapsed } {
       $popMenu add command -label "Expand All" -command [list expandAllCallback $node $canvas $popMenu]
    }
-   $popMenu add command -label "Node History" -command [list historyCallback $node $canvas $popMenu 0 ]
-   $popMenu add command -label "Node Info" -command [list nodeInfoCallback $node $canvas $popMenu]
    if { [$node cget -flow.type] == "loop" } {
-      $popMenu add command -label "Loop Listing" -command [list listingCallback $node $canvas $popMenu 1]
-      $popMenu add command -label "Loop Abort Listing" -command [list abortListingCallback $node $canvas $popMenu 1]
-      $popMenu add command -label "Loop Node Batch" -command [list batchCallback $node $canvas $popMenu 1]
-      $popMenu add command -label "Member Listing" -command [list listingCallback $node $canvas $popMenu]
-      $popMenu add command -label "Member Abort Listing" -command [list abortListingCallback $node $canvas $popMenu]
-      $popMenu add command -label "Member Node Batch" -command [list batchCallback $node $canvas $popMenu 0]
-      $popMenu add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
-      $popMenu add separator
-      $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
-      $popMenu add command -label "Loop Submit" -command [list submitLoopCallback $node $canvas $popMenu continue ]
-      $popMenu add command -label "Member Submit" -command [list submitCallback $node $canvas $popMenu continue ]
-      $popMenu add separator
-      $popMenu add command -label "Loop End" -command [list endLoopCallback $node $canvas $popMenu]
-      $popMenu add command -label "Loop Initbranch" -command [list initbranchLoopCallback $node $canvas $popMenu]
-      $popMenu add command -label "Member End" -command [list endCallback $node $canvas $popMenu]
-      $popMenu add command -label "Member Initbranch" -command [list initbranchCallback $node $canvas $popMenu]
+      addLoopNodeMenu ${popMenu} ${canvas} ${node}
+   } elseif { [$node cget -flow.type] == "npass_task" } {
+      addNptNodeMenu ${popMenu} ${canvas} ${node}
    } else {
+      $popMenu add command -label "Node History" -command [list historyCallback $node $canvas $popMenu 0 ]
+      $popMenu add command -label "Node Info" -command [list nodeInfoCallback $node $canvas $popMenu]
       $popMenu add command -label "Node Listing" -command [list listingCallback $node $canvas $popMenu]
       $popMenu add command -label "All Node Listing" -command [list allListingCallback $node $canvas $popMenu success]
       $popMenu add command -label "Node Abort Listing" -command [list abortListingCallback $node $canvas $popMenu]
@@ -929,22 +969,16 @@ proc nodeMenu { canvas node x y } {
       $popMenu add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
       $popMenu add separator
       $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
-      if { [$node cget -flow.type] != "task" && [$node cget -flow.type] != "npass_task"} {
+      if { [$node cget -flow.type] != "task" } {
          $popMenu add command -label "Submit" -command [list submitCallback $node $canvas $popMenu continue ]
       } else {
-         if { [$node cget -flow.type] == "npass_task"} {
-            $popMenu add command -label "Submit & Continue" -command [list submitNpassTaskCallback $node $canvas $popMenu continue ]
-            $popMenu add command -label "Submit & Stop" -command [list submitNpassTaskCallback $node $canvas $popMenu stop ]
-            $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
-         } else {
-            $popMenu add command -label "Submit & Continue" -command [list submitCallback $node $canvas $popMenu continue ]
-            $popMenu add command -label "Submit & Stop" -command [list submitCallback $node $canvas $popMenu stop ]
-            $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
-         }
+         $popMenu add command -label "Submit & Continue" -command [list submitCallback $node $canvas $popMenu continue ]
+         $popMenu add command -label "Submit & Stop" -command [list submitCallback $node $canvas $popMenu stop ]
+         $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
       }
       $popMenu add command -label "Node Config" -command [list configCallback $node $canvas $popMenu ]
       $popMenu add separator
-      if { [$node cget -flow.type] != "task" && [$node cget -flow.type] != "npass_task"} {
+      if { [$node cget -flow.type] != "task" } {
          $popMenu add command -label "Initbranch" -command [list initbranchCallback $node $canvas $popMenu]
       } else {
          $popMenu add command -label "Initnode" -command [list initnodeCallback $node $canvas $popMenu]
@@ -960,6 +994,49 @@ proc nodeMenu { canvas node x y } {
    $popMenu add command -label "Close" -command { destroy .popupMenu }
    
    tk_popup $popMenu $x $y
+}
+
+proc addLoopNodeMenu { popmenu_w canvas node } {
+
+   ${popmenu_w} add command -label "Node History" -command [list historyCallback $node $canvas ${popmenu_w} 0 ]
+   ${popmenu_w} add command -label "Node Info" -command [list nodeInfoCallback $node $canvas ${popmenu_w}]
+
+   ${popmenu_w} add command -label "Loop Listing" -command [list listingCallback $node $canvas ${popmenu_w} 1]
+   ${popmenu_w} add command -label "Loop Abort Listing" -command [list abortListingCallback $node $canvas ${popmenu_w} 1]
+   ${popmenu_w} add command -label "Loop Node Batch" -command [list batchCallback $node $canvas ${popmenu_w} 1]
+   ${popmenu_w} add command -label "Member Listing" -command [list listingCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "Member Abort Listing" -command [list abortListingCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "Member Node Batch" -command [list batchCallback $node $canvas ${popmenu_w} 0]
+   ${popmenu_w} add command -label "New Window" -command [list newWindowCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add separator
+   ${popmenu_w} add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
+   ${popmenu_w} add command -label "Loop Submit" -command [list submitLoopCallback $node $canvas ${popmenu_w} continue ]
+   ${popmenu_w} add command -label "Member Submit" -command [list submitCallback $node $canvas ${popmenu_w} continue ]
+   ${popmenu_w} add separator
+   ${popmenu_w} add command -label "Loop End" -command [list endLoopCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "Loop Initbranch" -command [list initbranchLoopCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "Member End" -command [list endCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "Member Initbranch" -command [list initbranchCallback $node $canvas ${popmenu_w}]
+}
+
+proc addNptNodeMenu { popmenu_w canvas node } {
+   ${popmenu_w} add command -label "Node History" -command [list historyCallback $node $canvas ${popmenu_w} 0 ]
+   ${popmenu_w} add command -label "Node Info" -command [list nodeInfoCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "Node Listing" -command [list listingCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "All Node Listing" -command [list allListingCallback $node $canvas ${popmenu_w} success]
+   ${popmenu_w} add command -label "Node Abort Listing" -command [list abortListingCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "All Node Abort Listing" -command [list allListingCallback $node $canvas ${popmenu_w} abort]
+   ${popmenu_w} add command -label "Node Batch" -command [list batchCallback $node $canvas ${popmenu_w} ]
+   ${popmenu_w} add command -label "New Window" -command [list newWindowCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add separator
+   ${popmenu_w} add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
+   ${popmenu_w} add command -label "Submit & Continue" -command [list submitNpassTaskCallback $node $canvas ${popmenu_w} continue ]
+   ${popmenu_w} add command -label "Submit & Stop" -command [list submitNpassTaskCallback $node $canvas ${popmenu_w} stop ]
+   ${popmenu_w} add command -label "Node Source" -command [list sourceCallback $node $canvas ${popmenu_w} ]
+   ${popmenu_w} add command -label "Node Config" -command [list configCallback $node $canvas ${popmenu_w} ]
+   ${popmenu_w} add separator
+   ${popmenu_w} add command -label "Initnode" -command [list initnodeCallback $node $canvas ${popmenu_w}]
+   ${popmenu_w} add command -label "End" -command [list endCallback $node $canvas ${popmenu_w}]
 }
 
 proc newWindowCallback { node canvas caller_menu } {
@@ -1040,9 +1117,8 @@ proc nodeInfoCallback { node canvas caller_menu } {
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set suiteName [$suiteRecord cget -suite_name]
    set nodeTail [file tail $node]
-   set infoWidget .${suiteName}_${nodeTail}_nodeInfo
+   set infoWidget [string tolower .${suiteName}_${nodeTail}_nodeInfo]
 
-   set depAttrMap { "Dep Hour" "Dep Type" "Dep Status" "Dep Suite" "Dep User" }
    if { [winfo exists $infoWidget] } {
       destroy $infoWidget
    }
@@ -1054,7 +1130,16 @@ proc nodeInfoCallback { node canvas caller_menu } {
    set seqExpHome [$suiteRecord cget -suite_path]
    set nodeInfoExec "[getGlobalValue SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getLoopArgs $node]
+   if { [$node cget -flow.type] == "npass_task" } {
+      set seqLoopArgs [::FlowNodes::getNptArgs ${node} ]
+      if { ${seqLoopArgs} == "-1" } {
+         set seqLoopArgs ""
+      }
+   } else {
+      set seqLoopArgs [::FlowNodes::getLoopArgs $node]
+   }
+
+   DEBUG "nodeInfoCallback export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs}" 5
    set code [catch {eval [exec ksh -c "export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs} > ${outputFile}"]} message]
 
    if { $code != 0 } {
@@ -1305,16 +1390,17 @@ proc submitNpassTaskCallback { node canvas caller_menu flow} {
    set indexListValue ""
    if { [winfo exists ${indexListW}] } {
       set indexListValue [${indexListW} get]
-   DEBUG "submitNpassTaskCallback indexListValue:$indexListValue" 5
+      DEBUG "submitNpassTaskCallback indexListValue:$indexListValue" 5
    }
    if { ${indexListValue} == "latest" } {
       raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
    } else {
-      set seqNpassTaskArgs [::FlowNodes::getNpassTaskArgs ${node} ${indexListValue}]
+      set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
    
       if { $seqNpassTaskArgs == "-1" } {
          raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
+         DEBUG "submitNpassTaskCallback $seqNpassTaskArgs" 5
          Sequencer_runCommand [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow $ignoreDep $seqNpassTaskArgs
 
       }
@@ -1455,7 +1541,7 @@ proc cleanLogCallback { canvas caller_menu } {
 }
 
 
-proc npassTaskSelectionCallback { node canvas combobox_w} {
+proc indexedNodeSelectionCallback { node canvas combobox_w} {
    DEBUG "npassTaskSelectionCallback node:$node $combobox_w" 5
 
    set member [${combobox_w} get]
@@ -1464,19 +1550,8 @@ proc npassTaskSelectionCallback { node canvas combobox_w} {
       set member +${member}
    }
    $node configure -current $member
-   drawflow $canvas
-}
 
-proc loopSelectionCallback { node canvas combobox_w} {
-   DEBUG "loopSelectionCallback node:$node $combobox_w" 5
-
-   set member [${combobox_w} get]
-
-   if { $member != "latest" && [lindex $member 0] != "+" } {
-      set member +${member}
-   }
-   $node configure -current $member
-   drawflow $canvas
+   xflow_redrawNodes ${node}
 }
 
 proc expandAllCallback { node canvas caller_menu } {
@@ -1524,6 +1599,30 @@ proc redrawAllFlow { suite_record } {
    }
 }
 
+# redraws the flow starting from a node... without having
+# to clear all the canvas
+proc xflow_redrawNodes { node {canvas ""} } {
+   global REFRESH_MODE
+   DEBUG "xflow_redrawNodes node:$node" 5
+   set REFRESH_MODE true
+   catch {
+      if { $canvas == "" } {
+         # get the list of all canvases where the node appears
+         set canvasList [::FlowNodes::getDisplayList $node]
+      } else {
+         set canvasList $canvas
+      }
+   
+      foreach canvas $canvasList {
+         ::DrawUtils::clearBranch ${canvas} ${node}
+         set nodePosition [::FlowNodes::getPosition ${node}]
+         drawNode ${canvas} ${node} ${nodePosition} changeCollapsed
+         xflow_resizeWindow ${canvas}
+      }
+   }
+   set REFRESH_MODE false
+}
+
 proc drawflow { canvas {initial_display "1"} } {
    DEBUG "drawflow() canvas:$canvas" 5
    if { [winfo exists ${canvas}] } {
@@ -1535,30 +1634,39 @@ proc drawflow { canvas {initial_display "1"} } {
       set rootNode [::SuiteNode::getDisplayRoot $suiteRecord $canvas]
    
       set callback changeCollapsed
-      drawNode $canvas $rootNode "" 0 5 $callback
+      drawNode $canvas $rootNode 0 $callback
       set canvasArea [$canvas bbox all]
       $canvas  configure -scrollregion $canvasArea -yscrollincrement 5 -xscrollincrement 5
    
       # resize the window depending on size of canvas elements
-      set boxCoords [${canvas} bbox all]
-      set heightMax 800
-      set widthMax 1200
-      set canvasH [expr [lindex ${boxCoords} 3] - [lindex ${boxCoords} 1]]
-      set canvasW [expr [lindex ${boxCoords} 2] - [lindex ${boxCoords} 0]]
-      set windowH [expr ${canvasH} + 135]
-      set windowW [expr ${canvasW} + 50]
-      if { [expr ${windowH} > ${heightMax}] } {
-         set windowH ${heightMax}
-      }
-      if { [expr ${windowW} > ${widthMax}] } {
-         set windowW ${widthMax}
-      }
-      wm geometry . =${windowW}x${windowH}
-   
+      xflow_resizeWindow ${canvas}
+
       if { $initial_display == "1" } {
          $canvas yview moveto 0
       }
-      xflow_testAddCanvasBg ${canvas} ${canvasH} ${canvasW}
+      xflow_AddCanvasBg ${canvas}
+   }
+}
+
+proc xflow_resizeWindow { canvas } {
+
+   if { [winfo exists ${canvas}] } {
+      set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+      set heightMax [winfo screenheight [winfo toplevel ${canvas}]]
+      set widthMax [winfo screenwidth [winfo toplevel ${canvas}]]
+      set canvasMaximX [::SuiteNode::getDisplayMaximumX ${suiteRecord} ${canvas}]
+      set canvasMaximY [::SuiteNode::getDisplayMaximumY ${suiteRecord} ${canvas}]
+      set windowW [expr ${canvasMaximX} + 50]
+      set windowH [expr ${canvasMaximY} + 135]
+      if { [expr ${windowH} > ${heightMax}] } {
+         DEBUG "xflow_resizeWindow height ${windowH} > ${heightMax} (default)" 5
+         set windowH ${heightMax}
+      }
+      if { [expr ${windowW} > ${widthMax}] } {
+         DEBUG "xflow_resizeWindow width ${windowW} > ${widthMax} (default)" 5
+         set windowW ${widthMax}
+      }
+      wm geometry . =${windowW}x${windowH}
    }
 }
 
@@ -1598,7 +1706,7 @@ proc getNodeResources { node suite_path {is_recursive 0} } {
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]
 
    # for now we only care about resources from tasks
-   if { [$node cget -record_type] == "FlowTask" } {
+   if { [$node cget -record_type] == "FlowTask" || [$node cget -record_type] == "FlowNpassTask" } {
       # the next command runs nodeinfo and converts each line of the output
       # into a tcl command
       set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile}"]} message]
@@ -1681,7 +1789,8 @@ proc createFlowCanvas { parent } {
 
       # add bg image
       set imageDir [SharedData_getMiscData IMAGE_DIR]
-      image create photo ${canvas}.bg_image -width ${canvasBgImageWidth} -height ${canvasBgImageHeight} -file ${imageDir}/Sheet_Music_6.ppm
+      image create photo ${canvas}.bg_image -width ${canvasBgImageWidth} -height \
+         ${canvasBgImageHeight} -file ${imageDir}/artist-canvas_2.gif
 
       grid $canvas -row 0 -column 0 -sticky nsew
 
@@ -1709,7 +1818,8 @@ proc createMainMenus { _top } {
 proc setErrorMessages {} {
   global ERROR_MSG_LIST
   set ERROR_MSG_LIST(NO_LOOP_SELECT) "Cannot retrieve loop member for parent loop container! Please select a loop index."
-  set ERROR_MSG_LIST(NO_INDEX_SELECT) "You must provide an index value for this node!"
+  set ERROR_MSG_LIST(INVALID_NPT_SELECT) "Cannot mix latest selection with index selection!"
+  set ERROR_MSG_LIST(NO_INDEX_SELECT) "You must provide a valid index value for this node!"
 }
 
 proc getErrorMsg { key } {
@@ -1746,18 +1856,15 @@ proc listToString { inputList } {
 proc quitXflow {} {
    global XFLOW_STANDALONE MONITOR_THREAD_ID
 
-   DEBUG "exiting Xflow ..." 5
+   DEBUG "quitXflow exiting Xflow thread id:[thread::id]" 5
    set suiteRecord [getActiveSuite]
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-
    if { ${isOverviewMode} == "true" } {
       # we are in overview mode
       set childWidgets [winfo children .]
       foreach childW ${childWidgets} {
          destroy ${childW}
       }
-      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      thread::send -async ${overviewThreadId} "Overview_childQuit ${suiteRecord} [thread::id]"
       wm withdraw .
    } else {
       LogReader_cancelAfter $suiteRecord
@@ -1777,7 +1884,7 @@ proc xflow_resizeCallback { source_widget } {
          set canvasH [winfo height ${canvasWidget}]
          set canvasW [expr [winfo width ${canvasWidget} ] + 20]
          DEBUG "xflow_resizeCallback found canvas:${canvasWidget} height:${canvasH} width:${canvasW}" 5
-         xflow_testAddCanvasBg ${canvasWidget} ${canvasH} ${canvasW}
+         xflow_AddCanvasBg ${canvasWidget}
       }
    }
 }
@@ -1800,18 +1907,20 @@ proc xflow_newMessageCallback { has_new_msg } {
 }
 
 proc launchXflow { calling_thread_id } {
-   global env XFLOW_STANDALONE
+   global env XFLOW_STANDALONE MONITORING_LATEST
+   DEBUG "launchXflow thread id:[thread::id]" 5
 
    set topFrame .top
    if { ! [winfo exists ${topFrame}] } { 
-      DEBUG "launchXflow ${calling_thread_id}" 5
       
       set suiteList {}
       set suitesFile $env(HOME)/.suites/.xflow.suites.xml
       if { [info exists env(SEQ_EXP_HOME)] } {
          set activeSuite $env(SEQ_EXP_HOME)
          set suiteList [linsert $suiteList 0 $env(SEQ_EXP_HOME)] 
-         SharedData_setSuiteData $env(SEQ_EXP_HOME) THREAD_ID [thread::id]
+         if { ${MONITORING_LATEST} == "1" } {
+            SharedData_setSuiteData $env(SEQ_EXP_HOME) THREAD_ID [thread::id]
+         }
       } elseif { [file exists $suitesFile] } {
          ExpXmlReader_readExperiments $suitesFile
          set suiteList [ExpXmlReader_getExpList]
@@ -1957,7 +2066,8 @@ proc xflow_init {} {
    global NODE_DISPLAY_PREF AUTO_MSG_DISPLAY
    global SHADOW_STATUS MONITORING_LATEST
    global MSG_CENTER_THREAD_ID MONITOR_THREAD_ID
-
+   global REFRESH_MODE
+   set REFRESH_MODE false
    set MONITOR_THREAD_ID ""
    set NODE_DISPLAY_PREF 1
    set SHADOW_STATUS 0
@@ -1997,4 +2107,5 @@ if { ${XFLOW_STANDALONE} == 1 } {
    xflow_init
    launchXflow [thread::id]
    SharedData_setMiscData STARTUP_DONE true
+   thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
 }

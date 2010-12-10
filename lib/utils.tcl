@@ -179,6 +179,14 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
    return ${isOverlap}
 }
 
+proc Utils_getCurrentTime {} {
+   set currentTime [clock format [clock seconds] -format "%H:%M" -gmt 1]
+}
+
+proc Utils_getCurrentTime {} {
+   set currentTime [clock format [clock seconds] -format "%H:%M" -gmt 1]
+}
+
 # input hh:mm:ss
 # returns mm, if mm=08 returns 8
 proc Utils_getMinuteFromTime { timevalue { keep_zero "no" } } {
@@ -203,6 +211,7 @@ proc Utils_getPaddedValue { value } {
    }
    return ${value}
 }
+
 
 #setGlobalValue SEQ_BIN [Sequencer_getPath]
 #setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]

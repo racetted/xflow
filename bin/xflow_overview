@@ -24,12 +24,31 @@ print "
 }
 
 [[ "$1" = --help || "$1" = -h ]] && showhelp && exit 0
-
 arguments=$*
 eval `cclargs_lite -D "" $0 \
   -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
   -suites ""                    ""                           "[Suites List File]" \
-    ++ $arguments 2>/dev/null`
+  -as "" "" "[start application as another user]" \
+  ++ $arguments 2>/dev/null`
+
+if [[ "${SEQ_XFLOW_BIN}" = "" ]] ; then
+   echo "xflow_overview getting maestro env from /home/binops/afsi/ssm/domain2"
+   eval `ssmuse sh -d /home/binops/afsi/ssm/domain2`
+   echo "which xflow_overview? $(which xflow_overview)"
+fi
+
+if [[ "${as}" != "" ]] ; then
+   echo "xflow_overview switching ${USER} user to ${as}"
+   if [ "${USER}" = "afsfops" -a '("${as}" = "afsipar" || "${as}" = "afsiops")' ] ; then
+      sshCommandKey=${HOME}/.ssh/command_keys/maestro_${as}_key
+      if [[ ! -f ${sshCommandKey} ]] ; then
+         echo "xflow_overview Fatal Error: cannot find ssh command key ${sshCommandKey}" 
+	 exit 1
+      fi
+      echo "xflow_overview command:\n echo ${0} ${arguments} | ssh -T -X -i ${sshCommandKey} ${as}@${TRUE_HOST}"
+      # echo "${0} ${arguments}" | ssh -T -X -i /home/binops/afsf/ops/.ssh/command_keys/maestro_afsipar_key ${as}@${TRUE_HOST}
+   fi
+fi
 
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 suites_opt=""

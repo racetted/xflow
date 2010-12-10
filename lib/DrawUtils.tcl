@@ -101,10 +101,56 @@ proc ::DrawUtils::getOutlineStatusColor { node_status } {
    return ${value}
 }
 
+proc ::DrawUtils::clearBranch { canvas node } {
+   DEBUG "clearBranch $canvas $node" 5
+   set pady [SharedData_getMiscData CANVAS_PAD_Y]
+   set displayInfo [::FlowNodes::getDisplayCoords ${node} ${canvas}]
+
+   set allBoxInfo [${canvas} bbox all]
+   if { $allBoxInfo == "" } {
+      return
+   }
+   
+   # I'm adding a small delta on the x and the y to include the current node
+   # itself
+   set newx1 [expr [lindex ${displayInfo} 0] - 5]
+   set newy1 [expr [lindex ${displayInfo} 1] - 5]
+   set newx2 [lindex ${allBoxInfo} 2]
+   set newy2 [expr [lindex ${displayInfo} 3] + 5]
+
+   set children [$node cget -flow.children]
+
+   if { [$node cget -flow.type] == "npass_task" || [$node cget -flow.type] == "loop" } {
+      set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
+      destroy ${indexListW}
+   }
+
+   set tags [${canvas} find enclosed ${newx1} ${newy1} ${newx2} ${newy2}]
+   foreach tagItem ${tags} {
+      ${canvas} delete ${tagItem}
+   }
+
+   # delete submit arrows
+   set lineTagName ${node}.submit_tag
+   ${canvas} delete ${lineTagName}
+
+   set children [$node cget -flow.children]
+   foreach child ${children} {
+      ::DrawUtils::clearBranch ${canvas} ${node}/${child}
+   }
+
+   ${canvas} delete ${node}
+}
+
+proc ::DrawUtils::getIndexWidgetName { node canvas } {
+   set indexListW "${canvas}.[string tolower [$node cget flow.name]]"
+}
+
 proc ::DrawUtils::clearCanvas { canvas } {
    if { [winfo exists $canvas] } {
       # flush everything in the canvas
       $canvas delete all
+      set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    }
    update idletasks
 }
@@ -151,9 +197,7 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
    set canvasTag $node.$imageType
    set canvasTextTag $node.text
    set canvasShadowTag $node.shadow
-   #set colors $nodeStatusColorMap(init)
    set colors [::DrawUtils::getStatusColor init]
-   #catch { set colors $nodeStatusColorMap($status) }
    catch { set colors [::DrawUtils::getStatusColor $status] }
 
    DEBUG "::DrawUtils::drawNodeStatus node=$node canvasTag=$canvasTag canvasTextTag=$canvasTextTag status=$status font=[lindex $colors 0] fill=[lindex $colors 1]" 5
@@ -161,7 +205,6 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
    # get the list of all canvases where the node appears
    set canvasList [::FlowNodes::getDisplayList $node]
    foreach canvas $canvasList {
-      # $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
       if { [winfo exists $canvas] } {
          if { $shadow_status == "1" } {
             $canvas itemconfigure $canvasTextTag -fill "black"
@@ -176,8 +219,6 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
          } else {
             $canvas itemconfigure $canvasTextTag -fill [lindex $colors 0]
             $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
-            #$canvas itemconfigure $canvasTag -outline [SharedData_getColor NORMAL_RUN_OUTLINE]
-            #$canvas itemconfigure ${canvasShadowTag} -fill [lindex $colors 1]
          }
       }
    }
@@ -204,34 +245,6 @@ proc ::DrawUtils::drawNodeText { node new_text {canvas ""} } {
    }
 }
 
-proc ::DrawUtils::updateNpassTaskIndex { node node_index {canvas ""} } {
-   DEBUG "::DrawUtils::updateNpassTaskIndex node:$node node_index:$node_index" 5
-
-   if { $canvas == "" } {
-      # get the list of all canvases where the node appears
-      set canvasList [::FlowNodes::getDisplayList $node]
-   } else {
-      set canvasList $canvas
-   }
-   if { [$node cget -flow.type] == "family" || [$node cget -flow.type] == "module"} {
-      set new_text "/$new_text"
-   }
-
-   #      ${loopBar} configure -value $extensions -width [string length [$binder cget flow.name]]
-   set indexValue [::FlowNodes::getIndexValue $node_index]
-   foreach canvas $canvasList {
-      set indexListW "${canvas}.[$node cget flow.name]"
-      if { [winfo exists ${indexListW}] } {
-         set listValues [${indexListW} cget -value]
-         if { [lsearch ${listValues} ${indexValue}] == -1 } {
-            # not exist, need to add new index
-            lappend listValues ${indexValue}
-            ${indexListW} configure -values [lsort $listValues]
-         }
-      }
-   }
-}
-
 proc ::DrawUtils::drawFamily { node canvas } {
    array set displayInfoList [$node cget -flow.display_infos]
    set displayInfo $displayInfoList($canvas)
@@ -250,36 +263,6 @@ proc ::DrawUtils::drawFamily { node canvas } {
    }
 }
 
-proc ::DrawUtils::drawTrapeze { canvas tx1 ty1 text textfill outline fill callback binder } {
-   variable constants
-   DEBUG "drawTrapeze canvas:$canvas tx1:$tx1 ty1:$ty1 text:$text callback:$callback binder:$binder" 5
-   set newtx1 [expr ${tx1} + 15]
-   $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData FONT_BOLD] -tags "$binder ${binder}.text"
-
-   set boxArea [$canvas bbox ${binder}.text]
-   #set nx1 [expr [lindex $boxArea 0] -15]
-   set nx1 [lindex $boxArea 0]
-   set nx2 [lindex $boxArea 0]
-   set nx3 [lindex $boxArea 2]
-   set nx4 [lindex $boxArea 2]
-
-   set ny1 [expr [lindex $boxArea 3] +5]
-   set ny2 [expr [lindex $boxArea 1] -5]
-   set ny3 $ny2
-   set ny4 $ny1
-   DEBUG "drawTrapeze polygon: ${nx1} ${ny1} ${nx2} ${ny2} ${nx3} ${ny3} ${nx4} ${ny4}" 5
-   $canvas create polygon ${nx1} ${ny1} ${nx2} ${ny2} ${nx3} ${ny3} ${nx4} ${ny4}  \
-         -fill $fill -tags "$binder ${binder}.trapeze"
-
-   $canvas lower ${binder}.trapeze ${binder}.text
-
-   set suite [::SuiteNode::getSuiteRecord $canvas]
-   if { $ny4 > [::SuiteNode::getDisplayNextY $suite $canvas] } {
-      ::SuiteNode::setDisplayNextY $suite $canvas $ny4
-   }
-   ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny2 $nx4 $ny4 $nx4 $ny4]
-}
 
 proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill callback binder drawshadow shadowColor} {
    variable constants
@@ -319,54 +302,18 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill callba
    }
 
    set suite [::SuiteNode::getSuiteRecord $canvas]
-   if { $ny4 > [::SuiteNode::getDisplayNextY $suite $canvas] } {
-      ::SuiteNode::setDisplayNextY $suite $canvas [expr $ny4 + 10]
-   }
+   set maximX ${sx2}
+   set maximY ${sy3}
+   set nextY  [expr $sy4 + 10]
+   ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
 }
 
-proc ::DrawUtils::drawBucket { canvas tx1 ty1 text textfill outline fill callback binder } {
-   variable constants
-   #DEBUG "drawBucket canvas:$canvas text:$text callback:$callback binder:$binder" 5
-   set newtx1 ${tx1}
-   set newty1 [expr ${ty1} - 5]
-   $canvas create text ${newtx1} ${newty1} -text $text -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
-
-   set boxArea [$canvas bbox ${binder}.text]
-   set nx1 [expr [lindex $boxArea 0] -5]
-   set ny1 [expr [lindex $boxArea 1] -5]
-
-   set nx2 [expr ([lindex $boxArea 0] + [lindex $boxArea 2]) / 2]
-   set ny2 [expr $ny1 + -5]
-
-   set nx3 [expr  [lindex $boxArea 2] + 5 ]
-   set ny3 $ny1
-
-   set nx4 $nx3
-   set ny4 [expr [lindex $boxArea 3] + 15]
-
-   set nx5 $nx1
-   set ny5 $ny4
-
-   $canvas create polygon ${nx1} ${ny1} ${nx2} ${ny2} ${nx3} ${ny3} ${nx4} ${ny4} ${nx5} ${ny5} -width $constants(border_width) \
-         -outline $outline -fill $fill -tags "$binder ${binder}.module"
-
-   $canvas lower ${binder}.module ${binder}.text
-
-   set suite [::SuiteNode::getSuiteRecord $canvas]
-   if { $ny2 > [::SuiteNode::getDisplayNextY $suite $canvas] } {
-      ::SuiteNode::setDisplayNextY $suite $canvas $ny4
-   }
-   ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx4 $ny4 $nx3 $ny4]
-}
 
 proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill callback binder drawshadow shadowColor } {
    variable constants
    DEBUG "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill callback:$callback binder:$binder" 5
    set newtx1 [expr ${tx1} + 10]
-   #set newty1 [expr ${ty1} + 10]
-   #set newtx1 $tx1
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
@@ -385,15 +332,12 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill ca
    if { [$binder cget -record_type] == "FlowLoop" &&
          [$binder cget -loop_type] == "loopset" } {
       # added to test parallel icon
-      #set parx1 [lindex $boxArea 2]
       set parx1 [expr $nx2 -5]
       set parx2 $parx1
       set pary1 [expr [lindex $boxArea 1] + 4]
       set pary2 [lindex $boxArea 3]
-      $canvas create line $parx1 $pary1 [expr $parx1 - 5] [expr $pary1 + 5] -width 1.5 -fill "#FFF8DC"
-      $canvas create line [expr $parx1 - 5] $pary1 [expr $parx1 - 10] [expr $pary1 + 5] -width 1.5 -fill "#FFF8DC"
-      #$canvas create line [expr $parx1 - 10] $pary1 [expr $parx1 - 15] [expr $pary1 + 5] -width 1.5 -fill "#FFF8DC"
-      # end parallel icon
+      $canvas create line $parx1 $pary1 [expr $parx1 - 5] [expr $pary1 + 5] -width 1.5 -fill black
+      $canvas create line [expr $parx1 - 5] $pary1 [expr $parx1 - 10] [expr $pary1 + 5] -width 1.5 -fill black
    }
 
    $canvas lower ${binder}.oval ${binder}.text
@@ -410,33 +354,41 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill ca
    }
 
    set suite [::SuiteNode::getSuiteRecord $canvas]
-   if { $ny2 > [::SuiteNode::getDisplayNextY $suite $canvas] } {
-      ::SuiteNode::setDisplayNextY $suite $canvas [expr $sy2 + 10]
-   }
+   set maximX ${sx2}
+   set maximY ${sy2}
+   set nextY  [expr $sy2 + 10]
+   ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
-   
+
+   # this part adds a combo box to hold the index values of a loop node
    if { [$binder cget -record_type] == "FlowLoop" } {
-      set loopBar "${canvas}.[$binder cget flow.name]"
-      puts "drawOval loopBar:$loopBar"
-      if { ! [winfo exists ${loopBar}] } {
-         ttk::combobox ${loopBar}
-         ${loopBar} set latest
-         set extensions [::FlowNodes::getLoopExtensions $binder]
-         lappend extensions latest
-         ${loopBar} configure -value $extensions -width 12
-         bind ${loopBar} <<ComboboxSelected>> [list loopSelectionCallback $binder $canvas %W]
+      set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
+      if { ! [winfo exists ${indexListW}] } {
+         ttk::combobox ${indexListW}
+         bind ${indexListW} <<ComboboxSelected>> [list indexedNodeSelectionCallback $binder $canvas %W]
+      } 
+
+      set extensions [::FlowNodes::getLoopExtensions $binder]
+      lappend extensions latest
+      ${indexListW} configure -values $extensions -width 12
+      if { [${binder} cget -current] != "" } {
+         ${indexListW} set  [::FlowNodes::getIndexValue [${binder} cget -current]]
+      } else {
+         ${indexListW} set latest
       }
-      pack $loopBar -fill both
-      #set barY [ expr [::SuiteNode::getDisplayNextY $suite $canvas] + 10 ]
+
+      pack ${indexListW} -fill both
       set barY [expr $sy2 + 15]
       set barX [expr ($nx1 + $nx2)/2]
-      #set barX [expr ($nx1 + $nx2)/2 + 15]
-      $canvas create window $barX $barY -window $loopBar
-      ::SuiteNode::setDisplayNextY $suite $canvas [expr $barY + [winfo height $loopBar] + 20]
+      $canvas create window $barX $barY -window ${indexListW}
+      set maximX ${sx2}
+      set maximY ${barY}
+      set nextY [expr $barY + [winfo height ${indexListW}] + 20]
+      ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
    }
 }
 
-proc ::DrawUtils::drawline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColor} {
+proc ::DrawUtils::drawline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColor {tag_name ""} } {
     DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
 
     if { $x1 < $x2 } {
@@ -457,15 +409,23 @@ proc ::DrawUtils::drawline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColo
     }
     if { $drawshadow == "on" } {
       # draw shadow
-      $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.0 -arrow $arrow -fill $shadowColor
+      if { ${tag_name} == "" } {
+         $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.0 -arrow $arrow -fill $shadowColor
+      } else {
+         $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.0 -arrow $arrow -fill $shadowColor -tags ${tag_name}
+      }
     }
 
     # draw line
-    $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.0 -arrow $arrow -fill $fill 
+   if { ${tag_name} == "" } {
+      $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.0 -arrow $arrow -fill $fill
+   } else {
+      $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.0 -arrow $arrow -fill $fill -tags ${tag_name}
+   }
 
 }
 
-proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColor} {
+proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColor {tag_name ""}} {
     DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
 
     if { $x1 < $x2 } {
@@ -487,11 +447,19 @@ proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadow
 
     if { $drawshadow == "on" } {
       # draw shadow
-      $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.0 -arrow $arrow -fill $shadowColor -dash { 4 3 }
+      if { ${tag_name} == "" } {
+         $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.0 -arrow $arrow -fill $shadowColor -dash { 4 3 }
+      } else {
+         $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.0 -arrow $arrow -fill $shadowColor -dash { 4 3 } -tags ${tag_name}
+      }
     }
 
-    # draw line
-    $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.0 -arrow $arrow -fill $fill -dash { 4 3 }
+   # draw line
+   if { ${tag_name} == "" } {
+      $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.0 -arrow $arrow -fill $fill -dash { 4 3 }
+   } else {
+      $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.0 -arrow $arrow -fill $fill -dash { 4 3 } -tags ${tag_name}
+   }
 }
 
 proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
@@ -556,17 +524,16 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
    }
 
    set suite [::SuiteNode::getSuiteRecord $canvas]
-   if { $ny2 > [::SuiteNode::getDisplayNextY $suite $canvas] } {
-      ::SuiteNode::setDisplayNextY $suite $canvas $ny2
-   }
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+   set maximX ${sx2}
+   set maximY ${sy2}
+   set nextY ${ny2}
+   ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
 }
 
-
-proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill callback binder drawshadow shadowColor} {
+proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill callback binder drawshadow shadowColor } {
    variable constants
    DEBUG "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill callback:$callback binder:$binder" 5
-   set family [$binder cget -flow.family]
 
    $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
@@ -596,34 +563,44 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill ca
    }
 
    set suite [::SuiteNode::getSuiteRecord $canvas]
-   if { $sy2 > [::SuiteNode::getDisplayNextY $suite $canvas] } {
-      ::SuiteNode::setDisplayNextY $suite $canvas $ny2
-   }
+   set maximX ${sx2}
+   set maximY ${sy2}
+   set nextY ${ny2}
+   ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
+
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
    if { [$binder cget -record_type] == "FlowNpassTask" } {
-      set indexListW "${canvas}.[$binder cget flow.name]"
+      set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
          ttk::combobox ${indexListW}
-         set extensions {latest}
-         ${indexListW} set latest
-         foreach { nodeIndex nodeStatus } [$binder cget flow.statuses] {
-            if { $nodeIndex != "latest" } {
-               lappend extensions [::FlowNodes::getIndexValue $nodeIndex]
-            }
-         }
-         set extensions  [lsort -unique $extensions]
-         if { [string length [$binder cget flow.name]] < 12 } {
-            ${indexListW} configure -value $extensions -width [string length [$binder cget flow.name]]
-         } else {
-            ${indexListW} configure -value $extensions -width 12
-         }
-         bind ${indexListW} <<ComboboxSelected>> [list npassTaskSelectionCallback $binder $canvas %W]
+         bind ${indexListW} <<ComboboxSelected>> [list indexedNodeSelectionCallback $binder $canvas %W]
       }
+      set extensions {latest}
+      if { [${binder} cget -current] != "" } {
+         ${indexListW} set  [::FlowNodes::getIndexValue [${binder} cget -current]]
+      } else {
+         ${indexListW} set latest
+      }
+
+      set maxItemLength [string length latest]
+      set nptExtensions [::FlowNodes::getNptExtensions ${binder}]
+      set nptExtensions  [lsort -unique ${nptExtensions}]
+      foreach extens ${nptExtensions} {
+         if { [expr [string length ${extens}] > ${maxItemLength}] } {   
+            set maxItemLength [string length ${extens}]
+         }
+         lappend extensions ${extens}
+      }
+      ${indexListW} configure -values $extensions -width ${maxItemLength}
+
       pack ${indexListW} -fill both
       set barY [expr $sy2 + 15]
       set barX [expr ($nx1 + $nx2)/2]
       $canvas create window $barX $barY -window  ${indexListW}
-      ::SuiteNode::setDisplayNextY $suite $canvas [expr $barY + [winfo height  ${indexListW}] + 20]
+      set maximX ${sx2}
+      set maximY ${barY}
+      set nextY  [expr $barY + [winfo height  ${indexListW}] + 20]
+      ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
    }
 
 }
