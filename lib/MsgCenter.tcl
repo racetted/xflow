@@ -6,7 +6,7 @@ package require tooltip
 
 global env
 set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-puts "lib_dir=$lib_dir"
+#puts "lib_dir=$lib_dir"
 set auto_path [linsert $auto_path 0 $lib_dir ]
 
 proc MsgCenter_setTkOptions {} {
@@ -305,7 +305,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ } {
       set node $MSG_TABLE(${counter},${NodeColNumber})
       set msg $MSG_TABLE(${counter},${MessageColNumber})
       set exp $MSG_TABLE(${counter},${SuiteColNumber})
-     puts "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp"
+      DEBUG "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp" 5
       MsgCenter_addActiveMessage ${timestamp} ${type} ${node} ${msg} ${exp}
       incr counter
    }
@@ -426,7 +426,7 @@ proc MsgCenter_createTags { table_w_ } {
 }
 
 proc MsgCenter_close {} {
-   puts "MsgCenter_close..."
+   DEBUG "MsgCenter_close..." 5
    wm withdraw [MsgCenter_getToplevel]
 }
 
@@ -537,12 +537,12 @@ proc MsgCenter_initThread {} {
 ########################################
 # %W
 proc MsgCenter_Button3Callback { widget_ } {
-   puts "MsgCenter_Button3Callback widget:${widget_}"
+   DEBUG "MsgCenter_Button3Callback widget:${widget_}" 5
 }
 
 proc MsgCenter_DoubleClickCallback { table_widget } {
    global NodeColNumber SuiteColNumber
-   puts "MsgCenter_DoubleClickCallback widget:${table_widget}"
+   DEBUG "MsgCenter_DoubleClickCallback widget:${table_widget}" 5
    #puts "MsgCenter_DoubleClickCallback active cell: [${widget_} tag cell active]"
    #puts "MsgCenter_DoubleClickCallback active cell: [${widget_} tag cell active]"
    set currentCell [${table_widget} curselection]
@@ -552,7 +552,7 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
       # retrieve needed information
       set node [${table_widget} get ${selectedRow},${NodeColNumber}]
       set suitePath [${table_widget} get ${selectedRow},${SuiteColNumber}]
-      puts "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}"
+      DEBUG "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}" 5
 
       if { ${node} == "" || ${suitePath} == "" } {
          return

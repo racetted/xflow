@@ -22,7 +22,7 @@ if { ! [info exists env(SEQ_XFLOW_BIN) ] } {
 puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
 
 set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-puts "lib_dir=$lib_dir"
+# puts "lib_dir=$lib_dir"
 set auto_path [linsert $auto_path 0 $lib_dir ]
 
 ::ttk::setTheme classic
@@ -136,7 +136,6 @@ proc xflow_AddCanvasBg { canvas } {
    ${canvas} delete ${imageTagName}
    ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags ${imageTagName}
    ${canvas} lower ${imageTagName}
-   puts "xflow_AddCanvasBg ${canvas} done"
 }
 
 proc xflow_createToolbar { parent } {
@@ -463,7 +462,7 @@ proc getMonitorDate { parent_w { suite_record "" } } {
       set values "$values [string range $date 0 9]"
    }
    ${monitorEntryCombo} configure -values $values
-   puts "getMonitorDate MONITOR_DATESTAMP:$MONITOR_DATESTAMP -active_log? [${suite_record} cget -active_log]"
+   DEBUG "getMonitorDate MONITOR_DATESTAMP:$MONITOR_DATESTAMP -active_log? [${suite_record} cget -active_log]" 5
    if { ${MONITORING_LATEST} == 0 && ${MONITOR_DATESTAMP} != "" } {
       ${suite_record} configure -active_log ${MONITOR_DATESTAMP} -read_offset 0
       ${monitorEntryCombo} set ${MONITOR_DATESTAMP}
@@ -477,7 +476,7 @@ proc getMonitorDate { parent_w { suite_record "" } } {
          set MONITOR_DATESTAMP [${suite_record} cget -active_log]
       }
    }
-   puts "getMonitorDate 2 MONITOR_DATESTAMP:$MONITOR_DATESTAMP"
+   DEBUG "getMonitorDate 2 MONITOR_DATESTAMP:$MONITOR_DATESTAMP" 5
 }
 
 proc populateMonitorDate { parent_w {suite_record ""} } {
@@ -874,7 +873,6 @@ proc drawNode { canvas node position callback } {
    }
    set dispPref [getNodeDisplayPrefText $node]
    if { $dispPref != "" } {
-      set maxExtDisplay "${maxExtDisplay}\n${dispPref}"
       set text "${text}\n${dispPref}"
    }
    
@@ -913,7 +911,6 @@ proc drawNode { canvas node position callback } {
    $canvas bind $node <Button-2> [ list historyCallback $node $canvas "" 48] 
    $canvas bind $node <Button-3> [ list nodeMenu $canvas $node %X %Y]
 
-   #::FlowNodes::setDisplayLimits $node $canvas
    if { $isCollapsed == 0 } {
       # get the childs to display
       if { !(($children == "none") ||  ($children == ""))} {
@@ -1630,7 +1627,8 @@ proc drawflow { canvas {initial_display "1"} } {
 
       set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
       # reset the default spacing for drawing flow
-      ::SuiteNode::resetDisplayNextY $suiteRecord $canvas
+      # ::SuiteNode::resetDisplayNextY $suiteRecord $canvas
+      ::SuiteNode::resetDisplayData ${suiteRecord} ${canvas}
       set rootNode [::SuiteNode::getDisplayRoot $suiteRecord $canvas]
    
       set callback changeCollapsed
@@ -2084,7 +2082,7 @@ proc xflow_init {} {
    if { ! [info exists AUTO_MSG_DISPLAY] } {
       set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
    } else {
-      puts "xflow_init SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}"
+      DEBUG "xflow_init SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}" 5
       SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
    }
 

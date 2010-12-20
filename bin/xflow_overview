@@ -1,6 +1,6 @@
 #!/bin/ksh
-#CMOI_LEVEL usr
-#CMOI_PLATFORM op_f
+[[ "$1" = --help || "$1" = -h ]] && cat << true && set -h
+true
 
 eval 
 arch=`uname -s`
@@ -12,24 +12,14 @@ else
    exit
 fi
 
-function showhelp
-{
-print "
-\t     Usage: xflow_overview [-h] [-noautomsg] [-suites suite_list]
-\t\t        Where:
-\t\t\t        -h : show help
-\t\t\t        -noautomsg : turns off automatic alarm message display
-\t\t\t        -suites suite_list : starts with given suites list file
-"
-}
-
-[[ "$1" = --help || "$1" = -h ]] && showhelp && exit 0
 arguments=$*
-eval `cclargs_lite -D "" $0 \
-  -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
-  -suites ""                    ""                           "[Suites List File]" \
-  -as "" "" "[start application as another user]" \
-  ++ $arguments 2>/dev/null`
+eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
+  -as 		"" 	"" 	"[start application as another user]" \
+  -display 	"" 	"$DISPLAY" 	"[X windows display]" \
+  -debug 	"0" 	"1"	"[debug message]" \
+  -noautomsg 	"0"     "1"	"[No Auto Message Display]" \
+  -suites 	""	""	"[Suites List File]" \
+  ++ $arguments`
 
 if [[ "${SEQ_XFLOW_BIN}" = "" ]] ; then
    echo "xflow_overview getting maestro env from /home/binops/afsi/ssm/domain2"
@@ -37,26 +27,37 @@ if [[ "${SEQ_XFLOW_BIN}" = "" ]] ; then
    echo "which xflow_overview? $(which xflow_overview)"
 fi
 
+# setting the display properly
+export DISPLAY=${display:-${DISPLAY}}
+print "\nusing DISPLAY=$DISPLAY"
+
+# switch to another user?
 if [[ "${as}" != "" ]] ; then
-   echo "xflow_overview switching ${USER} user to ${as}"
+   print "\nxflow_overview switching ${USER} user to ${as}"
    if [ "${USER}" = "afsfops" -a '("${as}" = "afsipar" || "${as}" = "afsiops")' ] ; then
       sshCommandKey=${HOME}/.ssh/command_keys/maestro_${as}_key
       if [[ ! -f ${sshCommandKey} ]] ; then
          echo "xflow_overview Fatal Error: cannot find ssh command key ${sshCommandKey}" 
 	 exit 1
       fi
-      echo "xflow_overview command:\n echo ${0} ${arguments} | ssh -T -X -i ${sshCommandKey} ${as}@${TRUE_HOST}"
-      # echo "${0} ${arguments}" | ssh -T -X -i /home/binops/afsf/ops/.ssh/command_keys/maestro_afsipar_key ${as}@${TRUE_HOST}
+      print "\nxflow_overview command\n--- echo ${0} ${arguments} | ssh -T -i ${sshCommandKey} ${as}@${TRUE_HOST} ---"
+      echo "${0} ${arguments}" | ssh -T -i /home/binops/afsf/ops/.ssh/command_keys/maestro_afsipar_key ${as}@${TRUE_HOST}
+      exit 0
    fi
 fi
 
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 suites_opt=""
-if [[ "${suites}" != "" ]] then
+if [[ "${suites}" != "" ]] ; then
    print "\n suites file ${suites}"
    [[ ! -f ${suites} ]] && print "\nxflow_overview ERROR: file not found ${suites}" && exit 1
    suites_opt="-suites ${suites}"
 fi
 
+debug_opt=""
+if [[ "${debug}" = "1" ]] ; then
+   debug_opt="-debug"
+fi
+
 print "\n$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}"
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt} ${debug_opt}

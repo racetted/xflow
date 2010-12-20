@@ -76,6 +76,18 @@ proc ::SuiteNode::resetDisplayNextY { suite canvas } {
    setDisplayNextY $suite $canvas 40
 }
 
+proc ::SuiteNode::resetDisplayData { suite canvas } {
+   array set canvasList [$suite cget -canvas_info]
+   if { [info exists canvasList($canvas)] } {
+      set canvasInfo $canvasList($canvas)
+      set canvasInfo [lreplace $canvasInfo 0 0 40]
+      set canvasInfo [lreplace $canvasInfo 2 2 20]
+      set canvasInfo [lreplace $canvasInfo 3 3 20]
+      set canvasList($canvas) ${canvasInfo}
+      $suite configure -canvas_info [array get canvasList]
+   }
+}
+
 proc ::SuiteNode::initDisplay { suite canvas } {
    array set canvasList [$suite cget -canvas_info]
    if { ! [info exists canvasList($canvas)] } {

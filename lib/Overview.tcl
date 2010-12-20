@@ -1255,7 +1255,7 @@ proc Overview_GroupSetY { group_record y_value } {
          ${group_record} configure -miny ${slotValue}
       }
    }
-   puts "Overview_GroupSetY currentMinY:[${group_record} cget -miny] currentMaxY:[${group_record} cget -maxy]"
+   DEBUG "Overview_GroupSetY currentMinY:[${group_record} cget -miny] currentMaxY:[${group_record} cget -maxy]" 5
 }
 
 # this function creates the group labels at the left of the graph
@@ -1266,7 +1266,7 @@ proc Overview_addGroups { canvas } {
    set displayGroups [record show instances DisplayGroup]
    set groupEntryCurrentY $entryStartY
    set expEntryCurrentX $entryStartX
-      puts "Overview_addGroups groupEntryCurrentY:$groupEntryCurrentY"
+   DEBUG "Overview_addGroups groupEntryCurrentY:$groupEntryCurrentY" 5
 
    # this step is to create an thread for each experiment/suite and
    # then have each thread read the suite's log file once and then
@@ -1501,6 +1501,7 @@ proc Overview_parseCmdOptions {} {
 
    if { [info exists argv] } {
       set options {
+         {debug "Turn debug on"}
          {noautomsg "No automatic message display"}
          {suites.arg "" "suites definition file"}
       }
@@ -1515,6 +1516,15 @@ proc Overview_parseCmdOptions {} {
       } else {
          SharedData_setMiscData AUTO_MSG_DISPLAY false
       } 
+
+      if { $params(debug) == "1" } {
+         puts "Overview_parseCmdOptions DEBUG_TRACE 1"
+         SharedData_setMiscData DEBUG_TRACE 1
+      } else {
+         puts "Overview_parseCmdOptions DEBUG_TRACE 0"
+         SharedData_setMiscData DEBUG_TRACE 0
+      } 
+
       if { ! ($params(suites) == "") } {
          SharedData_setMiscData OVERVIEW_SUITES_FILE $params(suites)
       } else {
@@ -1648,18 +1658,28 @@ proc Overview_addCanvasImage { canvas } {
    ${canvas} lower canvas_bg_image
 }
 
+proc Overview_setTitle { top_w } {
+   global env
+   set winTitle "Xflow Overview"
+   if { [info exists env(USER)] } {
+      set winTitle "${winTitle} - User=$env(USER)"
+   }
+   wm title ${top_w} ${winTitle}
+}
+
 global MSG_CENTER_THREAD_ID
 global DEBUG_ON DEBUG_LEVEL
 
 wm withdraw .
 SharedData_init
 Overview_setTkOptions
-set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
+SharedData_setMiscData DEBUG_TRACE 0
 set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
 SharedData_setMiscData OVERVIEW_MODE true
 SharedData_setMiscData OVERVIEW_THREAD_ID [thread::id]
 
 Overview_parseCmdOptions
+set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
 
 ::DrawUtils::init
 Overview_init
@@ -1667,7 +1687,7 @@ set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
 set topOverview .overview_top
 set topCanvas ${topOverview}.canvas
 toplevel ${topOverview}
-wm title ${topOverview} "Xflow Overview Panel"
+Overview_setTitle ${topOverview}
 Overview_readExperiments
 
 Overview_createMenu ${topOverview}

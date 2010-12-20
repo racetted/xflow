@@ -63,7 +63,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I need to get the node that has a submit to this node. It is not
    # necessarily the xml parent node that is effectively the flow parent
    # node
-   puts "createNodeFromXml() parent_flow_node:$parent_flow_node"
+   DEBUG "createNodeFromXml() parent_flow_node:$parent_flow_node" 5
    set actualFlowParent [::FlowNodes::searchForChild $parent_flow_node $nodeName]
    set newFlowDirname $actualFlowParent/$nodeName
    set flowCreateCmd [lindex [string map $FlowNodeTypeMap $xmlNodeName] 0]
@@ -77,7 +77,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I'm storing the closest container of the node
    set parentContainer "[$actualFlowParent cget -flow.container]"
    set parentName "[$actualFlowParent cget -flow.name]"
-   puts "createNodeFromXml() parentContainer:$parentContainer $parentName $flowType [$actualFlowParent cget -flow.type]"
+   DEBUG "createNodeFromXml() parentContainer:$parentContainer $parentName $flowType [$actualFlowParent cget -flow.type]" 5
    if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npass_task"} {
       $newFlowDirname configure -flow.container "$parentContainer"
    } else {
@@ -118,7 +118,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
 
    global env
    set xmlNodeName [$current_xml_node nodeName]
-   puts "parseXmlNode: suite:$suite parent_flow_node=$parent_flow_node xmlNodeName=$xmlNodeName"
+   DEBUG "parseXmlNode: suite:$suite parent_flow_node=$parent_flow_node xmlNodeName=$xmlNodeName" 5
    set parseChild 1
    set parentFlowNode $parent_flow_node
    set newParentNode ""
@@ -134,8 +134,8 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
 	      set nodeName [$current_xml_node getAttribute name]
          #set newXmlFile $env(SEQ_EXP_HOME)/modules/$nodeName/flow.xml
          set newXmlFile [$suite cget -suite_path]/modules/$nodeName/flow.xml
-         puts "ParseXmlNode:: suite_path: [$suite cget -suite_path]" 
-         puts "ParseXmlNode:: newXmlFile = $newXmlFile" 
+         DEBUG "ParseXmlNode:: suite_path: [$suite cget -suite_path]"  5
+         DEBUG "ParseXmlNode:: newXmlFile = $newXmlFile"  5
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node] 
          readMasterfile $newXmlFile [$suite cget -suite_path] $newParentNode $suite
          set parseChild 0
@@ -196,7 +196,7 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
    if { $parent_flow_node == "" } {
       set suiteName [$topXmlNode getAttribute name]
       if { ! [record exists instance $suiteRecord] } {
-         DEBUG "parseModuleMasterfile $suiteRecord does not exists"
+         DEBUG "parseModuleMasterfile $suiteRecord does not exists" 5
          SuiteInfo $suiteRecord
       }
       set recordName "/$suiteName"
@@ -208,10 +208,10 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
       }
       $recordName configure -flow.name $suiteName -flow.type module -flow.family $recordName
    } else {
-      DEBUG "parseModuleMasterfile suite_record:$suite_record"
+      DEBUG "parseModuleMasterfile suite_record:$suite_record" 5
       set suiteName [$suite_record cget -suite_name]
       set recordName $parent_flow_node
-      puts "suiteName:$suiteName"
+      DEBUG "suiteName:$suiteName" 5
    }
 
    getSubmits $recordName $topXmlNode

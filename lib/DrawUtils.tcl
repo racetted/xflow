@@ -248,7 +248,7 @@ proc ::DrawUtils::drawNodeText { node new_text {canvas ""} } {
 proc ::DrawUtils::drawFamily { node canvas } {
    array set displayInfoList [$node cget -flow.display_infos]
    set displayInfo $displayInfoList($canvas)
-   puts "drawFamily displayInfo:$displayInfo"
+   DEBUG "drawFamily displayInfo:$displayInfo" 5
    if {  [$node cget -flow.type] == "family" } {
       set x1 [expr [lindex $displayInfo 1] - 10]
       set x2 [expr [lindex $displayInfo 5] +10]

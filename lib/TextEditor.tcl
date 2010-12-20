@@ -42,11 +42,11 @@ proc tw_search {w new_search} {
    }
 
    if { $new_search } {
-      puts "tw_search resetting search offset"
+      DEBUG "tw_search resetting search offset" 5
       set TEXTSEARCH_OFFSET($w) 1.0
       set offset $TEXTSEARCH_OFFSET($w)
    } else {
-      puts "tw_search NOT resetting search offset"
+      DEBUG "tw_search NOT resetting search offset" 5
       set offset $TEXTSEARCH_OFFSET($w)
    }
 
@@ -90,7 +90,7 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
 
    global TEXTSEARCH_OFFSET SEARCHSTRING LINEWRAP DEFAULT_COLORS FONTS
    global LEFT_ARROW_IMG RIGHT_ARROW_IMG LEFT_ENDARROW_IMG RIGHT_ENDARROW_IMG
-   puts "create_text_window title:$title"
+   DEBUG "create_text_window title:$title" 5
    #example: change the title from 'iclogj -h 36 {{e1up168_00_1  }}' to 'iclogj -h 36 e1up168_00_1  '
    regsub -all "\{\{" $title {} title
    regsub -all "\}\}" $title {} title
@@ -188,7 +188,7 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
    } else {
       set endof_file 0
       set filesize [file size $tmpfile]
-      puts "file size of $tmpfile $filesize bytes"
+      DEBUG "file size of $tmpfile $filesize bytes" 5
       set maxSize 4000000
       set readChunkSize 400
       if { $filesize > $maxSize } {
