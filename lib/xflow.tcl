@@ -968,16 +968,15 @@ proc nodeMenu { canvas node x y } {
       $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
       if { [$node cget -flow.type] != "task" } {
          $popMenu add command -label "Submit" -command [list submitCallback $node $canvas $popMenu continue ]
+         $popMenu add command -label "Node Config" -command [list configCallback $node $canvas $popMenu ]
+         $popMenu add separator
+         $popMenu add command -label "Initbranch" -command [list initbranchCallback $node $canvas $popMenu]
       } else {
          $popMenu add command -label "Submit & Continue" -command [list submitCallback $node $canvas $popMenu continue ]
          $popMenu add command -label "Submit & Stop" -command [list submitCallback $node $canvas $popMenu stop ]
          $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
-      }
-      $popMenu add command -label "Node Config" -command [list configCallback $node $canvas $popMenu ]
-      $popMenu add separator
-      if { [$node cget -flow.type] != "task" } {
-         $popMenu add command -label "Initbranch" -command [list initbranchCallback $node $canvas $popMenu]
-      } else {
+         $popMenu add command -label "Node Config" -command [list configCallback $node $canvas $popMenu ]
+         $popMenu add separator
          $popMenu add command -label "Initnode" -command [list initnodeCallback $node $canvas $popMenu]
       }
       $popMenu add command -label "End" -command [list endCallback $node $canvas $popMenu]
