@@ -1,4 +1,7 @@
 #!/bin/ksh
+
+[[ "$1" = --help || "$1" = -h ]] && set -h
+
 arch=`uname -s`
 if [[ "$arch" = "Linux" ]]; then
    TCLSH=/home/binops/afsi/ssm/sw/linux26-i686/bin/tclsh8.4
@@ -9,22 +12,15 @@ else
    exit
 fi
 
-function showhelp
-{
-print "
-\t     Usage: xflow [-h] [-noautomsg]
-\t\t        Where:
-\t\t\t        -h show help
-\t\t\t        -noautomsg turns off automatic alarm message display
-"
-}
-
-[[ "$1" = --help || "$1" = -h ]] && showhelp && exit 0
+# check for allowed users
+set -e 
+/home/ordenv/GIT-DEPOTS/impl/isst/xflow/etc/check_unknown_users
+set +e
 
 arguments=$*
-eval `cclargs_lite -D "" $0 \
+eval `cclargs_lite -D "" $0 "[maestro gui]" \
   -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
-  ++ $arguments 2>/dev/null`
+  ++ $arguments`
 
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 

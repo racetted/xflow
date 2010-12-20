@@ -6,7 +6,7 @@ package require tooltip
 
 global env
 set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-puts "lib_dir=$lib_dir"
+#puts "lib_dir=$lib_dir"
 set auto_path [linsert $auto_path 0 $lib_dir ]
 
 proc MsgCenter_setTkOptions {} {
@@ -121,7 +121,7 @@ proc MsgCenter_createWidgets {} {
    set tableW .table
    set yscrollW .sy
    set xscrollW .sx
-   set defaultRows 25
+   set defaultRows [SharedData_getMiscData MSG_CENTER_NUMBER_ROWS]
    set timeStampColWidth 16
    set dateStampColWidth 16
    set typeColWidth 8
@@ -138,7 +138,7 @@ proc MsgCenter_createWidgets {} {
       MsgCenter_createMenus
       MsgCenter_createToolbar ${tableW}
       table ${tableW} -cols 6 -rows ${defaultRows} -titlecols 0 -titlerows 1 -pady 6 -rowheight 1 \
-         -colstretchmode all -rowstretchmode all -variable MSG_ACTIVE_TABLE -state disabled -bg ${tableBgColor} \
+         -colstretchmode all -rowstretchmode unset -variable MSG_ACTIVE_TABLE -state disabled -bg ${tableBgColor} \
          -yscrollcommand [list ${yscrollW} set] -xscrollcommand [list ${xscrollW} set] -selecttitle 1 -drawmode fast
 
       ${tableW} width ${TimestampColNumber} ${timeStampColWidth} \
@@ -197,27 +197,29 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    global NodeColNumber MessageColNumber SuiteColNumber
    global MSG_TABLE MSG_COUNTER MSG_ACTIVE_COUNTER
    incr MSG_COUNTER
+
+   set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
    set MSG_TABLE(${MSG_COUNTER},${TimestampColNumber}) ${timestamp_}
    set MSG_TABLE(${MSG_COUNTER},${DatestampColNumber}) ${datestamp_}
    set MSG_TABLE(${MSG_COUNTER},${TypeColNumber}) ${type_}
-   set MSG_TABLE(${MSG_COUNTER},${NodeColNumber}) ${node_}
+   set MSG_TABLE(${MSG_COUNTER},${NodeColNumber}) ${displayedNodeText}
    set MSG_TABLE(${MSG_COUNTER},${MessageColNumber}) ${msg_}
    set MSG_TABLE(${MSG_COUNTER},${SuiteColNumber}) ${exp_}
 
    set isMsgActive [MsgCenter_addActiveMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}]
 
    if { ${isMsgActive} == "true" } {
+
+      # do we need to add more rows to the table?
+      set currentNumberRows [${table_w_} cget -rows]
+      if { [expr ${MSG_ACTIVE_COUNTER} > ${currentNumberRows}] } {
+         # on ajoute 10
+         ${table_w_} configure -rows [expr ${currentNumberRows} + 10]
+      }
       ${table_w_} tag row NewMessageTag ${MSG_ACTIVE_COUNTER}
       ${table_w_} see ${MSG_ACTIVE_COUNTER},0
       MsgCengter_processAlarm ${table_w_}
-      set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-      if { ${isOverviewMode} == "true" } {
-         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-         thread::send ${overviewThreadId} "Overview_newMessageCallback true"
-      } else {
-         set xflowThreadId [SharedData_getMiscData XFLOW_THREAD_ID]
-         thread::send ${xflowThreadId} "xflow_newMessageCallback true"
-      }
+      MsgCenter_sendNotification
    }
 
    # adjust field length
@@ -227,6 +229,23 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    if { ${nodeLength} > ${currentLength} } {
       SharedData_setMiscData MAX_NODE_LENGTH [string length ${node_}]
       ${table_w_} width ${NodeColNumber} ${nodeLength} 
+   }
+}
+
+# see if we need to send notification to xflow or xflow-overview
+# for new messages
+proc MsgCenter_sendNotification {} {
+   global MSG_ACTIVE_COUNTER
+   set isStartupDone [SharedData_getMiscData STARTUP_DONE]
+   if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 1] } {
+      set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+      if { ${isOverviewMode} == "true" } {
+         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+         thread::send ${overviewThreadId} "Overview_newMessageCallback true"
+      } else {
+         set xflowThreadId [SharedData_getMiscData XFLOW_THREAD_ID]
+         thread::send ${xflowThreadId} "xflow_newMessageCallback true"
+      }
    }
 }
 
@@ -257,11 +276,12 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
 
    if { ${isMsgActive} == "true" } {
       DEBUG "MsgCenter_addActiveMessage adding ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
+      set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
       incr MSG_ACTIVE_COUNTER
       set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${TimestampColNumber}) ${timestamp_}
       set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${DatestampColNumber}) ${datestamp_}
       set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${TypeColNumber}) ${type_}
-      set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${NodeColNumber}) ${node_}
+      set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${NodeColNumber}) ${displayedNodeText}
       set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${MessageColNumber}) ${msg_}
       set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${SuiteColNumber}) ${exp_}
    }
@@ -285,7 +305,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ } {
       set node $MSG_TABLE(${counter},${NodeColNumber})
       set msg $MSG_TABLE(${counter},${MessageColNumber})
       set exp $MSG_TABLE(${counter},${SuiteColNumber})
-     puts "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp"
+      DEBUG "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp" 5
       MsgCenter_addActiveMessage ${timestamp} ${type} ${node} ${msg} ${exp}
       incr counter
    }
@@ -336,6 +356,9 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
       }
       MsgCenter_ackMessages ${table_w_}
       MsgCenter_initActiveMessages
+
+      # reset default rows
+      ${table_w_} configure -rows [SharedData_getMiscData MSG_CENTER_NUMBER_ROWS]
    }
 }
 
@@ -403,7 +426,7 @@ proc MsgCenter_createTags { table_w_ } {
 }
 
 proc MsgCenter_close {} {
-   puts "MsgCenter_close..."
+   DEBUG "MsgCenter_close..." 5
    wm withdraw [MsgCenter_getToplevel]
 }
 
@@ -462,6 +485,10 @@ proc MsgCenter_getThread {} {
             MsgCenter_show
          }
 
+         proc MsgCenterThread_startupDone {} {
+            MsgCenter_sendNotification
+         }
+
          # enter event loop
          thread::wait
       }]
@@ -510,12 +537,12 @@ proc MsgCenter_initThread {} {
 ########################################
 # %W
 proc MsgCenter_Button3Callback { widget_ } {
-   puts "MsgCenter_Button3Callback widget:${widget_}"
+   DEBUG "MsgCenter_Button3Callback widget:${widget_}" 5
 }
 
 proc MsgCenter_DoubleClickCallback { table_widget } {
    global NodeColNumber SuiteColNumber
-   puts "MsgCenter_DoubleClickCallback widget:${table_widget}"
+   DEBUG "MsgCenter_DoubleClickCallback widget:${table_widget}" 5
    #puts "MsgCenter_DoubleClickCallback active cell: [${widget_} tag cell active]"
    #puts "MsgCenter_DoubleClickCallback active cell: [${widget_} tag cell active]"
    set currentCell [${table_widget} curselection]
@@ -525,7 +552,7 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
       # retrieve needed information
       set node [${table_widget} get ${selectedRow},${NodeColNumber}]
       set suitePath [${table_widget} get ${selectedRow},${SuiteColNumber}]
-      puts "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}"
+      DEBUG "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}" 5
 
       if { ${node} == "" || ${suitePath} == "" } {
          return
@@ -541,7 +568,8 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
       }
 
       # ask the suite thread to take care of showing the selected node in it's flow
-      thread::send ${suiteThreadId} "xflow_findNode ${suiteRecord} ${node}"
+      set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
+      thread::send ${suiteThreadId} "xflow_findNode ${suiteRecord} ${convertedNode}"
    }
 }
 

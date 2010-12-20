@@ -9,7 +9,7 @@ namespace import ::struct::record::*
 # display_infos: is an array that contains references to canvas where
 # this node is located; this node can appear in different canvases
 # the array is a hashtable where the key is the canvas and the value is
-# "is_collapsed(1 or 0) is_root(1 or 0) x1 y1 x2 y2 max_x max_y"
+# "is_collapsed(1 or 0) is_root(1 or 0) x1 y1 x2 y2 max_x max_y children_next_y"
 #
 # ext: this is used to store the current extension for loop members.
 #      ext="" means node is not part of loop
@@ -182,6 +182,24 @@ proc ::FlowNodes::remFromChildren { node new_child } {
    }
 }
 
+# returns the display position of the node withing it's parent 
+proc ::FlowNodes::getPosition { node } {
+   set parentNode [${node} cget flow.parent]
+   set returnValue 0
+   if { ${parentNode} != "" } {
+      set childList [${parentNode} cget -flow.children]
+      if { [expr [llength ${childList}] > 1] } {
+         set nodeName [${node} cget flow.name]
+         set returnValue [lsearch ${childList} ${nodeName}]
+         if { [expr ${returnValue} == -1] } {
+            set returnValue 0
+         }
+      }
+   }
+
+   return ${returnValue}
+}
+
 # search the node subtree & returns the path of the node that contains a specific child
 # returns "" if not found
 proc ::FlowNodes::searchForChild { node child } {
@@ -346,6 +364,23 @@ proc ::FlowNodes::setDisplayLimits { flow_node canvas } {
    }
 }
 
+proc ::FlowNodes::setDisplayY { flow_node canvas value } {
+   # set value for current node to be used by children node
+   array set displayInfoList [${flow_node} cget -flow.display_infos]
+   set displayInfo $displayInfoList($canvas)
+   set displayInfo [lreplace $displayInfo 8 8 ${value}]
+   set displayInfoList($canvas) [join $displayInfo]
+   ${flow_node} configure -flow.display_infos [array get displayInfoList]
+
+}
+
+proc ::FlowNodes::getDisplayY { flow_node canvas } {
+
+   array set displayInfoList [${flow_node} cget -flow.display_infos]
+   set displayInfo $displayInfoList($canvas)
+   return [lindex ${displayInfo} 8]
+}
+
 proc ::FlowNodes::getDisplayCoords { node canvas} {
    array set displayInfoList [$node cget -flow.display_infos]
    set displayInfo $displayInfoList($canvas)
@@ -371,14 +406,13 @@ proc ::FlowNodes::initNode { node canvas} {
    #puts "::FlowNodes::initNode node:$node canvas:$canvas"
    array set displayInfoList [$node cget -flow.display_infos]
    if { ![info exists displayInfoList($canvas)] } {
-      set displayInfoList($canvas) {1 0 0 0 0 0 0 0}
+      set displayInfoList($canvas) {1 0 0 0 0 0 0 0 20}
       $node configure -flow.display_infos [array get displayInfoList]
    }
    
 }
 
 proc ::FlowNodes::resetNodeStatus { node } {
-   #puts "::FlowNodes::resetNodeStatus node:$node "
    ::FlowNodes::resetAllStatus $node init
    set childList [$node cget -flow.children]
    if { $childList != "" } {
@@ -410,13 +444,28 @@ proc ::FlowNodes::getDisplayList { node } {
    return [array names displayInfoList]
 }
 
-proc ::FlowNodes::setMemberStatus { node member new_status {is_recursive 0} } {
-   #puts "::FlowNodes::setMemberStatus node:$node member:$member new_status:$new_status"
+proc ::FlowNodes::setMemberStatus { node member new_status {timestamp ""} {is_recursive 0} } {
+   if { [$node cget -flow.type] == "npass_task"} {
+      ::FlowNodes::setNptMemberStatus ${node} ${member} ${new_status} ${timestamp}
+      return
+   }
+
    array set statusList [$node cget -flow.statuses]
+
    if { $member == "" } {
       set statusList(null) $new_status
    } else {
-      set statusList($member) $new_status
+      if { ${new_status} == "init" } {
+         if { [info exists statusList($member)] } {
+            unset statusList($member)
+         }
+      } else {
+         if { ${timestamp} != "" } {
+            set statusList($member) "${new_status} ${timestamp}"
+         } else {
+            set statusList($member) "${new_status}"
+         }
+      }
       $node configure -flow.latest $member
    }
    
@@ -427,19 +476,25 @@ proc ::FlowNodes::setMemberStatus { node member new_status {is_recursive 0} } {
       if { $childList != "" } {
          foreach childName $childList {
             set childNode $node/$childName
-            ::FlowNodes::setMemberStatus $childNode $member $new_status 1
+            ::FlowNodes::setMemberStatus $childNode $member $new_status ${timestamp} 1
          }
       }
    }
 }
 
 proc ::FlowNodes::resetAllStatus { node new_status {is_recursive 0} } {
-   array set statusList [$node cget -flow.statuses]
-   foreach { member status } [$node cget -flow.statuses] {
-      set statusList($member) $new_status
+   ${node} configure -flow.latest ""
+   catch { ${node} configure -flow.current "" }
+   if { [$node cget -flow.type] == "npass_task"} {
+      # for npass_task, we need to empty all the indexes
+      $node configure -flow.statuses {}
+   } else {
+      array set statusList [$node cget -flow.statuses]
+      foreach { member status } [$node cget -flow.statuses] {
+         set statusList($member) $new_status
+      }
+      $node configure -flow.statuses [array get statusList]
    }
-
-   $node configure -flow.statuses [array get statusList]
 
    if { $is_recursive } {
       set childList [$node cget -flow.children]
@@ -453,7 +508,7 @@ proc ::FlowNodes::resetAllStatus { node new_status {is_recursive 0} } {
 }
 
 proc ::FlowNodes::getMemberStatus { node member } {
-   set value "init"
+   set values "init"
    if { $member == "" } {
       set member "null"
    }
@@ -463,8 +518,9 @@ proc ::FlowNodes::getMemberStatus { node member } {
    }
    array set statusList [$node cget -flow.statuses]
    if { [info exists statusList($member)] } {
-      set value $statusList($member)
+      set values $statusList($member)
    }
+   set value [lindex ${values} 0]
    return $value
 }
 
@@ -494,40 +550,6 @@ proc ::FlowNodes::getExtDisplay { node loop_ext } {
    return $displayValue
 }
 
-# reserves real estate for loop ext display
-proc ::FlowNodes::getExtDisplayWidth { node } {
-   set loopList [${node} cget -flow.loops]
-   if { [llength $loopList] == 0 && [$node cget -flow.type] != "loop" 
-        && [$node cget -flow.type] != "npass_task" } {
-      return ""
-   }
-
-   set count 0
-   if { [$node cget -flow.type] == "npass_task" } {
-      if { [${node} cget -current] == "latest" } {
-         if { [${node} cget -flow.latest] != "" } {
-            set count [string length [${node} cget -flow.latest]]
-         }
-      } else {
-         set count [string length [${node} cget -current]]
-      }
-   } else {
-      if { [llength $loopList] > 0 } {
-         foreach loopNode $loopList {
-            set end [${loopNode} cget -end]
-            set count [expr $count + [string length $end]]
-         }
-      }
-   }
-   set displayText "\["
-   while { $count != 0 } {
-      append displayText " "
-      incr count -1
-   }
-   append displayText "\]"
-   return $displayText
-}
-
 # adds a loop to the current container
 # it is an ordered list of loop nodes
 proc ::FlowNodes::addLoop { current_node loop_node } {
@@ -552,13 +574,19 @@ proc ::FlowNodes::searchParentLoops { node src_node } {
 # on parent loops
 proc ::FlowNodes::getNodeExtension { current_node } {
    set extension ""
+   set loopList [$current_node cget -flow.loops]
    if { [${current_node} cget -flow.type] == "npass_task" } {
-      set extension "[${current_node} cget -current]"
-      if { $extension == "latest" } {
-         return [$current_node cget -flow.latest]
+      # current index selection for the nptask
+      set nptExtension "[${current_node} cget -current]"
+      set parentLoopExt [::FlowNodes::getParentLoopExt ${current_node}]
+      if { ${parentLoopExt} == "latest" || ${nptExtension} == "latest" } {
+         # get latest if any of selection is latest
+         set extension [${current_node} cget -flow.latest]
+      } else {
+         # get npt extension corresponding to loop extension
+         set extension ${parentLoopExt}${nptExtension}
       }
    } else {
-      set loopList [$current_node cget -flow.loops]
       foreach loopNode $loopList {
          set currentExt [${loopNode} cget -current]
          if { $currentExt == "latest" } {
@@ -606,11 +634,22 @@ proc ::FlowNodes::getListingNodeExtension { current_node {full_loop "0"} } {
    set loopList [$current_node cget -flow.loops]
    set numberOfLoops [llength $loopList]
    if { [${current_node} cget -flow.type] == "npass_task" } {
-      set extension [${current_node} cget -current]
-      if { $extension == "latest" } {
-         set extension [${current_node} cget -flow.latest]
-         if { $extension == "all" } {
-            set extension ""
+      set currentNptExt [${current_node} cget -current]
+      if { ${loopList} != "" } {
+         set parentLoopExt [::FlowNodes::getParentLoopExt ${current_node}]
+         if { ${parentLoopExt} == "latest" } {
+            if { ${currentNptExt} != "latest" } {
+               # npt index cannot be selected if parent loop is on latest
+               return "-1"
+            }
+            set extension [${current_node} cget -flow.latest]
+         } else {
+            if { ${currentNptExt} == "latest" } {
+               # npt cannot be latest if parent loop is not latest
+               return "-1"
+            } else {
+               set extension ${parentLoopExt}${currentNptExt}
+            }
          }
       }
    } else {
@@ -744,6 +783,32 @@ proc ::FlowNodes::getIndexValue { value } {
    return $returnValue
 }
 
+# get parent loop extension
+proc ::FlowNodes::getParentLoopExt { node } {
+   set parentExt ""
+   set count 0
+   set isLatest 0
+   set loopList [${node} cget -flow.loops]
+
+   foreach loopNode $loopList {
+      set current [${loopNode} cget -current]
+      if { ${loopNode} == ${node} } {
+         break
+      }
+      if { $current == "latest" } {
+         set parentExt latest
+      } else {
+         if { $count == 0 } {
+            set parentExt "${current}"
+         } else {
+            set parentExt "${parentExt}${current}"
+         }
+      }
+      incr count
+   }
+   return ${parentExt}
+}
+
 proc ::FlowNodes::getParentLoopArgs { node } {
    set args ""
    set count 0
@@ -777,14 +842,23 @@ proc ::FlowNodes::getParentLoopArgs { node } {
 
 # npass_index argument is used when user is provided manual
 # the index value at submission time
-proc ::FlowNodes::getNpassTaskArgs { node {npass_index ""} } {
+proc ::FlowNodes::getNptArgs { node {npass_index ""} } {
    set args ""
+
+   set parentLoopArgs [::FlowNodes::getLoopArgs  ${node}]
+   if { ${parentLoopArgs} != "" } {
+      set parentLoopArgs "${parentLoopArgs},"
+   } elseif { [::FlowNodes::hasLoops $node] } {
+      return "-1"
+   } {
+      set parentLoopArgs "-l "
+   }
 
    set nodeName [${node} cget -flow.name]
    if { ${npass_index} != "" } {
       # if npass_index is passed use it...
       # means user has provided it manually
-      set args "-l ${nodeName}=${npass_index}"
+      set args "${parentLoopArgs}${nodeName}=${npass_index}"
    } else {
       set current [${node} cget -current]
       if { $current == "latest" } {
@@ -793,9 +867,186 @@ proc ::FlowNodes::getNpassTaskArgs { node {npass_index ""} } {
       } else {
          # remove the + sign before extension
          set current [string range $current 1 end]
-         set args "-l ${nodeName}=${current}"
+         set args "${parentLoopArgs}${nodeName}=${current}"
       }
    }
 
    return $args
 }
+
+# returns the list of extensions application for the npass_task_node
+# the npass_task may have a list of many values but they might not
+# all be visible if the task is running within a loop...
+# for instance if the user selects a loop index then only the npass_task values
+# that start with that index is relevant
+proc ::FlowNodes::getNptExtensions { npt_node } {
+   set extensions {}
+   set loopList [${npt_node} cget -flow.loops]
+   set loopExt ""
+   set isAllLatest true
+   set returnedExtensions {}
+
+   array set extensionArray [${npt_node} cget -flow.statuses]
+   set extensions [array names extensionArray]
+   foreach ext ${extensions} {
+      lappend returnedExtensions [string range ${ext} [expr [string last + ${ext}] + 1]  end]
+   }
+   set returnedExtensions [lsort -unique ${returnedExtensions}]
+   return ${returnedExtensions}
+}
+
+proc ::FlowNodes::setNptMemberStatus { node member new_status {timestamp ""} } {
+   DEBUG "::FlowNodes::setNptMemberStatus  $node $member $new_status" 5
+   if { [$node cget -flow.type] != "npass_task" } {
+      return
+   }
+
+   # check if we are setting one member index only
+   # or more
+
+   # how many parent loops do I have
+   set nofParentLoops [llength [${node} cget -flow.loops]]
+
+   # how many index separator do I have from the given member
+   set nofSeparators [expr [llength [split ${member} +]] - 1]
+   array set statusList [$node cget -flow.statuses]
+
+   if { ${nofParentLoops} != "" } {
+      if { ${nofSeparators} == ${nofParentLoops} && ${new_status} == "init" } {
+         # whole loop iteration
+         # need to init all indexes in the npt that matches
+         foreach { stored_member status } [array get statusList] {
+            puts "comparing ${member}+ ${stored_member}"
+            if { [string match ${member}+* ${stored_member}] } {
+               # removing is same as init... less data
+               puts "removing $stored_member"
+               unset statusList($stored_member)
+            }
+         }
+         catch { unset statusList($member) }
+         # reset the latest reference if needed
+         if { [string match ${member}+* [${node} cget -flow.latest]] } {
+            $node configure -flow.latest ""
+         }
+      } elseif { [expr ${nofSeparators} > ${nofParentLoops}] } {
+         # changing one npt index only
+         if { ${timestamp} != "" } {
+            set statusList($member) "${new_status} ${timestamp}"
+         } else {
+            set statusList($member) "${new_status}"
+         }
+         $node configure -flow.latest $member
+      } elseif { [expr ${nofSeparators} < ${nofParentLoops}] } {
+         # not for myself
+         return
+      }
+   } else {
+      # changing one npt member not part of a loop
+      if { ${timestamp} != "" } {
+         set statusList($member) "${new_status} ${timestamp}"
+      } else {
+         set statusList($member) "${new_status}"
+      }
+      $node configure -flow.latest $member
+   }
+
+   $node configure -flow.statuses [array get statusList]
+}
+
+# change from node+123 to node[123]
+proc ::FlowNodes::convertToDisplayFormat { node_with_ext } {
+   set firstSepIndex [string first "+" ${node_with_ext}]
+   set newNodeName ${node_with_ext}
+   if { [expr ${firstSepIndex} != -1] } {
+      set newNodeName [string replace ${node_with_ext} ${firstSepIndex} ${firstSepIndex} "\["]
+      set newNodeName "${newNodeName}\]"
+   }
+   return ${newNodeName}
+}
+
+# change node[123] back to node+123
+proc ::FlowNodes::convertFromDisplayFormat { node_with_ext } {
+   set lastSepIndex [string last "\]" ${node_with_ext}]
+   set firstSepIndex [string first "\[" ${node_with_ext}]
+   set newNodeName ${node_with_ext}
+   if { [expr ${lastSepIndex} != -1] } {
+      set newNodeName [string range ${node_with_ext} 0 end-1]
+      if { [expr ${firstSepIndex} != -1] } {
+         set newNodeName [string replace ${newNodeName} ${firstSepIndex} ${firstSepIndex} "+"]
+      }
+   }
+   return ${newNodeName}
+}
+
+# returns node from node+123
+proc ::FlowNodes::getNodeFromDisplayFormat { node_with_ext } {
+   set newNodeName ${node_with_ext}
+   set firstSepIndex [string first "+" ${node_with_ext}]
+   if { [expr ${firstSepIndex} != -1] } {
+      set newNodeName [string range ${node_with_ext} 0 [expr ${firstSepIndex} - 1]]
+   }
+   return ${newNodeName}
+}
+
+# returns +123 from node+123
+# return "" if no index
+proc ::FlowNodes::getExtFromDisplayFormat { node_with_ext } {
+   set extValue ""
+   set firstSepIndex [string first "+" ${node_with_ext}]
+   if { [expr ${firstSepIndex} != -1] } {
+      set extValue [string range ${node_with_ext} ${firstSepIndex} end]
+   }
+   return ${extValue}
+}
+
+# if extension is +1+2+3
+# slice 0 will return +1
+# slice 1 will return +1+2
+# slice 2 will return +1+2+3
+proc ::FlowNodes::getExtLeftSlice { extension slice } {
+   set extValue ""
+   set splittedValues [split ${extension} +]
+   if { [llength ${splittedValues}] <= 2 } {
+      return ${extension}
+   }
+   set splittedValues [lrange ${splittedValues} 1 end]
+   if { ${slice} >= [llength ${splittedValues}] } {
+      return ${extension}
+   }
+
+   set count 0
+   while { ${count} <= ${slice} } {
+      set extValue ${extValue}+[lindex ${splittedValues} ${count}]
+      incr count
+   }
+   return ${extValue}
+}
+
+# if extension is +1+2+3
+# index 0 will return +1
+# index 1 will return +2
+# index 2 will return +3
+# index lower than 0 returns ""
+# index higher than 2 returns ""
+
+proc ::FlowNodes::getExtAtIndex { extension index } {
+   set extValue ""
+   set splittedValues [split ${extension} +]
+   if { $index < 0 } {
+      return ""
+   }
+
+   if { [llength ${splittedValues}] <= 2 } {
+      return ""
+   }
+
+   set splittedValues [lrange ${splittedValues} 1 end]
+
+   if { ${index} >= [llength ${splittedValues}] } {
+      return ""
+   }
+
+   set extValue +[lindex ${splittedValues} ${index}]
+   return ${extValue}
+}
+

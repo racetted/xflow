@@ -17,6 +17,7 @@ namespace eval ::SuiteNode {
 #              it is used to know if the exp log has switched to a new one.
 # last_status_info  { status datestamp date time } example { begin 20090726000000 20100908 08:12:43 }
 # overview_display_info { startx starty endx endy }
+# canvas_info { next_y root_node max_x max_y }
 record define SuiteInfo {
    suite_name
    suite_path
@@ -75,11 +76,23 @@ proc ::SuiteNode::resetDisplayNextY { suite canvas } {
    setDisplayNextY $suite $canvas 40
 }
 
+proc ::SuiteNode::resetDisplayData { suite canvas } {
+   array set canvasList [$suite cget -canvas_info]
+   if { [info exists canvasList($canvas)] } {
+      set canvasInfo $canvasList($canvas)
+      set canvasInfo [lreplace $canvasInfo 0 0 40]
+      set canvasInfo [lreplace $canvasInfo 2 2 20]
+      set canvasInfo [lreplace $canvasInfo 3 3 20]
+      set canvasList($canvas) ${canvasInfo}
+      $suite configure -canvas_info [array get canvasList]
+   }
+}
+
 proc ::SuiteNode::initDisplay { suite canvas } {
    array set canvasList [$suite cget -canvas_info]
    if { ! [info exists canvasList($canvas)] } {
       set suiteRecord [getSuiteRecord $canvas]
-      set canvasList($canvas) [list 40 "/[$suiteRecord cget -suite_name]"]
+      set canvasList($canvas) [list 40 "/[$suiteRecord cget -suite_name]" 40 40]
       $suite configure -canvas_info [array get canvasList]
    }
 }
@@ -87,6 +100,27 @@ proc ::SuiteNode::initDisplay { suite canvas } {
 proc ::SuiteNode::removeDisplayFromSuite { suite canvas } {
    array set canvasList [$suite cget -canvas_info]
    array unset canvasList $canvas
+   $suite configure -canvas_info [array get canvasList]
+}
+
+proc ::SuiteNode::setDisplayData { suite canvas next_y max_x max_y } {
+
+   ::SuiteNode::initDisplay $suite $canvas
+   array set canvasList [$suite cget -canvas_info]
+   set canvasInfo $canvasList($canvas)
+   if { [expr ${next_y} > [lindex $canvasInfo 0]] } {
+      set canvasInfo [lreplace $canvasInfo 0 0 $next_y]
+   }
+
+   if { [expr ${max_x} > [lindex $canvasInfo 2]] } {
+      set canvasInfo [lreplace $canvasInfo 2 2 $max_x]
+   }
+
+   if { [expr ${max_y} > [lindex $canvasInfo 3]] } {
+      set canvasInfo [lreplace $canvasInfo 3 3 $max_y]
+   }
+
+   set canvasList($canvas) ${canvasInfo}
    $suite configure -canvas_info [array get canvasList]
 }
 
@@ -104,6 +138,20 @@ proc ::SuiteNode::getDisplayNextY {suite canvas} {
    array set canvasList [$suite cget -canvas_info]
    set canvasInfo $canvasList($canvas)
    return [lindex $canvasInfo 0]
+}
+
+proc ::SuiteNode::getDisplayMaximumX {suite canvas} {
+   ::SuiteNode::initDisplay $suite $canvas
+   array set canvasList [$suite cget -canvas_info]
+   set canvasInfo $canvasList($canvas)
+   return [lindex $canvasInfo 2]
+}
+
+proc ::SuiteNode::getDisplayMaximumY {suite canvas} {
+   ::SuiteNode::initDisplay $suite $canvas
+   array set canvasList [$suite cget -canvas_info]
+   set canvasInfo $canvasList($canvas)
+   return [lindex $canvasInfo 3]
 }
 
 proc ::SuiteNode::setDisplayRoot { suite canvas value} {

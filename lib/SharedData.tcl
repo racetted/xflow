@@ -94,7 +94,7 @@ proc SharedData_initColors {} {
       # first color is fg, second color is bg, 3rd is overview box outline
       SharedData_setColor STATUS_begin "white #016e11 #016e11"
       SharedData_setColor STATUS_init "black #ececec black"
-      SharedData_setColor STATUS_submit "white #b8bdc3 #016e11"
+      SharedData_setColor STATUS_submit "white #b8bdc3 #b8bdc3"
       SharedData_setColor STATUS_abort "white #8B1012 #8B1012"
       SharedData_setColor STATUS_end "white DodgerBlue4 DodgerBlue4"
       SharedData_setColor STATUS_catchup "white #913b9c #913b9c"
@@ -122,6 +122,8 @@ proc SharedData_init {} {
    SharedData_initColors
 
    SharedData_setMiscData CANVAS_BOX_WIDTH 90
+   SharedData_setMiscData CANVAS_X_START 20
+   SharedData_setMiscData CANVAS_Y_START 20
    SharedData_setMiscData CANVAS_BOX_HEIGHT 43
    SharedData_setMiscData CANVAS_PAD_X 30
    SharedData_setMiscData CANVAS_PAD_Y 15
@@ -129,6 +131,7 @@ proc SharedData_init {} {
    SharedData_setMiscData CANVAS_PAD_TXT_Y 23
 
    SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
+   SharedData_setMiscData MSG_CENTER_NUMBER_ROWS 25
 
    SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData DEBUG_TRACE 1

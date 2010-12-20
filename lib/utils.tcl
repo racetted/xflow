@@ -110,7 +110,7 @@ proc Utils_isListEqual { list_a list_b } {
    if { [llength ${list_a}] > 0 && [llength ${list_a}] == [llength ${list_b}] } {
       while { ${done} == "false" } {
          if { [lindex ${list_a} ${counter}] != [lindex ${list_b} ${counter}] } {
-            puts "[lindex ${list_a} ${counter}] != [lindex ${list_b} ${counter}]"
+            DEBUG "[lindex ${list_a} ${counter}] != [lindex ${list_b} ${counter}]" 5
             break
          }
          incr counter
@@ -131,18 +131,18 @@ proc Utils_isListEqual { list_a list_b } {
 # b1x1 b1y1 b1x2 b1y2 is the coordinates of the first box
 # b2x1 b2y1 b2x2 b2y2 is the coordinates of the second box
 proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
-   DEBUG "Utils_isOverlap b1x1:$b1x1 b1y1:$b1y1 b1x2:$b1x2 b1y2:$b1y2 b2x1:$b2x1 b2y1:$b2y1 b2x2:$b2x2 b2y2:$b2y2"
+   DEBUG "Utils_isOverlap b1x1:$b1x1 b1y1:$b1y1 b1x2:$b1x2 b1y2:$b1y2 b2x1:$b2x1 b2y1:$b2y1 b2x2:$b2x2 b2y2:$b2y2" 5
    set xOverlap 0
    set yOverlap 0
    set isOverlap 0
    if { ([expr ${b1x1} >= ${b2x1}] && [expr ${b1x1} <= ${b2x2}]) ||
       ([expr ${b1x2} >= ${b2x1}] && [expr ${b1x2} <= ${b2x2}]) } {
-      puts "xOverlap 1"
+      DEBUG "Utils_isOverlap xOverlap 1" 5
       set xOverlap 1
    }
    if { ([expr ${b1y1} >= ${b2y1}] && [expr ${b1y1} <= ${b2y2}]) ||
       ([expr ${b1y2} >= ${b2y1}] && [expr ${b1y2} <= ${b2y2}]) } {
-      puts "yOverlap 1"
+      DEBUG "Utils_isOverlap yOverlap 1" 5
       set yOverlap 1
    }
    if { ${yOverlap} && ! ${xOverlap} } {
@@ -151,7 +151,7 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
       if { [expr ${b1x1} <= ${b2x1}] && [expr ${b1x2} >= ${b2x1}] ||
            [expr ${b2x1} <= ${b1x1}] && [expr ${b2x2} >= ${b1x1}] } {
          set xOverlap 1
-      puts "xOverlap 1 within"
+         DEBUG "Utils_isOverlap xOverlap 1 within" 5
       }
    }
    if { ${xOverlap} && ! ${yOverlap} } {
@@ -159,7 +159,7 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
       # we have overlap
       if { [expr ${b1y1} <= ${b2y1}] && [expr ${b1y2} >= ${b2y1}] ||
            [expr ${b2y1} <= ${b1y1}] && [expr ${b2y2} >= ${b1y1}] } {
-      puts "yOverlap 1 within"
+         DEBUG "Utils_isOverlap yOverlap 1 within" 5
          set xOverlap 1
       }
    }
@@ -177,6 +177,14 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
    }
 
    return ${isOverlap}
+}
+
+proc Utils_getCurrentTime {} {
+   set currentTime [clock format [clock seconds] -format "%H:%M" -gmt 1]
+}
+
+proc Utils_getCurrentTime {} {
+   set currentTime [clock format [clock seconds] -format "%H:%M" -gmt 1]
 }
 
 # input hh:mm:ss
@@ -203,6 +211,7 @@ proc Utils_getPaddedValue { value } {
    }
    return ${value}
 }
+
 
 #setGlobalValue SEQ_BIN [Sequencer_getPath]
 #setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
