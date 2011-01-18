@@ -76,7 +76,7 @@ proc ::DrawUtils::getStatusColor { node_status } {
          set colors [SharedData_getColor ${key}]
       }
       default {
-         set colors [SharedData_getColor STATUS_UNKNOWN]
+         set colors [SharedData_getColor STATUS_unknown]
       }
    }
 
@@ -651,4 +651,18 @@ proc  ::DrawUtils::delPointNode {canvas } {
         $canvas delete ${canvas}searchlines
     }
 }
-   
+
+proc ::DrawUtils::highLightNode { suite_record node canvas_w } {
+   global NodeHighLightRestoreCmd
+   variable nodeTypeMap
+
+   set type [$node cget -flow.type]
+   set imageType $nodeTypeMap($type)
+   set canvasTag $node.$imageType
+
+   set selectColor [SharedData_getColor SELECT_BG]
+   set currentWidth [${canvas_w} itemcget ${canvasTag} -width ]
+   set currentOutline [${canvas_w} itemcget ${canvasTag} -outline]
+   ${canvas_w} itemconfigure ${canvasTag} -width 2 -outline ${selectColor}
+   set NodeHighLightRestoreCmd "${canvas_w} itemconfigure ${canvasTag} -width ${currentWidth} -outline ${currentOutline}"
+}

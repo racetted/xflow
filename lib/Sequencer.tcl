@@ -24,15 +24,22 @@ proc Sequencer_getUtilsPath {} {
    return [file dirname $utilsPath]
 }
 
-proc Sequencer_runCommand { suite_path command title args } {
+proc Sequencer_runCommandWithWindow { suite_path command title args } {
    global env
    regsub -all " " [file tail $command] _ tmpfile
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
-   set tmpfile "${tmpdir}/${tmpfile}$id"
-   set cmd "export SEQ_EXP_HOME=$suite_path;$command [join $args] > $tmpfile 2>&1"
-   DEBUG "Sequencer_runCommand ksh -c $cmd" 5
-   catch { eval [exec ksh -c $cmd]}
+   set tmpfile "${tmpdir}/${tmpfile}_${id}"
+   #set cmd "export SEQ_EXP_HOME=$suite_path;$command [join $args] > $tmpfile 2>&1"
+   #DEBUG "Sequencer_runCommand ksh -c $cmd" 5
+   #catch { eval [exec ksh -c $cmd]}
+   Sequencer_runCommand ${suite_path} ${tmpfile} "${command} [join ${args}]"
    create_text_window "$title" $tmpfile top .
    catch {[exec rm -f $tmpfile]}
+}
+
+proc Sequencer_runCommand { suite_path out_file command } {
+   set cmd "export SEQ_EXP_HOME=$suite_path;$command > ${out_file} 2>&1"
+   DEBUG "Sequencer_runCommand ksh -c $cmd" 5
+   catch { eval [exec ksh -c $cmd]}
 }

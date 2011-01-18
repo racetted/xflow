@@ -1,8 +1,8 @@
 proc DEBUG { output {level 2} } {
-   global DEBUG_ON DEBUG_LEVEL
+   global DEBUG_TRACE DEBUG_LEVEL
    #set debugOn [getGlobalValue "DEBUG_TRACE"]
    #set debugLevel [getGlobalValue "DEBUG_LEVEL"]
-   if { $DEBUG_ON && $DEBUG_LEVEL >= $level} {
+   if { $DEBUG_TRACE && $DEBUG_LEVEL >= $level} {
       puts "$output"
       flush stdout
    }

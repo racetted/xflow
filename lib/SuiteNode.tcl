@@ -81,8 +81,8 @@ proc ::SuiteNode::resetDisplayData { suite canvas } {
    if { [info exists canvasList($canvas)] } {
       set canvasInfo $canvasList($canvas)
       set canvasInfo [lreplace $canvasInfo 0 0 40]
-      set canvasInfo [lreplace $canvasInfo 2 2 20]
-      set canvasInfo [lreplace $canvasInfo 3 3 20]
+      set canvasInfo [lreplace $canvasInfo 2 2 40]
+      set canvasInfo [lreplace $canvasInfo 3 3 40]
       set canvasList($canvas) ${canvasInfo}
       $suite configure -canvas_info [array get canvasList]
    }

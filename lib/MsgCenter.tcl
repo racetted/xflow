@@ -50,11 +50,11 @@ proc MsgCenter_addPrefMenu { parent } {
 
    menu $msgTypeMenuW -tearoff 0
    $msgTypeMenuW add checkbutton -label "Abort" -variable SHOW_ABORT_TYPE \
-      -onvalue 1 -offvalue 0 -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
+      -onvalue true -offvalue false -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
    $msgTypeMenuW add checkbutton -label "Event" -variable SHOW_EVENT_TYPE \
-      -onvalue 1 -offvalue 0 -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
+      -onvalue true -offvalue false -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
    $msgTypeMenuW add checkbutton -label "Info" -variable SHOW_INFO_TYPE \
-      -onvalue 1 -offvalue 0 -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
+      -onvalue true -offvalue false -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
 
    pack $menuButtonW -side left -padx 2
 }
@@ -258,24 +258,24 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
    set isMsgActive false
    switch ${type_} {
       abort {
-         if { ${SHOW_ABORT_TYPE} == "1" } {
+         if { ${SHOW_ABORT_TYPE} == "true" } {
             set isMsgActive true
          }
       }
       info {
-         if { ${SHOW_INFO_TYPE} == "1" } {
+         if { ${SHOW_INFO_TYPE} == "true" } {
             set isMsgActive true
          }
       }
       event {
-         if { ${SHOW_EVENT_TYPE} == "1" } {
+         if { ${SHOW_EVENT_TYPE} == "true" } {
             set isMsgActive true
          }
       }
    }
 
    if { ${isMsgActive} == "true" } {
-      DEBUG "MsgCenter_addActiveMessage adding ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
+      DEBUG "MsgCenter_addActiveMessage adding ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
       set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
       incr MSG_ACTIVE_COUNTER
       set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${TimestampColNumber}) ${timestamp_}
@@ -306,7 +306,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ } {
       set msg $MSG_TABLE(${counter},${MessageColNumber})
       set exp $MSG_TABLE(${counter},${SuiteColNumber})
       DEBUG "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp" 5
-      MsgCenter_addActiveMessage ${timestamp} ${type} ${node} ${msg} ${exp}
+      MsgCenter_addActiveMessage ${datestamp} ${timestamp} ${type} ${node} ${msg} ${exp}
       incr counter
    }
 }
@@ -519,7 +519,6 @@ proc MsgCenter_initThread {} {
             DEBUG "MsgCenterThread_newMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
             MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
          }
-
          MsgCenter_init
          SharedData_setMsgCenterThreadId ${this_id}
          # enter event loop
@@ -626,7 +625,7 @@ proc MsgCenter_init {} {
    global MSG_ALARM_ON RowNumberMap
    global MSG_TABLE MSG_COUNTER
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
-   global DEBUG_ON DEBUG_LEVEL MSG_BELL_TRIGGER
+   global DEBUG_TRACE DEBUG_LEVEL MSG_BELL_TRIGGER
    global TimestampColNumber DatestampColNumber TypeColNumber NodeColNumber MessageColNumber SuiteColNumber
 
    set TimestampColNumber 0
@@ -636,7 +635,7 @@ proc MsgCenter_init {} {
    set MessageColNumber 4
    set SuiteColNumber 5
 
-   set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
+   set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
@@ -659,15 +658,15 @@ proc MsgCenter_init {} {
 
    MsgCenter_initActiveMessages
 
-   set SHOW_ABORT_TYPE 1
-   set SHOW_INFO_TYPE 1
-   set SHOW_EVENT_TYPE 1
+   set SHOW_ABORT_TYPE [SharedData_getMiscData SHOW_ABORT_TYPE]
+   set SHOW_INFO_TYPE [SharedData_getMiscData SHOW_INFO_TYPE]
+   set SHOW_EVENT_TYPE [SharedData_getMiscData SHOW_EVENT_TYPE]
 
    set topLevelW .
    set tableW .table
    
    if { ! [winfo exists ${tableW}] } {
-      SharedData_initColors
+      #SharedData_initColors
       MsgCenter_setTkOptions
 
       MsgCenter_createWidgets
