@@ -1139,25 +1139,23 @@ proc Overview_setExpTooltip { canvas suite_record } {
 
    set exptag [${suite_record} cget -suite_path]
    if { [${suite_record} cget -ref_start] != "" } {
-      append tooltipText "\nRef.Start: ${refStartTime}"
-      append tooltipText "\nRef.End: ${refEndTime}"
+      append tooltipText "\nRef.begin: ${refStartTime}"
+      append tooltipText "\nRef.end: ${refEndTime}"
    }
 
    switch ${currentStatus} {
       "init" {
       }
-      "begin" {
-         append tooltipText "\nStart: ${startTime}"
-      }
       "abort" {
-         append tooltipText "\nStart: ${startTime}"
-         append tooltipText "\nAbort: ${currentStatusTime}"
+         append tooltipText "\nbegin: ${startTime}"
+         append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
       "end" {
-         append tooltipText "\nStart: ${startTime}"
-         append tooltipText "\nEnd: ${endTime}"
+         append tooltipText "\nbegin: ${startTime}"
+         append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
       default {
+         append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
    }
 

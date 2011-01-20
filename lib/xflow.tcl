@@ -1336,7 +1336,7 @@ proc nodeInfoCallback { node canvas caller_menu } {
    }
 
    DEBUG "nodeInfoCallback export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs}" 5
-   set code [catch {eval [exec ksh -c "export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs} > ${outputFile}"]} message]
+   set code [catch {eval [exec ksh -c "export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs} > ${outputFile} 2> /dev/null"]} message]
 
    if { $code != 0 } {
       DEBUG "newWindowCallback ERROR:${message}" 5
@@ -2016,7 +2016,7 @@ proc getNodeResources { node suite_path {is_recursive 0} } {
    if { [$node cget -record_type] == "FlowTask" || [$node cget -record_type] == "FlowNpassTask" } {
       # the next command runs nodeinfo and converts each line of the output
       # into a tcl command
-      set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile}"]} message]
+      set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile} 2> /dev/null "]} message]
    
       if { $code != 0 } {
          raiseError . "Get Node Resource" $message
@@ -2192,6 +2192,7 @@ proc quitXflow {} {
    if { [info exists SESSION_TMPDIR] } {
       DEBUG "quitXflow deleting tmp dir ${SESSION_TMPDIR}"
       catch { file delete -force ${SESSION_TMPDIR} }
+      set SESSION_TMPDIR ""
    }
    if { ${isOverviewMode} == "true" } {
       # we are in overview mode
@@ -2260,6 +2261,8 @@ proc launchXflow { calling_thread_id } {
    DEBUG "launchXflow thread id:[thread::id]" 5
 
    set topFrame .top
+
+   xflow_createTmpDir
 
    xflow_validateSuite
 
@@ -2455,7 +2458,7 @@ proc xflow_init {} {
 proc xflow_createTmpDir {} {
    global env SESSION_TMPDIR
 
-   set thisPid [pid]
+   set thisPid [thread::id]
    set userTmpDir [SharedData_getMiscData USER_TMP_DIR]
    if { ${userTmpDir} != "default" } {
       if { ! [file isdirectory ${userTmpDir}] } {

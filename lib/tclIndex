@@ -129,6 +129,7 @@ set auto_index(Overview_createToolbar) [list source [file join $dir Overview.tcl
 set auto_index(Sequencer_getPath) [list source [file join $dir Sequencer.tcl]]
 set auto_index(Sequencer_getUtilsPath) [list source [file join $dir Sequencer.tcl]]
 set auto_index(Sequencer_runCommand) [list source [file join $dir Sequencer.tcl]]
+set auto_index(Sequencer_runCommandWithWindow) [list source [file join $dir Sequencer.tcl]]
 set auto_index(::SuiteNode::formatName) [list source [file join $dir SuiteNode.tcl]]
 set auto_index(::SuiteNode::formatSuiteRecord) [list source [file join $dir SuiteNode.tcl]]
 set auto_index(::SuiteNode::getSuiteRecordFromPath) [list source [file join $dir SuiteNode.tcl]]
