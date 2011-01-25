@@ -917,10 +917,8 @@ proc ::FlowNodes::setNptMemberStatus { node member new_status {timestamp ""} } {
          # whole loop iteration
          # need to init all indexes in the npt that matches
          foreach { stored_member status } [array get statusList] {
-            puts "comparing ${member}+ ${stored_member}"
             if { [string match ${member}+* ${stored_member}] } {
                # removing is same as init... less data
-               puts "removing $stored_member"
                unset statusList($stored_member)
             }
          }

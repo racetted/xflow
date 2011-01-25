@@ -87,7 +87,7 @@ proc addViewMenu { parent } {
    foreach item "normal catchup cpu machine_queue memory mpi wallclock" {
       set value ${item}
       $labelMenu add radiobutton -label ${item} -variable NODE_DISPLAY_PREF -value ${value} \
-         -command selectSuiteCallback
+         -command [list redrawAllFlow]
    }
    proc out {} {
    $labelMenu add radiobutton -label "normal" -variable NODE_DISPLAY_PREF -value "normal" \
@@ -518,7 +518,7 @@ proc getMonitorDate { parent_w { suite_record "" } } {
    ${monitorEntryCombo} configure -values ""
    set values ""
    foreach date ${dateList} {
-      set values "$values [string range $date 0 9]"
+      set values "$values [Utils_getVisibleDatestampValue ${date}]"
    }
    ${monitorEntryCombo} configure -values $values
    DEBUG "getMonitorDate MONITOR_DATESTAMP:$MONITOR_DATESTAMP -active_log? [${suite_record} cget -active_log]" 5
@@ -531,7 +531,7 @@ proc getMonitorDate { parent_w { suite_record "" } } {
          ${setButton} configure -state disabled
          ${monitorEntryCombo} set latest
       } else {
-         ${monitorEntryCombo} set [string range [${suite_record} cget -active_log] 0 9]
+         ${monitorEntryCombo} set [Utils_getVisibleDatestampValue [${suite_record} cget -active_log]]
          set MONITOR_DATESTAMP [${suite_record} cget -active_log]
       }
    }
@@ -551,7 +551,7 @@ proc populateMonitorDate { parent_w {suite_record ""} } {
    ${monitorEntryCombo} configure -values ""
    set values ""
    foreach date $dateList {
-      set values "$values [string range $date 0 9]"
+      set values "$values [Utils_getVisibleDatestampValue ${date}]"
    }
    ${monitorEntryCombo} configure -values $values
 }
@@ -571,7 +571,7 @@ proc setMonitorDate { parent_w } {
       set dateValue [$dateEntryCombo get]
    
       foreach date $dateList {
-         if { [string match ${dateValue}0000 $date] } {
+         if { [string match [Utils_getRealDatestampValue ${dateValue}] $date] } {
             set found 1
             break
          }
@@ -579,33 +579,21 @@ proc setMonitorDate { parent_w } {
       if { $found == 0 } {
          raiseError [winfo toplevel $parent_w] "Datestamp" "Selected date does not exists!\nPlease choose another date."
       } else {
-         DEBUG "setMonitorDate ${dateValue}0000" 5
-         set MONITOR_DATESTAMP ${dateValue}0000
-         proc out {} {
-            $suiteRecord configure -read_offset 0 -active_log ${dateValue}0000
-            set topNode "/${suiteName}"
-            ::FlowNodes::resetNodeStatus $topNode
-            selectSuiteTab [getTabsParentW] $suiteRecord
-            set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-            if { ${isOverviewMode} == "true" } {
-               set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-               LogReader_readFile $suiteRecord ${overviewThreadId}
-            } else {
-               LogReader_readFile $suiteRecord [thread::id]
-            }
-         }
+         set MONITOR_DATESTAMP [Utils_getRealDatestampValue ${dateValue}]
+         DEBUG "setMonitorDate ${MONITOR_DATESTAMP}" 5
          set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
          if { ${isOverviewMode} == "true" } {
             set monitorThreadId [xflow_getMonitoredThread]
-            #thread::send -async ${monitorThreadId} \
-            #   "xflowThread_monitorNewDate ${MONITOR_DATESTAMP}"
             thread::send ${monitorThreadId} "xflowThread_monitorNewDate ${MONITOR_DATESTAMP}"
          } else {
             $suiteRecord configure -read_offset 0 -active_log ${MONITOR_DATESTAMP}
             set topNode "/${suiteName}"
             ::FlowNodes::resetNodeStatus $topNode
             selectSuiteTab [getTabsParentW] $suiteRecord
+            SharedData_setMiscData STARTUP_DONE false
             LogReader_readFile $suiteRecord [thread::id]
+            SharedData_setMiscData STARTUP_DONE true
+            redrawAllFlow
          }
 
       }
@@ -614,7 +602,10 @@ proc setMonitorDate { parent_w } {
    normalCursor $top
 }
 
-proc newMonitorDate { suite_record datestamp } {
+proc setMonitorDateWidget {} {
+   set dateEntryCombo .date.monitor_frame.entry_combo
+   set dateValue [getMonitoringDatestamp]
+   $dateEntryCombo set [Utils_getVisibleDatestampValue ${dateValue}]
 }
 
 proc xflow_getMonitoredThread {} {
@@ -637,6 +628,8 @@ proc xflow_getMonitoredThread {} {
             set MONITOR_THREAD_ID [thread::id]
             DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} overview_mode? [SharedData_getMiscData OVERVIEW_MODE]" 5
             launchXflow [thread::id]
+            setMonitorDateWidget
+            viewHideDateButtons . .date_hidden .date ""
          }
 
          # enter event loop
@@ -654,7 +647,7 @@ proc getDateStamp { parent_w {suite_record ""} } {
       set suite_record [getActiveSuite]
    }
    set dateStamp [retrieveDateStamp $parent_w ${suite_record}]
-   set shortDatestamp [string range $dateStamp 0 9]
+   set shortDatestamp [Utils_getVisibleDatestampValue ${dateStamp}]
    if { [winfo toplevel $parent_w]  == "." } {
       set dateEntry .date.dt.entry
    }
@@ -710,7 +703,9 @@ proc setDateStamp { parent_w } {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
          LogReader_readFile $suiteRecord ${overviewThreadId}
       } else {
+         SharedData_setMiscData STARTUP_DONE false
          LogReader_readFile $suiteRecord [thread::id]
+         SharedData_setMiscData STARTUP_DONE true
       }
    }
 
@@ -1297,7 +1292,8 @@ proc historyCallback { node canvas caller_menu history {full_loop 0} } {
       }
 
       # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
-      set dateStamp [$suiteRecord cget -active_log]
+      #set dateStamp [$suiteRecord cget -active_log]
+      set dateStamp [getMonitoringDatestamp]
       if { $dateStamp == "" } {
           set dateStamp [retrieveDateStamp $canvas $suiteRecord]
       }
@@ -1896,8 +1892,9 @@ proc changeCollapsed { canvas binder x y } {
    drawflow $canvas
 }
 
-proc redrawAllFlow { suite_record } {
-   set canvasList [::SuiteNode::getCanvasList ${suite_record}]
+proc redrawAllFlow {} {
+   set suiteRecord [getActiveSuite]
+   set canvasList [::SuiteNode::getCanvasList ${suiteRecord}]
    foreach canvasW $canvasList {
       drawflow $canvasW 0
    }
@@ -1951,6 +1948,8 @@ proc drawflow { canvas {initial_display "1"} } {
       }
       xflow_AddCanvasBg ${canvas}
    }
+   DEBUG "drawflow() done" 5
+
 }
 
 proc xflow_resizeWindow { canvas } {
@@ -2257,7 +2256,9 @@ proc xflow_validateSuite {} {
 }
 
 proc launchXflow { calling_thread_id } {
-   global env XFLOW_STANDALONE MONITORING_LATEST
+   global env XFLOW_STANDALONE 
+   global MONITORING_LATEST MONITOR_DATESTAMP
+
    DEBUG "launchXflow thread id:[thread::id]" 5
 
    set topFrame .top
@@ -2315,7 +2316,7 @@ proc launchXflow { calling_thread_id } {
 
       # start in hidden mode
       viewHideDateButtons . $dateFrame $dateFrameHidden 20
-   
+
       #add list buttons
       set openListButtonsFrame .list_buttons
       #set hiddenListButtonsFrame .list_buttons_hidden
