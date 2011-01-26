@@ -99,9 +99,9 @@ proc SharedData_initColors {} {
       SharedData_setColor STATUS_end "white DodgerBlue4 DodgerBlue4"
       SharedData_setColor STATUS_catchup "white #913b9c #913b9c"
       SharedData_setColor STATUS_wait "black #e7ce69 #e7ce69"
+      SharedData_setColor STATUS_unknown "white black black"
 
       SharedData_setColor STATUS_SHADOW "white black black"
-      SharedData_setColor STATUS_UNKNOWN "white black black"
    }
 }
 
@@ -122,13 +122,17 @@ proc SharedData_init {} {
    SharedData_initColors
 
    SharedData_setMiscData CANVAS_BOX_WIDTH 90
-   SharedData_setMiscData CANVAS_X_START 20
-   SharedData_setMiscData CANVAS_Y_START 20
+   SharedData_setMiscData CANVAS_X_START 40
+   SharedData_setMiscData CANVAS_Y_START 40
    SharedData_setMiscData CANVAS_BOX_HEIGHT 43
    SharedData_setMiscData CANVAS_PAD_X 30
    SharedData_setMiscData CANVAS_PAD_Y 15
    SharedData_setMiscData CANVAS_PAD_TXT_X 4
    SharedData_setMiscData CANVAS_PAD_TXT_Y 23
+
+   SharedData_setMiscData SHOW_ABORT_TYPE true
+   SharedData_setMiscData SHOW_EVENT_TYPE true
+   SharedData_setMiscData SHOW_INFO_TYPE true
 
    SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
    SharedData_setMiscData MSG_CENTER_NUMBER_ROWS 25
@@ -138,7 +142,52 @@ proc SharedData_init {} {
    SharedData_setMiscData DEBUG_LEVEL 5
    SharedData_setMiscData AUTO_LAUNCH true
    SharedData_setMiscData AUTO_MSG_DISPLAY true
+   SharedData_setMiscData NODE_DISPLAY_PREF normal
    SharedData_setMiscData STARTUP_DONE false 
    SharedData_setMiscData OVERVIEW_MODE false
+   SharedData_setMiscData DEFAULT_CONSOLE konsole
+   SharedData_setMiscData TEXT_VIEWER default
+   SharedData_setMiscData USER_TMP_DIR default
+
    SharedData_setMiscData MENU_RELIEF flat
+
+   SharedData_readProperties
+}
+
+proc SharedData_readProperties {} {
+   global env DEBUG_TRACE DEBUG_LEVEL
+   set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
+   set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
+   set errorMsg ""
+
+   set fileName $env(HOME)/.maestrorc
+   if { [file exists ${fileName}] } {
+      set propertiesFile [open ${fileName} r]
+
+      while {[gets ${propertiesFile} line] >= 0 && ${errorMsg} == "" } {
+         #puts "SharedData_readProperties processing line: ${line}"
+         if { [string index ${line} 0] != "#" && [string length ${line}] > 0 } {
+            #puts "SharedData_readProperties found data line: ${line}"
+            # the = sign is used to separate between the key and the value.
+            # spaces around the values are trimmed
+            set splittedList [split ${line} =]
+
+            # if the list does not contain 2 elements, something's not right
+            # output the error message
+            if { [llength ${splittedList}] != 2 } {
+               # error "ERROR: While reading ${fileName}\nInvalid property syntax: ${line}"
+               set errorMsg "While reading ${fileName}\n\nInvalid property syntax: ${line}.\n"
+            } else {
+               set keyFound [string toupper [string trim [lindex $splittedList 0]]]
+               set valueFound [string trim [lindex $splittedList 1]]
+               puts "SharedData_readProperties found key:${keyFound} value:${valueFound}"
+               SharedData_setMiscData ${keyFound} ${valueFound}
+            }
+         }
+      }
+      catch { close ${propertiesFile} }
+      if { ${errorMsg} != "" } {
+         FatalError . "Xflow Startup Error" ${errorMsg}
+      }
+   }
 }

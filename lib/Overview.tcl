@@ -881,7 +881,7 @@ proc Overview_historyCallback { canvas exp_path caller_menu } {
    set seqExec [getGlobalValue SEQ_UTILS_BIN]/nodehistory
 
    set seqNode [SharedData_getSuiteData ${exp_path} ROOT_NODE]
-   Sequencer_runCommand $exp_path $seqExec "Node History ${exp_path}" -n $seqNode
+   Sequencer_runCommandWithWindow $exp_path $seqExec "Node History ${exp_path}" -n $seqNode
 }
 
 proc Overview_launchExpFlow { calling_w exp_path } {
@@ -954,7 +954,7 @@ proc Overview_updateExp { suite_record datestamp status timestamp } {
 
       if { $status == "begin" } {
          # launch the flow if needed
-         if { ${AUTO_LAUNCH} && ${isStartupDone} == "true" } {
+         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true" } {
             Overview_launchExpFlow $canvas [$suite_record cget -suite_path]
          }
       }
@@ -1036,7 +1036,6 @@ proc Overview_createThread {} {
       #
       # The 'thread::wait' is required to keep this thread alive indefinitely.
       #
-      #global this_id DEBUG_ON DEBUG_LEVEL
 
       set this_id [thread::id]
       xflow_init
@@ -1056,6 +1055,12 @@ proc Overview_createThread {} {
 
       proc thread_pointNode { exp_path node } {
          DEBUG "thread_pointNode exp_path:${exp_path} node:${node}" 5
+      }
+
+      proc thread_quit {} {
+         global this_id env
+         DEBUG "thread_quit ${this_id}" 5
+         quitXflow
       }
 
       DEBUG "child thread ${this_id} waiting..." 5
@@ -1134,25 +1139,23 @@ proc Overview_setExpTooltip { canvas suite_record } {
 
    set exptag [${suite_record} cget -suite_path]
    if { [${suite_record} cget -ref_start] != "" } {
-      append tooltipText "\nRef.Start: ${refStartTime}"
-      append tooltipText "\nRef.End: ${refEndTime}"
+      append tooltipText "\nRef.begin: ${refStartTime}"
+      append tooltipText "\nRef.end: ${refEndTime}"
    }
 
    switch ${currentStatus} {
       "init" {
       }
-      "begin" {
-         append tooltipText "\nStart: ${startTime}"
-      }
       "abort" {
-         append tooltipText "\nStart: ${startTime}"
-         append tooltipText "\nAbort: ${currentStatusTime}"
+         append tooltipText "\nbegin: ${startTime}"
+         append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
       "end" {
-         append tooltipText "\nStart: ${startTime}"
-         append tooltipText "\nEnd: ${endTime}"
+         append tooltipText "\nbegin: ${startTime}"
+         append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
       default {
+         append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
    }
 
@@ -1446,8 +1449,8 @@ proc Overview_init {} {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
    global expBoxLength startEndIconSize
 
-   set AUTO_LAUNCH 1
-
+   #set AUTO_LAUNCH true
+   set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
 
    # hor size of graph
@@ -1487,8 +1490,20 @@ proc Overview_readExperiments {} {
 
 proc Overview_quit {} {
    global TimeAfterId
+   DEBUG "Overview_quit" 5
    if { [info exists TimeAfterId] } {
       after cancel $TimeAfterId
+   }
+
+   set displayGroups [record show instances DisplayGroup]
+   # call each child thread to see if they have cleanup to do
+   foreach displayGroup $displayGroups {
+      set expList [$displayGroup cget -exp_list]
+      foreach exp $expList {
+         set threadId [SharedData_getSuiteData ${exp} THREAD_ID]
+         DEBUG "Overview_quit calling quitXflow on thread ${exp}" 5
+         thread::send ${threadId} "thread_quit"
+      }
    }
 
    # destroy $top
@@ -1511,18 +1526,13 @@ proc Overview_parseCmdOptions {} {
          puts "\n$message"
          exit 1
       }
-      if { $params(noautomsg) == "0" } {
-         SharedData_setMiscData AUTO_MSG_DISPLAY true
-      } else {
+      if { $params(noautomsg) } {
          SharedData_setMiscData AUTO_MSG_DISPLAY false
       } 
 
-      if { $params(debug) == "1" } {
+      if { $params(debug) } {
          puts "Overview_parseCmdOptions DEBUG_TRACE 1"
          SharedData_setMiscData DEBUG_TRACE 1
-      } else {
-         puts "Overview_parseCmdOptions DEBUG_TRACE 0"
-         SharedData_setMiscData DEBUG_TRACE 0
       } 
 
       if { ! ($params(suites) == "") } {
@@ -1554,14 +1564,14 @@ proc Overview_toFront {} {
 }
 
 proc Overview_addPrefMenu { parent } {
-   global AUTO_MSG_DISPLAY
+   global AUTO_MSG_DISPLAY AUTO_LAUNCH
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
    menubutton $menuButtonW -text Preferences -underline 0 -menu $menuW
    menu $menuW -tearoff 0
 
    $menuW add checkbutton -label "Auto Launch" -variable AUTO_LAUNCH \
-      -onvalue 1 -offvalue 0 -command [list Overview_setAutoLaunch]
+      -onvalue true -offvalue false -command [list Overview_setAutoLaunch]
 
    set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
    $menuW add checkbutton -label "Auto Message Display" -variable AUTO_MSG_DISPLAY \
@@ -1652,8 +1662,7 @@ proc Overview_addCanvasImage { canvas } {
    set imageDir [SharedData_getMiscData IMAGE_DIR]
 
    ${canvas} delete canvas_bg_image
-   #image create photo ${canvas}.bg_image -file ${imageDir}/Sheet_Music_6.ppm
-   image create photo ${canvas}.bg_image -file ${imageDir}/artist-canvas_2.ppm
+   image create photo ${canvas}.bg_image -file ${imageDir}/artist-canvas_2.gif
    ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags canvas_bg_image
    ${canvas} lower canvas_bg_image
 }
@@ -1668,7 +1677,7 @@ proc Overview_setTitle { top_w } {
 }
 
 global MSG_CENTER_THREAD_ID
-global DEBUG_ON DEBUG_LEVEL
+global DEBUG_TRACE DEBUG_LEVEL
 
 wm withdraw .
 SharedData_init
@@ -1679,7 +1688,7 @@ SharedData_setMiscData OVERVIEW_MODE true
 SharedData_setMiscData OVERVIEW_THREAD_ID [thread::id]
 
 Overview_parseCmdOptions
-set DEBUG_ON [SharedData_getMiscData DEBUG_TRACE]
+set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
 
 ::DrawUtils::init
 Overview_init

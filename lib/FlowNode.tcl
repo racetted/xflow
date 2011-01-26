@@ -403,10 +403,11 @@ proc ::FlowNodes::isRootNode { node canvas } {
 }
 
 proc ::FlowNodes::initNode { node canvas} {
-   #puts "::FlowNodes::initNode node:$node canvas:$canvas"
+   # puts "::FlowNodes::initNode node:$node canvas:$canvas"
    array set displayInfoList [$node cget -flow.display_infos]
-   if { ![info exists displayInfoList($canvas)] } {
-      set displayInfoList($canvas) {1 0 0 0 0 0 0 0 20}
+   if { ! [info exists displayInfoList($canvas)] } {
+      # puts "::FlowNodes::initNode creating canvas:$canvas"
+      set displayInfoList($canvas) {1 0 0 0 0 0 0 0 40}
       $node configure -flow.display_infos [array get displayInfoList]
    }
    
@@ -447,29 +448,29 @@ proc ::FlowNodes::getDisplayList { node } {
 proc ::FlowNodes::setMemberStatus { node member new_status {timestamp ""} {is_recursive 0} } {
    if { [$node cget -flow.type] == "npass_task"} {
       ::FlowNodes::setNptMemberStatus ${node} ${member} ${new_status} ${timestamp}
-      return
-   }
-
-   array set statusList [$node cget -flow.statuses]
-
-   if { $member == "" } {
-      set statusList(null) $new_status
    } else {
-      if { ${new_status} == "init" } {
-         if { [info exists statusList($member)] } {
-            unset statusList($member)
-         }
-      } else {
-         if { ${timestamp} != "" } {
-            set statusList($member) "${new_status} ${timestamp}"
-         } else {
-            set statusList($member) "${new_status}"
-         }
-      }
-      $node configure -flow.latest $member
-   }
+
+      array set statusList [$node cget -flow.statuses]
    
-   $node configure -flow.statuses [array get statusList]
+      if { $member == "" } {
+         set statusList(null) $new_status
+      } else {
+         if { ${new_status} == "init" } {
+            if { [info exists statusList($member)] } {
+               unset statusList($member)
+            }
+         } else {
+            if { ${timestamp} != "" } {
+               set statusList($member) "${new_status} ${timestamp}"
+            } else {
+               set statusList($member) "${new_status}"
+            }
+         }
+         $node configure -flow.latest $member
+      }
+      
+      $node configure -flow.statuses [array get statusList]
+   }
 
    if { $is_recursive } {
       set childList [$node cget -flow.children]
@@ -916,10 +917,8 @@ proc ::FlowNodes::setNptMemberStatus { node member new_status {timestamp ""} } {
          # whole loop iteration
          # need to init all indexes in the npt that matches
          foreach { stored_member status } [array get statusList] {
-            puts "comparing ${member}+ ${stored_member}"
             if { [string match ${member}+* ${stored_member}] } {
                # removing is same as init... less data
-               puts "removing $stored_member"
                unset statusList($stored_member)
             }
          }

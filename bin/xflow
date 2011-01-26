@@ -25,4 +25,5 @@ eval `cclargs_lite -D "" $0 "[maestro gui]" \
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 
 echo "$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt}"
+export NO_STOP_MESSAGE=on
 $TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt}

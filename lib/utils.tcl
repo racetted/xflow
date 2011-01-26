@@ -1,8 +1,8 @@
 proc DEBUG { output {level 2} } {
-   global DEBUG_ON DEBUG_LEVEL
+   global DEBUG_TRACE DEBUG_LEVEL
    #set debugOn [getGlobalValue "DEBUG_TRACE"]
    #set debugLevel [getGlobalValue "DEBUG_LEVEL"]
-   if { $DEBUG_ON && $DEBUG_LEVEL >= $level} {
+   if { $DEBUG_TRACE && $DEBUG_LEVEL >= $level} {
       puts "$output"
       flush stdout
    }
@@ -212,6 +212,15 @@ proc Utils_getPaddedValue { value } {
    return ${value}
 }
 
+proc Utils_getVisibleDatestampValue { date } {
+   set newValue [string range $date 0 9]
+   return ${newValue}
+}
+
+proc Utils_getRealDatestampValue { date } {
+   set newValue ${date}0000
+   return ${newValue}
+}
 
 #setGlobalValue SEQ_BIN [Sequencer_getPath]
 #setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]

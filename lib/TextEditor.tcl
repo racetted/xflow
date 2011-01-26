@@ -391,3 +391,9 @@ proc getNextPage { w file_id position {num_of_lines all} {up_or_down 1} } {
       $w.text yview -pickplace [expr $numlines]
    }
 }
+
+proc TextEditor_goKonsole { _binary_path _title _command } {
+   DEBUG "TextEditor_goKonsole ${_binary_path} ${_command}" 5
+   #eval exec ${_binary_path} -T \"${_title}\" -e ${_command} &
+   eval exec ${_binary_path} ${_command} &
+}
