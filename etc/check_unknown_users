@@ -1,0 +1,16 @@
+USERS="afsissm afsfops afsiops afsipar afsisul afsidor afsidbb afsivdv afsiahm afsipat afsirfl afsivil afsirol afsipaf armnrmt afsmmve armaplh armakal armagr7 afsg002 armabhe afsybsdi afsdjud armnmid afsmyrc"
+
+trouve=0
+username=`id -un`
+for i in $USERS
+do
+   if [ "$username" = "$i" ]; then
+      trouve=1
+   fi
+done
+
+message="\nRESTRICTED: contact CMOIS to use the prototype.\n" 
+if [ $trouve -eq 0 ]; then
+   printf "$message"
+   exit 1
+fi

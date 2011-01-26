@@ -1,0 +1,56 @@
+###### configuration used by maestro ##############
+#
+# This file must be stored in $HOME/.maestrorc
+#
+
+# auto_msg_display: modifies the automatic display of message center in the gui
+# true: gui autodisplay msg center (default)
+# false: no autodisplay  
+auto_msg_display = true
+
+# auto_launch: modifies the automatic launch of experiment windows in overview mode
+#              only used for users monitoring operational suites
+# true: gui auto launch experiment windows in overview mode (default)
+# false: no auto launch
+auto_launch = true
+
+# show_abort_type: activate/deactivate the message filter in message center
+# true: gui show abort msg in msg center (default)
+# false: filter out abort in msg center
+show_abort_type = true
+show_event_type = true
+show_info_type = true
+
+# node_display_pref: extra info to display on node boxes in experiment flow
+# supported values normal | catchup | cpu | machine_queue | memory | mpi | wallclock
+# node_display_pref = machine_queue
+node_display_pref = normal
+
+# text viewer: viewer to be used for listings, node config, node batch, etc
+# possible values can be default|vi|emacs|kate or others but non tested
+# if not default, the viewer will be started in
+# a console defined by the default_console config
+text_viewer= default 
+#text_viewer= vi
+#text_viewer= emacs --no-windows
+#text_viewer= kate -u -s maestro_kate_session
+
+# default_console: console to be used to display text files
+# supported: konsole (default) | xterm | etc
+# for xterm and konsole make sure the "-e" appears at the end
+default_console = konsole --notabbar --nomenubar --schema Transparent_darkbg -e
+#default_console = xterm -e
+
+# this configuration refers to a tmp directory that
+# is mainly used by the gui to store temp files for
+# viewing text files. By default, the files are stored  in
+# $TMPDIR but you can redirect it to another location.
+# This can be useful when viewing compressed listings
+# that needs to be decompressed first; these files can
+# be quite big in size. Maestro will create a tmp directory
+# under the specified one and deletes it when the application exits
+#
+# ATTENTION: put the absolute path; don't use env variables as they
+# are not expanded
+# user_tmp_dir = /users/dor/afsi/sul/listings
+user_tmp_dir = default
