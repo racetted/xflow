@@ -78,7 +78,7 @@ proc addViewMenu { parent } {
       -onvalue 1 -offvalue 0 -command [ list logsMonitorChanged $parent ]
 
    $menuW add checkbutton -label "Show Shadow Status" -variable SHADOW_STATUS \
-      -onvalue 1 -offvalue 0 -command selectSuiteCallback
+      -onvalue 1 -offvalue 0 -command [list redrawAllFlow]
 
    set labelMenu $menuW.labelmenu
 
@@ -88,22 +88,6 @@ proc addViewMenu { parent } {
       set value ${item}
       $labelMenu add radiobutton -label ${item} -variable NODE_DISPLAY_PREF -value ${value} \
          -command [list redrawAllFlow]
-   }
-   proc out {} {
-   $labelMenu add radiobutton -label "normal" -variable NODE_DISPLAY_PREF -value "normal" \
-      -command selectSuiteCallback
-   $labelMenu add radiobutton -label "catchup" -variable NODE_DISPLAY_PREF -value 2 \
-      -command selectSuiteCallback
-   $labelMenu add radiobutton -label "cpu" -variable NODE_DISPLAY_PREF -value 3 \
-      -command selectSuiteCallback
-   $labelMenu add radiobutton -label "machine_queue" -variable NODE_DISPLAY_PREF -value 4 \
-      -command selectSuiteCallback
-   $labelMenu add radiobutton -label "memory" -variable NODE_DISPLAY_PREF -value 5 \
-      -command selectSuiteCallback
-   $labelMenu add radiobutton -label "mpi" -variable NODE_DISPLAY_PREF -value 6 \
-      -command selectSuiteCallback
-   $labelMenu add radiobutton -label "wallclock" -variable NODE_DISPLAY_PREF -value 7 \
-      -command selectSuiteCallback
    }
 
    pack $menuButtonW -side left -pady 2 -padx 2
