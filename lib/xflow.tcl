@@ -827,6 +827,7 @@ proc drawNode { canvas node position callback {first_node false} } {
    set padTx [SharedData_getMiscData CANVAS_PAD_TXT_X]
    set padTy [SharedData_getMiscData CANVAS_PAD_TXT_Y]
    set shadowColor [SharedData_getColor SHADOW_COLOR]
+   set deltaY [::DrawUtils::getLineDeltaSpace ${node}]
    set drawshadow on
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
@@ -834,7 +835,8 @@ proc drawNode { canvas node position callback {first_node false} } {
    set parentNode [${node} cget -flow.parent]
    if { $parentNode == "" || ${first_node} == "true" } {
       set linex2 [SharedData_getMiscData CANVAS_X_START]
-      set liney2 [SharedData_getMiscData CANVAS_Y_START]
+      # set liney2 [ SharedData_getMiscData CANVAS_Y_START]
+      set liney2 [expr [SharedData_getMiscData CANVAS_Y_START] + ${deltaY}]
       DEBUG "drawNode linex2:$linex2 liney2:$liney2"
    } else {
       ::FlowNodes::initNode ${parentNode} ${canvas}
@@ -855,14 +857,16 @@ proc drawNode { canvas node position callback {first_node false} } {
       set px2 [lindex $displayInfo 2]
       set py1 [lindex $displayInfo 1]
       set py2 [lindex $displayInfo 3]
+
       # first draw left arrow, the shape depends on the position of the
       # subnode and previous nodes being drawn
       # if position is 0, means first node job so same level as parent node only x coords changes
       set lineTagName ${node}.submit_tag
+
       if { $position == 0 } {
          set linex1 $px2
-         set liney1 [expr $py1 + ($py2 - $py1) / 2 ]
-         set liney2 $liney1
+         set liney1 [expr $py1 + ($py2 - $py1) / 2 + $deltaY]
+         set liney2 [expr $liney1]
          set linex2 [expr $linex1 + $boxW/2]
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor $drawshadow $shadowColor ${lineTagName}
       } else {
@@ -879,7 +883,7 @@ proc drawNode { canvas node position callback {first_node false} } {
          set linex1 [expr $px2 + $boxW/4]
          set linex2 $linex1
          set liney1 [expr $py1 + ($py2 - $py1) / 2 ]
-         set liney2 [expr $nextY + ($boxH/4) + $pady]
+         set liney2 [expr $nextY + ($boxH/4) + $pady + $deltaY]
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 none $lineColor $drawshadow $shadowColor ${lineTagName}
          # then draw hor line with arrow at end
          set linex2 [expr $px2 + $boxW/2]
@@ -2459,10 +2463,10 @@ proc xflow_createTmpDir {} {
    set id [clock seconds]
    set myTmpDir ${rootTmpDir}/maestro_${thisPid}_${id}
    if { [file exists ${myTmpDir}] } {
-      puts "xflow_createTmpDir deleting ${myTmpDir}"
+      DEBUG "xflow_createTmpDir deleting ${myTmpDir}" 5
       file delete -force ${myTmpDir}
    }
-   puts "xflow_createTmpDir creating ${myTmpDir}"
+   DEBUG "xflow_createTmpDir creating ${myTmpDir}" 5
    file mkdir ${myTmpDir}
    set SESSION_TMPDIR ${myTmpDir}
 }
