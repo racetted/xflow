@@ -130,6 +130,8 @@ proc SharedData_init {} {
    SharedData_setMiscData CANVAS_PAD_TXT_X 4
    SharedData_setMiscData CANVAS_PAD_TXT_Y 23
 
+   SharedData_setMiscData LOOP_OVAL_SIZE 15
+
    SharedData_setMiscData SHOW_ABORT_TYPE true
    SharedData_setMiscData SHOW_EVENT_TYPE true
    SharedData_setMiscData SHOW_INFO_TYPE true

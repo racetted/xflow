@@ -321,10 +321,11 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill ca
    set boxArea [$canvas bbox ${binder}.text]
    $canvas itemconfigure ${binder}.text -text $txt
 
-   set nx1 [expr [lindex $boxArea 0] -15]
-   set ny1 [expr [lindex $boxArea 1] -15]
-   set nx2 [expr [lindex $boxArea 2] +15]
-   set ny2 [expr [lindex $boxArea 3] +15]
+   set ovalSize [SharedData_getMiscData LOOP_OVAL_SIZE]
+   set nx1 [expr [lindex $boxArea 0] - ${ovalSize}]
+   set ny1 [expr [lindex $boxArea 1] - ${ovalSize}]
+   set nx2 [expr [lindex $boxArea 2] + ${ovalSize}]
+   set ny2 [expr [lindex $boxArea 3] + ${ovalSize}]
    
    $canvas create oval ${nx1} ${ny1} ${nx2} ${ny2}  \
           -fill $fill -tags "$binder ${binder}.oval"
@@ -643,6 +644,36 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
       # after 5 seconds, delete the lines pointing at the job
       after 5000 [list ::DrawUtils::delPointNode ${canvasW}]
    }
+}
+
+# search down the node tree for nodes in position 0 relative
+# to the current node that might require more space than
+# usual ones Example loop. Used mainly to know where to draw the first
+# node of a branch
+proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
+   DEBUG "::DrawUtils::getLineDeltaSpace $flow_node delta_value: $delta_value" 5
+   set value ${delta_value}
+   # I only need to calculate extra space if the current node is not in position 0
+   # in it's parent node. If it is in position 0, the extra space has already been calculated.
+   if { [::FlowNodes::getPosition ${flow_node}] != 0 } {
+      set childNodes [${flow_node} cget -flow.children]
+
+      # i'm only interested in the first position of the child list, the others will be calculated
+      set childNode [lindex ${childNodes} 0]
+   
+      if { ${childNode} != "" } {
+         set childFlowNode ${flow_node}/${childNode}
+         # for now only loops needs be treated
+         if { [${childFlowNode} cget -flow.type] == "loop" } {
+            if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
+               set value [SharedData_getMiscData LOOP_OVAL_SIZE]
+            }
+         }
+         # move further down the tree
+         set value [::DrawUtils::getLineDeltaSpace ${childFlowNode} ${value}]
+      }
+   }
+   return $value
 }
 
 proc  ::DrawUtils::delPointNode {canvas } {
