@@ -197,7 +197,7 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    global NodeColNumber MessageColNumber SuiteColNumber
    global MSG_TABLE MSG_COUNTER MSG_ACTIVE_COUNTER
    incr MSG_COUNTER
-
+   DEBUG "MsgCenter_newMessage node_:$node_ type_:$type_ msg_:$msg_"
    set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
    set MSG_TABLE(${MSG_COUNTER},${TimestampColNumber}) ${timestamp_}
    set MSG_TABLE(${MSG_COUNTER},${DatestampColNumber}) ${datestamp_}

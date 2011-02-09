@@ -636,6 +636,8 @@ proc ::FlowNodes::getListingNodeExtension { current_node {full_loop "0"} } {
    set numberOfLoops [llength $loopList]
    if { [${current_node} cget -flow.type] == "npass_task" } {
       set currentNptExt [${current_node} cget -current]
+      set extension ${currentNptExt}
+
       if { ${loopList} != "" } {
          set parentLoopExt [::FlowNodes::getParentLoopExt ${current_node}]
          if { ${parentLoopExt} == "latest" } {
@@ -651,6 +653,10 @@ proc ::FlowNodes::getListingNodeExtension { current_node {full_loop "0"} } {
             } else {
                set extension ${parentLoopExt}${currentNptExt}
             }
+         }
+      } else {
+         if { ${currentNptExt} == "latest" } {
+            set extension [${current_node} cget -flow.latest]
          }
       }
    } else {
@@ -1035,9 +1041,9 @@ proc ::FlowNodes::getExtAtIndex { extension index } {
       return ""
    }
 
-   if { [llength ${splittedValues}] <= 2 } {
-      return ""
-   }
+   #if { [llength ${splittedValues}] <= 2 } {
+   #   return ""
+   #}
 
    set splittedValues [lrange ${splittedValues} 1 end]
 
