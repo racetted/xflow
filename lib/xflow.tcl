@@ -795,9 +795,10 @@ proc xflow_findNode { suite_record real_node } {
       # we need to select the indexes for loop members and/or npt nodes
       while { ${indexCount} <= [expr ${numberIndexes} -1] } {
          if { ${indexCount} == [expr ${numberIndexes} -1] && [${flowNode} cget -flow.type] == "npass_task" } {
-            # the current node ian npt... the last part must be for the npt index
+            # the current node is an npt... the last part must be for the npt index
             set leafEx [::FlowNodes::getExtAtIndex ${extensionPart} ${indexCount}]
             ${flowNode} configure -current ${leafEx}
+            set refreshNode ${flowNode}
          } else {
             # must be a loop extension
             set loopNode [lindex ${loopList} ${indexCount}]
@@ -866,7 +867,7 @@ proc drawNode { canvas node position callback {first_node false} } {
       if { $position == 0 } {
          set linex1 $px2
          set liney1 [expr $py1 + ($py2 - $py1) / 2 + $deltaY]
-         set liney2 [expr $liney1]
+         set liney2 $liney1
          set linex2 [expr $linex1 + $boxW/2]
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor $drawshadow $shadowColor ${lineTagName}
       } else {
@@ -1035,10 +1036,6 @@ proc nodeMenu { canvas node x y } {
          -foreground [::DrawUtils::getBgStatusColor abort]
 
       ${miscMenu} add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
-      #$popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
-      if { [xflow_isIgnoreDepTrue] == "true" } {
-         ${submitMenu} add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep -state disabled
-      }
       if { [$node cget -flow.type] != "task" } {
          ${submitMenu} add command -label "Submit" -command [list submitCallback $node $canvas $popMenu continue ]
          ${submitMenu} add cascade -label "NO Dependency" -underline 4 -menu [menu ${submitNoDependMenu}]
@@ -1050,13 +1047,7 @@ proc nodeMenu { canvas node x y } {
          ${submitMenu} add command -label "Submit & Continue" -underline 9 -command [list submitCallback $node $canvas $popMenu continue ]
          ${submitMenu} add command -label "Submit & Stop" -underline 9 -command [list submitCallback $node $canvas $popMenu stop ]
 
-         # ${submitMenu} add cascade -label "Submit & Continue" -underline 11 -menu [menu ${submitDependMenu}]
          ${submitMenu} add cascade -label "NO Dependency" -underline 4 -menu [menu ${submitNoDependMenu}]
-         #${submitDependMenu} add command -label "With Dependency" \
-         #   -command [list submitCallback $node $canvas $popMenu continue dep_on ]
-         #${submitDependMenu} add command -label "W/O Dependency" \
-         #   -command [list submitCallback $node $canvas $popMenu continue dep_off ]
-         #${submitMenu} add cascade -label "Submit & Stop" -underline 11 -menu [menu ${submitNoDependMenu}]
          ${submitNoDependMenu} add command -label "Submit & Continue" -underline 9 \
             -command [list submitCallback $node $canvas $popMenu continue dep_off ]
          ${submitNoDependMenu} add command -label "Submit & Stop" -underline 9 \
@@ -1073,71 +1064,9 @@ proc nodeMenu { canvas node x y } {
    #$popMenu add command -label "Bound Family" -command [list boundFamilyCallback $node $canvas $popMenu]
    ${miscMenu} add command -label "Abort" -command [list abortCallback $node $canvas $popMenu]
    ${miscMenu} add command -label "Kill Node" -command [list killNodeFromDropdown $node $canvas $popMenu]
-   ${miscMenu} add command -label "Clean Log" -command [list cleanLogCallback $canvas $popMenu]
+
    $popMenu add separator
    $popMenu add command -label "Close"
-   
-   tk_popup $popMenu $x $y
-}
-
-proc nodeMenu_backup { canvas node x y } {
-   global ignoreDep
-   DEBUG "nodeMenu() node:$node" 5
-   set popMenu .popupMenu
-   if { [winfo exists $popMenu] } {
-      destroy $popMenu
-   }
-   #menu $popMenu -bg [SharedData_getColor CANVAS_COLOR]
-   menu $popMenu -bg "#d1d1d1"
-   set children [$node cget -flow.children]
-   set isCollapsed [::FlowNodes::isCollapsed $node $canvas]
-   if { $children != "" && $isCollapsed } {
-      $popMenu add command -label "Expand All" -command [list expandAllCallback $node $canvas $popMenu]
-   }
-   if { [$node cget -flow.type] == "loop" } {
-      addLoopNodeMenu ${popMenu} ${canvas} ${node}
-   } elseif { [$node cget -flow.type] == "npass_task" } {
-      addNptNodeMenu ${popMenu} ${canvas} ${node}
-   } else {
-      $popMenu add command -label "Node History" -command [list historyCallback $node $canvas $popMenu 0 ]
-      $popMenu add command -label "Node Info" -command [list nodeInfoCallback $node $canvas $popMenu]
-      $popMenu add command -label "Node Listing" -command [list listingCallback $node $canvas $popMenu]
-      $popMenu add command -label "All Node Listing" -command [list allListingCallback $node $canvas $popMenu success]
-      $popMenu add command -label "Node Abort Listing" \
-         -command [list abortListingCallback $node $canvas $popMenu] \
-         -foreground [::DrawUtils::getBgStatusColor abort]
-      $popMenu add command -label "All Node Abort Listing" \
-         -command [list allListingCallback $node $canvas $popMenu abort] \
-         -foreground [::DrawUtils::getBgStatusColor abort]
-      $popMenu add command -label "Node Batch" -command [list batchCallback $node $canvas $popMenu ]
-      $popMenu add command -label "New Window" -command [list newWindowCallback $node $canvas $popMenu]
-      $popMenu add separator
-      #$popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep
-      if { [xflow_isIgnoreDepTrue] == "true" } {
-         $popMenu add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep -state disabled
-      }
-      if { [$node cget -flow.type] != "task" } {
-         $popMenu add command -label "Submit" -command [list submitCallback $node $canvas $popMenu continue ]
-         $popMenu add command -label "Node Config" -command [list configCallback $node $canvas $popMenu ]
-         $popMenu add separator
-         $popMenu add command -label "Initbranch" -command [list initbranchCallback $node $canvas $popMenu]
-      } else {
-         $popMenu add command -label "Submit & Continue" -command [list submitCallback $node $canvas $popMenu continue ]
-         $popMenu add command -label "Submit & Stop" -command [list submitCallback $node $canvas $popMenu stop ]
-         $popMenu add command -label "Node Source" -command [list sourceCallback $node $canvas $popMenu ]
-         $popMenu add command -label "Node Config" -command [list configCallback $node $canvas $popMenu ]
-         $popMenu add separator
-         $popMenu add command -label "Initnode" -command [list initnodeCallback $node $canvas $popMenu]
-      }
-      $popMenu add command -label "End" -command [list endCallback $node $canvas $popMenu]
-   }
-
-   #$popMenu add command -label "Bound Family" -command [list boundFamilyCallback $node $canvas $popMenu]
-   $popMenu add command -label "Abort" -command [list abortCallback $node $canvas $popMenu]
-   $popMenu add command -label "Kill Node" -command [list killNodeFromDropdown $node $canvas $popMenu]
-   $popMenu add command -label "Clean Log" -command [list cleanLogCallback $canvas $popMenu]
-   $popMenu add separator
-   $popMenu add command -label "Close" -command { destroy .popupMenu }
    
    tk_popup $popMenu $x $y
 }
@@ -1148,6 +1077,7 @@ proc addLoopNodeMenu { popmenu_w canvas node } {
    set infoMenu ${popmenu_w}.info_menu
    set listingMenu ${popmenu_w}.listing_menu
    set submitMenu ${popmenu_w}.submit_menu
+   set submitNoDependMenu ${popmenu_w}.submit_nodep_menu
    set miscMenu ${popmenu_w}.misc_menu
 
    ${infoMenu} add command -label "Node History" -command [list historyCallback $node $canvas ${popmenu_w} 0 ]
@@ -1167,11 +1097,13 @@ proc addLoopNodeMenu { popmenu_w canvas node } {
       -foreground [::DrawUtils::getBgStatusColor abort]
 
 
-   if { [xflow_isIgnoreDepTrue] == "true" } {
-      ${submitMenu} add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep -state disabled
-   }
    ${submitMenu} add command -label "Loop Submit" -command [list submitLoopCallback $node $canvas ${popmenu_w} continue ]
    ${submitMenu} add command -label "Member Submit" -command [list submitCallback $node $canvas ${popmenu_w} continue ]
+   ${submitMenu} add cascade -label "NO Dependency" -underline 4 -menu [menu ${submitNoDependMenu}]
+   ${submitNoDependMenu} add command -label "Loop Submit" \
+      -command [list submitLoopCallback $node $canvas ${popmenu_w} continue dep_off]
+   ${submitNoDependMenu} add command -label "Member Submit" \
+      -command [list submitCallback $node $canvas ${popmenu_w} continue dep_off]
 
    ${miscMenu} add command -label "New Window" -command [list newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Loop End" -command [list endLoopCallback $node $canvas ${popmenu_w}]
@@ -1185,6 +1117,7 @@ proc addNptNodeMenu { popmenu_w canvas node } {
    set infoMenu ${popmenu_w}.info_menu
    set listingMenu ${popmenu_w}.listing_menu
    set submitMenu ${popmenu_w}.submit_menu
+   set submitNoDependMenu ${popmenu_w}.submit_nodep_menu
    set miscMenu ${popmenu_w}.misc_menu
 
    ${infoMenu} add command -label "Node History" -command [list historyCallback $node $canvas ${popmenu_w} 0 ]
@@ -1205,11 +1138,13 @@ proc addNptNodeMenu { popmenu_w canvas node } {
       -foreground [::DrawUtils::getBgStatusColor abort]
 
 
-   if { [xflow_isIgnoreDepTrue] == "true" } {
-      ${submitMenu} add checkbutton -label "Ignore Dependency" -onvalue " -i" -offvalue "" -variable ignoreDep -state disabled
-   }
    ${submitMenu} add command -label "Submit & Continue" -command [list submitNpassTaskCallback $node $canvas ${popmenu_w} continue ]
    ${submitMenu} add command -label "Submit & Stop" -command [list submitNpassTaskCallback $node $canvas ${popmenu_w} stop ]
+   ${submitMenu} add cascade -label "NO Dependency" -underline 4 -menu [menu ${submitNoDependMenu}]
+   ${submitNoDependMenu} add command -label "Submit & Continue" -underline 9 \
+      -command [list submitCallback $node $canvas ${popmenu_w} continue dep_off ]
+   ${submitNoDependMenu} add command -label "Submit & Stop" -underline 9 \
+      -command [list submitCallback $node $canvas ${popmenu_w} stop dep_off ]
 
    ${miscMenu} add command -label "New Window" -command [list newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Initnode" -command [list initnodeCallback $node $canvas ${popmenu_w}]
@@ -1811,24 +1746,6 @@ proc abortListingCallback { node canvas caller_menu {full_loop 0} } {
    }
 }
 
-proc cleanLogCallback { canvas caller_menu } {
-   DEBUG "cleanLogCallback canvas:$canvas" 5
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
-   set suitePath [$suiteRecord cget -suite_path]
-   set logfile $suitePath/logs/firsin
-   Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] cp "Clean Log $logfile" /dev/null $logfile
-   destroy $caller_menu
-   puts "**************************************************************************************"
-   puts [ $suiteRecord cget -read_offset ]
-   $suiteRecord configure -read_offset 0
-   puts "**************************************************************************************"
-   puts [ $suiteRecord cget -read_offset ]
-   # LogReader_readFile $suiteRecord
-
-   drawflow $canvas
-}
-
-
 proc indexedNodeSelectionCallback { node canvas combobox_w} {
    DEBUG "npassTaskSelectionCallback node:$node $combobox_w" 5
 
@@ -2046,6 +1963,7 @@ proc selectSuiteTab { parent suite_record } {
    }
 }
 
+# not used for now
 proc xflow_isIgnoreDepTrue {} {
    global ignoreDep
    if { ${ignoreDep} == "" } {
@@ -2054,6 +1972,7 @@ proc xflow_isIgnoreDepTrue {} {
    return true
 }
 
+# not used for now
 proc xflow_changeIgnoreDep { source_w dep_off_img dep_on_img } {
    global ignoreDep
    set currentImg [${source_w} cget -image]
