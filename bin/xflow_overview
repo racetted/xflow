@@ -41,7 +41,7 @@ if [[ "${as}" != "" ]] ; then
 	 exit 1
       fi
       print "\nxflow_overview command\n--- echo ${0} ${arguments} | ssh -T -i ${sshCommandKey} ${as}@${TRUE_HOST} ---"
-      echo "${0} ${arguments}" | ssh -T -i /home/binops/afsf/ops/.ssh/command_keys/maestro_afsipar_key ${as}@${TRUE_HOST}
+      echo "${0} ${arguments}" | ssh -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
       exit 0
    else
       if [[ "${USER}" != "${as}" ]] ; then

@@ -1538,7 +1538,7 @@ proc Overview_parseCmdOptions {} {
       if { ! ($params(suites) == "") } {
          SharedData_setMiscData OVERVIEW_SUITES_FILE $params(suites)
       } else {
-         SharedData_setMiscData OVERVIEW_SUITES_FILE $env(HOME)/.suites/.xflow.suites.xml
+         SharedData_setMiscData OVERVIEW_SUITES_FILE $env(HOME)/xflow.suites.xml
       }
       # DEBUG "Overview_parseCmdOptions AUTO_MSG_DISPLAY: ${AUTO_MSG_DISPLAY}" 5
       # DEBUG "Overview_parseCmdOptions OVERVIEW_SUITES_FILE: [SharedData_getMiscData OVERVIEW_SUITES_FILE]" 5
