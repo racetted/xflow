@@ -264,9 +264,9 @@ proc ::DrawUtils::drawFamily { node canvas } {
 }
 
 
-proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill callback binder drawshadow shadowColor} {
+proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder drawshadow shadowColor} {
    variable constants
-   #DEBUG "drawLosange canvas:$canvas text:$text callback:$callback binder:$binder" 5
+   #DEBUG "drawLosange canvas:$canvas text:$text binder:$binder" 5
    set newtx1 [expr ${tx1} + 30]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
@@ -310,9 +310,9 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill callba
 }
 
 
-proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill callback binder drawshadow shadowColor } {
+proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
    variable constants
-   DEBUG "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill callback:$callback binder:$binder" 5
+   DEBUG "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder" 5
    set newtx1 [expr ${tx1} + 10]
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
@@ -332,7 +332,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill ca
 
    if { [$binder cget -record_type] == "FlowLoop" &&
          [$binder cget -loop_type] == "loopset" } {
-      # added to test parallel icon
+      # add parallel icon
       set parx1 [expr $nx2 -5]
       set parx2 $parx1
       set pary1 [expr [lindex $boxArea 1] + 4]
@@ -366,7 +366,6 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill ca
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
          ttk::combobox ${indexListW}
-         bind ${indexListW} <<ComboboxSelected>> [list indexedNodeSelectionCallback $binder $canvas %W]
       } 
 
       set extensions [::FlowNodes::getLoopExtensions $binder]
@@ -492,9 +491,9 @@ proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
     $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.5 -arrow $arrow -fill $fill -dash { 4 3 }
 }
 
-proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outline fill callback binder drawshadow shadowColor} {
+proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor} {
    variable constants
-   DEBUG "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill callback:$callback binder:$binder" 5
+   DEBUG "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder" 5
    set family [$binder cget -flow.family]
    $canvas create text ${tx1} ${ty1} -text /$maxtext -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
@@ -532,9 +531,9 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
    ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
 }
 
-proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill callback binder drawshadow shadowColor } {
+proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
    variable constants
-   DEBUG "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill callback:$callback binder:$binder" 5
+   DEBUG "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill binder:$binder" 5
 
    $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
@@ -574,7 +573,6 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill ca
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
          ttk::combobox ${indexListW}
-         bind ${indexListW} <<ComboboxSelected>> [list indexedNodeSelectionCallback $binder $canvas %W]
       }
       set extensions {latest}
       if { [${binder} cget -current] != "" } {

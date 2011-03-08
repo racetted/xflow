@@ -146,6 +146,7 @@ proc SharedData_init {} {
    SharedData_setMiscData AUTO_MSG_DISPLAY true
    SharedData_setMiscData NODE_DISPLAY_PREF normal
    SharedData_setMiscData STARTUP_DONE false 
+
    SharedData_setMiscData OVERVIEW_MODE false
    SharedData_setMiscData DEFAULT_CONSOLE konsole
    SharedData_setMiscData TEXT_VIEWER default

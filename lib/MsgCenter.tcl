@@ -149,7 +149,7 @@ proc MsgCenter_createWidgets {} {
          ${SuiteColNumber} ${suiteColWidth}
 
       ${tableW} tag configure title -bd 1 -bg ${headerBgColor} -relief raised -font ${titleFont} -fg ${headerFgColor}
-      MsgCenter_bindMouseWheel ${tableW}
+      Utils_bindMouseWheel ${tableW} 2
    }
 
    # creating scrollbars
@@ -572,54 +572,9 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
    }
 }
 
-proc MsgCenter_bindMouseWheel { widget_ } {
-   bind ${widget_} <4> {
-      if {!$tk_strictMotif} {
-         %W yview scroll -2 units
-      }
-   }
-   bind ${widget_} <5> {
-      if {!$tk_strictMotif} {
-         %W yview scroll 2 units
-      }
-   }
-}
-
 ########################################
 # end callback procedures
 ########################################
-
-# end 
-########################################
-# test procedures
-#########################################
-proc addTestMessages {} {
-   set w .table
-   #MsgCenter_newMessage $w "10/06 18:12:58" "Info" \
-      "/gem" "Initialization Completed."  "/users/dor/afsi/sul/.suites/gem_modv4"
-   # MsgCenter_newMessage $w "10/06 18:17:25" "Abort" \
-      "/gem/gem_model" "Missing Data"  "/users/dor/afsi/sul/.suites/gem_modv4"
-   # MsgCenter_newMessage $w "10/06 20:30:34" "Info" \
-      "/gem/gem_forecast" "Forecast Completed"  "/users/dor/afsi/sul/.suites/gem_modv4"
-}
-
-proc addTestOneMsg {} {
-   set w .table
-   # MsgCenter_newMessage $w "10/12 13:12:58" "Abort" \
-      "/gem" "Missing output directory."  "/users/dor/afsi/sul/.suites/gem_modv4"
-}
-
-proc testPointNode {} {
-   set threadId [SharedData_getSuiteData /users/dor/afsi/sul/.suites/date_conc THREAD_ID]
-   set suiteRecord [::SuiteNode::formatSuiteRecord /users/dor/afsi/sul/.suites/date_conc]
-   DEBUG "testPointNode threadId:$threadId" 5
-   thread::send -async ${threadId} "::DrawUtils::pointNode ${suiteRecord} /sample_mod/Family_2"
-   DEBUG "testPointNode done..." 5
-}
-
-########################################
-# end test procedures
-#########################################
 
 proc MsgCenter_init {} {
    global MSG_ALARM_ON RowNumberMap

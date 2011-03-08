@@ -4,7 +4,11 @@ proc LogReader_readFile { suite_record calling_thread_id } {
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set thisThreadId [thread::id]
-
+   set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
+   if { ${isThreadStartupDone} == "true" } {
+      set isStartupDone true
+   }
+   
    # first cancel any other waiting read for this suite
    LogReader_cancelAfter $suite_record
    set suitePath [$suite_record cget -suite_path]
@@ -27,11 +31,12 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       if { ${expLog} != ${logfile} } {
          # new log detected, advise main thread of this event
          if { "${isOverviewMode}" == "false" } {
+            # we are in standalone xflow mode
             thread::send -async ${calling_thread_id} \
             "xflow_datestampChanged ${suite_record}"
          } elseif { ${thisThreadId} != ${MONITOR_THREAD_ID} } {
             puts "LogReader_readFile reading new log file $logfile"
-            # send event to overview
+            # send event to overview mode
             set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
             thread::send -async ${overviewThreadId} \
             "Overview_ExpDateStampChanged ${suite_record} ${logfile}"
@@ -217,7 +222,7 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
             set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
             thread::send -async ${MSG_CENTER_THREAD_ID} \
                "MsgCenterThread_newMessage ${currentDatestamp} ${timestamp} ${type} ${node}${loopExt} ${expPath} \"${msg}\""
-            Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
+            # Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
          }
          # abortx, endx, beginx type are used for signals we send to the parent containers nodes
          # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
@@ -264,7 +269,9 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
                }
    
                # 2 - then we refresh the display... redisplay the node text?
-               if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+               set thisThreadId [thread::id]
+               set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
+               if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" } {
                   xflow_redrawNodes ${flowNode}
                }
             }

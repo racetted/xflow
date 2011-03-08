@@ -407,7 +407,7 @@ proc ::FlowNodes::initNode { node canvas} {
    array set displayInfoList [$node cget -flow.display_infos]
    if { ! [info exists displayInfoList($canvas)] } {
       # puts "::FlowNodes::initNode creating canvas:$canvas"
-      set displayInfoList($canvas) {1 0 0 0 0 0 0 0 40}
+      set displayInfoList($canvas) {0 0 0 0 0 0 0 0 40}
       $node configure -flow.display_infos [array get displayInfoList]
    }
    
@@ -556,8 +556,10 @@ proc ::FlowNodes::getExtDisplay { node loop_ext } {
 proc ::FlowNodes::addLoop { current_node loop_node } {
    #puts "::FlowNodes::addLoop adding loop: loop_node to node:$current_node"
    set loopList [$current_node cget -flow.loops]
-   set loopList [linsert $loopList 0 $loop_node]
-   $current_node configure -flow.loops $loopList
+   if { [lsearch ${loopList} ${loop_node}] == -1 } {
+      set loopList [linsert $loopList 0 $loop_node]
+      $current_node configure -flow.loops $loopList
+   }
 }
 
 # search uptree for parent loops and add it to the
@@ -1041,9 +1043,9 @@ proc ::FlowNodes::getExtAtIndex { extension index } {
       return ""
    }
 
-   #if { [llength ${splittedValues}] <= 2 } {
-   #   return ""
-   #}
+   if { [llength ${splittedValues}] <= 2 } {
+      return ""
+   }
 
    set splittedValues [lrange ${splittedValues} 1 end]
 

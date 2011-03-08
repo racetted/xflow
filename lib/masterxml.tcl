@@ -78,7 +78,8 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    set parentContainer "[$actualFlowParent cget -flow.container]"
    set parentName "[$actualFlowParent cget -flow.name]"
    DEBUG "createNodeFromXml() parentContainer:$parentContainer $parentName $flowType [$actualFlowParent cget -flow.type]" 5
-   if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npass_task"} {
+   set parentType [$actualFlowParent cget -flow.type]
+   if { [string match "*task" ${parentType} ] } {
       $newFlowDirname configure -flow.container "$parentContainer"
    } else {
       if { ${parentContainer} == "" } {
@@ -92,7 +93,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # of the real node to the flow node. A real node is the value that is required by the
    # sequencer API.
    if { [::FlowNodes::searchForTask $actualFlowParent] != "" } {
-      if { [$actualFlowParent cget -flow.type] == "task" || [$actualFlowParent cget -flow.type] == "npass_task" } {
+      if { [string match "*task" ${parentType} ] } {
          ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$nodeName $newFlowDirname
       } else {
          ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$parentName/$nodeName $newFlowDirname
@@ -160,6 +161,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
       }
       "DEPENDS_ON" -
       "SUBMITS" -
+      "ABORT_ACTION" -
       "#text" -
       "#comment" {
          set parseChild 0

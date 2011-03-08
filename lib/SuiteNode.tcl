@@ -384,7 +384,7 @@ proc ::SuiteNode::getEndTime { suite } {
 # returns true if the suite is in init state,
 # has no reference start time and end time.
 # I must put it somewhere on the canvas...
-# so for now they are parked at the the start of 
+# so for now they are parked at the start of 
 # my time grid in the overview and must not be time
 # shifted.
 proc ::SuiteNode::isHomeless {suite} {

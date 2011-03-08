@@ -21,23 +21,24 @@ proc getGlobalValue {key} {
    set value [SharedData_getMiscData ${key}]
 }
 
-proc bindMouseWheel { widget } {
-   #puts "bindMouseWheel widget:$widget"
-   bind $widget <4> {
-      if {!$tk_strictMotif} {
-         %W yview scroll -5 units
-         #puts "bindMouseWheel yview -5 called"
-      }
+# parent is where the user has clicked
+proc Utils_positionWindow { top {parent ""} } {
+   if { $parent != "" } {
+      set POSITION_X [winfo pointerx $parent]
+      set POSITION_Y [winfo pointery $parent]
+   } else {
+      set POSITION_X [expr [winfo screenwidth .]/4]
+      set POSITION_Y [expr [winfo screenheight .]/8]
    }
-   bind $widget <5> {
-      if {!$tk_strictMotif} {
-         %W yview scroll 5 units
-         #puts "bindMouseWheel yview +5 called"
-      }
-   }
+   wm geometry $top +${POSITION_X}+${POSITION_Y}
 }
 
-proc normalCursor { w } {
+proc Utils_bindMouseWheel { widget units_value } {
+   bind $widget <4> [list ${widget} yview scroll -${units_value} units] 
+   bind $widget <5> [list ${widget} yview scroll +${units_value} units] 
+}
+
+proc Utils_normalCursor { w } {
    if { [winfo exists $w] } {
       catch {
          # $w configure -cursor arrow
@@ -47,7 +48,7 @@ proc normalCursor { w } {
    }
 }
 
-proc busyCursor { w } {
+proc Utils_busyCursor { w } {
    if { [winfo exists $w] } {
       $w configure -cursor watch
       #blt::busy hold $w
@@ -56,22 +57,14 @@ proc busyCursor { w } {
 }
 
 
-proc raiseError { parent title err_msg } {
+proc Utils_raiseError { parent title err_msg } {
    tk_messageBox -icon error -parent $parent -title $title -message $err_msg
 }
 
-proc FatalError { parent title err_msg } {
+proc Utils_fatalError { parent title err_msg } {
    wm withdraw .
-   raiseError $parent $title $err_msg
+   Utils_raiseError $parent $title $err_msg
    exit 0
-}
-
-proc quit { {message ""} } {
-   if { !($message == "") } {
-      DEBUG "Error:$message" 4
-   }
-   DEBUG "Application Exits!" 4
-   exit
 }
 
 # input 20100903.18:50:24

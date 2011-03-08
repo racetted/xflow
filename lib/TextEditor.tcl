@@ -37,7 +37,7 @@ proc tw_search {w new_search} {
    set string $SEARCHSTRING($w)
    # make sure that "SEARCHSTRING" is not empty
    if { $string == "" } {
-      raiseError $w "Search String" "You must specify a string"
+      Utils_raiseError $w "Search String" "You must specify a string"
       return
    }
 
@@ -54,7 +54,7 @@ proc tw_search {w new_search} {
 
    # not found
    if { $index == "" } {
-      after 1 [list raiseError $w "Search String" "Could not find \"$string\""]
+      after 1 [list Utils_raiseError $w "Search String" "Could not find \"$string\""]
       return
    }
 
@@ -72,7 +72,7 @@ proc tw_search {w new_search} {
    set remainder2 [lindex $offset_list 1]
 
    if { ($integer1 < $integer2) || ($integer1 == $integer2 && $remainder1 < $remainder2) } {
-      after 1 [list raiseError $w "Could not find \"$string\"" "Address search hit BOTTOM \
+      after 1 [list Utils_raiseError $w "Could not find \"$string\"" "Address search hit BOTTOM \
                without matching pattern"]
       return
    }
@@ -173,7 +173,7 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
 
    pack $w.text -side left -fill both -expand yes -in $w.tframe
    
-   bindMouseWheel $w.text
+   Utils_bindMouseWheel $w.text 5
    set pad [expr [$w.txt_yscroll cget -width] + 2 * [$w.txt_yscroll cget -bd] + \
       [$w.txt_yscroll cget -highlightthickness]]
 
