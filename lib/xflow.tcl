@@ -770,7 +770,7 @@ proc xflow_getNodeDisplayPrefText { node } {
       set attrName "machine"
    }
    if { ${displayPref} != "normal" } {
-      if { [string match "*task" [$node cget -flow.type] } {
+      if { [string match "*task" [$node cget -flow.type]] } {
             set attrValue "[$node cget -${attrName}]"
             if { ${displayPref} == "machine_queue" } {
                set queue [$node cget -queue]
