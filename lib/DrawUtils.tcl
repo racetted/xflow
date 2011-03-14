@@ -654,19 +654,19 @@ proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
    # I only need to calculate extra space if the current node is not in position 0
    # in it's parent node. If it is in position 0, the extra space has already been calculated.
    if { [::FlowNodes::getPosition ${flow_node}] != 0 } {
+      # for now only loops needs be treated
+      if { [${flow_node} cget -flow.type] == "loop" } {
+         if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
+            set value [SharedData_getMiscData LOOP_OVAL_SIZE]
+         }
+      }
       set childNodes [${flow_node} cget -flow.children]
-
       # i'm only interested in the first position of the child list, the others will be calculated
+      # when we move down the tree
       set childNode [lindex ${childNodes} 0]
    
       if { ${childNode} != "" } {
          set childFlowNode ${flow_node}/${childNode}
-         # for now only loops needs be treated
-         if { [${childFlowNode} cget -flow.type] == "loop" } {
-            if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
-               set value [SharedData_getMiscData LOOP_OVAL_SIZE]
-            }
-         }
          # move further down the tree
          set value [::DrawUtils::getLineDeltaSpace ${childFlowNode} ${value}]
       }
