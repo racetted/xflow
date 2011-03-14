@@ -46,7 +46,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    if { ${new_hour} == "" } {
       # first time called, calculate the time to sleep before the hour
       set advanceGrid false
-      set new_hour [clock format ${currentClock} -format %H -gmt 1]
+      set new_hour [Utils_getNonPaddedValue [clock format ${currentClock} -format %H -gmt 1]]
       set elapsedMin [Utils_getNonPaddedValue [clock format ${currentClock} -format %M]]
       set elapsedSeconds [Utils_getNonPaddedValue [clock format ${currentClock} -format %S]]
       set elapsedInMilliSec [expr ${elapsedMin} * 60000 + ${elapsedSeconds} * 1000]
@@ -157,6 +157,10 @@ proc Overview_getXCoordTime { timevalue {shift_day false} } {
    set timeMinute [Utils_getMinuteFromTime ${timevalue}]
 
    set hourGrid [expr ${currentHour} % 12]
+   if { ${currentHour} == 0 } {
+      # if current time is 00:xx, the modulo 12 is not correct.
+      set hourGrid 12
+   }
    set hourDelta [expr ${hourGrid} * ${graphHourX}]
    set xcoordHour [ expr ${graphStartX} + ${timeHour} * ${graphHourX} - ${hourDelta} ]
    set xcoordMin [ expr ${timeMinute} * ${graphHourX} / 60 ]
@@ -1483,7 +1487,13 @@ proc Overview_GraphGetXOriginDateTime {} {
 proc Overview_GraphGetXOriginTime {} {
    set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
    set originHour [expr ${currentHour} % 12]
-   set value "[Utils_getPaddedValue ${originHour}]:00"
+   if { ${originHour} == 0 } {
+      # the modulo value will give me 0 which is not what I want
+      set value "12:00"
+   } else {
+      set value "[Utils_getPaddedValue ${originHour}]:00"
+   }
+
    return ${value}
 }
 
