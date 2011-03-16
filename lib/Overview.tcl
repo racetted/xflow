@@ -78,14 +78,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    Overview_setCurrentTime ${canvasW} ${currenTime}
 
    # delete first hour tag, the one at the far-left of the grid
-   set mostLeftHour [expr ${new_hour} % 12]
-   if { [expr ${new_hour} < 12] } {
-      set mostLeftHour [expr ${mostLeftHour} + 12]
-   } elseif { ${new_hour} == "12" } {
-      set mostLeftHour 24
-   } elseif { ${new_hour} == "24" } {
-      set mostLeftHour 12
-   }
+   set mostLeftHour [Overview_GraphGetXOriginHour]
 
    DEBUG "Overview_GridAdvanceHour deleting hour ${mostLeftHour}" 5
    Overview_GraphDeleteHourLine ${canvasW} ${mostLeftHour}
@@ -152,26 +145,34 @@ proc Overview_getTimeFromCoord { x_value } {
 proc Overview_getXCoordTime { timevalue {shift_day false} } {
    global graphHourX graphStartX
 
-   set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
    set timeHour [Utils_getHourFromTime ${timevalue}]
    set timeMinute [Utils_getMinuteFromTime ${timevalue}]
 
-   set hourGrid [expr ${currentHour} % 12]
-   if { ${currentHour} == 0 } {
-      # if current time is 00:xx, the modulo 12 is not correct.
-      set hourGrid 12
+   if { [Overview_GraphGetXOriginHour] == ${timeHour} } {
+      set xcoordHour ${graphStartX}
+   } else {
+      # each hour has a corresponding vertical grid line
+      # here we fetch the x coordinate as given by the hour grid line
+      if { ${timeHour} == "0" } {
+         set hourTag grid_vertical_hour_24
+      } else {
+         set hourTag grid_vertical_hour_${timeHour}
+      }
+      set canvas [Overview_getCanvas]
+      set coords [${canvas} coords ${hourTag}]
+      set xcoordHour [::tcl::mathfunc::entier [lindex ${coords} 0]]
    }
-   set hourDelta [expr ${hourGrid} * ${graphHourX}]
-   set xcoordHour [ expr ${graphStartX} + ${timeHour} * ${graphHourX} - ${hourDelta} ]
+
    set xcoordMin [ expr ${timeMinute} * ${graphHourX} / 60 ]
    set xcoord [ expr ${xcoordHour} + ${xcoordMin} ]
 
    # if the current hour is before the x origin hour, I'm adding 24 hours
    # this is only used for init status for now when I need to insert runs that
    # appears at the rightmost of the grid
-   if { [expr [clock scan ${timevalue}] <= [Overview_GraphGetXOriginDateTime]] && ${shift_day} == "true" } {
-      set xcoord [expr ${xcoord} + 24 * ${graphHourX}]
-   }
+   #if { [expr [clock scan ${timevalue}] <= [Overview_GraphGetXOriginDateTime]] && ${shift_day} == "true" } {
+   #   set xcoord [expr ${xcoord} + 24 * ${graphHourX}]
+   #}
+
    return $xcoord
 }
 
@@ -191,6 +192,7 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
       set sleepTime 30000
    }
    set currentTimeCoordx [Overview_getXCoordTime ${current_time}]
+   DEBUG "setCurrentTime current_time:${current_time} currentTimeCoordx:$currentTimeCoordx" 5
    set x1 ${currentTimeCoordx}
    set x2 ${currentTimeCoordx}
    set y1 [expr $graphStartY - 4]
@@ -1459,7 +1461,11 @@ proc Overview_createGraph { canvas } {
    
    # the grid starts at current_hour - 12 and ends at current_hour + 12
    set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
-   set hourTag [expr ${currentHour} % 12 + 1]
+   if { ${currentHour} < 12 } {
+      set hourTag [expr 12 + ${currentHour}] 
+   } else {
+      set hourTag [expr ${currentHour} % 12 + 1]
+   }
    set count 1
    # adds hour delimiter & ver grid along hour
    while { $count < 25 } {
@@ -1482,16 +1488,39 @@ proc Overview_GraphGetXOriginDateTime {} {
    return ${value}
 }
 
+# returns the hour that sits that
+# the x origin
+proc Overview_GraphGetXOriginHour {} {
+   set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
+   set originClockTime [clock add [clock seconds] -13 hours]
+   set originHour [Utils_getNonPaddedValue [clock format ${originClockTime} -format "%H" -gmt 1]]
+
+   set value "[Utils_getPaddedValue ${originHour}]"
+   return ${value}
+}
+
 # this function returns the time value as hh:mm for the hour grid at the far-left
 # of the time grid
 proc Overview_GraphGetXOriginTime {} {
    set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
-   set originHour [expr ${currentHour} % 12]
-   if { ${originHour} == 0 } {
-      # the modulo value will give me 0 which is not what I want
-      set value "12:00"
-   } else {
+   set originClockTime [clock add [clock seconds] -13 hours]
+   set originHour [Utils_getNonPaddedValue [clock format ${originClockTime} -format "%H" -gmt 1]]
+
       set value "[Utils_getPaddedValue ${originHour}]:00"
+      proc out {} {
+   if { ${currentHour} == 0 } {
+      # the modulo value will give me 0 which is not what I want
+      set value "11:00"
+   } elseif { ${currentHour} == 12 } {
+      set value "23:00"
+   } else {
+      if { ${currentHour} < 12 } {
+         set originHour [expr 12 + ${currentHour}]
+      } else {
+         set originHour [expr ${currentHour} % 12]
+      }
+      set value "[Utils_getPaddedValue ${originHour}]:00"
+   }
    }
 
    return ${value}
