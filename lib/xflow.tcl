@@ -1986,9 +1986,10 @@ proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
 
    # for now we only care about batch resources from tasks
-   if { [string match "*Task" [$node cget -flow.type] ] } {
+   if { [string match "*task" [$node cget -flow.type] ] } {
       # the next command runs nodeinfo and converts each line of the output
       # into a tcl command
+      puts "${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :'"
       set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile} 2> /dev/null "]} message]
    
       if { $code != 0 } {
