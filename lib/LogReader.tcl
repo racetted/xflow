@@ -1,6 +1,7 @@
 proc LogReader_readFile { suite_record calling_thread_id } {
-   global MONITOR_THREAD_ID
+   global MONITOR_THREAD_ID REDRAW_FLOW
    DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id"
+   set REDRAW_FLOW false
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set thisThreadId [thread::id]
@@ -44,7 +45,18 @@ proc LogReader_readFile { suite_record calling_thread_id } {
             thread::send ${thisThreadId} "xflow_datestampChanged ${suite_record}"
          }
          ${suite_record} configure -read_offset 0 -exp_log ${logfile}
-         puts "LogReader_readFile reading new log file $logfile"
+         if { ${expLog} != "" } {
+            # means that the datestamp changed while we are monitoring a existing one
+            # set the exp in startup mode
+            SharedData_setMiscData ${thisThreadId}_STARTUP_DONE false
+            set isStartupDone false
+            # force a redraw at the end of the read
+            set REDRAW_FLOW true
+            # re-init all nodes
+            set rootNode [${suite_record} cget -root_node]
+            ::FlowNodes::resetAllStatus ${rootNode} init 1
+         }
+         puts "LogReader_readFile reading new log file previous:${expLog} new:$logfile"
       }
    } else {
       # view history mode
@@ -65,7 +77,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       # position yourself in the file
       seek $f_logfile $logFileOffset
       
-      while {[gets $f_logfile line] >= 0} {   
+      while {[gets $f_logfile line] >= 0} {
          if { ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
             LogReader_processOverviewLine $calling_thread_id $suite_record $line
          }
@@ -86,6 +98,10 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       close [open $logfile a]
    }
 
+   if { ${REDRAW_FLOW} == true } {
+      SharedData_setMiscData ${thisThreadId}_STARTUP_DONE true
+      xflow_redrawAllFlow
+   }
    LogReader_readAgain $suite_record $calling_thread_id
 }
 

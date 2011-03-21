@@ -198,8 +198,10 @@ proc Utils_getNonPaddedValue { value } {
    return ${value}
 }
 
+# only meant to be used for hours
 proc Utils_getPaddedValue { value } {
-   if { [::tcl::mathop::< ${value} 10] &&  [::tcl::mathop::>= ${value} 0]} {
+   if { [::tcl::mathop::< ${value} 10] &&  [::tcl::mathop::>= ${value} 0] 
+        && [string length ${value}] != "2" } {
       return "0${value}"
    }
    return ${value}

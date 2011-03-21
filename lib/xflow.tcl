@@ -1881,9 +1881,13 @@ proc xflow_redrawNodes { node {canvas ""} } {
 # on the same experiment
 proc xflow_redrawAllFlow {} {
    set suiteRecord [xflow_getActiveSuite]
-   set canvasList [::SuiteNode::getCanvasList ${suiteRecord}]
-   foreach canvasW $canvasList {
-      xflow_drawflow $canvasW 0
+   # the active suite could be empty if the redraw is
+   # called from the LogReader in overview mode
+   if { ${suiteRecord} != "" } {
+      set canvasList [::SuiteNode::getCanvasList ${suiteRecord}]
+      foreach canvasW $canvasList {
+         xflow_drawflow $canvasW 0
+      }
    }
 }
 
