@@ -102,8 +102,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
          set lastStatus [::SuiteNode::getLastStatus ${suiteRecord}]
          set lastStatusTime [::SuiteNode::getLastStatusTime ${suiteRecord}]
          if { [expr ${currentX} == ${graphStartX}] && [::SuiteNode::isHomeless ${suiteRecord}] } {
-            # exps that do not have reference timings and are in init state 
-            # sits at x origin 0
+            # exps that do not have reference timings and are in init state # sits at x origin 0
             set expAdvanceHour false
             DEBUG "Overview_GridAdvanceHour not advancing homeless ${exp}" 5
          }
@@ -128,11 +127,22 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 proc Overview_getTimeFromCoord { x_value } {
    global graphHourX graphStartX
    set intValue [::tcl::mathfunc::entier ${x_value}]
-   set x [expr ${intValue} - ${graphStartX}]
-   set origDateTime [clock add [clock seconds] -12 hours]
-   set origHour [Utils_getNonPaddedValue [clock format ${origDateTime} -format {%H}]]
 
-   set hour [expr ${x} / ${graphHourX} + ${origHour}]
+   # get the delta_x relative to the start of the time grid
+   set x [expr ${intValue} - ${graphStartX}]
+
+   # calculate the number of hour space
+   set nHour [expr ${x} / ${graphHourX}]
+
+   # get the time at origin
+   set origDateTime [Overview_GraphGetXOriginDateTime]
+
+   # add the number of hours to the origin
+   set hourDateTime [clock add ${origDateTime} ${nHour} hours]
+
+   # get the hour value from the new date
+   set hour [clock format ${hourDateTime} -format "%H" -gmt 1]
+
    set minute [expr (${x} % ${graphHourX}) * 60 / ${graphHourX}]
    set timeValue "[Utils_getPaddedValue ${hour}]:[Utils_getPaddedValue ${minute}]"
    return ${timeValue}
@@ -148,19 +158,25 @@ proc Overview_getXCoordTime { timevalue {shift_day false} } {
    set timeHour [Utils_getHourFromTime ${timevalue}]
    set timeMinute [Utils_getMinuteFromTime ${timevalue}]
 
+   if { ${timeHour} > 24 } {
+      # return max of grid
+      set xoord [expr ${graphStartX} + 24 * ${graphHourX} ]
+      return ${xoord}
+   }
+
    if { [Overview_GraphGetXOriginHour] == ${timeHour} } {
       set xcoordHour ${graphStartX}
    } else {
       # each hour has a corresponding vertical grid line
       # here we fetch the x coordinate as given by the hour grid line
-      if { ${timeHour} == "0" } {
-         set hourTag grid_vertical_hour_24
-      } else {
-         set hourTag grid_vertical_hour_${timeHour}
-      }
+      set hourTag [Overview_getGridTagHour ${timeHour}]
       set canvas [Overview_getCanvas]
       set coords [${canvas} coords ${hourTag}]
-      set xcoordHour [::tcl::mathfunc::entier [lindex ${coords} 0]]
+      if { ${coords} != "" } {
+         set xcoordHour [::tcl::mathfunc::entier [lindex ${coords} 0]]
+      } else {
+         puts "Overview_getXCoordTime not exists timevalue:$timevalue  timeHour:$timeHour hourTag:$hourTag"
+      }
    }
 
    set xcoordMin [ expr ${timeMinute} * ${graphHourX} / 60 ]
@@ -176,7 +192,7 @@ proc Overview_getXCoordTime { timevalue {shift_day false} } {
    return $xcoord
 }
 
-# refresh the current time line every 30 seconds
+# refresh the current time line every minute
 proc Overview_setCurrentTime { canvas { current_time "" } } {
    global graphStartX graphStartY graphHourX graphy TimeAfterId
    DEBUG "setCurrentTime canvas:$canvas current_time:${current_time}" 5
@@ -189,7 +205,7 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
       # set the first sleep time the closest to the minute update
       set sleepTime [expr (30 - [Utils_getNonPaddedValue ${currentSeconds}] % 30) * 1000]
    } else {
-      set sleepTime 30000
+      set sleepTime 60000
    }
    set currentTimeCoordx [Overview_getXCoordTime ${current_time}]
    DEBUG "setCurrentTime current_time:${current_time} currentTimeCoordx:$currentTimeCoordx" 5
@@ -240,15 +256,9 @@ proc Overview_isOffTimeGrid { suite_record } {
 # this function process the exp box logic when the root experiment node
 # is in init state
 proc Overview_processInitStatus { canvas suite_record {status init} } {
-   set startTime [::SuiteNode::getStartTime ${suite_record}]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set currentTime [Utils_getCurrentTime]
    set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
-   set refEndDateTime [clock scan ${refEndTime}]
-   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
-   set currentDateTime [clock seconds]
-
    set shiftDay false
    if { ${refStartTime} != "" } {
       set relativeStartTime [::SuiteNode::getStartRelativeClockValue ${refStartTime} ${refEndTime}]
@@ -280,12 +290,10 @@ proc Overview_processWaitStatus { canvas suite_record {status wait} } {
    set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
    set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} wait]
    set currentTime [Utils_getCurrentTime]
-   set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
    set refEndDateTime [clock scan ${refEndTime}]
    set currentDateTime [clock seconds]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set expPath [$suite_record cget -suite_path]
 
    if { [expr ${statusDateTime} < ${xoriginDateTime}] } {
       # start time is prior to visible hour, move it 0
@@ -322,10 +330,7 @@ proc Overview_processCatchupStatus { canvas suite_record {status catchup} } {
    set currentTime [Utils_getCurrentTime]
    set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
-   set refEndDateTime [clock scan ${refEndTime}]
-   set currentDateTime [clock seconds]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set expPath [$suite_record cget -suite_path]
 
    # I only care if the catchup time is visible
    if { [expr ${statusDateTime} > ${xoriginDateTime}] } {
@@ -348,12 +353,10 @@ proc Overview_processSubmitStatus { canvas suite_record {status submit} } {
    set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
    set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} submit]
    set currentTime [Utils_getCurrentTime]
-   set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
    set refEndDateTime [clock scan ${refEndTime}]
    set currentDateTime [clock seconds]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set expPath [$suite_record cget -suite_path]
 
    if { [expr ${statusDateTime} <= ${xoriginDateTime}] } {
       # submit time is prior to visible hour, move it 0
@@ -388,12 +391,8 @@ proc Overview_processBeginStatus { canvas suite_record {status begin} } {
    set startTime [::SuiteNode::getStartTime ${suite_record}]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
    set currentTime [Utils_getCurrentTime]
-   set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
-   set refEndDateTime [clock scan ${refEndTime}]
    set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
-   set currentDateTime [clock seconds]
-   set expPath [$suite_record cget -suite_path]
 
    if { ${status} == "begin" } {
       if { [expr ${startDateTime} < ${xoriginDateTime}] } {
@@ -409,7 +408,7 @@ proc Overview_processBeginStatus { canvas suite_record {status begin} } {
 
    # add reference
    if { ${refEndTime} != "" } {
-      if { [expr ${currentDateTime} > ${refEndDateTime}] } {
+      if { [Overview_getXCoordTime ${currentTime}] > [Overview_getXCoordTime ${refEndTime}] } {
          # we are late
          Overview_setExpLate ${canvas} ${suite_record}
          Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${currentTime}
@@ -430,18 +429,9 @@ proc Overview_processEndStatus { canvas suite_record {status end} } {
    set endDateTime [::SuiteNode::getStatusClockValue ${suite_record} end]
 
    set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
-   set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} submit]
-   set currentTime [Utils_getCurrentTime]
    set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
-   set refEndDateTime [clock scan ${refEndTime}]
-   set currentDateTime [clock seconds]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set expPath [$suite_record cget -suite_path]
-   set startTime [::SuiteNode::getStartTime ${suite_record}]
-   set endTime [::SuiteNode::getEndTime ${suite_record}]
-   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
-   set endDateTime [::SuiteNode::getStatusClockValue ${suite_record} end]
 
    set shiftDay false
    if { ${startTime} != "" } {
@@ -461,6 +451,9 @@ proc Overview_processEndStatus { canvas suite_record {status end} } {
             set middleBoxTime ${refEndTime}
             Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
             Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
+         } else {
+            # put at x origin 
+            Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime] ${shiftDay}
          }
       } else {
          Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${startTime} ${shiftDay}
@@ -480,15 +473,11 @@ proc Overview_processAbortStatus { canvas suite_record {status abort} } {
    set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
 
    set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
-   set currentTime [Utils_getCurrentTime]
-   set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
    set refEndDateTime [clock scan ${refEndTime}]
    set currentDateTime [clock seconds]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set expPath [$suite_record cget -suite_path]
-   set startTime [::SuiteNode::getStartTime ${suite_record}]
-   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
+   set currentTime [Utils_getCurrentTime]
 
    if { ${startTime} != "" } {
       if { [expr ${startDateTime} < ${xoriginDateTime}] } {
@@ -503,14 +492,14 @@ proc Overview_processAbortStatus { canvas suite_record {status abort} } {
    # add middle box up to abort time
    Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${statusTime}
    if { ${refEndTime} != "" } {
-         if { ${currentDateTime} < ${refEndDateTime} } {     
-            Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${statusTime}
-            Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${refEndTime}
-         } else {
-            set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
-            set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
-            Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${endTime}
-         }
+      if { [Overview_getXCoordTime ${currentTime}] < [Overview_getXCoordTime ${refEndTime}] } {     
+         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${statusTime}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${refEndTime}
+      } else {
+         set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+         #set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
+    Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${statusTime}
+      }
    }
 }
 
@@ -559,11 +548,11 @@ proc Overview_refreshBoxStatus { suite_record {status ""} } {
 proc Overview_ExpCreateStartIcon { canvas suite_record timevalue {shift_day false} } {
    global graphStartX expEntryHeight startEndIconSize
    DEBUG "Overview_ExpCreateStartIcon $suite_record $timevalue shift_day:$shift_day" 5
-   set groupRecord [${suite_record} cget -overview_group_record]
+   set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
-   #DEBUG "Overview_ExpCreateStartIcon y value [${groupRecord} cget -y]" 5
-   #set startY [expr [${groupRecord} cget -y] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
-   set startY [expr [${groupRecord} cget -miny] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
+   #DEBUG "Overview_ExpCreateStartIcon y value [${displayGroup} cget -y]" 5
+   #set startY [expr [${displayGroup} cget -y] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
+   set startY [expr [${displayGroup} cget -y] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
 
    set startX [Overview_getXCoordTime ${timevalue} ${shift_day}]
 
@@ -586,14 +575,14 @@ proc Overview_ExpCreateStartIcon { canvas suite_record timevalue {shift_day fals
    DEBUG "Overview_ExpCreateStartIcon ${expPath}.start at ${startX} ${startY} ${startX2} ${startY2}" 5
    # create the left box      
    set startBoxId [$canvas create oval ${startX} ${startY} ${startX2} ${startY2} \
-      -fill ${bgColor} -outline ${outlineColor} -tag "${expPath} ${expPath}.start"]
+      -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.start"]
 
    # create the exp label
    set tailName [file tail ${expPath}]
    set expLabel " ${tailName} "
    set labelY [expr ${startY} + (${startEndIconSize}/2)]
    set expLabelId [$canvas create text ${labelX} ${labelY} \
-      -text ${expLabel} -fill black -anchor w -tag "${expPath} ${expPath}.text"]
+      -text ${expLabel} -fill black -anchor w -tag "${displayGroup} ${expPath} ${expPath}.text"]
 }
 
 # this function creates an experiment end icon
@@ -603,7 +592,7 @@ proc Overview_ExpCreateStartIcon { canvas suite_record timevalue {shift_day fals
 proc Overview_ExpCreateEndIcon { canvas suite_record timevalue {shift_day false} } {
    DEBUG "Overview_ExpCreateEndIcon ${suite_record} ${timevalue} shift_day:$shift_day" 5
    global graphStartX expEntryHeight startEndIconSize
-   set groupRecord [${suite_record} cget -overview_group_record]
+   set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
    set currentCoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
    set startX [Overview_getXCoordTime ${timevalue} ${shift_day}]
@@ -626,7 +615,7 @@ proc Overview_ExpCreateEndIcon { canvas suite_record timevalue {shift_day false}
       
       # create the left box
       set endBoxId [${canvas} create oval ${startX} ${startY} ${startX2} ${startY2} \
-         -fill ${bgColor} -outline ${outlineColor} -tag "${expPath} ${expPath}.end"]
+         -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.end"]
 
       if { [${canvas} coords ${expPath}.reference] != "" } {
          $canvas lower ${expPath}.end ${expPath}.reference
@@ -644,6 +633,7 @@ proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_refere
    DEBUG "Overview_ExpCreateReferenceBox ${suite_record} ${timevalue} late_reference:$late_reference" 5
    global graphStartX expEntryHeight startEndIconSize
    set expPath [${suite_record} cget -suite_path]
+   set displayGroup [${suite_record} cget -overview_group_record]
    set currentCoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
    set startCoords [${canvas} coords ${expPath}.start]
    DEBUG "Overview_ExpCreateReferenceBox ${expPath} startCoords:${startCoords}" 5
@@ -674,7 +664,7 @@ proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_refere
          ${canvas} itemconfigure ${expPath}.text -fill DarkViolet
    } else {
       set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} \
-         -dash { 4 3 } -outline ${outlineColor} -tag "${expPath} ${expPath}.reference"]
+         -dash { 4 3 } -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.reference"]
 
       if { [${canvas} coords ${expPath}.middle] != "" } {
          ${canvas} lower ${expPath}.reference  ${expPath}.middle
@@ -687,7 +677,7 @@ proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_refere
 proc Overview_ExpCreateMiddleBox { canvas suite_record timevalue {shift_day false}  {dummy_box false} } {
    DEBUG "Overview_ExpCreateMiddleBox ${suite_record} ${timevalue} shift_day:${shift_day}" 5
    global graphStartX expEntryHeight startEndIconSize
-   set groupRecord [${suite_record} cget -overview_group_record]
+   set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
    set startIconCoords [${canvas} coords ${expPath}.start]
    DEBUG "Overview_ExpCreateMiddleBox startIconCoords: $startIconCoords"
@@ -715,7 +705,7 @@ proc Overview_ExpCreateMiddleBox { canvas suite_record timevalue {shift_day fals
       ${canvas} delete ${expPath}.middle
 
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} \
-         -outline ${outlineColor} -fill white -tag "${expPath} ${expPath}.middle"]
+         -outline ${outlineColor} -fill white -tag "${displayGroup} ${expPath} ${expPath}.middle"]
 
       $canvas lower ${expPath}.middle ${expPath}.text
 
@@ -782,66 +772,53 @@ proc Overview_updateExpBox { canvas suite_record status { timevalue "" } } {
    }
 }
 
-# places the exp boxes belonging to the same exp group
-# on the same line if there is room for it
-proc Overview_shuffleExpBoxes {} {
+# this function places exp boxes on the same y slot if there is enough space for it
+proc Overview_OptimizeExpBoxes { displayGroup } {
    global graphX graphStartX expEntryHeight
-   DEBUG "Overview_shuffleExpBoxes..." 5
+   DEBUG "Overview_OptimizeExpBoxes..." 5
 
-   set displayGroups [record show instances DisplayGroup]
    set canvasW [Overview_getCanvas]
-   foreach displayGroup $displayGroups {
-      set expList [$displayGroup cget -exp_list]
-      foreach exp $expList {
-         set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
-         set newcoords [Overview_getExpBoundaries ${canvasW} ${suiteRecord}]
-         if { ${newcoords} != "" } {
-            # retrieves the y slot start for the group
-            set ySlotStart [Overview_GroupGetNextSlotY ${displayGroup}]
-            # retrieves the y slot based on the current position of the exp box
-            set yCurrentSlot [Overview_GroupGetCurrentSlotY ${displayGroup} [lindex ${newcoords} 1]]
-            if { ${ySlotStart} != ${yCurrentSlot} } {
-               # need to move the exp box to a new location
-               set deltaY [expr ${yCurrentSlot} - ${ySlotStart}]
-               set done false
-               while { ${done} == "false" } {
-                  DEBUG "Overview_shuffleExpBoxes $exp ySlotStart:${ySlotStart}" 5
-                  DEBUG "Overview_shuffleExpBoxes $exp yCurrentSlot:${yCurrentSlot} deltaY:$deltaY" 5
-                  set newx1 [lindex ${newcoords} 0]
-                  set newx2 [lindex ${newcoords} 2]
-                  set newy1 [expr [lindex ${newcoords} 1] - ${deltaY}]
-                  set newy2 [expr [lindex ${newcoords} 3] - ${deltaY}]
-                  set beforeCoords "$newx1 $newy1 $newx2 $newy2"
-                  DEBUG "Overview_shuffleExpBoxes $exp newcoords:${newcoords} beforeCoords:$beforeCoords" 5
-                  set overlapCoords [Overview_resolveOverlap ${canvasW} ${suiteRecord} ${newx1} ${newy1} ${newx2} ${newy2}]
-                  DEBUG "Overview_shuffleExpBoxes $exp overlapCoords:${overlapCoords}"
-                  if { [Utils_isListEqual ${overlapCoords} ${beforeCoords}] == "true" } {
-                     set deltay [expr [lindex $overlapCoords 1] - [lindex ${newcoords} 1]]
-                     DEBUG "Overview_shuffleExpBoxes $exp moving to new location 0 ${deltay}" 5
-                     ${canvasW} move ${exp} 0 ${deltay}
+
+   set expList [$displayGroup cget -exp_list]
+   foreach exp $expList {
+      set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
+      set newcoords [Overview_getExpBoundaries ${canvasW} ${suiteRecord}]
+      if { ${newcoords} != "" } {
+         # retrieves the y slot start for the group
+         set ySlotStart [DisplayGrp_getNextSlotY ${displayGroup}]
+         # retrieves the y slot based on the current position of the exp box
+         set yCurrentSlot [DisplayGrp_getCurrentSlotY [lindex ${newcoords} 1]]
+         if { ${ySlotStart} != ${yCurrentSlot} } {
+            # need to move the exp box to a new location
+            set deltaY [expr ${yCurrentSlot} - ${ySlotStart}]
+            set done false
+            while { ${done} == "false" } {
+               DEBUG "Overview_OptimizeExpBoxes $exp ySlotStart:${ySlotStart}" 5
+               DEBUG "Overview_OptimizeExpBoxes $exp yCurrentSlot:${yCurrentSlot} deltaY:$deltaY" 5
+               set newx1 [lindex ${newcoords} 0]
+               set newx2 [lindex ${newcoords} 2]
+               set newy1 [expr [lindex ${newcoords} 1] - ${deltaY}]
+               set newy2 [expr [lindex ${newcoords} 3] - ${deltaY}]
+               set beforeCoords "$newx1 $newy1 $newx2 $newy2"
+               DEBUG "Overview_OptimizeExpBoxes $exp newcoords:${newcoords} beforeCoords:$beforeCoords" 5
+               set overlapCoords [Overview_resolveOverlap ${canvasW} ${suiteRecord} ${newx1} ${newy1} ${newx2} ${newy2}]
+               DEBUG "Overview_OptimizeExpBoxes $exp overlapCoords:${overlapCoords}"
+               if { [Utils_isListEqual ${overlapCoords} ${beforeCoords}] == "true" } {
+                  set deltay [expr [lindex $overlapCoords 1] - [lindex ${newcoords} 1]]
+                  DEBUG "Overview_OptimizeExpBoxes $exp moving to new location 0 ${deltay}" 5
+                  ${canvasW} move ${exp} 0 ${deltay}
+                  DisplayGrp_setMaxY ${displayGroup} [lindex $overlapCoords 1]
+                  DisplayGrp_processOverlap ${displayGroup}
+                  DisplayGrp_processEmptyRows ${displayGroup}
+                  set done true
+               } else {
+                  if { [expr ${ySlotStart} == [${displayGroup} cget -maxy]] } {
                      set done true
-                  } else {
-                     if { [expr ${ySlotStart} == [${displayGroup} cget -maxy]] } {
-                        set done true
-                     }
-                     set ySlotStart [Overview_GroupGetNextSlotY ${displayGroup} ${ySlotStart}]
                   }
-                  set deltaY [expr ${yCurrentSlot} - ${ySlotStart}]
+                  set ySlotStart [DisplayGrp_getNextSlotY ${displayGroup} ${ySlotStart}]
                }
+               set deltaY [expr ${yCurrentSlot} - ${ySlotStart}]
             }
-         }
-      }
-      # see if we can free some vertical space from the Group Display
-      if { ${expList} != "" } {
-         set ymin [${displayGroup} cget -miny]
-         set y [${displayGroup} cget -maxy]
-         while { [expr $y > ${ymin}] } {
-            DEBUG "Overview_shuffleExpBoxes ${displayGroup} y:$y ymin:${ymin}" 5
-            if { [${canvasW} find enclosed ${graphStartX} ${y} [expr ${graphStartX} + ${graphX}] [expr ${y} + ${expEntryHeight}]] == "" } {
-               DEBUG  "Overview_shuffleExpBoxes ${displayGroup} set max to ${y}" 5
-               ${displayGroup} configure -maxy ${y}
-            }
-            set y [expr ${y} - ${expEntryHeight}]
          }
       }
    }
@@ -855,13 +832,36 @@ proc Overview_resolveLocation { canvas suite_record x1 y1 x2 y2 } {
    set currentCoords "${x1} ${y1} ${x2} ${y2}"
    set overlapCoords [Overview_resolveOverlap ${canvas} ${suite_record} ${x1} ${y1} ${x2} ${y2}]
    DEBUG "Overview_resolveLocation overlapCoords ${overlapCoords}" 5
-   set groupRecord [${suite_record} cget -overview_group_record]
+   set displayGroup [${suite_record} cget -overview_group_record]
    if { [Utils_isListEqual ${currentCoords} ${overlapCoords}] == "false" } {
       set deltax [expr [lindex $overlapCoords 0] - ${x1}]
       set deltay [expr [lindex $overlapCoords 1] - ${y1}]
       $canvas move ${expPath} ${deltax} ${deltay}
-      Overview_GroupSetY ${groupRecord} [lindex $overlapCoords 1] 
+      DisplayGrp_setMaxY ${displayGroup} [lindex $overlapCoords 1]
+      DisplayGrp_processOverlap ${displayGroup}
+      # the new location is clear within its own group but
+      # need to check if the new location overlaps with another display group
       DEBUG "Overview_resolveLocation moving ${expPath} from $x1 $y1 $x2 $y2 to $overlapCoords" 5
+   }
+   DisplayGrp_processEmptyRows ${displayGroup}
+   Overview_OptimizeExpBoxes ${displayGroup}
+}
+
+# this function is used to shift up a row exp boxes within an exp group 
+# if the boxes are located below an empty row...
+proc Overview_ShiftExpRow { display_group empty_slot_y } {
+   global expEntryHeight
+
+   set expList [${display_group} cget -exp_list]
+   set overviewCanvas [Overview_getCanvas]
+   foreach exp ${expList} {
+      set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp} ]
+      set expBoxCoords [Overview_getExpBoundaries ${overviewCanvas} ${suiteRecord}]
+      if { [lindex ${expBoxCoords} 1] > ${empty_slot_y} } {
+         # y of exp is greater than empty box, shift it up
+         DEBUG "Overview_ShiftExpRow ${display_group} shifting ${exp} up" 5
+         ${overviewCanvas} move ${exp} 0 -${expEntryHeight}
+      }
    }
 }
 
@@ -875,9 +875,9 @@ proc Overview_resolveLocation { canvas suite_record x1 y1 x2 y2 } {
 proc Overview_resolveOverlap { canvas suite_record x1 y1 x2 y2 } {
    DEBUG "Overview_resolveOverlap $suite_record x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
    global expEntryHeight
-   set groupRecord [${suite_record} cget -overview_group_record]
+   set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
-   set expList [${groupRecord} cget -exp_list]
+   set expList [${displayGroup} cget -exp_list]
 
    foreach exp $expList {
       set isOverlap 0
@@ -1039,8 +1039,8 @@ proc Overview_updateExp { suite_record datestamp status timestamp } {
 }
 
 # this function is called to add a new experiment to be monitored by the overview
-proc Overview_addExp { group_record canvas exp_path } {
-   DEBUG "Overview_addExp group_record:$group_record exp_path:$exp_path" 5
+proc Overview_addExp { display_group canvas exp_path } {
+   DEBUG "Overview_addExp display_group:$display_group exp_path:$exp_path" 5
    
    set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
    # creates a dummy suite record
@@ -1060,7 +1060,7 @@ proc Overview_addExp { group_record canvas exp_path } {
    thread::send ${childId} "readMasterfile ${exp_path}/EntryModule/flow.xml ${exp_path} \"\" \"\" "
 
    # retrieve the exp root node
-   ${suiteRecord} configure -root_node [SharedData_getSuiteData ${exp_path} ROOT_NODE] -overview_group_record ${group_record}
+   ${suiteRecord} configure -root_node [SharedData_getSuiteData ${exp_path} ROOT_NODE] -overview_group_record ${display_group}
 
    # start reading the exp log file
    thread::send ${childId} "thread_startLogReader ${mainid} ${suiteRecord}"
@@ -1215,6 +1215,40 @@ proc Overview_getExpBoundaries { canvas suite_record } {
    return ${boundaries}
 }
 
+# returns the boundaries of a DisplayGroup record
+# that covers the entire rows that are used by the display group
+# the Display Group + every rows used by its exp boxes
+proc Overview_getGroupBoundaries { canvas display_group } {
+   global graphX graphStartX graphHourX
+
+   set expList [${display_group} cget -exp_list]
+   set boundaries [${canvas} bbox ${display_group}]
+   set startx ${graphStartX}
+   set endX [expr ${startx} + 24 * ${graphHourX}]
+
+   if { ${expList} != "" } {
+      set y1 [lindex ${boundaries} 1]
+      set y2 [lindex ${boundaries} 3]
+
+      foreach exp ${expList} {
+         set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
+         set expBoundaries [Overview_getExpBoundaries ${canvas} ${suiteRecord}]
+         set expy1 [lindex ${expBoundaries} 1]
+         set expx2 [lindex ${expBoundaries} 2]
+         set expy2 [lindex ${expBoundaries} 3]
+         if { ${expy1} != "" && ${y1} > ${expy1} } {
+            set y1 ${expy1}
+         }
+         if { ${expy2} != "" && ${y2} < ${expy2} } {
+            set y2 ${expy2}
+         }
+      }
+      set boundaries [list ${startx} $y1 ${endX} $y2]
+   }
+
+   return ${boundaries}
+}
+
 # this function sets the exp box mouse over tooltip information.
 # it is updated everytime the exp node root status changes
 proc Overview_setExpTooltip { canvas suite_record } {
@@ -1273,66 +1307,57 @@ proc Overview_getExpTimings { suite_record } {
    }
 }
 
-# returns the next y slot location... This is mainly called when an exp box is conflicting with
-# another one so we need to shift the exp box down to the next slot until we
-# find an empty slot
-proc Overview_GroupGetNextSlotY { group_record {y_value ""} } {
-   global graphStartY expEntryHeight
-   if { ${y_value} == "" } {
-      set value [${group_record} cget -miny]
-   } else {
-      set tmpValue [expr ${y_value} - ${graphStartY}]
-      set tmpValue [::tcl::mathop::/ ${tmpValue} ${expEntryHeight}]
-      set intValue [::tcl::mathfunc::entier ${tmpValue}]
-      set slotValue [expr ${graphStartY} + ${intValue} * ${expEntryHeight}]
-      set value [expr ${slotValue} + ${expEntryHeight}]
-      if { [expr ${value} > [${group_record} cget -maxy]] } {
-         set value [${group_record} cget -maxy]
+# this function is used to shuffle group display up or down depending
+# on exp boxes overlapping or not
+# input: source_group
+#        any record that is found after the source_group will also be moved. T
+#        herefore, it assumes that the
+#        display groups are presented in the list given by the DisplayGroup records
+proc Overview_moveGroups { source_group delta_x delta_y } {
+   set displayGroups [record show instances DisplayGroup]
+   set foundIndex [lsearch $displayGroups ${source_group}]
+   if { ${foundIndex} != -1 } {
+      # get the list of groups to move
+      #set groupsToMove [lrange ${displayGroups} [expr ${foundIndex} + 1] end]
+      set groupsToMove [lrange ${displayGroups} ${foundIndex} end]
+      set overviewCanvas [Overview_getCanvas]
+      foreach displayGroup ${groupsToMove} {
+         # set the new min and max if group exists
+         if { [${overviewCanvas} gettags ${displayGroup}] != "" } {
+            set newMin [expr [${displayGroup} cget -y] + ${delta_y}]
+            set newMax [expr [${displayGroup} cget -maxy] + ${delta_y}]
+            ${displayGroup} configure -y ${newMin}
+            ${displayGroup} configure -maxy ${newMax}
+
+            # move the group and exp boxes that belongs to it
+            DEBUG "Overview_moveGroups ${overviewCanvas} moving ${displayGroup} delta_y:${delta_y}" 5
+            ${overviewCanvas} move ${displayGroup} ${delta_x} ${delta_y}
+         }
       }
    }
-   return ${value}
 }
 
-# this function locates the y slot that should be used based on a
-# given y value
-proc Overview_GroupGetCurrentSlotY { group_record y_value } {
-   global graphStartY expEntryHeight
-   set tmpValue [expr ${y_value} - ${graphStartY}]
-   set tmpValue [::tcl::mathop::/ ${tmpValue} ${expEntryHeight}]
-   set intValue [::tcl::mathfunc::entier ${tmpValue}]
-   set slotValue [expr ${graphStartY} + ${intValue} * ${expEntryHeight}]
-   set value ${slotValue}
-   if { [expr ${value} > [${group_record} cget -maxy]] } {
-      set value [${group_record} cget -maxy]
+# returns the y position that a group should be displayed based on the
+# group already displayed prior to itself. This function should be useful
+# at startup when we add the display groups one by one
+proc Overview_getGroupDisplayY { group_display } {
+   global entryStartY expEntryHeight
+   set displayGroups [record show instances DisplayGroup]
+   set myIndex [lsearch ${displayGroups} ${group_display}]
+   if { ${myIndex} == -1 || ${myIndex} == 0 } {
+      # not found or first group, return the start y
+      return ${entryStartY}
    }
-   return ${value}
-}
 
-# sets the current y timeslots value for an experiment grouping
-# the y_value is converted to the beginning of the 
-# timeslot y value
-proc Overview_GroupSetY { group_record y_value } {
-   global graphStartY expEntryHeight
+   # get the previous group from the list
+   set prevGroup [lindex ${displayGroups} [expr ${myIndex} - 1]]
+   set prevGroupBoundaries  [Overview_getGroupBoundaries [Overview_getCanvas] ${prevGroup}]
 
-   set tmpValue [expr ${y_value} - ${graphStartY}]
-   set tmpValue [::tcl::mathop::/ ${tmpValue} ${expEntryHeight}]
-   set intValue [::tcl::mathfunc::entier ${tmpValue}]
-   set slotValue [expr ${graphStartY} + ${intValue} * ${expEntryHeight}]
-   ${group_record} configure -y ${slotValue}
-   set currentMinY [${group_record} cget -miny]
-   set currentMaxY [${group_record} cget -maxy]
-   if { [expr ${currentMinY} == 0] && [expr ${currentMaxY} == 0] } {
-      ${group_record} configure -miny ${slotValue}
-      ${group_record} configure -maxy ${slotValue}
-   } else {
-      if { [expr ${slotValue} > ${currentMaxY}] } {
-         ${group_record} configure -maxy ${slotValue}
-      }
-      if { [expr ${slotValue} < ${currentMinY}] } {
-         ${group_record} configure -miny ${slotValue}
-      }
-   }
-   DEBUG "Overview_GroupSetY currentMinY:[${group_record} cget -miny] currentMaxY:[${group_record} cget -maxy]" 5
+   set prevGroupY [lindex ${prevGroupBoundaries} 3]
+   #set thisGroupY [Overview_GroupNextY ${prevGroupY}]
+   set thisGroupY [DisplayGrp_getNextSlotY ${prevGroup} ${prevGroupY}]
+   DEBUG "Overview_getGroupDisplayY value: ${thisGroupY}" 5
+   return ${thisGroupY}
 }
 
 # this function creates the group labels at the left of the graph
@@ -1349,15 +1374,11 @@ proc Overview_addGroups { canvas } {
    # then have each thread read the suite's log file once and then
    # then the main thread will continue...
    # it will give us status box information
-   set minGroupY ${groupEntryCurrentY}
    foreach displayGroup $displayGroups {
-      Overview_GroupSetY ${displayGroup} ${minGroupY}
-      #${displayGroup} configure -y ${minGroupY}
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
          Overview_addExp $displayGroup $canvas $exp
       }
-      set minGroupY [expr ${minGroupY} + ${expEntryHeight}]
    }
    # wait for all child to be done with their init
    vwait ALL_CHILD_INIT_DONE
@@ -1366,18 +1387,15 @@ proc Overview_addGroups { canvas } {
    foreach displayGroup $displayGroups {
       set groupName [$displayGroup cget -name]
       set displayName [file tail $groupName]
-      # replace / and spaces with _
-      # canvas tag does not like it with spaces
-      set tagName [regsub -all "/" ${displayName} _]
-      set tagName [regsub -all " " ${tagName} _ ]
-      set tagName ${tagName}.label
+      set tagName ${displayGroup}
       #puts "Overview_addGroups groupName:$groupName"
       set groupLevel [$displayGroup cget -level]
+      set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
 
       # add indentation for each different level
       set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
 
-      DEBUG "Overview_addGroups groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY" 5
+      DEBUG "Overview_addGroups displayGroup:$displayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY" 5
       set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
          -text $displayName -justify left -anchor w -fill grey20 -tag ${tagName} ]
 
@@ -1390,21 +1408,18 @@ proc Overview_addGroups { canvas } {
       # get the exps for each group if exists
       set expList [$displayGroup cget -exp_list]
       $displayGroup configure -x [expr $graphStartX + 20]
-      Overview_GroupSetY ${displayGroup} ${groupEntryCurrentY}
+      DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
+
+      DEBUG "Overview_addGroups displayGroup:$displayGroup groupEntryCurrentY:$groupEntryCurrentY" 5
 
       foreach exp $expList {
          set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
          Overview_getExpTimings ${suiteRecord}
          set currentStatus [::SuiteNode::getLastStatus ${suiteRecord}]
          set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord}]
-
          Overview_updateExpBox ${canvas} ${suiteRecord} ${currentStatus} ${statusTime}
       }
-      Overview_shuffleExpBoxes
-      if { ${exp} != "" } {
-         $displayGroup configure -group_y [expr $groupEntryCurrentY + $expEntryHeight]
-         set groupEntryCurrentY [$displayGroup cget -group_y]
-      }
+      # Overview_shuffleExpBoxes
    }
 }
 
@@ -1464,7 +1479,7 @@ proc Overview_createGraph { canvas } {
    if { ${currentHour} < 12 } {
       set hourTag [expr 12 + ${currentHour}] 
    } else {
-      set hourTag [expr ${currentHour} % 12 + 1]
+      set hourTag [expr ${currentHour} % 12]
    }
    set count 1
    # adds hour delimiter & ver grid along hour
@@ -1481,17 +1496,17 @@ proc Overview_createGraph { canvas } {
 # returns the date as an int value of the date and time
 # of the time hour displayed at x=0
 proc Overview_GraphGetXOriginDateTime {} {
-   set origDateTime [clock add [clock seconds] -12 hours]
+   set origDateTime [clock add [clock seconds] -13 hours]
    set origDateTimeFormat [clock format ${origDateTime} -format {%Y-%m-%d %H}]
    set origDateTimeFormat ${origDateTimeFormat}:00:00
    set value [clock scan ${origDateTimeFormat}]
    return ${value}
 }
 
+
 # returns the hour that sits that
 # the x origin
 proc Overview_GraphGetXOriginHour {} {
-   set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
    set originClockTime [clock add [clock seconds] -13 hours]
    set originHour [Utils_getNonPaddedValue [clock format ${originClockTime} -format "%H" -gmt 1]]
 
@@ -1502,59 +1517,62 @@ proc Overview_GraphGetXOriginHour {} {
 # this function returns the time value as hh:mm for the hour grid at the far-left
 # of the time grid
 proc Overview_GraphGetXOriginTime {} {
-   set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
-   set originClockTime [clock add [clock seconds] -13 hours]
-   set originHour [Utils_getNonPaddedValue [clock format ${originClockTime} -format "%H" -gmt 1]]
-
-      set value "[Utils_getPaddedValue ${originHour}]:00"
-      proc out {} {
-   if { ${currentHour} == 0 } {
-      # the modulo value will give me 0 which is not what I want
-      set value "11:00"
-   } elseif { ${currentHour} == 12 } {
-      set value "23:00"
-   } else {
-      if { ${currentHour} < 12 } {
-         set originHour [expr 12 + ${currentHour}]
-      } else {
-         set originHour [expr ${currentHour} % 12]
-      }
-      set value "[Utils_getPaddedValue ${originHour}]:00"
-   }
-   }
+   set originClockTime [Overview_GraphGetXOriginDateTime]
+   set originHour [clock format ${originClockTime} -format "%H" -gmt 1]
+   set value "[Utils_getPaddedValue ${originHour}]:00"
 
    return ${value}
 }
 
 # this function is called to delete an hour grid at the specified hour value.
 proc Overview_GraphDeleteHourLine {canvas hour} {
-   set toDeleteTag grid_vertical_hour_${hour}   
-   puts "Overview_GridAdvanceHour deleting tag hour: $hour"
-   ${canvas} delete ${toDeleteTag}   
+   # set hour [Utils_getPaddedValue ${hour}]
+   set toDeleteTag [Overview_getGridTagHour ${hour}]
+   DEBUG "Overview_GraphDeleteHourLine deleting tag hour: ${toDeleteTag}" 5
+   ${canvas} delete ${toDeleteTag}
+   DEBUG "Overview_GraphDeleteHourLine coords ${toDeleteTag}: [$canvas coords ${toDeleteTag}]" 5
+}
+
+# returns the tag that is used to reference each hour in the
+# grid
+proc Overview_getGridTagHour { hour } {
+
+   if { ${hour} >= "24" } {
+      set hour [expr ${hour} % 24]
+   }
+   set hour [Utils_getPaddedValue ${hour}]
+   set hourTag grid_vertical_hour_${hour}
+
+   return ${hourTag}
 }
 
 # this function is called to add an hour grid at the specified hour value.
 proc Overview_GraphAddHourLine {canvas grid_count hour} {
-   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX 
-   if { ${hour} < 10 } {
-      set xLabel "0${hour}Z"
-   } elseif { ${hour} == 24 } {
+   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX
+   set hour [Utils_getPaddedValue ${hour}]
+   DEBUG "Overview_GraphAddHourLine add tag hour: grid_hour grid_vertical_hour_${hour}" 5
+
+   if { ${hour} == 24 } {
       set xLabel "00Z"
    } {
       set xLabel "${hour}Z"
    }
-   
+
+   set tagHour [Overview_getGridTagHour ${hour}]
+   DEBUG "Overview_GraphAddHourLine tag hour: grid_hour tagHour:${tagHour}" 5
+
 
    set x1 [expr ${graphStartX} + ${grid_count} * ${graphHourX}]
    set x2 $x1
    set y1 [expr ${graphStartY} - 4]
    set y2 [expr ${graphStartY} + 4]
-   $canvas create line $x1 $y1 $x2 $y2 -tag "grid_hour grid_vertical_hour_${hour}"
-   $canvas create line $x1 [expr $y1 + $graphy] $x2 [expr $y2 + $graphy ] -tag "grid_hour  grid_vertical_hour_${hour}"
-   $canvas create line $x1 [expr $y1 + 5] $x2 [expr $y2 + $graphy - 5 ] -dash 2 -fill grey60 -tag  "grid_hour  grid_vertical_hour_${hour}"
+   $canvas create line $x1 $y1 $x2 $y2 -tag "grid_hour ${tagHour}"
+   $canvas create line $x1 [expr $y1 + $graphy] $x2 [expr $y2 + $graphy ] -tag "grid_hour ${tagHour}"
+   $canvas create line $x1 [expr $y1 + 5] $x2 [expr $y2 + $graphy - 5 ] -dash 2 -fill grey60 -tag  "grid_hour ${tagHour}"
 
-   $canvas create text $x2 [expr $y1 - 20 ] -text $xLabel -tag "grid_hour  grid_vertical_hour_${hour}"
-   $canvas create text $x2 [expr $y2 + $graphy +20 ] -text $xLabel -tag "grid_hour grid_vertical_hour_${hour}"
+   $canvas create text $x2 [expr $y1 - 20 ] -text $xLabel -tag "grid_hour ${tagHour}"
+   $canvas create text $x2 [expr $y2 + $graphy +20 ] -text $xLabel -tag "grid_hour ${tagHour}"
+
 }
 
 proc Overview_init {} {

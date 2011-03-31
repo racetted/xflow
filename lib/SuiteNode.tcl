@@ -32,7 +32,6 @@ record define SuiteInfo {
    {read_offset 0}
    {active_log ""}
    {exp_log ""}
-   {overview_display_info {}}
    {overview_after_id ""}
    {overview_group_record ""}
    {status_info {init { "" "" "" }}}
@@ -172,9 +171,12 @@ proc ::SuiteNode::getDisplayRoot { suite canvas } {
 
 proc ::SuiteNode::getCanvasList { suite } {
    set canvasList {}
-   foreach {canvas info} [$suite cget -canvas_info] {
-      lappend canvasList $canvas
+   if { [$suite cget -canvas_info] != "" } {
+      foreach {canvas info} [$suite cget -canvas_info] {
+         lappend canvasList $canvas
+      }
    }
+
    return $canvasList
 }
 
@@ -203,31 +205,6 @@ proc ::SuiteNode::getActiveDatestamp { suite } {
       set endIndex [expr [string last _ ${logFileName}] - 1]
       return [string range ${logFileName} ${startIndex} ${endIndex}]
    }
-}
-
-proc ::SuiteNode::setOverviewInfo { suite startx starty endx endy } {
-   set value "$startx $starty $endx $endy"
-   $suite configure -overview_display_info $value
-}
-
-proc ::SuiteNode::getOverviewInfo { suite } {
-   return [$suite cget -overview_display_info]
-}
-
-proc ::SuiteNode::getOverviewInfoStartx { suite } {
-   return [lindex [$suite cget -overview_display_info] 0]
-}
-
-proc ::SuiteNode::getOverviewInfoStarty { suite } {
-   return [lindex [$suite cget -overview_display_info] 1]
-}
-
-proc ::SuiteNode::getOverviewInfoEndx { suite } {
-   return [lindex [$suite cget -overview_display_info] 2]
-}
-
-proc ::SuiteNode::getOverviewInfoEndy { suite } {
-   return [lindex [$suite cget -overview_display_info] 3]
 }
 
 # the status_info is an array of where the key is

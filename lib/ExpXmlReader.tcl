@@ -6,15 +6,16 @@ namespace import ::struct::record::*
 #    display next exp
 # x  is y coord variable used to know where to
 #    display next exp
+proc out {} {
 record define DisplayGroup {
    name
    level {0}
+   parent ""
    exp_list {}
    x {0}
    y {0}
-   {miny 0}
    {maxy 0}
-   {group_y 0}
+}
 }
 
 # reads an xml file for a list of folders
@@ -63,7 +64,7 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
       set groupRecordName [regsub -all "/" ${goupName} _]
       set groupRecordName [regsub -all " " ${groupRecordName} _ ]
       if { ! [record exists instance $groupRecordName] } {
-         DisplayGroup $groupRecordName -name ${goupName} -level $newLevel
+         DisplayGroup $groupRecordName -name ${goupName} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0
       }
 
       set childs [$xml_node childNodes]
@@ -102,4 +103,10 @@ proc ExpXmlReader_getExpList {} {
       append expList [$dispGroup cget -exp_list]
    }
    return $expList
+}
+
+global env
+if { ! [record exists record DisplayGroup] } {
+   puts "ExpXmlReader sourcing DisplayGrp.tcl"
+   source ${lib_dir}/DisplayGrp.tcl
 }

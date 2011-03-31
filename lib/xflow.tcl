@@ -1989,7 +1989,7 @@ proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
    if { [string match "*task" [$node cget -flow.type] ] } {
       # the next command runs nodeinfo and converts each line of the output
       # into a tcl command
-      puts "${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :'"
+      DEBUG "${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :'" 5
       set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile} 2> /dev/null "]} message]
    
       if { $code != 0 } {

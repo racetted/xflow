@@ -120,6 +120,15 @@ proc Utils_isListEqual { list_a list_b } {
    return ${isEqual}
 }
 
+# shortcut for the Utils_isOverlap
+proc Utils_isListOverlap { coord1 coord2 } {
+   set isOverlap [Utils_isOverlap [lindex ${coord1} 0] [lindex ${coord1} 1] \
+                                  [lindex ${coord1} 2] [lindex ${coord1} 3] \
+                                  [lindex ${coord2} 0] [lindex ${coord2} 1] \
+                                  [lindex ${coord2} 2] [lindex ${coord2} 3]]
+   return ${isOverlap}
+}
+
 # test if two rectangles overlap each other
 # b1x1 b1y1 b1x2 b1y2 is the coordinates of the first box
 # b2x1 b2y1 b2x2 b2y2 is the coordinates of the second box
@@ -153,7 +162,7 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
       if { [expr ${b1y1} <= ${b2y1}] && [expr ${b1y2} >= ${b2y1}] ||
            [expr ${b2y1} <= ${b1y1}] && [expr ${b2y2} >= ${b1y1}] } {
          DEBUG "Utils_isOverlap yOverlap 1 within" 5
-         set xOverlap 1
+         set yOverlap 1
       }
    }
    # if one box is entirely in the other one, we have an overlap
