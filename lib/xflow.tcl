@@ -11,6 +11,8 @@ package require tooltip
 package require tablelist
 package require cmdline
 package require Thread
+package require BWidget 1.9
+
 namespace import ::struct::record::*
 
 global env
@@ -955,13 +957,15 @@ proc xflow_drawNode { canvas node position {first_node false} } {
       "npass_task" {
          ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
-         bind ${indexListW} <<ComboboxSelected>> [list xflow_indexedNodeSelectionCallback ${node} ${canvas} %W]
+         # bind ${indexListW} <<ComboboxSelected>> [list xflow_indexedNodeSelectionCallback ${node} ${canvas} %W]
+         ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${node} ${canvas} ${indexListW}]
       }
       "loop" {
          set text "${text}\n[::FlowNodes::getLoopInfo $node]"
          ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
-         bind ${indexListW} <<ComboboxSelected>> [list xflow_indexedNodeSelectionCallback ${node} ${canvas} %W]
+         #bind ${indexListW} <<ComboboxSelected>> [list xflow_indexedNodeSelectionCallback ${node} ${canvas} %W]
+         ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${node} ${canvas} ${indexListW}]
       }
       "case" {
          ::DrawUtils::drawLosange $canvas $tx1 $ty1 $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
@@ -1802,7 +1806,7 @@ proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
 # this function is called when the user selects an index from the npt or loop
 # listbox. It redraws the flow starting from the selected widget
 proc xflow_indexedNodeSelectionCallback { node canvas combobox_w} {
-   DEBUG "npassTaskSelectionCallback node:$node $combobox_w" 5
+   DEBUG "xflow_indexedNodeSelectionCallback node:$node $combobox_w" 5
 
    set member [${combobox_w} get]
 
@@ -1856,9 +1860,11 @@ proc xflow_changeCollapsed { canvas binder x y } {
 # redraws the flow starting from a node... without having
 # to clear all the canvas
 proc xflow_redrawNodes { node {canvas ""} } {
+   global cmdList
    global REFRESH_MODE
    DEBUG "xflow_redrawNodes node:$node" 5
    set REFRESH_MODE true
+   set cmdList ""
    catch {
       if { $canvas == "" } {
          # get the list of all canvases where the node appears
@@ -1866,10 +1872,13 @@ proc xflow_redrawNodes { node {canvas ""} } {
       } else {
          set canvasList $canvas
       }
-   
       foreach canvas $canvasList {
-         ::DrawUtils::clearBranch ${canvas} ${node}
+         set cmdList {}
+         # instead of removing the nodes one by one, I'm collecting all the cmds
+         # and run it at once to avoid less flickering on the gui
+         ::DrawUtils::clearBranch ${canvas} ${node} cmdList
          set nodePosition [::FlowNodes::getPosition ${node}]
+         eval ${cmdList}
          xflow_drawNode ${canvas} ${node} ${nodePosition}
          #xflow_resizeWindow ${canvas}
       }
@@ -2056,7 +2065,7 @@ proc xflow_getLoopResources { node suite_path } {
       START start
       STEP step
       END end
-      SET sets
+      SET set
    }
 
    foreach { name value } [array get valueList] {

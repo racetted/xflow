@@ -88,7 +88,8 @@ record define FlowLoop {
    step
    end
    {current "latest"}
-   {sets ""}
+   {set 1}
+   {max_ext_value 5}
    {record_type "FlowLoop"}
 }
 
@@ -107,6 +108,7 @@ record define FlowNpassTask {
    {record FlowNode flow}
    {record_type "FlowNpassTask"}
    {current "latest"}
+   {max_ext_value 5}
    {catchup 4}
    {cpu 1}
    {machine dorval-ib}
@@ -182,7 +184,7 @@ proc ::FlowNodes::remFromChildren { node new_child } {
    }
 }
 
-# returns the display position of the node withing it's parent 
+# returns the display position of the node within it's parent 
 proc ::FlowNodes::getPosition { node } {
    set parentNode [${node} cget flow.parent]
    set returnValue 0
@@ -446,6 +448,13 @@ proc ::FlowNodes::getDisplayList { node } {
 }
 
 proc ::FlowNodes::setMemberStatus { node member new_status {timestamp ""} {is_recursive 0} } {
+   if { [$node cget -flow.type] == "npass_task" || [$node cget -flow.type] == "loop" } {
+      set currentMax [${node} cget -max_ext_value]
+      if { [string length ${member}] > ${currentMax} } {
+         ${node} configure -max_ext_value [string length [lindex [split ${member} +] end ] ]
+      }
+   }
+
    if { [$node cget -flow.type] == "npass_task"} {
       ::FlowNodes::setNptMemberStatus ${node} ${member} ${new_status} ${timestamp}
    } else {
@@ -705,13 +714,14 @@ proc ::FlowNodes::getLoopInfo { loop_node } {
       default {
          set start [$loop_node cget -start]
          set step [$loop_node cget -step]
-         set setValue [$loop_node cget -sets]
+         set setValue [$loop_node cget -set]
          set end [$loop_node cget -end]
-         if { $setValue == "" } {
-            set txt "\[${start},${end},${step}\]"
-         } else {
-            set txt "\[${start},${end},${setValue}\]"
-         }
+         set txt "\[${start},${end},${step},${setValue}\]"
+         #if { $setValue == "" } {
+         #   set txt "\[${start},${end},${step}\]"
+         #} else {
+         #   set txt "\[${start},${end},${setValue}\]"
+         #}
       }
    }
 
@@ -726,10 +736,10 @@ proc ::FlowNodes::getLoopExtensions { loop_node } {
       default {
          set start [$loop_node cget -start]
          set step [$loop_node cget -step]
-         set setValue [$loop_node cget -sets]
-         if { $setValue != "" } {
-            set step 1
-         }
+         set setValue [$loop_node cget -set]
+         #if { $setValue != "" } {
+         #   set step 1
+         #}
          set end [$loop_node cget -end]
          set count $start
          while { [expr $count <= $end] } {
@@ -1055,5 +1065,55 @@ proc ::FlowNodes::getExtAtIndex { extension index } {
 
    set extValue +[lindex ${splittedValues} ${index}]
    return ${extValue}
+}
+
+proc ::FlowNodes::getLoopTooltip { loop_node } {
+   set tooltipTxt ""
+   if { [${loop_node} cget -flow.type] == "loop" } {
+      set start [${loop_node} cget -start]
+      set end [${loop_node} cget -end]
+      set step [${loop_node} cget -step]
+      set set [${loop_node} cget -set]
+
+      set tooltipTxt "\[start=${start},end=${end},step=${step},set=${set}\]"
+   }
+   return ${tooltipTxt}
+}
+
+# this function is used to know whether we should redisplay
+# a node branch when an update to a node is detected from
+# the exp log file. To minimize the number of updates done
+# at the gui level, only changes that affects the visibility
+# of nodes are being redrawned. For instance, if you are viewing a loop iteration
+# of 1 and updates are on another iteration, the data is updated but the gui is not
+proc ::FlowNodes::isRefreshNeeded { flow_node current_ext } {
+   set refreshNeeded true
+   set nodeType [$flow_node cget -flow.type]
+   if { [${flow_node} cget -flow.loops] != "" } {
+      # if the current is either a loop node or part of a loop container,
+      # I will only call a redraw on the flow if current update affects the display
+      set parentLoopExt [::FlowNodes::getParentLoopExt ${flow_node}]
+      # nodeExt is the value of the current loop and any parent loop
+      set nodeExt [::FlowNodes::getNodeExtension ${flow_node}]
+
+      if { ${nodeType} == "loop" } {
+         # current is the value of current loop listbox selection
+         set current [${flow_node} cget -current]
+         if { ${parentLoopExt} == "" || ${parentLoopExt} != "latest" } {
+            if { ${current} != "latest" && ${nodeExt} != ${current_ext} } {
+               # we don't refresh the current update if the user is currently viewing
+               # a specific iteration and the update is not on that iteration
+               set refreshNeeded false
+            }
+         }
+      } else {
+         # non indexed nodes part of a loop container
+         if { ${parentLoopExt} != "latest" && ${nodeExt} != ${current_ext} } {
+            set refreshNeeded false
+         }
+      }
+   }
+   DEBUG "::FlowNodes::isRefreshNeeded $flow_node ${current_ext} refreshed? ${refreshNeeded}" 5
+   return ${refreshNeeded}
 }
 

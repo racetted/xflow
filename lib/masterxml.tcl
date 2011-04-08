@@ -145,14 +145,14 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
          set start [$current_xml_node getAttribute start "1"]
          set step [$current_xml_node getAttribute step "1"]
-         set setValue [$current_xml_node getAttribute "set" ""]
+         set setValue [$current_xml_node getAttribute "set" "1"]
          set end [$current_xml_node getAttribute end "1"]
          set type default
          if { $setValue != "" } {
             set type loopset
          }
          $newParentNode configure -loop_type $type -start $start -step $step -end $end \
-                     -sets $setValue
+                     -set $setValue
       }
       "CASE" {
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]

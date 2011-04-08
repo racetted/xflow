@@ -287,7 +287,8 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
                # 2 - then we refresh the display... redisplay the node text?
                set thisThreadId [thread::id]
                set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
-               if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" } {
+               if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" &&
+                    [::FlowNodes::isRefreshNeeded ${flowNode} ${loopExt} ] == "true" } {
                   xflow_redrawNodes ${flowNode}
                }
             }

@@ -3,6 +3,7 @@ package require Tk
 package require FlowNodes
 #package require Tix
 package require tile
+package require BWidget 1.9
 
 #namespace delete ::DrawUtils
 
@@ -101,8 +102,12 @@ proc ::DrawUtils::getOutlineStatusColor { node_status } {
    return ${value}
 }
 
-proc ::DrawUtils::clearBranch { canvas node } {
+proc ::DrawUtils::clearBranch { canvas node { cmd_list "" } } {
    DEBUG "clearBranch $canvas $node" 5
+   if { ${cmd_list} != "" } {
+      upvar #0 ${cmd_list} evalCmdList
+   }
+
    set pady [SharedData_getMiscData CANVAS_PAD_Y]
    set displayInfo [::FlowNodes::getDisplayCoords ${node} ${canvas}]
 
@@ -122,24 +127,29 @@ proc ::DrawUtils::clearBranch { canvas node } {
 
    if { [$node cget -flow.type] == "npass_task" || [$node cget -flow.type] == "loop" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
-      destroy ${indexListW}
+      #destroy ${indexListW}
+      append evalCmdList "destroy ${indexListW};"
    }
 
    set tags [${canvas} find enclosed ${newx1} ${newy1} ${newx2} ${newy2}]
    foreach tagItem ${tags} {
-      ${canvas} delete ${tagItem}
+      #${canvas} delete ${tagItem}
+      append evalCmdList "${canvas} delete ${tagItem};"
    }
 
    # delete submit arrows
    set lineTagName ${node}.submit_tag
-   ${canvas} delete ${lineTagName}
+   #${canvas} delete ${lineTagName}
+   append evalCmdList "${canvas} delete ${lineTagName};"
 
    set children [$node cget -flow.children]
    foreach child ${children} {
-      ::DrawUtils::clearBranch ${canvas} ${node}/${child}
+      ::DrawUtils::clearBranch ${canvas} ${node}/${child} ${cmd_list}
    }
 
-   ${canvas} delete ${node}
+   #${canvas} delete ${node}
+   append evalCmdList "${canvas} delete ${node};"
+   # puts "--------------------------------------------- ::DrawUtils::clearBranch end of node:$node ${evalCmdList}"
 }
 
 proc ::DrawUtils::getIndexWidgetName { node canvas } {
@@ -313,6 +323,7 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder
 proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
    variable constants
    DEBUG "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder" 5
+   DEBUG "drawOval textfill:$textfill fill:$fill binder:$binder" 5
    set newtx1 [expr ${tx1} + 10]
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
@@ -365,18 +376,19 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
    if { [$binder cget -record_type] == "FlowLoop" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
-         ttk::combobox ${indexListW}
-      } 
-
-      set extensions [::FlowNodes::getLoopExtensions $binder]
-      lappend extensions latest
-      ${indexListW} configure -values $extensions -width 12
-      if { [${binder} cget -current] != "" } {
-         ${indexListW} set  [::FlowNodes::getIndexValue [${binder} cget -current]]
-      } else {
-         ${indexListW} set latest
+         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -height 10 \
+            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
+         set currentExt [${binder} cget -current]
+         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
+            ${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
+         } else {
+            set indexValue [::FlowNodes::getIndexValue ${currentExt}] 
+            ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
+         }
+         ${indexListW} setvalue first
       }
 
+      # setIndexWidgetStatuses ${binder} ${indexListW}
       pack ${indexListW} -fill both
       set barY [expr $sy2 + 15]
       set barX [expr ($nx1 + $nx2)/2]
@@ -385,6 +397,70 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
       set maximY ${barY}
       set nextY [expr $barY + [winfo height ${indexListW}] + 20]
       ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
+      # popup tooltip with loop arguments
+      ::tooltip::tooltip $canvas -item ${binder} [::FlowNodes::getLoopTooltip ${binder}]
+   }
+}
+
+# this function is called to populate the loop node listbox will
+# all the loop indexes... This is ONLY called when the user is attempting
+# to view the listbox items
+proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
+   variable nodeStatusColorMap
+   variable nodeTypeMap
+      puts "setIndexWidgetStatuses called node:$node index_widget:$index_widget"
+
+   if { [${node} cget -record_type] == "FlowNpassTask" } {
+      set extensions [::FlowNodes::getNptExtensions ${node}]
+   } else {
+      set extensions [::FlowNodes::getLoopExtensions ${node}]
+   }
+   set extensions [linsert ${extensions} 0 latest]
+
+   # assign the extensions to the widget
+   ${index_widget} configure -values $extensions
+
+   set listboxW [${index_widget} getlistbox]
+   set maxItemLength [string length latest]
+
+   set index 0
+   set parentExt [::FlowNodes::getParentLoopExt ${node}]
+   # we through each extension and set the extension status color
+   # in the listbox widget
+   foreach ext ${extensions} {
+      if { [expr [string length ${ext}] > ${maxItemLength}] } {   
+         set maxItemLength [string length ${ext}]
+      }
+      set indexStatusImg [::DrawUtils::getStatusImage init]
+      if { ${ext} != "latest" } {
+         if { ${parentExt} == "" } {
+            # got no loops
+            # need to get status of every iteration
+            set extStatus [::FlowNodes::getMemberStatus ${node} +${ext}]
+         } elseif { ${parentExt} == "latest" } {
+            # parent loop set to latest but current loop set to a specific iteration
+            # all our iteration should be in init state...
+            set extStatus init
+         } else {
+            # parent has loop iteration set, every iteration is relative to parent one
+            set extStatus [::FlowNodes::getMemberStatus ${node} ${parentExt}+${ext}]
+         }
+
+         set indexStatusImg [::DrawUtils::getStatusImage ${extStatus}]
+         ${listboxW} itemconfigure ${index} -image ${indexStatusImg}
+      }
+      incr index
+   }
+
+   set currentExt [${node} cget -current]
+   if { ${currentExt} != "" && ${currentExt} != "latest" } {
+      set currentValue [::FlowNodes::getIndexValue ${currentExt}]
+      set currentValueIndex [lsearch ${extensions} ${currentValue}]
+      # this is the format of the call of Bwidget combox to set a value for
+      # a specific index
+      ${index_widget} setvalue @${currentValueIndex}
+   } else {
+      ${index_widget} setvalue first
    }
 }
 
@@ -572,26 +648,17 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    if { [$binder cget -record_type] == "FlowNpassTask" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
-         ttk::combobox ${indexListW}
-      }
-      set extensions {latest}
-      if { [${binder} cget -current] != "" } {
-         ${indexListW} set  [::FlowNodes::getIndexValue [${binder} cget -current]]
-      } else {
-         ${indexListW} set latest
-      }
-
-      set maxItemLength [string length latest]
-      set nptExtensions [::FlowNodes::getNptExtensions ${binder}]
-      set nptExtensions  [lsort -unique ${nptExtensions}]
-      foreach extens ${nptExtensions} {
-         if { [expr [string length ${extens}] > ${maxItemLength}] } {   
-            set maxItemLength [string length ${extens}]
+         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -height 10 \
+            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
+         set currentExt [${binder} cget -current]
+         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
+            ${indexListW} configure -values {latest} -width 8 -width [expr [${binder} cget -max_ext_value] + 3]
+         } else {
+            set indexValue [::FlowNodes::getIndexValue ${currentExt}]
+            ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
          }
-         lappend extensions ${extens}
+         ${indexListW} setvalue first
       }
-      ${indexListW} configure -values $extensions -width ${maxItemLength}
-
       pack ${indexListW} -fill both
       set barY [expr $sy2 + 15]
       set barX [expr ($nx1 + $nx2)/2]
@@ -653,22 +720,28 @@ proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
    set value ${delta_value}
    # I only need to calculate extra space if the current node is not in position 0
    # in it's parent node. If it is in position 0, the extra space has already been calculated.
+
    if { [::FlowNodes::getPosition ${flow_node}] != 0 } {
-      # for now only loops needs be treated
-      if { [${flow_node} cget -flow.type] == "loop" } {
-         if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
-            set value [SharedData_getMiscData LOOP_OVAL_SIZE]
+      set done 0
+      set node ${flow_node}
+      while { ! ${done} } {
+         # for now only loops needs be treated
+         if { [${node} cget -flow.type] == "loop" } {
+            if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
+               set value [SharedData_getMiscData LOOP_OVAL_SIZE]
+            }
          }
-      }
-      set childNodes [${flow_node} cget -flow.children]
-      # i'm only interested in the first position of the child list, the others will be calculated
-      # when we move down the tree
-      set childNode [lindex ${childNodes} 0]
-   
-      if { ${childNode} != "" } {
-         set childFlowNode ${flow_node}/${childNode}
-         # move further down the tree
-         set value [::DrawUtils::getLineDeltaSpace ${childFlowNode} ${value}]
+         set childNodes [${node} cget -flow.children]
+         # i'm only interested in the first position of the child list, the others will be calculated
+         # when we move down the tree
+         set childNode [lindex ${childNodes} 0]
+      
+         if { ${childNode} != "" } {
+            # move further down the tree
+            set node ${node}/${childNode}
+         } else {
+            set done 1
+         }
       }
    }
    return $value
@@ -681,8 +754,20 @@ proc  ::DrawUtils::delPointNode {canvas } {
     }
 }
 
+proc ::DrawUtils::getStatusImage { status } {
+   set statusImage .${status}_set_image
+   global STATUS_IMG_${status}
+
+   if { ! [info exists STATUS_IMG_${status}] } {
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      image create photo ${statusImage} -file ${imageDir}/status_${status}_icon.ppm
+      set STATUS_IMG_${status} ${statusImage}
+   }
+   return ${statusImage}
+}
+
 proc ::DrawUtils::highLightNode { suite_record node canvas_w } {
-   global NodeHighLightRestoreCmd
+   global NodeHighLightRestoreCmd 
    variable nodeTypeMap
 
    set type [$node cget -flow.type]
