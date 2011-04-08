@@ -1259,12 +1259,15 @@ proc Overview_setExpTooltip { canvas suite_record } {
    set refEndTime [${suite_record} cget -ref_end]
    set currentStatus [::SuiteNode::getLastStatus ${suite_record}]
    set currentStatusTime [::SuiteNode::getLastStatusTime ${suite_record}]
-   set tooltipText "Name: ${expName}"
-
+   set currentDatestamp [::SuiteNode::getLastStatusDatestamp ${suite_record}]
+   set tooltipText "name: ${expName}"
+   if { ${currentDatestamp} != "" } {
+      append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue ${currentDatestamp}]"
+   }
    set exptag [${suite_record} cget -suite_path]
    if { [${suite_record} cget -ref_start] != "" } {
-      append tooltipText "\nRef.begin: ${refStartTime}"
-      append tooltipText "\nRef.end: ${refEndTime}"
+      append tooltipText "\nref.begin: ${refStartTime}"
+      append tooltipText "\nref.end: ${refEndTime}"
    }
 
    switch ${currentStatus} {
