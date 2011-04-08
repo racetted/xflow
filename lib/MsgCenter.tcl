@@ -373,10 +373,14 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
    set raiseAlarm false
 
-   incr MSG_ALARM_COUNTER
+   # I don't start the alarm counter until the gui is up
+   if  { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+      incr MSG_ALARM_COUNTER
+   }
+
    DEBUG "MsgCengter_processAlarm MSG_ALARM_COUNTER:${MSG_ALARM_COUNTER} MSG_BELL_TRIGGER:${MSG_BELL_TRIGGER}" 5
    # only raise alarm if no other alarm already exists
-   if { ${MSG_ALARM_ON} == "true"} {
+   if { ${MSG_ALARM_ON} == "true" } {
       if { ${repeat_alarm} == "true" } {
          set raiseAlarm true
       }
@@ -578,7 +582,7 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
 
 proc MsgCenter_init {} {
    global MSG_ALARM_ON RowNumberMap
-   global MSG_TABLE MSG_COUNTER
+   global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
    global DEBUG_TRACE DEBUG_LEVEL MSG_BELL_TRIGGER
    global TimestampColNumber DatestampColNumber TypeColNumber NodeColNumber MessageColNumber SuiteColNumber
