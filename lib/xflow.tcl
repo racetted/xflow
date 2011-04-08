@@ -978,7 +978,7 @@ proc xflow_drawNode { canvas node position {first_node false} } {
       }
    }
    ::DrawUtils::drawNodeStatus $node [xflow_getShawdowStatus]
-   Utils_bindMouseWheel $canvas 2
+   Utils_bindMouseWheel $canvas 20
    $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed $canvas $node %X %Y]
    $canvas bind $node <Button-2> [ list xflow_historyCallback $node $canvas "" 48] 
    $canvas bind $node <Button-3> [ list xflow_nodeMenu $canvas $node %X %Y]
