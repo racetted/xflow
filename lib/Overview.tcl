@@ -546,7 +546,7 @@ proc Overview_refreshBoxStatus { suite_record {status ""} } {
 #  If the shift_day argument is true, it forces the status to init... This means that
 #  the timings of the exp are off the left side grid...
 proc Overview_ExpCreateStartIcon { canvas suite_record timevalue {shift_day false} } {
-   global graphStartX expEntryHeight startEndIconSize
+   global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    DEBUG "Overview_ExpCreateStartIcon $suite_record $timevalue shift_day:$shift_day" 5
    set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
@@ -574,14 +574,14 @@ proc Overview_ExpCreateStartIcon { canvas suite_record timevalue {shift_day fals
    set bgColor [::DrawUtils::getBgStatusColor ${currentStatus}]
    DEBUG "Overview_ExpCreateStartIcon ${expPath}.start at ${startX} ${startY} ${startX2} ${startY2}" 5
    # create the left box      
-   set startBoxId [$canvas create oval ${startX} ${startY} ${startX2} ${startY2} \
+   set startBoxId [$canvas create oval ${startX} ${startY} ${startX2} ${startY2} -width 1.0 \
       -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.start"]
 
    # create the exp label
    set tailName [file tail ${expPath}]
    set expLabel " ${tailName} "
    set labelY [expr ${startY} + (${startEndIconSize}/2)]
-   set expLabelId [$canvas create text ${labelX} ${labelY} \
+   set expLabelId [$canvas create text ${labelX} ${labelY} -font [Overview_getBoxLabelFont] \
       -text ${expLabel} -fill black -anchor w -tag "${displayGroup} ${expPath} ${expPath}.text"]
 }
 
@@ -591,7 +591,7 @@ proc Overview_ExpCreateStartIcon { canvas suite_record timevalue {shift_day fals
 #  the timings of the exp are off the left side grid...
 proc Overview_ExpCreateEndIcon { canvas suite_record timevalue {shift_day false} } {
    DEBUG "Overview_ExpCreateEndIcon ${suite_record} ${timevalue} shift_day:$shift_day" 5
-   global graphStartX expEntryHeight startEndIconSize
+   global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
    set currentCoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
@@ -614,7 +614,7 @@ proc Overview_ExpCreateEndIcon { canvas suite_record timevalue {shift_day false}
       set startY2 [expr $startY + ${startEndIconSize}]
       
       # create the left box
-      set endBoxId [${canvas} create oval ${startX} ${startY} ${startX2} ${startY2} \
+      set endBoxId [${canvas} create oval ${startX} ${startY} ${startX2} ${startY2} -width 1 \
          -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.end"]
 
       if { [${canvas} coords ${expPath}.reference] != "" } {
@@ -631,7 +631,7 @@ proc Overview_ExpCreateEndIcon { canvas suite_record timevalue {shift_day false}
 # the current time is prior to the end reference time.
 proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_reference false} } {
    DEBUG "Overview_ExpCreateReferenceBox ${suite_record} ${timevalue} late_reference:$late_reference" 5
-   global graphStartX expEntryHeight startEndIconSize
+   global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    set expPath [${suite_record} cget -suite_path]
    set displayGroup [${suite_record} cget -overview_group_record]
    set currentCoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
@@ -663,7 +663,7 @@ proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_refere
    if { ${late_reference} == "true" } {
          ${canvas} itemconfigure ${expPath}.text -fill DarkViolet
    } else {
-      set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} \
+      set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} -width 1 \
          -dash { 4 3 } -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.reference"]
 
       if { [${canvas} coords ${expPath}.middle] != "" } {
@@ -676,7 +676,7 @@ proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_refere
 # this middle box is used to show the progression of a running exp
 proc Overview_ExpCreateMiddleBox { canvas suite_record timevalue {shift_day false}  {dummy_box false} } {
    DEBUG "Overview_ExpCreateMiddleBox ${suite_record} ${timevalue} shift_day:${shift_day}" 5
-   global graphStartX expEntryHeight startEndIconSize
+   global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
    set startIconCoords [${canvas} coords ${expPath}.start]
@@ -704,7 +704,7 @@ proc Overview_ExpCreateMiddleBox { canvas suite_record timevalue {shift_day fals
       # delete previous one if exists
       ${canvas} delete ${expPath}.middle
 
-      set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} \
+      set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
          -outline ${outlineColor} -fill white -tag "${displayGroup} ${expPath} ${expPath}.middle"]
 
       $canvas lower ${expPath}.middle ${expPath}.text
@@ -1447,6 +1447,22 @@ proc Overview_getLevelFont { canvas item_tag level } {
    return $searchFont
 }
 
+proc Overview_getBoxLabelFont {} {
+   set labelFont canvas_exp_box_label_font
+   if { [lsearch [font names] ${labelFont}] == -1 } {
+      set newFont [font create ${labelFont}]
+      set canvasW [Overview_getCanvas]
+      font configure ${newFont} -family [font actual ${canvasW} -family] \
+         -size [font actual ${canvasW} -size] \
+         -weight [font actual ${canvasW} -weight] \
+         -slant  [font actual ${canvasW} -slant ]
+
+      font configure ${newFont} -weight bold -size 10
+   }
+
+   return ${labelFont}
+}
+
 # this function creates the time grid in the
 # specified canvas.
 proc Overview_createGraph { canvas } {
@@ -1581,7 +1597,7 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 proc Overview_init {} {
    global env AUTO_LAUNCH
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
-   global expBoxLength startEndIconSize
+   global expBoxLength startEndIconSize expBoxOutlineWidth
 
    #set AUTO_LAUNCH true
    set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
@@ -1590,7 +1606,8 @@ proc Overview_init {} {
    # hor size of graph
    set graphX 1225
    # vert size of graph
-   set graphy 600
+   #set graphy 600
+   set graphy 400
    set graphStartX 200
    set graphStartY 50
    # x size of each hour
@@ -1604,7 +1621,10 @@ proc Overview_init {} {
    set entryStartY 70
    set entryStartX 20
 
-   set startEndIconSize 8
+   #set startEndIconSize 8
+   set startEndIconSize 10
+
+   set expBoxOutlineWidth 1.5
 
 }
 
@@ -1770,12 +1790,14 @@ proc Overview_createToolbar { toplevel_ } {
    set toolbarW ${toplevel_}.toolbar
    set mesgCenterW ${toolbarW}.button_msgcenter
    set closeW ${toolbarW}.button_close
+   set colorLegendW ${toolbarW}.button_colorlegend
    frame ${toolbarW} -bd 1
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
 
    image create photo ${toolbarW}.msg_center_img -file ${imageDir}/open_mail_sh.ppm
    image create photo ${toolbarW}.msg_center_new_img -file ${imageDir}/open_mail_new.ppm
+   image create photo ${toolbarW}.color_legend_img -file ${imageDir}/color_legend.gif
 
    button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command {
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
@@ -1787,7 +1809,10 @@ proc Overview_createToolbar { toplevel_ } {
    button ${closeW} -image ${toolbarW}.close -command [list Overview_quit]
    ::tooltip::tooltip ${closeW} "Close Application."
 
-   grid ${mesgCenterW} ${closeW} -sticky w -padx 2
+   button ${colorLegendW} -image ${toolbarW}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}]
+   tooltip::tooltip ${colorLegendW} "Show color legend."
+
+   grid ${mesgCenterW} ${colorLegendW} ${closeW} -sticky w -padx 2
    grid ${toolbarW} -row 1 -column 0 -sticky nsew -padx 2
 }
 
@@ -1860,6 +1885,7 @@ Overview_addCanvasImage ${topCanvas}
 Overview_GridAdvanceHour
 
 wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
-wm geometry ${topOverview} =1500x800
+#wm geometry ${topOverview} =1500x800
+wm geometry ${topOverview} =1500x600
 SharedData_setMiscData STARTUP_DONE true
 thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"

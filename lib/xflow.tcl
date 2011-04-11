@@ -130,8 +130,8 @@ proc xflow_createToolbar { parent } {
    image create photo ${parent}.node_abort_list_img -file ${imageDir}/node_abort_list.ppm
    image create photo ${parent}.close -file ${imageDir}/cancel.ppm
    image create photo ${parent}.color_legend_img -file ${imageDir}/color_legend.gif
-   image create photo ${parent}.ignore_dep_true -file /home/ops/afsi/sul/icons/source/dep_on2.ppm
-   image create photo ${parent}.ignore_dep_false -file /home/ops/afsi/sul/icons/source/dep_off2.ppm
+   image create photo ${parent}.ignore_dep_true -file ${imageDir}/dep_on.ppm
+   image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
 
    button ${msgCenterW} -padx 0 -pady 0 -image ${parent}.msg_center_img -command {
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
@@ -153,7 +153,6 @@ proc xflow_createToolbar { parent } {
    button ${colorLegendW} -image ${parent}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}]
    tooltip::tooltip ${colorLegendW} "Show color legend."
 
-
    button ${depW} -image ${parent}.ignore_dep_false -command [list xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false] -state disabled
 
    xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
@@ -171,6 +170,7 @@ proc xflow_createToolbar { parent } {
    } else {
       grid ${msgCenterW} ${nodeKillW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
    }
+
 }
 
 proc xflow_showColorLegend { caller_w } {

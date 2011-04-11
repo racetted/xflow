@@ -376,8 +376,11 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
    if { [$binder cget -record_type] == "FlowLoop" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
-         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -height 10 \
+         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 \
             -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
+         ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
+         ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
+
          set currentExt [${binder} cget -current]
          if {  ${currentExt} == "" || ${currentExt} == "latest" } {
             ${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
@@ -402,6 +405,10 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
    }
 }
 
+proc ::DrawUtils::showIndexWidget { node index_widget } {
+   ${index_widget} bind <4> [list ComboBox::_unmapliste ${index_widget}]
+}
+
 # this function is called to populate the loop node listbox will
 # all the loop indexes... This is ONLY called when the user is attempting
 # to view the listbox items
@@ -421,6 +428,11 @@ proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
    ${index_widget} configure -values $extensions
 
    set listboxW [${index_widget} getlistbox]
+
+   bind ${listboxW}  <4> [list ${listboxW} yview scroll -1 units]
+   bind ${listboxW}  <5> [list ${listboxW} yview scroll +1 units]
+
+   # Utils_bindMouseWheel ${listboxW} 3
    set maxItemLength [string length latest]
 
    set index 0
@@ -461,6 +473,12 @@ proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
       ${index_widget} setvalue @${currentValueIndex}
    } else {
       ${index_widget} setvalue first
+   }
+   set listLength [llength ${extensions}]
+   if { ${listLength} > 10 } {
+      ${index_widget} configure -height 10
+   } else {
+      ${index_widget} configure -height ${listLength}
    }
 }
 
@@ -648,8 +666,10 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    if { [$binder cget -record_type] == "FlowNpassTask" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
-         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -height 10 \
+         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 \
             -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
+         ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
+         ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
          set currentExt [${binder} cget -current]
          if {  ${currentExt} == "" || ${currentExt} == "latest" } {
             ${indexListW} configure -values {latest} -width 8 -width [expr [${binder} cget -max_ext_value] + 3]
