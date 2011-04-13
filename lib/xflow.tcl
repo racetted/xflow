@@ -112,19 +112,21 @@ proc xflow_addHelpMenu { parent } {
 proc xflow_createToolbar { parent } {
    DEBUG "xflow_createToolbar ${parent}" 5
    global MSG_CENTER_THREAD_ID
-   set msgCenterW ${parent}.button_msgcenter
-   set nodeKillW ${parent}.button_nodekill
-   set nodeListW ${parent}.button_nodelist
-   set nodeAbortListW ${parent}.button_nodeabortlist
-   set colorLegendW ${parent}.button_colorlegend
 
-   set closeW ${parent}.button_close
-   set depW ${parent}.button_dep
+   set msgCenterW [xflow_getWidgetName msgcenter_button]
+   set nodeKillW [xflow_getWidgetName nodekill_button]
+   set nodeListW [xflow_getWidgetName nodelist_button]
+   set nodeAbortListW [xflow_getWidgetName abortlist_button]
+   set colorLegendW [xflow_getWidgetName legend_button]
+   set closeW [xflow_getWidgetName dep_button]
+   set depW [xflow_getWidgetName close_button]
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
 
-   image create photo ${parent}.msg_center_img -file ${imageDir}/open_mail_sh.ppm
-   image create photo ${parent}.msg_center_new_img -file ${imageDir}/open_mail_new.ppm
+   set noNewMsgImage [xflow_getWidgetName msg_center_img]
+   set hasNewMsgImage [xflow_getWidgetName msg_center_new_img]
+   image create photo ${noNewMsgImage} -file ${imageDir}/open_mail_sh.ppm
+   image create photo ${hasNewMsgImage} -file ${imageDir}/open_mail_new.ppm
    image create photo ${parent}.node_kill_img -file ${imageDir}/node_kill.ppm
    image create photo ${parent}.node_list_img -file ${imageDir}/node_list.ppm
    image create photo ${parent}.node_abort_list_img -file ${imageDir}/node_abort_list.ppm
@@ -133,7 +135,7 @@ proc xflow_createToolbar { parent } {
    image create photo ${parent}.ignore_dep_true -file ${imageDir}/dep_on.ppm
    image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
 
-   button ${msgCenterW} -padx 0 -pady 0 -image ${parent}.msg_center_img -command {
+   button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command {
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
    }
    ::tooltip::tooltip ${msgCenterW} "Show Message Center."
@@ -155,10 +157,10 @@ proc xflow_createToolbar { parent } {
 
    button ${depW} -image ${parent}.ignore_dep_false -command [list xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false] -state disabled
 
-   xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
+   # xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
-      set overviewW ${parent}.button_overview
+      set overviewW [xflow_getWidgetName overview_button]
       image create photo ${parent}.overview -file ${imageDir}/calendar_clock.ppm
       button ${overviewW} -image ${parent}.overview -command {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
@@ -214,76 +216,75 @@ proc xflow_showColorLegend { caller_w } {
 
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
-proc xflow_addDatestampWidget { parent } {
-   if { $parent == "." } {
-      set parent ""
-   }
+proc xflow_addDatestampWidget { parent_widget } {
+   set dtFrame ${parent_widget}
+   set dateEntry [xflow_getWidgetName exp_date_entry]
+   set buttonFrame [xflow_getWidgetName exp_date_button_frame]
 
-   set dtFrame [ labelframe $parent.dt -text "Exp Datestamp (yyyymmddhh)" ]
-   bind $dtFrame <Double-Button-1> [list xflow_viewHideDateButtons . .date .date_hidden "" ]
-   tooltip::tooltip $dtFrame "Double-click to hide"
+   labelframe ${dtFrame} -text "Exp Datestamp (yyyymmddhh)"
+   tooltip::tooltip ${dtFrame} "Current Datestamp"
 
-   set dateEntry [entry $dtFrame.entry -width 11 ]
+   entry ${dateEntry} -width 11
    tooltip::tooltip $dateEntry "Enter a value then set the experiment datestamp."
 
-   set buttonFrame [frame ${dtFrame}.button_frame]
+   frame ${buttonFrame}
+
    set imageDir [SharedData_getMiscData IMAGE_DIR]
    image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.ppm
    image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.ppm
 
    set setButton [button ${buttonFrame}.set_button -image ${buttonFrame}.set_image \
-      -command [list xflow_setDateStamp $parent]]
+      -command [list xflow_setDateStamp ${dtFrame}]]
    tooltip::tooltip ${setButton} "Sets new datestamp value."
 
    set refreshButton [button ${buttonFrame}.refresh_button -image ${buttonFrame}.refresh_image \
-      -command [list xflow_getDateStamp $parent]]
+      -command [list xflow_getDateStamp ${dtFrame}]]
    tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
 
-   pack $setButton $refreshButton -side left -pady 2 -padx 5
+   #pack $setButton $refreshButton -side left -pady 2 -padx 5
+   pack $setButton $refreshButton -side left -pady 2 -padx 2
    pack $dateEntry -side left -pady 2 -padx 2
    pack $buttonFrame -pady 2 -side left
-   pack $dtFrame -side left -pady 2 -padx 2 -fill x -expand 1
-
+   #pack $dtFrame -side left -pady 2 -padx 2 -fill x -expand 1
 }
 
 # this function creates the widgets that allows
 # the user to view the exp in history mode
 # It retrieves the list of exp dates with $SEQ_EXP_HOME/logs/*_nodelog files
-proc xflow_addMonitorDateWidget { parent } {
-   if { $parent == "." } {
-      set parent ""
-   }
+proc xflow_addMonitorDateWidget { parent_widget } {
 
-   set monitorFrame [ labelframe $parent.monitor_frame -text "Monitoring Datestamp (yyyymmddhh)" ]
-   set monitorEntryCombo ${monitorFrame}.entry_combo
-   bind $monitorFrame <Double-Button-1> [list xflow_viewHideDateButtons . .date .date_hidden "" ]
-   tooltip::tooltip $monitorFrame "Double-click to hide"
+   set monitorFrame ${parent_widget}
+   labelframe ${monitorFrame} -text "Monitoring Datestamp (yyyymmddhh)"
+   set monitorEntryCombo [xflow_getWidgetName monitor_date_combo]
+   #bind $monitorFrame <Double-Button-1> [list xflow_viewHideDateButtons . .date .date_hidden 20 ]
+   tooltip::tooltip $monitorFrame "Monitor Exp History Logs"
 
-   ttk::combobox ${monitorFrame}.entry_combo
+   ttk::combobox ${monitorEntryCombo}
 
-   set buttonFrame [frame ${monitorFrame}.button_frame]
+   set buttonFrame [xflow_getWidgetName monitor_date_button_frame]
+   frame ${buttonFrame}
    set imageDir [SharedData_getMiscData IMAGE_DIR]
    image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.ppm
    image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.ppm
 
-   set setButton [button ${buttonFrame}.set_button -image ${buttonFrame}.set_image \
-      -command [list xflow_setMonitorDate $parent]]
+   set setButton [xflow_getWidgetName monitor_date_set_button]
+   button ${setButton} -image ${buttonFrame}.set_image \
+      -command [list xflow_setMonitorDate ${monitorFrame}]
    tooltip::tooltip $setButton "Sets the datestamp value being displayed in the flow."
 
    set refreshButton [button ${buttonFrame}.refresh_button -image ${buttonFrame}.refresh_image \
-      -command [list xflow_populateMonitorDate]]
+      -command [list xflow_populateMonitorDate ${monitorFrame}]]
    tooltip::tooltip $refreshButton "Refresh the datestamp list."
 
    # by default the monitor widgets are disabled
    xflow_changeMonitorWidgetState disabled
 
-   pack $setButton $refreshButton -side left -pady 2 -padx 5
+   pack $setButton $refreshButton -side left -pady 2 -padx 2
    pack ${monitorEntryCombo} -side left -pady 2 -padx 2 -fill x
    pack $buttonFrame -pady 2 -side left
-   pack $monitorFrame -side left -pady 2 -padx 2 -fill x -expand 1
+   # pack $monitorFrame -side left -pady 2 -padx 2 -fill x -expand 1
 
    tooltip::tooltip ${monitorEntryCombo} "Select value of the date being displayed in the flow."
-
 }
 
 
@@ -300,7 +301,7 @@ proc xflow_setAutoMsgDisplay {} {
 # generic callback for whoever wants to call the xflow_selectSuiteTab
 # it simply redraws the exp flow
 proc xflow_selectSuiteCallback { } {
-   xflow_selectSuiteTab [xflow_getTabsParentW] [xflow_getActiveSuite]
+   xflow_selectSuiteTab [xflow_getWidgetName flow_frame] [xflow_getActiveSuite]
 }
 
 # this function adds a background image to an exp flow canvas.
@@ -318,9 +319,9 @@ proc xflow_AddCanvasBg { canvas } {
 
 proc xflow_changeMonitorWidgetState { new_state } {
    DEBUG "xflow_changeMonitorWidgetState called ${new_state}"
-   set monitorFrame .date.monitor_frame
-   set monitorEntryCombo ${monitorFrame}.entry_combo
-   set setButton ${monitorFrame}.button_frame.set_button
+   set monitorFrame [xflow_getWidgetName monitor_date_frame]
+   set monitorEntryCombo [xflow_getWidgetName monitor_date_combo]
+   set setButton [xflow_getWidgetName monitor_date_set_button]
 
    $setButton configure -state ${new_state}
    ${monitorEntryCombo} configure -state ${new_state}
@@ -378,12 +379,17 @@ proc xflow_logsMonitorChanged { parent_w } {
 # this function is called when the user click on the arrows to
 # close or open the control bar in a run window
 proc xflow_viewHideDateButtons { parent currentFrame replacementFrame height } {
+   puts "xflow_viewHideDateButtons currentFrame:$currentFrame replacementFrame:$replacementFrame height:$height"
    grid forget $currentFrame
-   if { $height != "" } {
+   if { $height != "" } {  
+       puts "xflow_viewHideDateButtons here 0"
        $replacementFrame configure -height $height
-       grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      #grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      grid $replacementFrame -row 1 -column 1 -columnspan 2 -sticky nsew -padx 2 -pady 2
    } else {
-      grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+       puts "xflow_viewHideDateButtons here 1"
+      #grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+      grid $replacementFrame -row 1 -column 1 -columnspan 2 -sticky nsew -padx 2 -pady 2
    }
 }
 
@@ -517,13 +523,12 @@ proc xflow_killNode { list_widget } {
 # this function is called to populate the list of
 # available monitor experiment dates in the
 # in the Monitoring Datestamp frame
-proc xflow_populateMonitorDate {} {
+proc xflow_populateMonitorDate { monitor_frame } {
 
    set suite_record [xflow_getActiveSuite]
    set suitePath [${suite_record} cget -suite_path]
    set dateList [LogReader_getAvailableDates $suitePath]
-   set monitorFrame .date.monitor_frame
-   set monitorEntryCombo ${monitorFrame}.entry_combo
+   set monitorEntryCombo [xflow_getWidgetName monitor_date_combo]
    
    set values ""
    foreach date $dateList {
@@ -548,7 +553,7 @@ proc xflow_setMonitorDate { parent_w } {
       set suitePath [$suiteRecord cget -suite_path]
       set dateList [LogReader_getAvailableDates $suitePath]
    
-      set dateEntryCombo .date.monitor_frame.entry_combo
+      set dateEntryCombo [xflow_getWidgetName monitor_date_combo]
       set dateValue [$dateEntryCombo get]
    
       foreach date $dateList {
@@ -618,7 +623,7 @@ proc xflow_setMonitoringLatest { value } {
 # the proper widget... Mainly for overview mode when
 # history datestamp is launched in a new exp window
 proc xflow_setMonitorDateWidget {} {
-   set dateEntryCombo .date.monitor_frame.entry_combo
+   set dateEntryCombo [xflow_getWidgetName monitor_date_combo]
    set dateValue [xflow_getMonitoringDatestamp]
    $dateEntryCombo set [Utils_getVisibleDatestampValue ${dateValue}]
 }
@@ -655,7 +660,7 @@ proc xflow_getMonitoredThread {} {
             DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} overview_mode?  [SharedData_getMiscData OVERVIEW_MODE]" 5
             xflow_displayFlow [thread::id]
             xflow_setMonitorDateWidget
-            xflow_viewHideDateButtons . .date_hidden .date ""
+            #xflow_viewHideDateButtons . .date_hidden .date ""
             DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} DONE" 5
          }
 
@@ -679,9 +684,7 @@ proc xflow_getDateStamp { parent_w {suite_record ""} } {
    }
    set dateStamp [xflow_retrieveDateStamp $parent_w ${suite_record}]
    set shortDatestamp [Utils_getVisibleDatestampValue ${dateStamp}]
-   if { [winfo toplevel $parent_w]  == "." } {
-      set dateEntry .date.dt.entry
-   }
+   set dateEntry [xflow_getWidgetName exp_date_entry]
    $dateEntry delete 0 end
    $dateEntry insert 0 $shortDatestamp
 
@@ -696,7 +699,7 @@ proc xflow_getDateStamp { parent_w {suite_record ""} } {
 # LogReader when it detects that the ${SEQ_EXP_HOME}/ExpDate has changed
 # so that the displayed datestamp should be changed in the gui.
 proc xflow_datestampChanged { suite_record } {
-   set dateFrame .date
+   set dateFrame [xflow_getWidgetName exp_date_frame]
    if { [winfo exists $dateFrame] } {
       xflow_getDateStamp $dateFrame ${suite_record}
    }
@@ -728,9 +731,8 @@ proc xflow_setDateStamp { parent_w } {
    set dateExec "[getGlobalValue SEQ_BIN]/tictac"
    set suiteRecord [xflow_getActiveSuite]
    set suitePath [$suiteRecord cget -suite_path]
-   if { $top  == "." } {
-      set dateEntry .date.dt.entry
-   }
+   set dateEntry [xflow_getWidgetName exp_date_entry]
+
    Utils_busyCursor $top
 
    catch {
@@ -2092,7 +2094,7 @@ proc xflow_selectSuiteTab { parent suite_record } {
    set formattedName [::SuiteNode::formatName [${suite_record} cget -suite_path]]
    set drawFrame ${parent}.${formattedName}
    set canvas [xflow_createFlowCanvas $drawFrame]
-   xflow_getDateStamp $parent ${suite_record}
+   xflow_getDateStamp [xflow_getWidgetName exp_date_frame] ${suite_record}
 
    catch {
       xflow_drawflow $canvas
@@ -2257,9 +2259,9 @@ proc xflow_resizeCallback { source_widget } {
 # icon to a new message state.
 proc xflow_newMessageCallback { has_new_msg } {
    DEBUG "xflow_newMessageCallback has_new_msg:$has_new_msg" 5
-   set msgCenterWidget .toolbar.button_msgcenter
-   set noNewMsgImage .toolbar.msg_center_img
-   set hasNewMsgImage .toolbar.msg_center_new_img
+   set msgCenterWidget [xflow_getWidgetName msgcenter_button]
+   set noNewMsgImage [xflow_getWidgetName msg_center_img]
+   set hasNewMsgImage [xflow_getWidgetName msg_center_new_img]
    set normalBgColor [option get ${msgCenterWidget} background Button]
    set newMsgBgColor  [SharedData_getColor MSG_CENTER_ABORT_BG]
    if { [winfo exists ${msgCenterWidget}] } {
@@ -2292,53 +2294,47 @@ proc xflow_createWidgets {} {
    global env
    DEBUG "xflow_createWidgets" 5
    wm iconify .
-   set topFrame .top   
-   # .top is the first widget
+   set topFrame [xflow_getWidgetName top_frame]
+
    frame $topFrame
    xflow_addFileMenu $topFrame
    xflow_addViewMenu $topFrame
    xflow_addHelpMenu $topFrame
-   grid $topFrame -row 0 -column 0 -sticky w -padx 2
 
-   set toolbarFrame .toolbar
-   frame ${toolbarFrame}
-   xflow_createToolbar ${toolbarFrame}
-   grid ${toolbarFrame} -row 1 -column 0 -sticky w -padx 2
+   set secondFrame [frame  [xflow_getWidgetName second_frame]]
+   set toolbarFrame [xflow_getWidgetName toolbar_frame]
+   labelframe ${toolbarFrame} -text Toolbar
+   xflow_createToolbar ${toolbarFrame}   
 
    # date bar is the 2nd widget
-   set dateFrame .date
-   set dateFrameHidden .date_hidden
-   frame $dateFrame
-   tooltip::tooltip $dateFrame "Double-click to hide"
-   labelframe $dateFrameHidden -text "Hidden Date Controls"
-   tooltip::tooltip $dateFrameHidden "Double-click to expand"
-   xflow_addDatestampWidget $dateFrame
+   set expDateFrame [xflow_getWidgetName exp_date_frame]
+   set monDateFrame [xflow_getWidgetName monitor_date_frame]
+   xflow_addDatestampWidget ${expDateFrame}
+
    # monitor date
-   xflow_addMonitorDateWidget $dateFrame
-   bind $dateFrame <Double-Button-1> [list xflow_viewHideDateButtons . $dateFrame $dateFrameHidden 20 ]
-   bind $dateFrameHidden <Double-Button-1> [list xflow_viewHideDateButtons . $dateFrameHidden $dateFrame "" ]
-   grid $dateFrame -row 2 -column 0 -sticky nsew -padx 0 -pady 0 -columnspan 2
+   xflow_addMonitorDateWidget ${monDateFrame}
 
-   # start in hidden mode
-   xflow_viewHideDateButtons . $dateFrame $dateFrameHidden 20
-
-   #add list buttons
-   set openListButtonsFrame .list_buttons
-   labelframe $openListButtonsFrame  -text "Listing buttons"
-   tooltip::tooltip $openListButtonsFrame "Double-click to hide"
+   # this displays the widget on the second frame
+   grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
+   grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
+   grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
 
    # .tabs is the 3nd widget
-   set tabFrame .tabs
-   frame .tabs
-   xflow_createTabs .tabs $env(SEQ_EXP_HOME) "xflow_selectSuiteCallback"
-   
-   grid .tabs  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+   set tabFrame [xflow_getWidgetName flow_frame]
+   frame ${tabFrame}
+   xflow_createTabs ${tabFrame} $env(SEQ_EXP_HOME) "xflow_selectSuiteCallback"
+
+   # this displays the widgets in the main window layout
+   grid $topFrame -row 0 -column 0 -sticky w -padx 2
+   grid ${secondFrame} -row 1 -column 0  -sticky nsew -pady 2
+   grid ${tabFrame}  -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
    grid columnconfigure . 0 -weight 1
    grid columnconfigure . 1 -weight 1
-   grid rowconfigure . 3 -weight 2
+   grid rowconfigure . 2 -weight 2
 
-   ttk::sizegrip .sizeGrip
-   grid .sizeGrip -row 3 -column 1 -sticky se
+   set sizeGripW [xflow_getWidgetName main_size_grip]
+   ttk::sizegrip ${sizeGripW}
+   grid ${sizeGripW} -row 2 -column 1 -sticky se
    
    wm geometry . =1200x800
 }
@@ -2355,7 +2351,7 @@ proc xflow_displayFlow { calling_thread_id } {
 
    DEBUG "xflow_displayFlow thread id:[thread::id]" 5
 
-   set topFrame .top
+   set topFrame [xflow_getWidgetName top_frame]
 
    xflow_createTmpDir
    xflow_validateSuite
@@ -2370,7 +2366,7 @@ proc xflow_displayFlow { calling_thread_id } {
    xflow_setActiveSuite $activeSuiteRecord
 
    # initial monitor dates
-   xflow_populateMonitorDate
+   xflow_populateMonitorDate [xflow_getWidgetName monitor_date_frame]
 
    if { ${MONITORING_LATEST} == "1" } {
       # the thread id associated to an exp path is mainly used by
@@ -2423,10 +2419,6 @@ proc xflow_toFront { toplevel_w } {
 proc xflow_getMonitoringDatestamp {} {
    global MONITOR_DATESTAMP
    return $MONITOR_DATESTAMP
-}
-
-proc xflow_getTabsParentW {} {
-   return .tabs
 }
 
 proc xflow_getNodeDisplayPref {} {
@@ -2491,6 +2483,55 @@ proc xflow_parseCmdOptions {} {
    }
 }
 
+proc xflow_getWidgetName { key } {
+   global array XflowWidgetNames
+   set value ""
+   if { [info exists XflowWidgetNames($key)] } {
+      puts "xflow_getWidgetName found name:$key"
+      set value $XflowWidgetNames($key)
+   } else {
+      error "xflow_getWidgetName invalid widget key name:${key}"
+   }
+   return ${value}
+}
+
+# adds the name of widgets in an array. The widget names are
+# accessible through the xflow_getWidgetName proc with the use
+# of the key. I'm only storing name of widgets that are reference
+# more than once in the code... Widgets that are created once and
+# not referred, don't care
+proc xflow_setWidgetNames {} {
+   global array XflowWidgetNames
+   array set XflowWidgetNames {
+
+      top_frame .top_frame
+      second_frame .second_frame
+      flow_frame .tabs
+      main_size_grip .size_grip
+
+      toolbar_frame .second_frame.toolbar
+      msgcenter_button .second_frame.toolbar.button_msgcenter
+      nodekill_button .second_frame.toolbar.button_nodekill
+      nodelist_button .second_frame.toolbar.button_nodelist
+      abortlist_button .second_frame.toolbar.button_nodeabortlist
+      dep_button .second_frame.toolbar.button_dep
+      legend_button .second_frame.toolbar.button_colorlegend
+      close_button .second_frame.toolbar.button_close
+      overview_button .second_frame.toolbar.button_overview
+      msg_center_img .second_frame.toolbar.msg_center_img
+      msg_center_new_img .second_frame.toolbar.msg_center_new_img
+
+      exp_date_frame  .second_frame.date_frame
+      exp_date_entry  .second_frame.date_frame.entry
+      exp_date_button_frame .second_frame.date_frame.button_frame
+      monitor_date_frame .second_frame.mon_date_frame
+      monitor_date_combo .second_frame.mon_date_frame.entry_combo
+      monitor_date_combo .second_frame.mon_date_frame.entry_combo
+      monitor_date_button_frame .second_frame.mon_date_frame.button_frame
+      monitor_date_set_button .second_frame.mon_date_frame.button_frame.set_button
+   }
+}
+
 proc xflow_init {} {
    global env DEBUG_TRACE DEBUG_LEVEL
    global NODE_DISPLAY_PREF AUTO_MSG_DISPLAY
@@ -2501,6 +2542,9 @@ proc xflow_init {} {
    set MONITOR_THREAD_ID ""
    set SHADOW_STATUS 0
    set MONITORING_LATEST 1
+
+   # initate array containg name for widgets used in the application
+   xflow_setWidgetNames
 
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
