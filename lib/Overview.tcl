@@ -926,8 +926,10 @@ proc Overview_boxMenu { canvas exp_path x y } {
    menu $popMenu
    $popMenu add command -label "History" \
       -command [list Overview_historyCallback $canvas $exp_path $popMenu]
-   $popMenu add command -label "Display Flow" -command [list Overview_launchExpFlow $canvas $exp_path]
+   $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $canvas $exp_path]
+   $popMenu add command -label "Shell" -command [list Utils_launchShell $exp_path]
    tk_popup $popMenu $x $y
+   ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
 }
 
 # this function is called to show the history of an experiment
@@ -1706,10 +1708,11 @@ proc Overview_addFileMenu { parent } {
    set menuW $menuButtonW.menu
 
    menubutton $menuButtonW -text File -underline 0 -menu $menuW
-   menu $menuW -tearoff 0
+   menu $menuW -tearoff 0 -type normal
 
    $menuW add command -label "Quit" -underline 0 -command [list Overview_quit]
-   ::tooltip::tooltip $menuW -index Quit "Quit Application."
+   #::tooltip::tooltip $menuW -index 0 "Quit Application."
+   DynamicHelp::add $menuW -type menu -index 0 -text "Test tooltip"
 
    pack $menuButtonW -side left -padx 2
 }

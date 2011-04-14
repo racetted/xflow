@@ -105,8 +105,51 @@ proc xflow_addHelpMenu { parent } {
       -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
 
+   $menuW add command -label "Maestro Commands" -underline 9 -command "xflow_maestroCmds"
+
    pack $menuButtonW -side left -pady 2 -padx 2
-   $menuButtonW configure -state disabled
+}
+
+# displays the list of maestroe executables with a short description
+# no fancy format here, it's a simple dump of the content
+# of $SEQ_XFLOW_BIN/../etc/commands_summary.txt into a text widget
+proc xflow_maestroCmds {} {
+   global env
+   set topW .maestro_cmds_top
+
+   if { [winfo exists ${topW}] } {
+      wm withdraw ${topW} ; wm deiconify ${topW}
+   } else {
+      toplevel ${topW}
+      wm title ${topW} "Maestro Commands Summary"
+
+      set txtW ${topW}.txt
+      text ${txtW} -width 30 -wrap word -yscrollcommand [list ${topW}.yscroll set]
+      
+      # get the info 
+      set infoFile $env(SEQ_XFLOW_BIN)/../etc/command_summary.txt
+      if { [file readable ${infoFile}] } {
+         set infoTxt [exec cat ${infoFile}]
+         ${txtW} insert end ${infoTxt}
+      }
+
+      set closeButton [button ${topW}.close_button -text Close \
+         -command [list destroy ${topW}]]
+
+      # add vertical scroll, don't need horiz scroll since the text is wrapped
+      scrollbar ${topW}.yscroll -command [list ${txtW}  yview ]
+      # only show the scrollbars if required
+      ::autoscroll::autoscroll ${topW}.yscroll
+
+      grid ${txtW} -sticky wens -row 0 -column 0 -padx 5 -pady {5 2}
+      grid ${topW}.yscroll -row 0 -column 1 -sticky ns
+      grid ${closeButton} -row 1 -column 0 -pady 5
+
+      grid rowconfigure ${topW} 0 -weight 1
+      grid columnconfigure ${topW} 0 -weight 1
+
+      wm geometry ${topW} =625x625
+   }
 }
 
 proc xflow_createToolbar { parent } {
@@ -120,6 +163,7 @@ proc xflow_createToolbar { parent } {
    set colorLegendW [xflow_getWidgetName legend_button]
    set closeW [xflow_getWidgetName dep_button]
    set depW [xflow_getWidgetName close_button]
+   set shellW [xflow_getWidgetName shell_button]
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
 
@@ -134,6 +178,7 @@ proc xflow_createToolbar { parent } {
    image create photo ${parent}.color_legend_img -file ${imageDir}/color_legend.gif
    image create photo ${parent}.ignore_dep_true -file ${imageDir}/dep_on.ppm
    image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
+   image create photo ${parent}.shell_img -file ${imageDir}/terminal.ppm
 
    button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command {
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
@@ -142,6 +187,9 @@ proc xflow_createToolbar { parent } {
 
    button ${nodeKillW} -image ${parent}.node_kill_img -command [list xflow_nodeKillDisplay ${parent} ]
    tooltip::tooltip ${nodeKillW}  "Open job killing dialog"
+
+   button ${shellW} -image ${parent}.shell_img -command xflow_launchShellCallback
+   tooltip::tooltip ${shellW}  "Start shell at exp home"
 
    button ${nodeListW} -image ${parent}.node_list_img  -state disabled
    tooltip::tooltip ${nodeListW} "Open succesfull node listing dialog -- future feature."
@@ -168,9 +216,9 @@ proc xflow_createToolbar { parent } {
       }
       ::tooltip::tooltip ${overviewW} "Show overview window."
       ::tooltip::tooltip ${closeW} "Close window."
-      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${shellW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
    } else {
-      grid ${msgCenterW} ${nodeKillW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${nodeKillW} ${shellW} ${depW}  ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
    }
 
 }
@@ -1371,6 +1419,13 @@ proc xflow_abortCallback { node canvas caller_menu } {
    }
 }
 
+# launch an xterm at $SEQ_EXP_HOME
+proc xflow_launchShellCallback {} {
+   set suiteRecord [xflow_getActiveSuite]
+   set expPath [${suiteRecord} cget -suite_path]
+   Utils_launchShell ${expPath}
+}
+
 # this function is invoked from the "Kill Node" menu item.
 # It displays the available jobids of currently running tasks
 # for the user to kill.
@@ -2151,10 +2206,10 @@ proc xflow_createFlowCanvas { parent } {
          grid ${drawFrame}.xframe -row 2 -column 0 -columnspan 2 -sticky ewns
          grid ${drawFrame}.yscroll -row 0 -column 1 -sticky ns
 
-         grid ${drawFrame}.pad -row 0 -column 0 -in ${drawFrame}.xframe -sticky es
-         grid ${drawFrame}.xscroll -row 0 -column 1 -sticky ew -in ${drawFrame}.xframe
+         grid ${drawFrame}.pad -row 0 -column 1 -in ${drawFrame}.xframe -sticky es
+         grid ${drawFrame}.xscroll -row 0 -column 0 -sticky ew -in ${drawFrame}.xframe
    
-         grid columnconfigure ${drawFrame}.xframe 1 -weight 1
+         grid columnconfigure ${drawFrame}.xframe 0 -weight 1
          grid rowconfigure ${drawFrame}.xframe 1 -weight 1
    
          # only show the scrollbars if required
@@ -2487,7 +2542,6 @@ proc xflow_getWidgetName { key } {
    global array XflowWidgetNames
    set value ""
    if { [info exists XflowWidgetNames($key)] } {
-      puts "xflow_getWidgetName found name:$key"
       set value $XflowWidgetNames($key)
    } else {
       error "xflow_getWidgetName invalid widget key name:${key}"
@@ -2518,6 +2572,7 @@ proc xflow_setWidgetNames {} {
       legend_button .second_frame.toolbar.button_colorlegend
       close_button .second_frame.toolbar.button_close
       overview_button .second_frame.toolbar.button_overview
+      shell_button .second_frame.toolbar.button_shell
       msg_center_img .second_frame.toolbar.msg_center_img
       msg_center_new_img .second_frame.toolbar.msg_center_new_img
 

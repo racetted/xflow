@@ -226,6 +226,11 @@ proc Utils_getRealDatestampValue { date } {
    return ${newValue}
 }
 
+proc Utils_launchShell { exp_path } {
+   global env
+   exec ksh -c "cd ${exp_path};xterm -T SEQ_EXP_HOME=${exp_path}" &
+}
+
 #setGlobalValue SEQ_BIN [Sequencer_getPath]
 #setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 #setGlobalValue DEBUG_TRACE 1
