@@ -1,10 +1,15 @@
 proc LogReader_readFile { suite_record calling_thread_id } {
-   global MONITOR_THREAD_ID
+   global MONITOR_THREAD_ID REDRAW_FLOW
    DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id"
+   set REDRAW_FLOW false
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set thisThreadId [thread::id]
-
+   set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
+   if { ${isThreadStartupDone} == "true" } {
+      set isStartupDone true
+   }
+   
    # first cancel any other waiting read for this suite
    LogReader_cancelAfter $suite_record
    set suitePath [$suite_record cget -suite_path]
@@ -27,11 +32,12 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       if { ${expLog} != ${logfile} } {
          # new log detected, advise main thread of this event
          if { "${isOverviewMode}" == "false" } {
+            # we are in standalone xflow mode
             thread::send -async ${calling_thread_id} \
             "xflow_datestampChanged ${suite_record}"
          } elseif { ${thisThreadId} != ${MONITOR_THREAD_ID} } {
             puts "LogReader_readFile reading new log file $logfile"
-            # send event to overview
+            # send event to overview mode
             set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
             thread::send -async ${overviewThreadId} \
             "Overview_ExpDateStampChanged ${suite_record} ${logfile}"
@@ -39,7 +45,18 @@ proc LogReader_readFile { suite_record calling_thread_id } {
             thread::send ${thisThreadId} "xflow_datestampChanged ${suite_record}"
          }
          ${suite_record} configure -read_offset 0 -exp_log ${logfile}
-         puts "LogReader_readFile reading new log file $logfile"
+         if { ${expLog} != "" } {
+            # means that the datestamp changed while we are monitoring a existing one
+            # set the exp in startup mode
+            SharedData_setMiscData ${thisThreadId}_STARTUP_DONE false
+            set isStartupDone false
+            # force a redraw at the end of the read
+            set REDRAW_FLOW true
+            # re-init all nodes
+            set rootNode [${suite_record} cget -root_node]
+            ::FlowNodes::resetAllStatus ${rootNode} init 1
+         }
+         puts "LogReader_readFile reading new log file previous:${expLog} new:$logfile"
       }
    } else {
       # view history mode
@@ -60,7 +77,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       # position yourself in the file
       seek $f_logfile $logFileOffset
       
-      while {[gets $f_logfile line] >= 0} {   
+      while {[gets $f_logfile line] >= 0} {
          if { ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
             LogReader_processOverviewLine $calling_thread_id $suite_record $line
          }
@@ -81,6 +98,10 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       close [open $logfile a]
    }
 
+   if { ${REDRAW_FLOW} == true } {
+      SharedData_setMiscData ${thisThreadId}_STARTUP_DONE true
+      xflow_redrawAllFlow
+   }
    LogReader_readAgain $suite_record $calling_thread_id
 }
 
@@ -217,7 +238,7 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
             set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
             thread::send -async ${MSG_CENTER_THREAD_ID} \
                "MsgCenterThread_newMessage ${currentDatestamp} ${timestamp} ${type} ${node}${loopExt} ${expPath} \"${msg}\""
-            Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
+            # Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
          }
          # abortx, endx, beginx type are used for signals we send to the parent containers nodes
          # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
@@ -264,7 +285,10 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
                }
    
                # 2 - then we refresh the display... redisplay the node text?
-               if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+               set thisThreadId [thread::id]
+               set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
+               if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" &&
+                    [::FlowNodes::isRefreshNeeded ${flowNode} ${loopExt} ] == "true" } {
                   xflow_redrawNodes ${flowNode}
                }
             }
@@ -273,8 +297,9 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
    }
 }
 
+# the date is sorted in reverse order, the most recent date will appear first
 proc LogReader_getAvailableDates { exp_path } {
-   set cmd "cd ${exp_path}/logs; ls *_nodelog | sed -e 's,_nodelog,,'"
+   set cmd "cd ${exp_path}/logs; ls *_nodelog | sed -e 's,_nodelog,,' | sort -r"
    set expLogs ""
    if [ catch { set expLogs [exec ksh -c $cmd] } message ] {
    }

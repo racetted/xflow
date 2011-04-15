@@ -75,7 +75,7 @@ proc SharedData_initColors {} {
       SharedData_setColor SHADOW_COLOR "#676559"
       SharedData_setColor NORMAL_RUN_OUTLINE black
       SharedData_setColor NORMAL_RUN_FILL "#6D7886"
-      SharedData_setColor NORMAL_RUN_TEXT blue
+      SharedData_setColor NORMAL_RUN_TEXT black
       SharedData_setColor ACTIVE_BG "#509df4"
       SharedData_setColor SELECT_BG "#509df4"
       #SharedData_setColor SELECT_BG "#3875d7"
@@ -96,7 +96,7 @@ proc SharedData_initColors {} {
       SharedData_setColor STATUS_init "black #ececec black"
       SharedData_setColor STATUS_submit "white #b8bdc3 #b8bdc3"
       SharedData_setColor STATUS_abort "white #8B1012 #8B1012"
-      SharedData_setColor STATUS_end "white DodgerBlue4 DodgerBlue4"
+      SharedData_setColor STATUS_end "white DodgerBlue3 DodgerBlue3"
       SharedData_setColor STATUS_catchup "white #913b9c #913b9c"
       SharedData_setColor STATUS_wait "black #e7ce69 #e7ce69"
       SharedData_setColor STATUS_unknown "white black black"
@@ -146,6 +146,7 @@ proc SharedData_init {} {
    SharedData_setMiscData AUTO_MSG_DISPLAY true
    SharedData_setMiscData NODE_DISPLAY_PREF normal
    SharedData_setMiscData STARTUP_DONE false 
+
    SharedData_setMiscData OVERVIEW_MODE false
    SharedData_setMiscData DEFAULT_CONSOLE konsole
    SharedData_setMiscData TEXT_VIEWER default

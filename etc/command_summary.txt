@@ -1,0 +1,35 @@
+--------------------------------------------
+xflow ssm package (GUI):
+--------------------------------------------
+xflow: experiment display tool
+xflow_overview: display tool for multiple experiments
+
+--------------------------------------------
+maestro-utils ssm package (scripts/utilities):
+--------------------------------------------
+nodelister: gets the aborts / successful listings from remote machine (if necessary).
+chaindot.py: assembles the config files into a single one for the requested node
+expbegin: utility to start an experiment at its root
+flowbuilder.make: makefile to determine if the flow has to be rebuilt
+flowbuilder.py: utility to assemble the module flows into a single experiment flow
+nodebatch: accessor to the latest batch files of the given node
+nodeconfig: accessor to the node?s config file
+nodehistory: displays the log entries
+nodekill: used to kill jobs
+noderesource: accessor to the node's resource file
+nodesource: accessor to the node's task file 
+nodetracer: creates and places the listings
+program_monitor: generic program checker
+task_setup-0.7.7.ksh: wrapper for task_setup to export the configuration and 
+                      created an audit trail in the work directory
+task_setup-0.7.7.py: creates the work directory and links in the various inputs,
+                     outputs and executables
+
+--------------------------------------------
+maestro ssm package (sequencer):
+--------------------------------------------
+maestro: sequencer
+nodelogger: client used to write to the log files
+nodelogger_svr: server that writes to the log files
+nodeinfo: displays filterable information of the requested node
+tictac: date interface

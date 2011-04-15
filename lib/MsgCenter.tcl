@@ -149,7 +149,7 @@ proc MsgCenter_createWidgets {} {
          ${SuiteColNumber} ${suiteColWidth}
 
       ${tableW} tag configure title -bd 1 -bg ${headerBgColor} -relief raised -font ${titleFont} -fg ${headerFgColor}
-      MsgCenter_bindMouseWheel ${tableW}
+      Utils_bindMouseWheel ${tableW} 2
    }
 
    # creating scrollbars
@@ -373,10 +373,14 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
    set raiseAlarm false
 
-   incr MSG_ALARM_COUNTER
+   # I don't start the alarm counter until the gui is up
+   if  { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+      incr MSG_ALARM_COUNTER
+   }
+
    DEBUG "MsgCengter_processAlarm MSG_ALARM_COUNTER:${MSG_ALARM_COUNTER} MSG_BELL_TRIGGER:${MSG_BELL_TRIGGER}" 5
    # only raise alarm if no other alarm already exists
-   if { ${MSG_ALARM_ON} == "true"} {
+   if { ${MSG_ALARM_ON} == "true" } {
       if { ${repeat_alarm} == "true" } {
          set raiseAlarm true
       }
@@ -572,58 +576,13 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
    }
 }
 
-proc MsgCenter_bindMouseWheel { widget_ } {
-   bind ${widget_} <4> {
-      if {!$tk_strictMotif} {
-         %W yview scroll -2 units
-      }
-   }
-   bind ${widget_} <5> {
-      if {!$tk_strictMotif} {
-         %W yview scroll 2 units
-      }
-   }
-}
-
 ########################################
 # end callback procedures
 ########################################
 
-# end 
-########################################
-# test procedures
-#########################################
-proc addTestMessages {} {
-   set w .table
-   #MsgCenter_newMessage $w "10/06 18:12:58" "Info" \
-      "/gem" "Initialization Completed."  "/users/dor/afsi/sul/.suites/gem_modv4"
-   # MsgCenter_newMessage $w "10/06 18:17:25" "Abort" \
-      "/gem/gem_model" "Missing Data"  "/users/dor/afsi/sul/.suites/gem_modv4"
-   # MsgCenter_newMessage $w "10/06 20:30:34" "Info" \
-      "/gem/gem_forecast" "Forecast Completed"  "/users/dor/afsi/sul/.suites/gem_modv4"
-}
-
-proc addTestOneMsg {} {
-   set w .table
-   # MsgCenter_newMessage $w "10/12 13:12:58" "Abort" \
-      "/gem" "Missing output directory."  "/users/dor/afsi/sul/.suites/gem_modv4"
-}
-
-proc testPointNode {} {
-   set threadId [SharedData_getSuiteData /users/dor/afsi/sul/.suites/date_conc THREAD_ID]
-   set suiteRecord [::SuiteNode::formatSuiteRecord /users/dor/afsi/sul/.suites/date_conc]
-   DEBUG "testPointNode threadId:$threadId" 5
-   thread::send -async ${threadId} "::DrawUtils::pointNode ${suiteRecord} /sample_mod/Family_2"
-   DEBUG "testPointNode done..." 5
-}
-
-########################################
-# end test procedures
-#########################################
-
 proc MsgCenter_init {} {
    global MSG_ALARM_ON RowNumberMap
-   global MSG_TABLE MSG_COUNTER
+   global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
    global DEBUG_TRACE DEBUG_LEVEL MSG_BELL_TRIGGER
    global TimestampColNumber DatestampColNumber TypeColNumber NodeColNumber MessageColNumber SuiteColNumber
