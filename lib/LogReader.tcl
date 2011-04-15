@@ -297,8 +297,9 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
    }
 }
 
+# the date is sorted in reverse order, the most recent date will appear first
 proc LogReader_getAvailableDates { exp_path } {
-   set cmd "cd ${exp_path}/logs; ls *_nodelog | sed -e 's,_nodelog,,'"
+   set cmd "cd ${exp_path}/logs; ls *_nodelog | sed -e 's,_nodelog,,' | sort -r"
    set expLogs ""
    if [ catch { set expLogs [exec ksh -c $cmd] } message ] {
    }
