@@ -1711,8 +1711,6 @@ proc Overview_addFileMenu { parent } {
    menu $menuW -tearoff 0 -type normal
 
    $menuW add command -label "Quit" -underline 0 -command [list Overview_quit]
-   #::tooltip::tooltip $menuW -index 0 "Quit Application."
-   DynamicHelp::add $menuW -type menu -index 0 -text "Test tooltip"
 
    pack $menuButtonW -side left -padx 2
 }
