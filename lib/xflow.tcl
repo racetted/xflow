@@ -205,7 +205,7 @@ proc xflow_createToolbar { parent } {
 
    button ${depW} -image ${parent}.ignore_dep_false -command [list xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false] -state disabled
 
-   # xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
+   xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
       set overviewW [xflow_getWidgetName overview_button]
@@ -1132,10 +1132,10 @@ proc xflow_nodeMenu { canvas node x y } {
          ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback $node $canvas $popMenu]
       }
       ${miscMenu} add command -label "End" -command [list xflow_endCallback $node $canvas $popMenu]
+      ${miscMenu} add command -label "Abort" -command [list xflow_abortCallback $node $canvas $popMenu]
       ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback $node $canvas $popMenu ]
    }
 
-   ${miscMenu} add command -label "Abort" -command [list xflow_abortCallback $node $canvas $popMenu]
    ${miscMenu} add command -label "Kill Node" -command [list xflow_killNodeFromDropdown $node $canvas $popMenu]
 
    $popMenu add separator
@@ -1184,6 +1184,7 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    ${miscMenu} add command -label "Loop Initbranch" -command [list xflow_initbranchLoopCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Member End" -command [list xflow_endCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Member Initbranch" -command [list xflow_initbranchCallback $node $canvas ${popmenu_w}]
+   ${miscMenu} add command -label "Abort" -command [list xflow_abortCallback $node $canvas $popMenu]
 }
 
 # creates the popup menu for a npt node
@@ -1223,8 +1224,9 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
 
    ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback $node $canvas ${popmenu_w}]
-   ${miscMenu} add command -label "End" -command [list xflow_endCallback $node $canvas ${popmenu_w}]
-
+   ${miscMenu} add command -label "End" -command [list xflow_endNpasssTaskCallback $node $canvas ${popmenu_w}]
+   ${miscMenu} add command -label "Abort" -command [list xflow_abortNpasssTaskCallback $node $canvas ${popmenu_w}]
+   
 }
 
 # this menu is called when the user request a new partial flow window to be launched
@@ -1416,6 +1418,55 @@ proc xflow_abortCallback { node canvas caller_menu } {
       Utils_raiseError $canvas "node abort" [getErrorMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "abort [file tail $node] $seqLoopArgs" -n $seqNode -s abort -f continue $seqLoopArgs
+   }
+}
+
+proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
+   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set seqNode [::FlowNodes::getSequencerNode $node]
+   set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
+   set indexListValue ""
+   if { [winfo exists ${indexListW}] } {
+      set indexListValue [${indexListW} get]
+      DEBUG "xflow_abortNpasssTaskCallback indexListValue:$indexListValue" 5
+   }
+   if { ${indexListValue} == "latest" } {
+      Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+   } else {
+      set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
+   
+      if { $seqNpassTaskArgs == "-1" } {
+         Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+      } else {
+         DEBUG "xflow_abortNpasssTaskCallback $seqNpassTaskArgs" 5
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqNpassTaskArgs" -n $seqNode -s end $seqNpassTaskArgs
+      }
+   }
+}
+
+proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
+   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set seqNode [::FlowNodes::getSequencerNode $node]
+   set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
+   set indexListValue ""
+   if { [winfo exists ${indexListW}] } {
+      set indexListValue [${indexListW} get]
+      DEBUG "xflow_abortNpasssTaskCallback indexListValue:$indexListValue" 5
+   }
+   if { ${indexListValue} == "latest" } {
+      Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+   } else {
+      set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
+   
+      if { $seqNpassTaskArgs == "-1" } {
+         Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+      } else {
+         DEBUG "xflow_abortNpasssTaskCallback $seqNpassTaskArgs" 5
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s abort $seqNpassTaskArgs
+
+      }
    }
 }
 
@@ -1679,7 +1730,7 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow} {
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    # retrieve index value from widget
-   set indexListW "${canvas}.[${node} cget flow.name]"
+   set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
    set indexListValue ""
    if { [winfo exists ${indexListW}] } {
       set indexListValue [${indexListW} get]

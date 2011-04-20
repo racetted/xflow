@@ -153,7 +153,8 @@ proc ::DrawUtils::clearBranch { canvas node { cmd_list "" } } {
 }
 
 proc ::DrawUtils::getIndexWidgetName { node canvas } {
-   set indexListW "${canvas}.[string tolower [$node cget flow.name]]"
+   set newNode [regsub -all "/" ${node} _]
+   set indexListW "${canvas}.[string tolower ${newNode}]"
 }
 
 proc ::DrawUtils::clearCanvas { canvas } {
