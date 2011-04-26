@@ -377,7 +377,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
    if { [$binder cget -record_type] == "FlowLoop" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
-         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 5\
+         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 5 \
             -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
          ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
          ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
@@ -416,7 +416,6 @@ proc ::DrawUtils::showIndexWidget { node index_widget } {
 proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
    variable nodeStatusColorMap
    variable nodeTypeMap
-      puts "setIndexWidgetStatuses called node:$node index_widget:$index_widget"
 
    if { [${node} cget -record_type] == "FlowNpassTask" } {
       set extensions [::FlowNodes::getNptExtensions ${node}]

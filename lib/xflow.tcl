@@ -2333,7 +2333,11 @@ proc xflow_quit {} {
       # we are in overview mode
       set childWidgets [winfo children .]
       foreach childW ${childWidgets} {
-         destroy ${childW}
+         if { ${childW} != ".#BWidget" } {
+            # I can't destroy the bwidget one, causing problems
+            # to bwidget nodes
+            destroy ${childW}
+         }
       }
       wm withdraw .
    } else {
