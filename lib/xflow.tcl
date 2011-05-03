@@ -12,6 +12,7 @@ package require tablelist
 package require cmdline
 package require Thread
 package require BWidget 1.9
+package require img::gif
 
 namespace import ::struct::record::*
 
@@ -1184,7 +1185,7 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    ${miscMenu} add command -label "Loop Initbranch" -command [list xflow_initbranchLoopCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Member End" -command [list xflow_endCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Member Initbranch" -command [list xflow_initbranchCallback $node $canvas ${popmenu_w}]
-   ${miscMenu} add command -label "Abort" -command [list xflow_abortCallback $node $canvas $popMenu]
+   ${miscMenu} add command -label "Abort" -command [list xflow_abortCallback $node $canvas ${popmenu_w}]
 }
 
 # creates the popup menu for a npt node
@@ -2030,7 +2031,10 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
       if { $initial_display == "1" } {
          $canvas yview moveto 0
       }
-      xflow_AddCanvasBg ${canvas}
+      #xflow_AddCanvasBg ${canvas}
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      set bgImage [xflow_getWidgetName bg_image]
+      initBackground $canvas ${imageDir}/${bgImage}
    }
    DEBUG "xflow_drawflow() done" 5
 
@@ -2044,8 +2048,8 @@ proc xflow_resizeWindow { canvas } {
    if { [winfo exists ${canvas}] } {
       set topLevel [winfo toplevel ${canvas}]
       set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
-      set heightMax [winfo screenheight [winfo toplevel ${canvas}]]
-      set widthMax [winfo screenwidth [winfo toplevel ${canvas}]]
+      set heightMax [lindex [wm maxsize ${topLevel}] 1]
+      set widthMax [lindex [wm maxsize ${topLevel}] 0]
       set canvasMaximX [::SuiteNode::getDisplayMaximumX ${suiteRecord} ${canvas}]
       set canvasMaximY [::SuiteNode::getDisplayMaximumY ${suiteRecord} ${canvas}]
       set windowW [expr ${canvasMaximX} + 50]
@@ -2272,8 +2276,9 @@ proc xflow_createFlowCanvas { parent } {
 
       # add bg image
       set imageDir [SharedData_getMiscData IMAGE_DIR]
-      image create photo ${canvas}.bg_image -width ${canvasBgImageWidth} -height \
-         ${canvasBgImageHeight} -file ${imageDir}/artist-canvas_2.gif
+      #image create photo ${canvas}.bg_image -width ${canvasBgImageWidth} -height \
+      #   ${canvasBgImageHeight} -file ${imageDir}/artist-canvas_2.gif
+      #initBackground $canvas ${imageDir}/artist-canvas_2.gif
 
       grid $canvas -row 0 -column 0 -sticky nsew
 
@@ -2286,6 +2291,44 @@ proc xflow_createFlowCanvas { parent } {
    }
    return $canvas
 }
+
+proc initBackground {canvas bitmapFilename} {
+    #package require Img
+    package require img::gif
+
+    set sourceImage [image create photo -file $bitmapFilename]
+    set tiledImage [image create photo]
+
+    $canvas create image 0 0 \
+        -anchor nw \
+        -image $tiledImage \
+        -tags {backgroundBitmap}
+
+    $canvas lower backgroundBitmap
+
+    bind $canvas <Configure> [list tile $canvas $sourceImage $tiledImage]
+    bind $canvas <Destroy> [list image delete $sourceImage $tiledImage]
+    tile $canvas $sourceImage $tiledImage
+ }
+
+ proc tile {canvas sourceImage tiledImage} {
+    set canvasBox [${canvas} bbox all]
+    set canvasItemsW [lindex ${canvasBox} 2]
+    set canvasItemsH [lindex ${canvasBox} 3]
+    set canvasW [winfo width ${canvas}]
+    set canvasH [winfo height ${canvas}]
+    set usedW ${canvasItemsW}
+    if { ${canvasW} > ${canvasItemsW} } {
+      set usedW ${canvasW}
+    }
+    set usedH ${canvasItemsH}
+    if { ${canvasH} > ${canvasItemsH} } {
+      set usedH ${canvasH}
+    }
+
+    $tiledImage copy $sourceImage \
+        -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
+ }
 
 proc setErrorMessages {} {
   global ERROR_MSG_LIST
@@ -2343,23 +2386,6 @@ proc xflow_quit {} {
    } else {
       LogReader_cancelAfter $suiteRecord
       exit
-   }
-}
-
-# not used for now
-proc xflow_resizeCallback { source_widget } {
-   DEBUG "xflow_resizeCallback source_widget:$source_widget" 5
-   set suiteRecord [xflow_getActiveSuite]
-   set thisTop [winfo toplevel ${source_widget}]
-   set canvasList [::SuiteNode::getCanvasList ${suiteRecord}]
-   foreach canvasWidget ${canvasList} {
-      set canvasWidgetTop [winfo toplevel ${canvasWidget}]
-      if { ${thisTop} == ${canvasWidgetTop} } {
-         set canvasH [winfo height ${canvasWidget}]
-         set canvasW [expr [winfo width ${canvasWidget} ] + 20]
-         DEBUG "xflow_resizeCallback found canvas:${canvasWidget} height:${canvasH} width:${canvasW}" 5
-         xflow_AddCanvasBg ${canvasWidget}
-      }
    }
 }
 
@@ -2639,6 +2665,8 @@ proc xflow_setWidgetNames {} {
       monitor_date_combo .second_frame.mon_date_frame.entry_combo
       monitor_date_button_frame .second_frame.mon_date_frame.button_frame
       monitor_date_set_button .second_frame.mon_date_frame.button_frame.set_button
+
+      bg_image artist-canvas_2.gif
    }
 }
 

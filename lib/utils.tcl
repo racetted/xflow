@@ -226,9 +226,15 @@ proc Utils_getRealDatestampValue { date } {
    return ${newValue}
 }
 
+#proc Utils_launchShell { exp_path } {
+#   global env
+#   exec ksh -c "cd ${exp_path};xterm -T SEQ_EXP_HOME=${exp_path}" &
+#}
+
 proc Utils_launchShell { exp_path } {
    global env
-   exec ksh -c "cd ${exp_path};xterm -T SEQ_EXP_HOME=${exp_path}" &
+   puts "ssh -X $env(TRUE_HOST) \'cd ${exp_path}; xterm -ls -T SEQ_EXP_HOME=${exp_path}\'"
+   exec ksh -c "ssh -X $env(TRUE_HOST) 'cd ${exp_path}; export SEQ_EXP_HOME=${exp_path}; xterm -ls -T SEQ_EXP_HOME=${exp_path}'" &
 }
 
 #setGlobalValue SEQ_BIN [Sequencer_getPath]

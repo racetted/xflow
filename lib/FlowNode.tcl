@@ -497,7 +497,7 @@ proc ::FlowNodes::resetAllStatus { node new_status {is_recursive 0} } {
    catch { ${node} configure -flow.current "" }
    if { [$node cget -flow.type] == "npass_task"} {
       # for npass_task, we need to empty all the indexes
-      $node configure -flow.statuses {}
+      $node configure -flow.statuses {} -max_ext_value 5 -flow.latest ""
    } else {
       array set statusList [$node cget -flow.statuses]
       foreach { member status } [$node cget -flow.statuses] {
