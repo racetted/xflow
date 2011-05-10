@@ -55,6 +55,7 @@ proc ::DrawUtils::init {} {
       submit submit
       wait   wait
       catchup catchup
+      discret discret
    }
 
    array set constants {
@@ -71,6 +72,7 @@ proc ::DrawUtils::getStatusColor { node_status } {
       end -
       abort -
       catchup -
+      discret -
       wait -
       submit {
          set key STATUS_${node_status}

@@ -13,7 +13,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
    # first cancel any other waiting read for this suite
    LogReader_cancelAfter $suite_record
    set suitePath [$suite_record cget -suite_path]
-   set dateExec "[getGlobalValue SEQ_BIN]/tictac"
+   set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
    set expDate ""
    set monitorLog [$suite_record cget -active_log]
    if { $monitorLog == "" } {

@@ -99,6 +99,7 @@ proc SharedData_initColors {} {
       SharedData_setColor STATUS_end "white DodgerBlue3 DodgerBlue3"
       SharedData_setColor STATUS_catchup "white #913b9c #913b9c"
       SharedData_setColor STATUS_wait "black #e7ce69 #e7ce69"
+      SharedData_setColor STATUS_discret "white #913b9c #913b9c"
       SharedData_setColor STATUS_unknown "white black black"
 
       SharedData_setColor STATUS_SHADOW "white black black"

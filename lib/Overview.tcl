@@ -935,7 +935,7 @@ proc Overview_boxMenu { canvas exp_path x y } {
 # this function is called to show the history of an experiment
 proc Overview_historyCallback { canvas exp_path caller_menu } {
    DEBUG "Overview_historyCallback exp_path:$exp_path" 5
-   set seqExec [getGlobalValue SEQ_UTILS_BIN]/nodehistory
+   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
 
    set seqNode [SharedData_getSuiteData ${exp_path} ROOT_NODE]
    Sequencer_runCommandWithWindow $exp_path $seqExec "Node History ${exp_path}" -n $seqNode
