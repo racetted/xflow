@@ -27,7 +27,15 @@ if [[ "${SEQ_XFLOW_BIN}" = "" ]] ; then
 fi
 
 # setting the display properly
-export DISPLAY=${display:-${DISPLAY}}
+if [[ "${display}" = "" ]] ; then 
+   # use the ssh -Y, allow trusted hosts
+   sshX="-Y"
+else
+   sshX=""
+   export DISPLAY=${display:-${DISPLAY}}
+fi
+
+print "\ndisplay=${display}"
 print "\nusing DISPLAY=$DISPLAY"
 
 # switch to another user?
@@ -40,14 +48,14 @@ if [[ "${as}" != "" ]] ; then
          echo "xflow_overview Fatal Error: cannot find ssh command key ${sshCommandKey}" 
 	 exit 1
       fi
-      print "\nxflow_overview command\n--- echo ${0} ${arguments} | ssh -T -i ${sshCommandKey} ${as}@${TRUE_HOST} ---"
-      echo "${0} ${arguments}" | ssh -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
+      print "\nxflow_overview command\n--- echo ${0} ${arguments} | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST} ---"
+      echo "xflow_overview ${arguments}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
       exit 0
    else
       if [[ "${USER}" != "${as}" ]] ; then
          print "\nxflow_overview switching ${USER} user to ${as} dollar_0=${0}"
-         print "\nxflow_overview command\n--- echo ${0} ${arguments} | ssh -T ${as}@${TRUE_HOST} ---"
-	 echo "${0} ${arguments}" | ssh -T ${as}@${TRUE_HOST}
+         print "\nxflow_overview command\n--- echo ${0} ${arguments} | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
+	 echo "xflow_overview ${arguments}" | ssh ${sshX} -T ${as}@${TRUE_HOST}
 	 exit 0
       fi
    fi

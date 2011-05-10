@@ -12,6 +12,7 @@ package require tablelist
 package require cmdline
 package require Thread
 package require BWidget 1.9
+package require img::gif
 
 namespace import ::struct::record::*
 
@@ -158,12 +159,14 @@ proc xflow_createToolbar { parent } {
 
    set msgCenterW [xflow_getWidgetName msgcenter_button]
    set nodeKillW [xflow_getWidgetName nodekill_button]
+   set catchupW [xflow_getWidgetName catchup_button]
    set nodeListW [xflow_getWidgetName nodelist_button]
    set nodeAbortListW [xflow_getWidgetName abortlist_button]
    set colorLegendW [xflow_getWidgetName legend_button]
    set closeW [xflow_getWidgetName dep_button]
    set depW [xflow_getWidgetName close_button]
    set shellW [xflow_getWidgetName shell_button]
+   set catchupTopW [xflow_getWidgetName catchup_toplevel]
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
 
@@ -172,6 +175,7 @@ proc xflow_createToolbar { parent } {
    image create photo ${noNewMsgImage} -file ${imageDir}/open_mail_sh.ppm
    image create photo ${hasNewMsgImage} -file ${imageDir}/open_mail_new.ppm
    image create photo ${parent}.node_kill_img -file ${imageDir}/node_kill.ppm
+   image create photo ${parent}.catchup_img -file ${imageDir}/catchup.ppm
    image create photo ${parent}.node_list_img -file ${imageDir}/node_list.ppm
    image create photo ${parent}.node_abort_list_img -file ${imageDir}/node_abort_list.ppm
    image create photo ${parent}.close -file ${imageDir}/cancel.ppm
@@ -187,6 +191,9 @@ proc xflow_createToolbar { parent } {
 
    button ${nodeKillW} -image ${parent}.node_kill_img -command [list xflow_nodeKillDisplay ${parent} ]
    tooltip::tooltip ${nodeKillW}  "Open job killing dialog"
+
+   button ${catchupW} -image ${parent}.catchup_img -command [list Catchup_createMainWidgets ${catchupTopW}]
+   tooltip::tooltip ${catchupW}  "Open exp catchup window"
 
    button ${shellW} -image ${parent}.shell_img -command xflow_launchShellCallback
    tooltip::tooltip ${shellW}  "Start shell at exp home"
@@ -205,7 +212,7 @@ proc xflow_createToolbar { parent } {
 
    button ${depW} -image ${parent}.ignore_dep_false -command [list xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false] -state disabled
 
-   xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
+   #xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
       set overviewW [xflow_getWidgetName overview_button]
@@ -216,9 +223,9 @@ proc xflow_createToolbar { parent } {
       }
       ::tooltip::tooltip ${overviewW} "Show overview window."
       ::tooltip::tooltip ${closeW} "Close window."
-      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${shellW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
    } else {
-      grid ${msgCenterW} ${nodeKillW} ${shellW} ${depW}  ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${depW}  ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
    }
 
 }
@@ -486,7 +493,7 @@ proc xflow_nodeKillDisplay { parent_w } {
    set tmpfile "${tmpdir}/test$id"
    set suiteRecord [xflow_getActiveSuite]
    set suitePath [$suiteRecord cget -suite_path]
-   set killPath [getGlobalValue SEQ_UTILS_BIN]/nodekill 
+   set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
    set cmd "export SEQ_EXP_HOME=$suitePath; $killPath -listall > $tmpfile 2>&1"
    DEBUG "xflow_nodeKillDisplay ksh -c $cmd" 5
    catch { eval [exec ksh -c $cmd ] }
@@ -549,7 +556,7 @@ proc xflow_killNode { list_widget } {
    }
    set suiteRecord [xflow_getActiveSuite]
    set suitePath [$suiteRecord cget -suite_path]
-   set seqExec [getGlobalValue SEQ_UTILS_BIN]/nodekill
+   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill
    set numOfEntries [llength $listOfNodes]
 
    for {set iterator 0} {$iterator < $numOfEntries} {incr iterator} {
@@ -757,7 +764,7 @@ proc xflow_datestampChanged { suite_record } {
 # by the maestro tictac command. The format is '%Y%M%D%H%Min%S' i.e. 20110216000000
 proc xflow_retrieveDateStamp { parent_w suite_record } {
 
-   set dateExec "[getGlobalValue SEQ_BIN]/tictac"
+   set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
    set suitePath [${suite_record} cget -suite_path]
    set cmd "export SEQ_EXP_HOME=$suitePath;$dateExec -f '%Y%M%D%H%Min%S'"
    set dateStamp ""
@@ -776,7 +783,7 @@ proc xflow_retrieveDateStamp { parent_w suite_record } {
 proc xflow_setDateStamp { parent_w } {
    global MONITOR_DATESTAMP
    set top [winfo toplevel $parent_w]
-   set dateExec "[getGlobalValue SEQ_BIN]/tictac"
+   set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
    set suiteRecord [xflow_getActiveSuite]
    set suitePath [$suiteRecord cget -suite_path]
    set dateEntry [xflow_getWidgetName exp_date_entry]
@@ -1184,7 +1191,7 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    ${miscMenu} add command -label "Loop Initbranch" -command [list xflow_initbranchLoopCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Member End" -command [list xflow_endCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Member Initbranch" -command [list xflow_initbranchCallback $node $canvas ${popmenu_w}]
-   ${miscMenu} add command -label "Abort" -command [list xflow_abortCallback $node $canvas $popMenu]
+   ${miscMenu} add command -label "Abort" -command [list xflow_abortCallback $node $canvas ${popmenu_w}]
 }
 
 # creates the popup menu for a npt node
@@ -1218,9 +1225,9 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
    ${submitMenu} add command -label "Submit & Stop" -command [list xflow_submitNpassTaskCallback $node $canvas ${popmenu_w} stop ]
    ${submitMenu} add cascade -label "NO Dependency" -underline 4 -menu [menu ${submitNoDependMenu}]
    ${submitNoDependMenu} add command -label "Submit & Continue" -underline 9 \
-      -command [list xflow_submitCallback $node $canvas ${popmenu_w} continue dep_off ]
+      -command [list xflow_submitNpassTaskCallback $node $canvas ${popmenu_w} continue dep_off ]
    ${submitNoDependMenu} add command -label "Submit & Stop" -underline 9 \
-      -command [list xflow_submitCallback $node $canvas ${popmenu_w} stop dep_off ]
+      -command [list xflow_submitNpassTaskCallback $node $canvas ${popmenu_w} stop dep_off ]
 
    ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback $node $canvas ${popmenu_w}]
@@ -1282,7 +1289,7 @@ proc xflow_newWindowCallback { node canvas caller_menu } {
 proc xflow_historyCallback { node canvas caller_menu history {full_loop 0} } {
    DEBUG "xflow_historyCallback node:$node canvas:$canvas $full_loop" 5
 
-   set seqExec [getGlobalValue SEQ_UTILS_BIN]/nodehistory
+   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
@@ -1324,7 +1331,7 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
    set textWidget [text $infoWidget.txt]
    set outputFile $env(TMPDIR)/nodeinfo_output_${nodeTail}_[clock seconds]
    set seqExpHome [$suiteRecord cget -suite_path]
-   set nodeInfoExec "[getGlobalValue SEQ_BIN]/nodeinfo"
+   set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
    if { [$node cget -flow.type] == "npass_task" } {
       set seqLoopArgs [::FlowNodes::getNptArgs ${node} ]
@@ -1363,7 +1370,7 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
 # current container node. It deletes all sequencer related node status files for
 # the current node and all its child nodes.
 proc xflow_initbranchCallback { node canvas caller_menu } {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
@@ -1381,7 +1388,7 @@ proc xflow_initbranchCallback { node canvas caller_menu } {
 # current task node. It deletes all sequencer related node status files for
 # the current node.
 proc xflow_initnodeCallback { node canvas caller_menu } {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
@@ -1397,7 +1404,7 @@ proc xflow_initnodeCallback { node canvas caller_menu } {
 # current loop node. It deletes all sequencer related node status files for
 # the current loop node and all its child iteration nodes.
 proc xflow_initbranchLoopCallback { node canvas caller_menu } {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
@@ -1410,7 +1417,7 @@ proc xflow_initbranchLoopCallback { node canvas caller_menu } {
 
 # forces an abort to be sent to maestro sequencer
 proc xflow_abortCallback { node canvas caller_menu } {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
@@ -1422,7 +1429,7 @@ proc xflow_abortCallback { node canvas caller_menu } {
 }
 
 proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
@@ -1446,7 +1453,7 @@ proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
 }
 
 proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
@@ -1491,7 +1498,7 @@ proc xflow_killNodeFromDropdown { node canvas caller_menu } {
    set suiteRecord [xflow_getActiveSuite]
    set suitePath [$suiteRecord cget -suite_path]
    set seqNode [::FlowNodes::getSequencerNode $node]
-   set killPath [getGlobalValue SEQ_UTILS_BIN]/nodekill 
+   set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
    set cmd "export SEQ_EXP_HOME=$suitePath; $killPath -n $seqNode -list > $tmpfile 2>&1"
    DEBUG "xflow_killNodeFromDropdown ksh -c $cmd" 5
    catch { eval [exec ksh -c $cmd ] }
@@ -1538,7 +1545,7 @@ proc xflow_killNodeFromDropdown { node canvas caller_menu } {
 
 # forces and end signal to be sent to the maestro sequencer for the current node.
 proc xflow_endCallback { node canvas caller_menu } {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
 
@@ -1554,7 +1561,7 @@ proc xflow_endCallback { node canvas caller_menu } {
 
 # forces and end signal to be sent to the maestro sequencer for the current loop node.
 proc xflow_endLoopCallback { node canvas caller_menu } {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
 
@@ -1570,7 +1577,7 @@ proc xflow_endLoopCallback { node canvas caller_menu } {
 # displays the content of a task node (.tsk)
 proc xflow_sourceCallback { node canvas caller_menu} {
    global SESSION_TMPDIR
-   set seqExec "[getGlobalValue SEQ_UTILS_BIN]/nodesource"
+   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodesource"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -1595,7 +1602,7 @@ proc xflow_sourceCallback { node canvas caller_menu} {
 # displays the content of a config file (.cfg) if it is available.
 proc xflow_configCallback { node canvas caller_menu} {
    global SESSION_TMPDIR
-   set seqExec "[getGlobalValue SEQ_UTILS_BIN]/nodeconfig"
+   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodeconfig"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
 
@@ -1621,7 +1628,7 @@ proc xflow_configCallback { node canvas caller_menu} {
 # displays the resource file (.def) if it is available
 proc xflow_resourceCallback { node canvas caller_menu } {
    global SESSION_TMPDIR
-   set seqExec "[getGlobalValue SEQ_UTILS_BIN]/noderesource"
+   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/noderesource"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -1646,7 +1653,7 @@ proc xflow_resourceCallback { node canvas caller_menu } {
 # displays the latest batch command file generated by maestro
 proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
-   set seqExec "[getGlobalValue SEQ_UTILS_BIN]/nodebatch"
+   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodebatch"
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
@@ -1685,13 +1692,12 @@ proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
 # continue or stop executing upon completion of the current node
 # - local_ignore should be set to "dep_off" for local dependencies to be ignored.
 proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_on} } {
-   # global ignoreDep
-   set test_flag ""
+   set ignoreDepFlag ""
    if { ${local_ignore_dep} == "dep_off" } {
-      set test_flag " -i"
+      set ignoreDepFlag " -i"
    }
 
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
@@ -1699,14 +1705,18 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "node submit" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow $test_flag $seqLoopArgs
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
 
    }
 }
 
 # same as previous but for loop node
-proc xflow_submitLoopCallback { node canvas caller_menu flow} {
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+proc xflow_submitLoopCallback { node canvas caller_menu flow {local_ignore_dep dep_on}} {
+   set ignoreDepFlag ""
+   if { ${local_ignore_dep} == "dep_off" } {
+      set ignoreDepFlag " -i"
+   }
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
 
@@ -1715,16 +1725,20 @@ proc xflow_submitLoopCallback { node canvas caller_menu flow} {
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "loop submit" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow $seqLoopArgs   
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs   
    }
 }
 
 # same as previous but for npt node
-proc xflow_submitNpassTaskCallback { node canvas caller_menu flow} {
-   global ignoreDep
+proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_dep dep_on} } {
 
    DEBUG "xflow_submitNpassTaskCallback node:$node canvas:$canvas" 5
-   set seqExec "[getGlobalValue SEQ_BIN]/maestro"
+   set ignoreDepFlag ""
+   if { ${local_ignore_dep} == "dep_off" } {
+      set ignoreDepFlag " -i"
+   }
+
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
 
@@ -1745,7 +1759,7 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow} {
          Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
          DEBUG "xflow_submitNpassTaskCallback $seqNpassTaskArgs" 5
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow $ignoreDep $seqNpassTaskArgs
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqNpassTaskArgs
 
       }
    }
@@ -1755,7 +1769,7 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow} {
 proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    DEBUG "xflow_allListingCallback node:$node canvas:$canvas" 5
-   set listingExec [getGlobalValue SEQ_UTILS_BIN]/nodelister
+   set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
@@ -1800,7 +1814,7 @@ proc xflow_allListingCallback { node canvas caller_menu type } {
    set seqNode [::FlowNodes::getSequencerNode $node]
    #set nodeExt [::FlowNodes::getListingNodeExtension $node 0]
    set suitePath [$suiteRecord cget -suite_path]
-   set listerPath [getGlobalValue SEQ_UTILS_BIN]/nodelister
+   set listerPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    #if { $nodeExt == "-1" } {
    #   Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
    #   return
@@ -1847,7 +1861,7 @@ proc xflow_showAllListingItem { suite_record listw list_type} {
    global SESSION_TMPDIR
    DEBUG "xflow_showAllListingItem selection: [$listw curselection]" 5
    set selectedIndexes [$listw curselection]
-   set listingExec [getGlobalValue SEQ_UTILS_BIN]/nodelister
+   set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    set suitePath [${suite_record} cget -suite_path]
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -1880,7 +1894,7 @@ proc xflow_showAllListingItem { suite_record listw list_type} {
 proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    DEBUG "xflow_abortListingCallback node:$node canvas:$canvas" 5
-   set abortListingExec [getGlobalValue SEQ_UTILS_BIN]/nodelister
+   set abortListingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
@@ -2030,7 +2044,9 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
       if { $initial_display == "1" } {
          $canvas yview moveto 0
       }
-      xflow_AddCanvasBg ${canvas}
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      set bgImage [xflow_getWidgetName bg_image]
+      xflow_addBgImage $canvas ${imageDir}/${bgImage}
    }
    DEBUG "xflow_drawflow() done" 5
 
@@ -2044,8 +2060,8 @@ proc xflow_resizeWindow { canvas } {
    if { [winfo exists ${canvas}] } {
       set topLevel [winfo toplevel ${canvas}]
       set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
-      set heightMax [winfo screenheight [winfo toplevel ${canvas}]]
-      set widthMax [winfo screenwidth [winfo toplevel ${canvas}]]
+      set heightMax [lindex [wm maxsize ${topLevel}] 1]
+      set widthMax [lindex [wm maxsize ${topLevel}] 0]
       set canvasMaximX [::SuiteNode::getDisplayMaximumX ${suiteRecord} ${canvas}]
       set canvasMaximY [::SuiteNode::getDisplayMaximumY ${suiteRecord} ${canvas}]
       set windowW [expr ${canvasMaximX} + 50]
@@ -2098,7 +2114,7 @@ proc xflow_createTabs { parent suiteList bind_cmd {page_h 1} {page_w 1}} {
 proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
    global env
    DEBUG "xflow_getNodeResources node:$node"
-   set nodeInfoExec "[getGlobalValue SEQ_BIN]/nodeinfo"
+   set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
 
@@ -2144,7 +2160,7 @@ proc xflow_getLoopResources { node suite_path } {
       return
    }
 
-   set nodeInfoExec "[getGlobalValue SEQ_BIN]/nodeinfo"
+   set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
 
@@ -2270,11 +2286,6 @@ proc xflow_createFlowCanvas { parent } {
       canvas $canvas -yscrollcommand [list ${drawFrame}.yscroll set] \
          -xscrollcommand [list ${drawFrame}.xscroll set] -relief raised -bg $canvasColor
 
-      # add bg image
-      set imageDir [SharedData_getMiscData IMAGE_DIR]
-      image create photo ${canvas}.bg_image -width ${canvasBgImageWidth} -height \
-         ${canvasBgImageHeight} -file ${imageDir}/artist-canvas_2.gif
-
       grid $canvas -row 0 -column 0 -sticky nsew
 
 
@@ -2286,6 +2297,43 @@ proc xflow_createFlowCanvas { parent } {
    }
    return $canvas
 }
+
+proc xflow_addBgImage {canvas bitmapFilename} {
+    package require img::gif
+
+    set sourceImage [image create photo -file $bitmapFilename]
+    set tiledImage [image create photo]
+
+    $canvas create image 0 0 \
+        -anchor nw \
+        -image $tiledImage \
+        -tags {backgroundBitmap}
+
+    $canvas lower backgroundBitmap
+
+    bind $canvas <Configure> [list xflow_tileBgImage $canvas $sourceImage $tiledImage]
+    bind $canvas <Destroy> [list image delete $sourceImage $tiledImage]
+    xflow_tileBgImage $canvas $sourceImage $tiledImage
+ }
+
+ proc xflow_tileBgImage {canvas sourceImage tiledImage} {
+    set canvasBox [${canvas} bbox all]
+    set canvasItemsW [lindex ${canvasBox} 2]
+    set canvasItemsH [lindex ${canvasBox} 3]
+    set canvasW [winfo width ${canvas}]
+    set canvasH [winfo height ${canvas}]
+    set usedW ${canvasItemsW}
+    if { ${canvasW} > ${canvasItemsW} } {
+      set usedW ${canvasW}
+    }
+    set usedH ${canvasItemsH}
+    if { ${canvasH} > ${canvasItemsH} } {
+      set usedH ${canvasH}
+    }
+
+    $tiledImage copy $sourceImage \
+        -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
+ }
 
 proc setErrorMessages {} {
   global ERROR_MSG_LIST
@@ -2333,29 +2381,16 @@ proc xflow_quit {} {
       # we are in overview mode
       set childWidgets [winfo children .]
       foreach childW ${childWidgets} {
-         destroy ${childW}
+         if { ${childW} != ".#BWidget" } {
+            # I can't destroy the bwidget one, causing problems
+            # to bwidget nodes
+            destroy ${childW}
+         }
       }
       wm withdraw .
    } else {
       LogReader_cancelAfter $suiteRecord
       exit
-   }
-}
-
-# not used for now
-proc xflow_resizeCallback { source_widget } {
-   DEBUG "xflow_resizeCallback source_widget:$source_widget" 5
-   set suiteRecord [xflow_getActiveSuite]
-   set thisTop [winfo toplevel ${source_widget}]
-   set canvasList [::SuiteNode::getCanvasList ${suiteRecord}]
-   foreach canvasWidget ${canvasList} {
-      set canvasWidgetTop [winfo toplevel ${canvasWidget}]
-      if { ${thisTop} == ${canvasWidgetTop} } {
-         set canvasH [winfo height ${canvasWidget}]
-         set canvasW [expr [winfo width ${canvasWidget} ] + 20]
-         DEBUG "xflow_resizeCallback found canvas:${canvasWidget} height:${canvasH} width:${canvasW}" 5
-         xflow_AddCanvasBg ${canvasWidget}
-      }
    }
 }
 
@@ -2617,6 +2652,7 @@ proc xflow_setWidgetNames {} {
       toolbar_frame .second_frame.toolbar
       msgcenter_button .second_frame.toolbar.button_msgcenter
       nodekill_button .second_frame.toolbar.button_nodekill
+      catchup_button .second_frame.toolbar.button_catchup
       nodelist_button .second_frame.toolbar.button_nodelist
       abortlist_button .second_frame.toolbar.button_nodeabortlist
       dep_button .second_frame.toolbar.button_dep
@@ -2635,6 +2671,9 @@ proc xflow_setWidgetNames {} {
       monitor_date_combo .second_frame.mon_date_frame.entry_combo
       monitor_date_button_frame .second_frame.mon_date_frame.button_frame
       monitor_date_set_button .second_frame.mon_date_frame.button_frame.set_button
+
+      bg_image artist-canvas_2.gif
+      catchup_toplevel .catchup_top
    }
 }
 
