@@ -466,7 +466,13 @@ proc ::FlowNodes::setMemberStatus { node member new_status {timestamp ""} {is_re
       } else {
          if { ${new_status} == "init" } {
             if { [info exists statusList($member)] } {
+               # reset the exact member match
                unset statusList($member)
+            }
+            # reset all members that are part of the same iteration
+            set resetList [array get statusList ${member}+*]
+            foreach {item value} ${resetList} {
+               unset statusList($item)
             }
          } else {
             if { ${timestamp} != "" } {
