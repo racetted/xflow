@@ -5,6 +5,9 @@ proc LogReader_readFile { suite_record calling_thread_id } {
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set thisThreadId [thread::id]
+   SharedData_setMiscData ${thisThreadId}_CALLING_THREAD_ID ${calling_thread_id}
+
+
    set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
    if { ${isThreadStartupDone} == "true" } {
       set isStartupDone true
@@ -225,7 +228,8 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
       set flowNode [::SuiteNode::getFlowNodeMapping $suite_record $node]
       set type [string range $line $typeStartIndex $typeEndIndex]
       set msg ""
-      if { ! ($node == "" || $type == "") } {
+      puts "LogReader_processLine node:$node flowNode:$flowNode"
+      if { $type != "" } {
          if { $loopIndex != -1 } {
             set loopExt [string range $line $loopStartIndex $loopEndIndex]
          }
@@ -234,62 +238,71 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
          }
          # send message to message center
          if { ${type} == "abort" || ${type} == "info" || ${type} == "event" } {
+            if { ${node} == "" } {
+               set msgNode NONE
+            } else {
+               set msgNode ${node}
+            }
             set expPath [${suite_record} cget -suite_path]
             set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
             thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenterThread_newMessage ${currentDatestamp} ${timestamp} ${type} ${node}${loopExt} ${expPath} \"${msg}\""
+               "MsgCenterThread_newMessage \"${currentDatestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${expPath} \"${msg}\""
             # Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
          }
          # abortx, endx, beginx type are used for signals we send to the parent containers nodes
          # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
          # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
          set finalCmd ""
-         if { [info exists ::DrawUtils::rippleStatusMap(${type})] } {
-            set type $::DrawUtils::rippleStatusMap(${type})
+         if { $node != "" } {
 
-            DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
-            DEBUG "LogReader_processLine message=$msg" 5
-            if { [record exists instance $flowNode] } {
-               # 1 - first we take care of setting the node status
-               if { [string tolower $type] == "init" } {
-                  if { [$flowNode cget -flow.type] == "loop" } {
-                     if { $loopExt != "" } {
-                        FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 1
-                     } else {
-                        # we got an update on the whole loop
-                        FlowNodes::resetAllStatus $flowNode init 1
+            if { [info exists ::DrawUtils::rippleStatusMap(${type})] } {
+               set type $::DrawUtils::rippleStatusMap(${type})
+
+               DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
+               DEBUG "LogReader_processLine message=$msg" 5
+               if { [record exists instance $flowNode] } {
+                  # 1 - first we take care of setting the node status
+                  if { [string tolower $type] == "init" } {
+                     if { [$flowNode cget -flow.type] == "loop" } {
+                        if { $loopExt != "" } {
+                           
+                           FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 1
+                        } else {
+                           # we got an update on the whole loop
+                           FlowNodes::resetAllStatus $flowNode init 1
+                        }
+                     } else { 
+                        # current node is not loop
+                        if { [$flowNode cget -flow.loops] != "" } {
+                           # part of parent loop container
+                           FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 1
+                        } else {
+                           ::FlowNodes::resetNodeStatus $flowNode 
+                        }
                      }
-                  } else { 
-                     # current node is not loop
-                     if { [$flowNode cget -flow.loops] != "" } {
-                        # part of parent loop container
-                        FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 1
-                     } else {
-                        ::FlowNodes::resetNodeStatus $flowNode 
+                  } else {
+                     # not init state, any other
+                     if { [$flowNode cget -flow.type] == "loop" || [$flowNode cget -flow.type] == "npass_task" } {
+                        if { $loopExt != "" } {
+                           # we got an update on a loop iteration
+                           FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 0
+                        } else {
+                           # we got an update on the whole loop
+                           FlowNodes::setMemberStatus $flowNode all $type ${timestamp}
+                        }
+                     } else { 
+                        # current node is not loop
+                        FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp}
                      }
                   }
-               } else {
-                  # not init state, any other
-                  if { [$flowNode cget -flow.type] == "loop" || [$flowNode cget -flow.type] == "npass_task" } {
-                     if { $loopExt != "" } {
-                        # we got an update on a loop iteration
-                        FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 0
-                     } else {
-                        # we got an update on the whole loop
-                        FlowNodes::setMemberStatus $flowNode all $type ${timestamp}
-                     }
-                  } else { 
-                     # current node is not loop
-                     FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp}
+      
+                  # 2 - then we refresh the display... redisplay the node text?
+                  set thisThreadId [thread::id]
+                  set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
+                  if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" &&
+                     [::FlowNodes::isRefreshNeeded ${flowNode} ${loopExt} ] == "true" } {
+                     xflow_redrawNodes ${flowNode}
                   }
-               }
-   
-               # 2 - then we refresh the display... redisplay the node text?
-               set thisThreadId [thread::id]
-               set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
-               if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" &&
-                    [::FlowNodes::isRefreshNeeded ${flowNode} ${loopExt} ] == "true" } {
-                  xflow_redrawNodes ${flowNode}
                }
             }
          }

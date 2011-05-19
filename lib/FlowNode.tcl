@@ -51,6 +51,7 @@ record define FlowFamily {
 }
 
 record define FlowModule {
+   load_time
    {record FlowNode flow}
    {record_type "FlowModule"}
 }
@@ -307,6 +308,17 @@ proc ::FlowNodes::isCollapsed { node canvas } {
    return $value
 }
 
+proc ::FlowNodes::isParentCollapsed { node canvas } {
+   set parentNode [${node} cget -flow.parent]
+   if { ${parentNode} != "" } {
+      array set displayInfoList [${parentNode} cget -flow.display_infos]
+      set displayInfo $displayInfoList($canvas)
+      set value [lindex $displayInfo 0]
+      return $value
+   }
+   return 0
+}
+
 proc ::FlowNodes::setCollapsed { node canvas value } {
    #puts "::FlowNodes::setCollapsed node:$node canvas:$canvas value:$value"
    array set displayInfoList [$node cget -flow.display_infos]
@@ -318,6 +330,13 @@ proc ::FlowNodes::setCollapsed { node canvas value } {
    $node configure -flow.display_infos [array get displayInfoList]
 
    #puts "array info after: [$node cget -flow.display_infos]"
+   set childList [$node cget -flow.children]
+   if { ${childList} != "" } {
+      foreach childName ${childList} {
+         set childNode $node/$childName
+         ::FlowNodes::setCollapsed $childNode $canvas ${value}
+      }
+   }
 
 }
 
@@ -1123,3 +1142,39 @@ proc ::FlowNodes::isRefreshNeeded { flow_node current_ext } {
    return ${refreshNeeded}
 }
 
+# verifies if the flow.xml of each module has changed compared to the last time
+# the module was loaded. Returns true if the flow has been modified,
+# otherwise returns false
+proc ::FlowNodes::isFlowModified {} {
+   global env
+   set modules [record show instances FlowModule]
+   set isModified false
+   foreach module ${modules} {
+      set moduleName [${module} cget -flow.name]
+      set flowFile $env(SEQ_EXP_HOME)/modules/${moduleName}/flow.xml
+      set loadTime [${module} cget -load_time]
+      set flowModTime [file mtime ${flowFile}]
+      if { ${loadTime} != "" && ${flowModTime} > ${loadTime} } {
+         set isModified true
+         DEBUG "::FlowNodes::isFlowModified ${flowFile} has been modified" 5
+         break
+      }
+   }
+   return ${isModified}
+}
+
+# this function is called to delete all flow instances that exists
+# in memory before redrawing an exp flow. Its purpose is mainly to cover
+# potential errors due to a module flow.xml change in which existing flow nodes
+# do not belong to the same parent node anymore
+proc ::FlowNodes::clearAllNodes {} {
+   set nodeTypes { FlowNode FlowTask FlowFamily FlowLoop FlowModule FlowNpassTask }
+   foreach nodeType ${nodeTypes} {
+      if { [record exists record ${nodeType}] } {
+         set nodes [record show instances ${nodeType}]
+         foreach node ${nodes} {
+            record delete instance ${node}
+         }
+      }
+   }
+}

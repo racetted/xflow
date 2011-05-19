@@ -6,7 +6,7 @@ namespace import ::struct::record::*
 # key: canvas_name
 # value: canvas_next_y root_node
 namespace eval ::SuiteNode {
-   namespace export getSuiteRecord resetDisplayNextY \
+   namespace export resetDisplayNextY \
       removeDisplayFromSuite setDisplayNextY getDisplayNextY \
       setDisplayRoot getDisplayRoot
 }
@@ -63,14 +63,6 @@ proc ::SuiteNode::getSuiteRecordFromPath { suite_path } {
    return ""
 }
 
-proc ::SuiteNode::getSuiteRecord { canvas } {
-   set splitList [split $canvas .]
-   set suiteName [lindex $splitList 2]
-   set suiteRecord SuiteInfo.$suiteName
-
-   return $suiteRecord
-}
-
 proc ::SuiteNode::resetDisplayNextY { suite canvas } {
    setDisplayNextY $suite $canvas 40
 }
@@ -90,8 +82,7 @@ proc ::SuiteNode::resetDisplayData { suite canvas } {
 proc ::SuiteNode::initDisplay { suite canvas } {
    array set canvasList [$suite cget -canvas_info]
    if { ! [info exists canvasList($canvas)] } {
-      set suiteRecord [getSuiteRecord $canvas]
-      set canvasList($canvas) [list 40 "/[$suiteRecord cget -suite_name]" 40 40]
+      set canvasList($canvas) [list 40 "/[${suite} cget -suite_name]" 40 40]
       $suite configure -canvas_info [array get canvasList]
    }
 }

@@ -163,7 +163,7 @@ proc ::DrawUtils::clearCanvas { canvas } {
    if { [winfo exists $canvas] } {
       # flush everything in the canvas
       $canvas delete all
-      set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+      set suiteRecord [xflow_getActiveSuite]
    }
    update idletasks
 }
@@ -314,11 +314,12 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder
        $canvas lower ${binder}.shadow ${binder}.losange
    }
 
-   set suite [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
+
    set maximX ${sx2}
    set maximY ${sy3}
    set nextY  [expr $sy4 + 10]
-   ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
+   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
 }
 
@@ -368,11 +369,11 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
        $canvas lower ${binder}.shadow ${binder}.oval
    }
 
-   set suite [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set maximX ${sx2}
    set maximY ${sy2}
    set nextY  [expr $sy2 + 10]
-   ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
+   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 
    # this part adds a combo box to hold the index values of a loop node
@@ -402,7 +403,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
       set maximX ${sx2}
       set maximY ${barY}
       set nextY [expr $barY + [winfo height ${indexListW}] + 20]
-      ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
       # popup tooltip with loop arguments
       ::tooltip::tooltip $canvas -item ${binder} [::FlowNodes::getLoopTooltip ${binder}]
    }
@@ -620,12 +621,13 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
        $canvas lower ${binder}.shadow ${binder}.rectangle
    }
 
-   set suite [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
+
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
    set maximX ${sx2}
    set maximY ${sy2}
    set nextY ${ny2}
-   ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
+   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
 }
 
 proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
@@ -659,11 +661,11 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
        $canvas lower ${binder}.shadow ${binder}.rectangle
    }
 
-   set suite [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set maximX ${sx2}
    set maximY ${sy2}
    set nextY ${ny2}
-   ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
+   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
 
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
    if { [$binder cget -record_type] == "FlowNpassTask" } {
@@ -691,7 +693,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
       set maximX ${sx2}
       set maximY ${barY}
       set nextY  [expr $barY + [winfo height  ${indexListW}] + 20]
-      ::SuiteNode::setDisplayData $suite $canvas ${nextY} ${maximX} ${maximY}
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
    }
 
 }
