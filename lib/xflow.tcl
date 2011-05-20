@@ -2548,7 +2548,6 @@ proc xflow_displayFlow { calling_thread_id } {
    global MONITORING_LATEST MONITOR_DATESTAMP
 
    DEBUG "xflow_displayFlow thread id:[thread::id]" 5
-   puts "xflow_displayFlow thread id:[thread::id] sua"
 
    set topFrame [xflow_getWidgetName top_frame]
 
@@ -2558,18 +2557,14 @@ proc xflow_displayFlow { calling_thread_id } {
    if { ! [winfo exists ${topFrame}] } {
       xflow_createWidgets
    }
-   puts "xflow_displayFlow sua here 1"
-
    set suitePath $env(SEQ_EXP_HOME)
    set activeSuiteRecord [xflow_getActiveSuite]
    set rootNode [${activeSuiteRecord} cget -root_node]
 
-   puts "xflow_displayFlow sua here 2"
    xflow_getNodeResources ${rootNode} $suitePath 1
 
    # initial monitor dates
    xflow_populateMonitorDate [xflow_getWidgetName monitor_date_frame]
-   puts "xflow_displayFlow sua here 3"
 
    if { ${MONITORING_LATEST} == "1" } {
       # the thread id associated to an exp path is mainly used by
@@ -2581,7 +2576,6 @@ proc xflow_displayFlow { calling_thread_id } {
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" &&
         ${MONITORING_LATEST} == "0" && ${MONITOR_DATESTAMP} != "" } {
-   puts "xflow_displayFlow overview sua"
       # we are in overview mode and exp history viewing mode
       # point the suite to the exp history log file
       ${activeSuiteRecord} configure -read_offset 0 -active_log ${MONITOR_DATESTAMP}
@@ -2594,10 +2588,8 @@ proc xflow_displayFlow { calling_thread_id } {
       # then show the flow
       xflow_selectSuiteCallback
    } else {
-   puts "xflow_displayFlow regular sua"
       # normal mode
       if { ${XFLOW_STANDALONE} == "1" && [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
-   puts "xflow_displayFlow regular sua 2"
         # in overview mode, the log has already been read once before it reached here,
         # no need to read again... only read for xflow standalone
         xflow_initStartupMode

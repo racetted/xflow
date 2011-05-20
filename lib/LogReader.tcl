@@ -1,7 +1,10 @@
+package require textutil::string
+
 proc LogReader_readFile { suite_record calling_thread_id } {
-   global MONITOR_THREAD_ID REDRAW_FLOW
+   global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODE
    DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id"
    set REDRAW_FLOW false
+   set LOGREADER_UPDATE_NODE ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set thisThreadId [thread::id]
@@ -100,10 +103,13 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       puts "LogReader_readFile $logfile file does not exists! Creating it..."
       close [open $logfile a]
    }
-
+   # puts "sua LogReader_readFile LOGREADER_UPDATE_NODE:${LOGREADER_UPDATE_NODE}"
    if { ${REDRAW_FLOW} == true } {
       SharedData_setMiscData ${thisThreadId}_STARTUP_DONE true
       xflow_redrawAllFlow
+   } elseif { ${LOGREADER_UPDATE_NODE} != "" } {
+      # update highest node that was affected during this read
+      xflow_redrawNodes ${LOGREADER_UPDATE_NODE}
    }
    LogReader_readAgain $suite_record $calling_thread_id
 }
@@ -301,12 +307,31 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
                   set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
                   if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" &&
                      [::FlowNodes::isRefreshNeeded ${flowNode} ${loopExt} ] == "true" } {
-                     xflow_redrawNodes ${flowNode}
+                     #xflow_redrawNodes ${flowNode}
+                     LogReader_updateNode ${flowNode}
                   }
                }
             }
          }
       }
+   }
+}
+
+# as many nodes are updated in the same read sequence,
+# this will keep the highest level of container node to update once
+# instead of updating every single one separately
+proc LogReader_updateNode { node } {
+   global LOGREADER_UPDATE_NODE
+
+   if { ${LOGREADER_UPDATE_NODE} == "" } {
+      set LOGREADER_UPDATE_NODE ${node}
+   } else {
+      # if one is the parent of another, keep the parent
+      # this should take care of one redraw only for aborts where the messages comes in a bunch
+      # if both are different, get the common parent
+      set commonParent [::textutil::string::longestCommonPrefix ${node} ${LOGREADER_UPDATE_NODE}]
+      set commonParent [string trimright ${commonParent} /]
+      set LOGREADER_UPDATE_NODE ${commonParent}
    }
 }
 

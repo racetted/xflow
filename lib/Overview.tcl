@@ -1065,8 +1065,7 @@ proc Overview_addExp { display_group canvas exp_path } {
    ${suiteRecord} configure -root_node [SharedData_getSuiteData ${exp_path} ROOT_NODE] -overview_group_record ${display_group}
 
    # start reading the exp log file
-   puts "sua Overview_addExp thread::send ${childId} thread_startLogReader ${mainid} ${suiteRecord}"
-   thread::send ${childId} "thread_startLogReader ${mainid} ${suiteRecord}"
+   thread::send ${childId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord}"
 
    # remove the dummy default tk window
    thread::send ${childId} "wm withdraw ."
@@ -1122,8 +1121,9 @@ proc Overview_createThread {} {
 
       # this function is called from the overview main thread to the exp thread
       # to start the processing of the exp log file
-      proc thread_startLogReader { parent_id suite_record } {
-         global this_id
+      proc thread_startLogReader { parent_id exp_path suite_record } {
+         global this_id env 
+         set env(SEQ_EXP_HOME) ${exp_path}
          DEBUG "thread_startLogReader parent_id:$parent_id"
 
          xflow_readFlowXml

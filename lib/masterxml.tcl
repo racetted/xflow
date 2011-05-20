@@ -4,7 +4,6 @@ package require tdom
 package require FlowNodes
 
 proc readMasterfile { xml_file suite_path parent_flow_node suite } {
-   puts "readMasterfile sua:suite_path:$suite_path parent_flow_node:$parent_flow_node"
    if [ catch { set xmlSrc [exec cat $xml_file] } ] {
       error "readMasterfile XML Document Not Found: $xml_file"
       return
