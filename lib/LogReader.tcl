@@ -1,10 +1,10 @@
 package require textutil::string
 
 proc LogReader_readFile { suite_record calling_thread_id } {
-   global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODE
+   global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODES
    DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id"
    set REDRAW_FLOW false
-   set LOGREADER_UPDATE_NODE ""
+   set LOGREADER_UPDATE_NODES ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set thisThreadId [thread::id]
@@ -103,13 +103,14 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       puts "LogReader_readFile $logfile file does not exists! Creating it..."
       close [open $logfile a]
    }
-   # puts "sua LogReader_readFile LOGREADER_UPDATE_NODE:${LOGREADER_UPDATE_NODE}"
    if { ${REDRAW_FLOW} == true } {
       SharedData_setMiscData ${thisThreadId}_STARTUP_DONE true
       xflow_redrawAllFlow
-   } elseif { ${LOGREADER_UPDATE_NODE} != "" } {
+   } elseif { ${LOGREADER_UPDATE_NODES} != "" } {
       # update highest node that was affected during this read
-      xflow_redrawNodes ${LOGREADER_UPDATE_NODE}
+      foreach updatedNode  ${LOGREADER_UPDATE_NODES} {
+         xflow_redrawNodes ${updatedNode}
+      }
    }
    LogReader_readAgain $suite_record $calling_thread_id
 }
@@ -308,7 +309,7 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
                   if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" &&
                      [::FlowNodes::isRefreshNeeded ${flowNode} ${loopExt} ] == "true" } {
                      #xflow_redrawNodes ${flowNode}
-                     LogReader_updateNode ${flowNode}
+                     LogReader_updateNodes ${flowNode}
                   }
                }
             }
@@ -318,20 +319,48 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
 }
 
 # as many nodes are updated in the same read sequence,
-# this will keep the highest level of container node to update once
-# instead of updating every single one separately
-proc LogReader_updateNode { node } {
-   global LOGREADER_UPDATE_NODE
+# only update nodes that are in different branches.
+# Nodes from the same branch will only get one update on the highest node.
+# With this approach, multiple aborts will only be redrawn once at the higher
+# level..
+proc LogReader_updateNodes { node } {
+   global LOGREADER_UPDATE_NODES
 
-   if { ${LOGREADER_UPDATE_NODE} == "" } {
-      set LOGREADER_UPDATE_NODE ${node}
+   if { ${LOGREADER_UPDATE_NODES} == "" } {
+      set LOGREADER_UPDATE_NODES ${node}
    } else {
       # if one is the parent of another, keep the parent
       # this should take care of one redraw only for aborts where the messages comes in a bunch
-      # if both are different, get the common parent
-      set commonParent [::textutil::string::longestCommonPrefix ${node} ${LOGREADER_UPDATE_NODE}]
-      set commonParent [string trimright ${commonParent} /]
-      set LOGREADER_UPDATE_NODE ${commonParent}
+
+      # if the node is already in the updated list nothing to do
+      if { [lsearch  -exact ${LOGREADER_UPDATE_NODES} ${node}] == -1 } {
+         # exact node is not in list... search for parent nodes
+         # check if the current node is parent of updated nodes
+         set childNodes [lsearch  -all ${LOGREADER_UPDATE_NODES} ${node}*]
+         if {  ${childNodes} != "" } {
+            # current is parent of updated ones, delete updated ones and add current one
+            set childNodes [lreverse ${childNodes}]
+            foreach childIndex ${childNodes} {
+               set LOGREADER_UPDATE_NODES [lreplace ${LOGREADER_UPDATE_NODES} ${childIndex} ${childIndex}]
+            }
+            lappend LOGREADER_UPDATE_NODES ${node}
+         } else {
+            # current is not parent of udpated ones, 
+            # then check if updated ones are already parent of current one
+            # break as soon as we find one
+            set found false
+            foreach updatedNode ${LOGREADER_UPDATE_NODES} {
+               if { [string first ${updatedNode} ${node}] != -1 } {
+                  set found true
+                  break
+               }
+            }
+            if { ${found} == "false" } {
+               # the node is new, add it
+               lappend LOGREADER_UPDATE_NODES ${node}
+            }
+         }
+      }
    }
 }
 
