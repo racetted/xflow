@@ -1,10 +1,16 @@
+package require textutil::string
+
 proc LogReader_readFile { suite_record calling_thread_id } {
-   global MONITOR_THREAD_ID REDRAW_FLOW
+   global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODES
    DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id"
    set REDRAW_FLOW false
+   set LOGREADER_UPDATE_NODES ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set thisThreadId [thread::id]
+   SharedData_setMiscData ${thisThreadId}_CALLING_THREAD_ID ${calling_thread_id}
+
+
    set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
    if { ${isThreadStartupDone} == "true" } {
       set isStartupDone true
@@ -104,10 +110,14 @@ proc LogReader_readFile { suite_record calling_thread_id } {
                "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id}"
       }
    }
-
    if { ${REDRAW_FLOW} == true } {
       SharedData_setMiscData ${thisThreadId}_STARTUP_DONE true
       xflow_redrawAllFlow
+   } elseif { ${LOGREADER_UPDATE_NODES} != "" } {
+      # update highest node that was affected during this read
+      foreach updatedNode  ${LOGREADER_UPDATE_NODES} {
+         xflow_redrawNodes ${updatedNode}
+      }
    }
    LogReader_readAgain $suite_record $calling_thread_id
 }
@@ -232,7 +242,8 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
       set flowNode [::SuiteNode::getFlowNodeMapping $suite_record $node]
       set type [string range $line $typeStartIndex $typeEndIndex]
       set msg ""
-      if { ! ($node == "" || $type == "") } {
+      puts "LogReader_processLine node:$node flowNode:$flowNode"
+      if { $type != "" } {
          if { $loopIndex != -1 } {
             set loopExt [string range $line $loopStartIndex $loopEndIndex]
          }
@@ -241,63 +252,119 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
          }
          # send message to message center
          if { ${type} == "abort" || ${type} == "info" || ${type} == "event" } {
+            if { ${node} == "" } {
+               set msgNode NONE
+            } else {
+               set msgNode ${node}
+            }
             set expPath [${suite_record} cget -suite_path]
             set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
             thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenterThread_newMessage ${currentDatestamp} ${timestamp} ${type} ${node}${loopExt} ${expPath} \"${msg}\""
+               "MsgCenterThread_newMessage \"${currentDatestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${expPath} \"${msg}\""
             # Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
          }
          # abortx, endx, beginx type are used for signals we send to the parent containers nodes
          # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
          # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
          set finalCmd ""
-         if { [info exists ::DrawUtils::rippleStatusMap(${type})] } {
-            set type $::DrawUtils::rippleStatusMap(${type})
+         if { $node != "" } {
 
-            DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
-            DEBUG "LogReader_processLine message=$msg" 5
-            if { [record exists instance $flowNode] } {
-               # 1 - first we take care of setting the node status
-               if { [string tolower $type] == "init" } {
-                  if { [$flowNode cget -flow.type] == "loop" } {
-                     if { $loopExt != "" } {
-                        FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 1
-                     } else {
-                        # we got an update on the whole loop
-                        FlowNodes::resetAllStatus $flowNode init 1
+            if { [info exists ::DrawUtils::rippleStatusMap(${type})] } {
+               set type $::DrawUtils::rippleStatusMap(${type})
+
+               DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
+               DEBUG "LogReader_processLine message=$msg" 5
+               if { [record exists instance $flowNode] } {
+                  # 1 - first we take care of setting the node status
+                  if { [string tolower $type] == "init" } {
+                     if { [$flowNode cget -flow.type] == "loop" } {
+                        if { $loopExt != "" } {
+                           
+                           FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 1
+                        } else {
+                           # we got an update on the whole loop
+                           FlowNodes::resetAllStatus $flowNode init 1
+                        }
+                     } else { 
+                        # current node is not loop
+                        if { [$flowNode cget -flow.loops] != "" } {
+                           # part of parent loop container
+                           FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 1
+                        } else {
+                           ::FlowNodes::resetNodeStatus $flowNode 
+                        }
                      }
-                  } else { 
-                     # current node is not loop
-                     if { [$flowNode cget -flow.loops] != "" } {
-                        # part of parent loop container
-                        FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 1
-                     } else {
-                        ::FlowNodes::resetNodeStatus $flowNode 
+                  } else {
+                     # not init state, any other
+                     if { [$flowNode cget -flow.type] == "loop" || [$flowNode cget -flow.type] == "npass_task" } {
+                        if { $loopExt != "" } {
+                           # we got an update on a loop iteration
+                           FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 0
+                        } else {
+                           # we got an update on the whole loop
+                           FlowNodes::setMemberStatus $flowNode all $type ${timestamp}
+                        }
+                     } else { 
+                        # current node is not loop
+                        FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp}
                      }
                   }
-               } else {
-                  # not init state, any other
-                  if { [$flowNode cget -flow.type] == "loop" || [$flowNode cget -flow.type] == "npass_task" } {
-                     if { $loopExt != "" } {
-                        # we got an update on a loop iteration
-                        FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp} 0
-                     } else {
-                        # we got an update on the whole loop
-                        FlowNodes::setMemberStatus $flowNode all $type ${timestamp}
-                     }
-                  } else { 
-                     # current node is not loop
-                     FlowNodes::setMemberStatus $flowNode $loopExt $type ${timestamp}
+      
+                  # 2 - then we refresh the display... redisplay the node text?
+                  set thisThreadId [thread::id]
+                  set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
+                  if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" &&
+                     [::FlowNodes::isRefreshNeeded ${flowNode} ${loopExt} ] == "true" } {
+                     #xflow_redrawNodes ${flowNode}
+                     LogReader_updateNodes ${flowNode}
                   }
                }
-   
-               # 2 - then we refresh the display... redisplay the node text?
-               set thisThreadId [thread::id]
-               set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
-               if { [SharedData_getMiscData STARTUP_DONE] == "true" && ${isThreadStartupDone} == "true" &&
-                    [::FlowNodes::isRefreshNeeded ${flowNode} ${loopExt} ] == "true" } {
-                  xflow_redrawNodes ${flowNode}
+            }
+         }
+      }
+   }
+}
+
+# as many nodes are updated in the same read sequence,
+# only update nodes that are in different branches.
+# Nodes from the same branch will only get one update on the highest node.
+# With this approach, multiple aborts will only be redrawn once at the higher
+# level..
+proc LogReader_updateNodes { node } {
+   global LOGREADER_UPDATE_NODES
+
+   if { ${LOGREADER_UPDATE_NODES} == "" } {
+      set LOGREADER_UPDATE_NODES ${node}
+   } else {
+      # if one is the parent of another, keep the parent
+      # this should take care of one redraw only for aborts where the messages comes in a bunch
+
+      # if the node is already in the updated list nothing to do
+      if { [lsearch  -exact ${LOGREADER_UPDATE_NODES} ${node}] == -1 } {
+         # exact node is not in list... search for parent nodes
+         # check if the current node is parent of updated nodes
+         set childNodes [lsearch  -all ${LOGREADER_UPDATE_NODES} ${node}*]
+         if {  ${childNodes} != "" } {
+            # current is parent of updated ones, delete updated ones and add current one
+            set childNodes [lreverse ${childNodes}]
+            foreach childIndex ${childNodes} {
+               set LOGREADER_UPDATE_NODES [lreplace ${LOGREADER_UPDATE_NODES} ${childIndex} ${childIndex}]
+            }
+            lappend LOGREADER_UPDATE_NODES ${node}
+         } else {
+            # current is not parent of udpated ones, 
+            # then check if updated ones are already parent of current one
+            # break as soon as we find one
+            set found false
+            foreach updatedNode ${LOGREADER_UPDATE_NODES} {
+               if { [string first ${updatedNode} ${node}] != -1 } {
+                  set found true
+                  break
                }
+            }
+            if { ${found} == "false" } {
+               # the node is new, add it
+               lappend LOGREADER_UPDATE_NODES ${node}
             }
          }
       }

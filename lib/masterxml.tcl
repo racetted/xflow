@@ -73,6 +73,9 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
       $flowCreateCmd $newFlowDirname
    }
    $newFlowDirname configure -flow.name $nodeName -flow.type $flowType -flow.parent $actualFlowParent
+   if { ${xmlNodeName} == "MODULE" } {
+      $newFlowDirname configure -load_time [clock seconds]
+   }
 
    # I'm storing the closest container of the node
    set parentContainer "[$actualFlowParent cget -flow.container]"
@@ -137,7 +140,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          set newXmlFile [$suite cget -suite_path]/modules/$nodeName/flow.xml
          DEBUG "ParseXmlNode:: suite_path: [$suite cget -suite_path]"  5
          DEBUG "ParseXmlNode:: newXmlFile = $newXmlFile"  5
-         set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node] 
+         set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
          readMasterfile $newXmlFile [$suite cget -suite_path] $newParentNode $suite
          set parseChild 0
       }
@@ -207,6 +210,7 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
       # create the top node of our flow tree
       if { ! [record exists instance ${recordName}] } {
          FlowModule $recordName
+         $recordName configure -load_time [clock seconds]
       }
       $recordName configure -flow.name $suiteName -flow.type module -flow.family $recordName
    } else {

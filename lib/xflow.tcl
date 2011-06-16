@@ -634,17 +634,29 @@ proc xflow_setMonitorDate { parent_w } {
             $suiteRecord configure -read_offset 0 -active_log ${MONITOR_DATESTAMP}
             # make sure all nodes are reset
             ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
-            xflow_initStartupMode
+            #xflow_initStartupMode
             # read the log file
-            LogReader_readFile $suiteRecord [thread::id]
-            xflow_stopStartupMode
+            #LogReader_readFile $suiteRecord [thread::id]
+            #xflow_stopStartupMode
             # update the flow
-            xflow_redrawAllFlow
+            #xflow_redrawAllFlow
+
+            set thisThreadId [thread::id]
+            set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
+            xflow_displayFlow ${callingThreadId}
          }
       }
    }
 
    Utils_normalCursor $top
+}
+
+proc xflow_readFlowXml {} {
+   global env
+   set suitePath $env(SEQ_EXP_HOME)
+   readMasterfile ${suitePath}/EntryModule/flow.xml $suitePath "" ""
+   set activeSuiteRecord [SuiteNode::getSuiteRecordFromPath ${suitePath}]
+   xflow_setActiveSuite $activeSuiteRecord
 }
 
 # this is used to set a variable that will be used mainly
@@ -713,6 +725,7 @@ proc xflow_getMonitoredThread {} {
             set MONITOR_THREAD_ID [thread::id]
             set thisThreadId [thread::id]
             DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} overview_mode?  [SharedData_getMiscData OVERVIEW_MODE]" 5
+            xflow_readFlowXml
             xflow_displayFlow [thread::id]
             xflow_setMonitorDateWidget
             #xflow_viewHideDateButtons . .date_hidden .date ""
@@ -801,17 +814,21 @@ proc xflow_setDateStamp { parent_w } {
       $suiteRecord configure -read_offset 0
       ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
 
-      set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-      xflow_initStartupMode
-      if { ${isOverviewMode} == "true" } {
-         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-         LogReader_readFile $suiteRecord ${overviewThreadId}
-      } else {
-         LogReader_readFile $suiteRecord [thread::id]
-      }
-      xflow_stopStartupMode
+      set thisThreadId [thread::id]
+      set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
+      xflow_displayFlow ${callingThreadId}
 
-      xflow_selectSuiteCallback
+      #set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+      #xflow_initStartupMode
+      #if { ${isOverviewMode} == "true" } {
+      #   set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+      #   LogReader_readFile $suiteRecord ${overviewThreadId}
+      #} else {
+      #   LogReader_readFile $suiteRecord [thread::id]
+      #}
+      #xflow_stopStartupMode
+
+      #xflow_selectSuiteCallback
    }
 
    Utils_normalCursor $top
@@ -907,6 +924,11 @@ proc xflow_findNode { suite_record real_node } {
 proc xflow_drawNode { canvas node position {first_node false} } {
    global REFRESH_MODE
    DEBUG "xflow_drawNode drawing sub node:$node position:$position " 5
+   if { [::FlowNodes::isParentCollapsed ${node} ${canvas}] } {
+      DEBUG "xflow_drawNode parent is collapsed, not drawing node:$node" 5
+      return;
+   }
+
    set boxW [SharedData_getMiscData CANVAS_BOX_WIDTH]
    set boxH [SharedData_getMiscData CANVAS_BOX_HEIGHT]
    set pady [SharedData_getMiscData CANVAS_PAD_Y]
@@ -916,7 +938,7 @@ proc xflow_drawNode { canvas node position {first_node false} } {
    set deltaY [::DrawUtils::getLineDeltaSpace ${node}]
    set drawshadow on
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    ::FlowNodes::initNode $node $canvas
    set parentNode [${node} cget -flow.parent]
    if { $parentNode == "" || ${first_node} == "true" } {
@@ -1062,7 +1084,7 @@ proc xflow_nodeMenu { canvas node x y } {
    global ignoreDep
    DEBUG "xflow_nodeMenu() node:$node" 5
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
 
    # highlights the selected node
    ::DrawUtils::highLightNode ${suiteRecord} ${node} ${canvas}
@@ -1240,7 +1262,7 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
 # starting from a selected node
 proc xflow_newWindowCallback { node canvas caller_menu } {
    DEBUG "xflow_newWindowCallback node:$node canvas:$canvas" 5
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    if { [::FlowNodes::isNodeFromOverview $node] } {
       set displayNode [::FlowNodes::getNodeFromOverview $node]
    } else {
@@ -1272,7 +1294,8 @@ proc xflow_newWindowCallback { node canvas caller_menu } {
    grid rowconfigure $topWidget 0 -weight 1
    grid columnconfigure $topWidget 0 -weight 1
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $newCanvas]
+   set suiteRecord [xflow_getActiveSuite]
+
    ::SuiteNode::setDisplayRoot $suiteRecord $newCanvas $displayNode
 
    # post process when window closes
@@ -1283,6 +1306,10 @@ proc xflow_newWindowCallback { node canvas caller_menu } {
    xflow_expandAllCallback $displayNode $newCanvas ""
 }
 
+proc xflow_getFlowFrame {} {
+   return
+}
+
 # this function is called to show the history of a node
 # By default, the middle mouse on a node shows the history for the last 48 hours.
 # The "Node History" from the Info menu on the node shows only the current datestamp
@@ -1290,7 +1317,7 @@ proc xflow_historyCallback { node canvas caller_menu history {full_loop 0} } {
    DEBUG "xflow_historyCallback node:$node canvas:$canvas $full_loop" 5
 
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
@@ -1317,7 +1344,8 @@ proc xflow_historyCallback { node canvas caller_menu history {full_loop 0} } {
 # shows the node information and is invoked from the "Node Info" menu item.
 proc xflow_nodeInfoCallback { node canvas caller_menu } {
    global env
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
+
    set suiteName [$suiteRecord cget -suite_name]
    set nodeTail [file tail $node]
    set infoWidget [string tolower .${suiteName}_${nodeTail}_nodeInfo]
@@ -1371,7 +1399,8 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
 # the current node and all its child nodes.
 proc xflow_initbranchCallback { node canvas caller_menu } {
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
+
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
@@ -1389,7 +1418,7 @@ proc xflow_initbranchCallback { node canvas caller_menu } {
 # the current node.
 proc xflow_initnodeCallback { node canvas caller_menu } {
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
@@ -1405,7 +1434,7 @@ proc xflow_initnodeCallback { node canvas caller_menu } {
 # the current loop node and all its child iteration nodes.
 proc xflow_initbranchLoopCallback { node canvas caller_menu } {
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
@@ -1418,7 +1447,7 @@ proc xflow_initbranchLoopCallback { node canvas caller_menu } {
 # forces an abort to be sent to maestro sequencer
 proc xflow_abortCallback { node canvas caller_menu } {
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
@@ -1430,7 +1459,7 @@ proc xflow_abortCallback { node canvas caller_menu } {
 
 proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
    set indexListValue ""
@@ -1454,7 +1483,7 @@ proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
 
 proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
    set indexListValue ""
@@ -1547,7 +1576,7 @@ proc xflow_killNodeFromDropdown { node canvas caller_menu } {
 proc xflow_endCallback { node canvas caller_menu } {
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
@@ -1563,7 +1592,7 @@ proc xflow_endCallback { node canvas caller_menu } {
 proc xflow_endLoopCallback { node canvas caller_menu } {
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
@@ -1578,7 +1607,7 @@ proc xflow_endLoopCallback { node canvas caller_menu } {
 proc xflow_sourceCallback { node canvas caller_menu} {
    global SESSION_TMPDIR
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodesource"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -1603,7 +1632,7 @@ proc xflow_sourceCallback { node canvas caller_menu} {
 proc xflow_configCallback { node canvas caller_menu} {
    global SESSION_TMPDIR
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodeconfig"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
 
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -1629,7 +1658,7 @@ proc xflow_configCallback { node canvas caller_menu} {
 proc xflow_resourceCallback { node canvas caller_menu } {
    global SESSION_TMPDIR
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/noderesource"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -1654,7 +1683,7 @@ proc xflow_resourceCallback { node canvas caller_menu } {
 proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodebatch"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -1699,7 +1728,7 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
 
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
@@ -1718,7 +1747,7 @@ proc xflow_submitLoopCallback { node canvas caller_menu flow {local_ignore_dep d
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
@@ -1740,7 +1769,7 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
 
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    # retrieve index value from widget
@@ -1770,7 +1799,7 @@ proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    DEBUG "xflow_allListingCallback node:$node canvas:$canvas" 5
    set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
@@ -1810,7 +1839,7 @@ proc xflow_allListingCallback { node canvas caller_menu type } {
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    #set nodeExt [::FlowNodes::getListingNodeExtension $node 0]
    set suitePath [$suiteRecord cget -suite_path]
@@ -1895,7 +1924,7 @@ proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    DEBUG "xflow_abortListingCallback node:$node canvas:$canvas" 5
    set abortListingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
-   set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+   set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
    set datestamp [xflow_getMonitoringDatestamp]
@@ -2022,14 +2051,45 @@ proc xflow_redrawAllFlow {} {
    }
 }
 
+proc xflow_processFlowModified {} {
+   
+   DEBUG "xflow_processFlowModified"
+   # flow has been modified we need to reread log files and restart
+
+   set suiteRecord [xflow_getActiveSuite]
+   ::FlowNodes::clearAllNodes
+   record delete instance ${suiteRecord}
+
+   set thisThreadId [thread::id]
+   set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
+   if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
+      xflow_readFlowXml
+      xflow_initStartupMode
+      xflow_displayFlow ${callingThreadId}
+      xflow_stopStartupMode
+   } else {
+      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+      xflow_readFlowXml
+      xflow_initStartupMode
+      LogReader_readFile ${suiteRecord} ${overviewThreadId}
+      xflow_stopStartupMode
+      xflow_displayFlow ${callingThreadId}
+   }
+}
+
 # draws the experiment flow
 proc xflow_drawflow { canvas {initial_display "1"} } {
    DEBUG "xflow_drawflow() canvas:$canvas" 5
+
+   if { [::FlowNodes::isFlowModified] == "true" } {
+      xflow_processFlowModified
+      return
+   }
+
    if { [winfo exists ${canvas}] } {
       DEBUG "xflow_drawflow() found existing canvas:$canvas" 5
       ::DrawUtils::clearCanvas $canvas
-
-      set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+      set suiteRecord [xflow_getActiveSuite]
       # reset the default spacing for drawing flow
       ::SuiteNode::resetDisplayData ${suiteRecord} ${canvas}
       set rootNode [::SuiteNode::getDisplayRoot $suiteRecord $canvas]
@@ -2059,7 +2119,7 @@ proc xflow_resizeWindow { canvas } {
 
    if { [winfo exists ${canvas}] } {
       set topLevel [winfo toplevel ${canvas}]
-      set suiteRecord [::SuiteNode::getSuiteRecord $canvas]
+      set suiteRecord [xflow_getActiveSuite]
       set heightMax [lindex [wm maxsize ${topLevel}] 1]
       set widthMax [lindex [wm maxsize ${topLevel}] 0]
       set canvasMaximX [::SuiteNode::getDisplayMaximumX ${suiteRecord} ${canvas}]
@@ -2080,32 +2140,20 @@ proc xflow_resizeWindow { canvas } {
 
 # this function is a leftover when xflow was supporting multipe exps.
 # It is still use yet only to parse the exp flow.xml file.
-proc xflow_createTabs { parent suiteList bind_cmd {page_h 1} {page_w 1}} {
+proc xflow_createCanvasFrame { parent suitePath bind_cmd {page_h 1} {page_w 1}} {
    global env
-   DEBUG "xflow_createTabs parent:$parent suiteList:$suiteList bind_cmd:$bind_cmd "
-   set tabsetWidget $parent
+   DEBUG "xflow_createCanvasFrame parent:$parent suiteList:$suiteList bind_cmd:$bind_cmd "
+   set suiteName [file tail $suitePath]
+   set drawFrame $parent.[::SuiteNode::formatName $suitePath]
+   frame $drawFrame
 
-   set count 0
-   foreach suitePath $suiteList {
-      set suiteName [file tail $suitePath]
-      set drawFrame $parent.[::SuiteNode::formatName $suitePath]
-      frame $drawFrame
+   grid columnconfigure $parent 0 -weight 1
+   grid rowconfigure $parent 0 -weight 1
 
-      grid columnconfigure $parent 0 -weight 1
-      grid rowconfigure $parent 0 -weight 1
-
-      # get the leaf part of the entry module, that will give us the
-      # root node of the experiment
-      set entryMod $suitePath
-      set entryModTruePath [exec true_path $env(SEQ_EXP_HOME)/EntryModule]
-      set entryMod [file tail $entryModTruePath]
-
-      readMasterfile ${suitePath}/EntryModule/flow.xml $suitePath "" ""
-      set suiteRecord [::SuiteNode::formatSuiteRecord $suitePath]
-      set rootNode [${suiteRecord} cget -root_node]
-      xflow_getNodeResources ${rootNode} $suitePath 1
-      incr count
-   }
+   #readMasterfile ${suitePath}/EntryModule/flow.xml $suitePath "" ""
+   #set suiteRecord [::SuiteNode::formatSuiteRecord $suitePath]
+   #set rootNode [${suiteRecord} cget -root_node]
+   #xflow_getNodeResources ${rootNode} $suitePath 1
 }
 
 # this function retrives the node resource info by executing
@@ -2213,8 +2261,9 @@ proc xflow_selectSuiteTab { parent suite_record } {
    wm title . $title
 
    xflow_setActiveSuite ${suite_record}
-   set formattedName [::SuiteNode::formatName [${suite_record} cget -suite_path]]
-   set drawFrame ${parent}.${formattedName}
+   #set formattedName [::SuiteNode::formatName [${suite_record} cget -suite_path]]
+   #set drawFrame ${parent}.${formattedName}
+   set drawFrame ${parent}.draw_frame
    set canvas [xflow_createFlowCanvas $drawFrame]
    xflow_getDateStamp [xflow_getWidgetName exp_date_frame] ${suite_record}
 
@@ -2358,6 +2407,7 @@ proc xflow_getActiveSuite {} {
    if { [info exists ACTIVE_SUITE] } {
       return $ACTIVE_SUITE
    } else {
+      DEBUG "xflow_getActiveSuite empty"
       return ""
    }
 }
@@ -2460,15 +2510,22 @@ proc xflow_createWidgets {} {
    grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
    grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
 
-   # .tabs is the 3nd widget
-   set tabFrame [xflow_getWidgetName flow_frame]
-   frame ${tabFrame}
-   xflow_createTabs ${tabFrame} $env(SEQ_EXP_HOME) "xflow_selectSuiteCallback"
+   # flow_frame is the 3nd widget
+   set flowFrame [xflow_getWidgetName flow_frame]
+   frame ${flowFrame}
+   # xflow_createCanvasFrame ${tabFrame} $env(SEQ_EXP_HOME) "xflow_selectSuiteCallback"
+   #set suiteName [file tail $suitePath]
+   #set drawFrame ${flowFrame}.[::SuiteNode::formatName $suitePath]
+   set drawFrame ${flowFrame}.draw_frame
+   frame $drawFrame
+
+   grid columnconfigure ${flowFrame} 0 -weight 1
+   grid rowconfigure ${flowFrame} 0 -weight 1
 
    # this displays the widgets in the main window layout
    grid $topFrame -row 0 -column 0 -sticky w -padx 2
    grid ${secondFrame} -row 1 -column 0  -sticky nsew -pady 2
-   grid ${tabFrame}  -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+   grid ${flowFrame}  -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
    grid columnconfigure . 0 -weight 1
    grid columnconfigure . 1 -weight 1
    grid rowconfigure . 2 -weight 2
@@ -2500,11 +2557,11 @@ proc xflow_displayFlow { calling_thread_id } {
    if { ! [winfo exists ${topFrame}] } {
       xflow_createWidgets
    }
+   set suitePath $env(SEQ_EXP_HOME)
+   set activeSuiteRecord [xflow_getActiveSuite]
+   set rootNode [${activeSuiteRecord} cget -root_node]
 
-   # the SuiteNode record is only created after xflow_createWidgets
-   set activeSuite $env(SEQ_EXP_HOME)
-   set activeSuiteRecord [SuiteNode::getSuiteRecordFromPath $activeSuite]
-   xflow_setActiveSuite $activeSuiteRecord
+   xflow_getNodeResources ${rootNode} $suitePath 1
 
    # initial monitor dates
    xflow_populateMonitorDate [xflow_getWidgetName monitor_date_frame]
@@ -2646,7 +2703,7 @@ proc xflow_setWidgetNames {} {
 
       top_frame .top_frame
       second_frame .second_frame
-      flow_frame .tabs
+      flow_frame .flow_frame
       main_size_grip .size_grip
 
       toolbar_frame .second_frame.toolbar
@@ -2752,6 +2809,7 @@ xflow_parseCmdOptions
 if { ${XFLOW_STANDALONE} == 1 } {
    SharedData_init
    xflow_init
+   xflow_readFlowXml
    xflow_displayFlow [thread::id]
    SharedData_setMiscData STARTUP_DONE true
    SharedData_setMiscData [thread::id]_STARTUP_DONE true
