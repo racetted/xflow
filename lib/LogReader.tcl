@@ -96,6 +96,13 @@ proc LogReader_readFile { suite_record calling_thread_id } {
    } else {
       puts "LogReader_readFile $logfile file does not exists! Creating it..."
       close [open $logfile a]
+
+      # Need to notify the main thread that this child is done reading
+      # the log file for initialization
+      if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
+            thread::send -async ${calling_thread_id} \
+               "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id}"
+      }
    }
 
    if { ${REDRAW_FLOW} == true } {
