@@ -1145,13 +1145,12 @@ proc ::FlowNodes::isRefreshNeeded { flow_node current_ext } {
 # verifies if the flow.xml of each module has changed compared to the last time
 # the module was loaded. Returns true if the flow has been modified,
 # otherwise returns false
-proc ::FlowNodes::isFlowModified {} {
-   global env
+proc ::FlowNodes::isFlowModified { exp_path } {
    set modules [record show instances FlowModule]
    set isModified false
    foreach module ${modules} {
       set moduleName [${module} cget -flow.name]
-      set flowFile $env(SEQ_EXP_HOME)/modules/${moduleName}/flow.xml
+      set flowFile ${exp_path}/modules/${moduleName}/flow.xml
       set loadTime [${module} cget -load_time]
       set flowModTime [file mtime ${flowFile}]
       if { ${loadTime} != "" && ${flowModTime} > ${loadTime} } {

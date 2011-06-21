@@ -64,10 +64,10 @@ proc Catchup_applyCallback { _catchupComboBox } {
 # returns the catchup value stored in the experiment,
 # as given by the "expcatchup -g" command
 proc Catchup_retrieve {} {
-   global env
+   global SEQ_EXP_HOME
    
    set catchupExec "[SharedData_getMiscData SEQ_BIN]/expcatchup"
-   set cmd "export SEQ_EXP_HOME=$env(SEQ_EXP_HOME);${catchupExec} -g"
+   set cmd "export SEQ_EXP_HOME=${SEQ_EXP_HOME};${catchupExec} -g"
    set catchupValue ""
    set catchupValue [exec ksh -c $cmd]
    return ${catchupValue}

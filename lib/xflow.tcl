@@ -627,7 +627,10 @@ proc xflow_setMonitorDate { parent_w } {
          if { ${isOverviewMode} == "true" } {
             set monitorThreadId [xflow_getMonitoredThread]
             # in overview mode, the monitor thread takes care of it
-            thread::send ${monitorThreadId} "xflowThread_monitorNewDate ${suiteRecord} ${MONITOR_DATESTAMP}"
+            DEBUG "xflow_setMonitorDate thread::send ${monitorThreadId} xflowThread_monitorNewDate ${suitePath} ${MONITOR_DATESTAMP}" 5
+            thread::send ${monitorThreadId} "xflowThread_monitorNewDate ${suitePath} ${MONITOR_DATESTAMP}"
+            # reset MONITOR_DATESTAMP, main window should still point to current datestamp in overview mode
+            set MONITOR_DATESTAMP ""
          } else {
             # in standalone mode
             # point the exp to the history log
@@ -652,8 +655,9 @@ proc xflow_setMonitorDate { parent_w } {
 }
 
 proc xflow_readFlowXml {} {
-   global env
-   set suitePath $env(SEQ_EXP_HOME)
+   global SEQ_EXP_HOME
+   DEBUG "xflow_readFlowXml SEQ_EXP_HOME:${SEQ_EXP_HOME}" 5
+   set suitePath ${SEQ_EXP_HOME}
    readMasterfile ${suitePath}/EntryModule/flow.xml $suitePath "" ""
    set activeSuiteRecord [SuiteNode::getSuiteRecordFromPath ${suitePath}]
    xflow_setActiveSuite $activeSuiteRecord
@@ -700,7 +704,8 @@ proc xflow_setMonitorDateWidget {} {
 # displaying flows in history mode so that the currently active datestamp
 # coming from $SEQ_EXP_HOME/ExpDate is always displayed
 proc xflow_getMonitoredThread {} {
-   global MONITOR_THREAD_ID
+   global MONITOR_THREAD_ID DEBUG_TRACE DEBUG_LEVEL
+
    if { ${MONITOR_THREAD_ID} == "" } {
       # Creates the singleton thread if it does not exists
       DEBUG "xflow_getMonitoredThread Creating new thread..." 5
@@ -711,13 +716,19 @@ proc xflow_getMonitoredThread {} {
          package require SuiteNode
          package require Tk
 
+         set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
+         set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
+
          # this function is meant to be called in overview mode only.
          # when user views exp in history mode from the initial exp flow window,
          # this function is called to create a new window with the history log.
          # For the moment, a single thread is created to handle the history mode for
          # a specific exp.
-         proc xflowThread_monitorNewDate { suite_record datestamp } {
-            global XFLOW_STANDALONE MONITORING_LATEST MONITOR_DATESTAMP MONITOR_THREAD_ID
+         proc xflowThread_monitorNewDate { exp_path datestamp } {
+            global XFLOW_STANDALONE MONITORING_LATEST MONITOR_DATESTAMP MONITOR_THREAD_ID SEQ_EXP_HOME
+            DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] exp_path:$exp_path " 5
+
+            set SEQ_EXP_HOME ${exp_path}
             xflow_init
             set XFLOW_STANDALONE 1
             set MONITORING_LATEST 0
@@ -728,7 +739,6 @@ proc xflow_getMonitoredThread {} {
             xflow_readFlowXml
             xflow_displayFlow [thread::id]
             xflow_setMonitorDateWidget
-            #xflow_viewHideDateButtons . .date_hidden .date ""
             DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} DONE" 5
          }
 
@@ -2053,7 +2063,7 @@ proc xflow_redrawAllFlow {} {
 
 proc xflow_processFlowModified {} {
    
-   DEBUG "xflow_processFlowModified"
+   DEBUG "xflow_processFlowModified" 5
    # flow has been modified we need to reread log files and restart
 
    set suiteRecord [xflow_getActiveSuite]
@@ -2079,9 +2089,11 @@ proc xflow_processFlowModified {} {
 
 # draws the experiment flow
 proc xflow_drawflow { canvas {initial_display "1"} } {
+   global SEQ_EXP_HOME
    DEBUG "xflow_drawflow() canvas:$canvas" 5
 
-   if { [::FlowNodes::isFlowModified] == "true" } {
+   if { [::FlowNodes::isFlowModified ${SEQ_EXP_HOME}] == "true" } {
+      DEBUG "xflow_drawflow() xflow_processFlowModified" 5
       xflow_processFlowModified
       return
    }
@@ -2219,7 +2231,7 @@ proc xflow_getLoopResources { node suite_path } {
    # node.specific.STEP=2
    # node.specific.TYPE=Default
    DEBUG "xflow_getLoopResources ${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'"
-   if [ catch { exec ksh -c "${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'  > ${outputFile} 2> /dev/null" } message ] {
+   if [ catch { exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'  > ${outputFile} 2> /dev/null" } message ] {
       Utils_raiseError . "Get Loop Resources" $message
       return 0
    }
@@ -2468,21 +2480,22 @@ proc xflow_newMessageCallback { has_new_msg } {
 # this is the place to validate essential suite
 # data for startup
 proc xflow_validateSuite {} {
-   global env
+   global env SEQ_EXP_HOME
    if { ! [info exists env(SEQ_EXP_HOME)] } {
       Utils_fatalError . "Xflow Startup Error" "SEQ_EXP_HOME environment variable not set! Exiting..."
    }
 
    set entryModTruePath ""
-   catch { set entryModTruePath [exec true_path $env(SEQ_EXP_HOME)/EntryModule] }
+   set SEQ_EXP_HOME $env(SEQ_EXP_HOME)
+   catch { set entryModTruePath [ exec true_path ${SEQ_EXP_HOME}/EntryModule ] }
    if { ${entryModTruePath} == "" } {
-      Utils_fatalError . "Xflow Startup Error" "Cannot access $env(SEQ_EXP_HOME)/EntryModule. Exiting..."
+      Utils_fatalError . "Xflow Startup Error" "Cannot access ${SEQ_EXP_HOME}/EntryModule. Exiting..."
    }
 }
 
 # this function is called to create the widgets of the xflow main window
 proc xflow_createWidgets {} {
-   global env
+
    DEBUG "xflow_createWidgets" 5
    wm iconify .
    set topFrame [xflow_getWidgetName top_frame]
@@ -2544,7 +2557,7 @@ proc xflow_createWidgets {} {
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
 proc xflow_displayFlow { calling_thread_id } {
-   global env XFLOW_STANDALONE 
+   global env XFLOW_STANDALONE SEQ_EXP_HOME
    global MONITORING_LATEST MONITOR_DATESTAMP
 
    DEBUG "xflow_displayFlow thread id:[thread::id]" 5
@@ -2552,12 +2565,13 @@ proc xflow_displayFlow { calling_thread_id } {
    set topFrame [xflow_getWidgetName top_frame]
 
    xflow_createTmpDir
-   xflow_validateSuite
+   #xflow_validateSuite
 
    if { ! [winfo exists ${topFrame}] } {
       xflow_createWidgets
    }
-   set suitePath $env(SEQ_EXP_HOME)
+   set suitePath ${SEQ_EXP_HOME}
+   DEBUG "xflow_displayFlow suitePath ${suitePath}" 5
    set activeSuiteRecord [xflow_getActiveSuite]
    set rootNode [${activeSuiteRecord} cget -root_node]
 
@@ -2571,7 +2585,8 @@ proc xflow_displayFlow { calling_thread_id } {
       # the xflow_overview... The overview needs it to send signals
       # to the thread that is used to monitor the active exp log.
       # NOT set if in exp history mode
-      SharedData_setSuiteData $env(SEQ_EXP_HOME) THREAD_ID [thread::id]
+      DEBUG "xflow_displayFlow SharedData_setSuiteData ${SEQ_EXP_HOME} THREAD_ID [thread::id]" 5
+      SharedData_setSuiteData ${SEQ_EXP_HOME} THREAD_ID [thread::id]
    }
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" &&
@@ -2809,6 +2824,7 @@ xflow_parseCmdOptions
 if { ${XFLOW_STANDALONE} == 1 } {
    SharedData_init
    xflow_init
+   xflow_validateSuite
    xflow_readFlowXml
    xflow_displayFlow [thread::id]
    SharedData_setMiscData STARTUP_DONE true

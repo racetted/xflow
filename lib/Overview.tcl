@@ -1056,7 +1056,7 @@ proc Overview_addExp { display_group canvas exp_path } {
    set mainid [thread::id]
 
    # create a child thread for the exp
-   set childId [Overview_createThread]
+   set childId [Overview_createThread ${exp_path}]
 
    # read the flow xml for the xp
    thread::send ${childId} "readMasterfile ${exp_path}/EntryModule/flow.xml ${exp_path} \"\" \"\" "
@@ -1100,7 +1100,11 @@ proc Overview_ExpDateStampChanged { suite_record datestamp } {
 # this function creates a thread for each exp that is being monitored in the overview.
 # the exp thread is responsible for monitoring the log file of each exp and to post any updates
 # to the overview thread.
-proc Overview_createThread {} {
+proc Overview_createThread { exp_path } {
+   global env
+
+   set env(SEQ_EXP_HOME) ${exp_path}
+
    set threadID [thread::create {
       global env
       set lib_dir $env(SEQ_XFLOW_BIN)/../lib
@@ -1122,10 +1126,11 @@ proc Overview_createThread {} {
       # this function is called from the overview main thread to the exp thread
       # to start the processing of the exp log file
       proc thread_startLogReader { parent_id exp_path suite_record } {
-         global this_id env 
-         set env(SEQ_EXP_HOME) ${exp_path}
+         global env this_id SEQ_EXP_HOME
          DEBUG "thread_startLogReader parent_id:$parent_id"
 
+         set SEQ_EXP_HOME ${exp_path}
+         DEBUG "thread_startLogReader SEQ_EXP_HOME=$SEQ_EXP_HOME"
          xflow_readFlowXml
          xflow_initStartupMode
          LogReader_readFile ${suite_record} ${parent_id}    
@@ -1135,9 +1140,9 @@ proc Overview_createThread {} {
       # this function is called from the overview main thread to the exp thread
       # to display the exp flow either on user's request or because of "Auto Launch"
       proc thread_launchFLow { parent_id exp_path } {
-         global this_id env 
-         set env(SEQ_EXP_HOME) ${exp_path}
+         global this_id 
          DEBUG "thread_launchFLow" 5
+
          xflow_setMonitoringLatest 1
          xflow_displayFlow ${parent_id}
       }
@@ -1155,6 +1160,7 @@ proc Overview_createThread {} {
       # enter event loop
       thread::wait
    }]
+   unset env(SEQ_EXP_HOME)
    return ${threadID}
 }
 
