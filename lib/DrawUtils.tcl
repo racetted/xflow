@@ -732,6 +732,19 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
       [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
       ${canvasW} create line $target_x2 $target_y2 [expr $target_x2 + $x_offset] \
       [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+
+      # adjust the canvas so that the job is centered {if possible}
+      # the height and width are the size of the canvas that
+      # is visible
+      set height [winfo height ${canvasW}]
+      set width  [winfo width  ${canvasW}]
+
+      set scrollregion [${canvasW} cget -scrollregion]
+      set heightp [winfo fpixels ${canvasW} [lindex $scrollregion 3]]
+      set widthp [winfo fpixels ${canvasW} [lindex $scrollregion 2]]
+
+      ${canvasW} xview moveto [expr ($target_x - $width / 2) / $widthp]
+      ${canvasW} yview moveto [expr ($target_y - $height / 2)/ $heightp]
    
       # bring to front
       wm withdraw .; wm deiconify .
