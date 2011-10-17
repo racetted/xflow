@@ -149,7 +149,7 @@ proc SharedData_init {} {
    SharedData_setMiscData STARTUP_DONE false 
 
    SharedData_setMiscData OVERVIEW_MODE false
-   SharedData_setMiscData DEFAULT_CONSOLE konsole
+   SharedData_setMiscData DEFAULT_CONSOLE "konsole -e"
    SharedData_setMiscData TEXT_VIEWER default
    SharedData_setMiscData USER_TMP_DIR default
 
