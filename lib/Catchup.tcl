@@ -74,10 +74,10 @@ proc Catchup_retrieve {} {
 }
 
 proc Catchup_save { _catchupIntValue } {
-   global env
+   global SEQ_EXP_HOME
    
    set catchupExec "[SharedData_getMiscData SEQ_BIN]/expcatchup"
-   set cmd "export SEQ_EXP_HOME=$env(SEQ_EXP_HOME);${catchupExec} -s ${_catchupIntValue}"
+   set cmd "export SEQ_EXP_HOME=${SEQ_EXP_HOME};${catchupExec} -s ${_catchupIntValue}"
    set catchupValue ""
    set catchupValue [exec ksh -c $cmd]
    return ${catchupValue}
