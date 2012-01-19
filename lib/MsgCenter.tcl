@@ -344,6 +344,7 @@ proc MsgCenter_ackMessages { table_w_ } {
       thread::send ${xflowThreadId} "xflow_newMessageCallback false"
    }
 }
+
 proc MsgCenter_clearMessages { source_w table_w_ } {
    global MSG_ACTIVE_COUNTER
    if { ${MSG_ACTIVE_COUNTER} > 0 } {
@@ -390,7 +391,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
       # put the window on top of the rest
       wm attributes . -topmost 1
    }
-   if { ${autoMsgDisplay} == "true" } {
+   if { ${autoMsgDisplay} == "true" && [SharedData_getMiscData STARTUP_DONE] == "true" } {
       if { ${raiseAlarm} == "true" } {
          MsgCenter_setHeaderStatus ${table_w_} alarm
          if { [expr ${MSG_ALARM_COUNTER} > ${MSG_BELL_TRIGGER}] } {
@@ -490,7 +491,11 @@ proc MsgCenter_getThread {} {
          }
 
          proc MsgCenterThread_startupDone {} {
+	    global MSG_COUNTER
             MsgCenter_sendNotification
+	    if { ${MSG_COUNTER} > 0 } {
+	       MsgCenter_show
+	    }
          }
 
          # enter event loop

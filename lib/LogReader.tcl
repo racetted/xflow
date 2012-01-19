@@ -2,7 +2,7 @@ package require textutil::string
 
 proc LogReader_readFile { suite_record calling_thread_id } {
    global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODES
-   DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id"
+   DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id" 5
    set REDRAW_FLOW false
    set LOGREADER_UPDATE_NODES ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
@@ -68,8 +68,11 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       # view history mode
       set logfile $suitePath/logs/${monitorLog}_nodelog
    }
-   DEBUG "LogReader_readFile calling_thread_id:$calling_thread_id date:[exec date] suite:[$suite_record cget -suite_path] file:[file tail $logfile]"
+   DEBUG "LogReader_readFile calling_thread_id:$calling_thread_id date:[exec date] suite:[$suite_record cget -suite_path] file:[file tail $logfile]" 5
 
+   if { ${isStartupDone} == "false" } {
+      set date1 [exec date "+%s"]
+   }
    if { [file exists $logfile] } {
       set f_logfile [ open $logfile r ]
       flush stdout
@@ -99,10 +102,11 @@ proc LogReader_readFile { suite_record calling_thread_id } {
 
       $suite_record configure -read_offset [tell $f_logfile]
       close $f_logfile
+
    } else {
       puts "LogReader_readFile $logfile file does not exists! Creating it..."
       close [open $logfile a]
-
+   
       # Need to notify the main thread that this child is done reading
       # the log file for initialization
       if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
@@ -242,7 +246,7 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
       set flowNode [::SuiteNode::getFlowNodeMapping $suite_record $node]
       set type [string range $line $typeStartIndex $typeEndIndex]
       set msg ""
-      puts "LogReader_processLine node:$node flowNode:$flowNode"
+      DEBUG "LogReader_processLine node:$node flowNode:$flowNode"
       if { $type != "" } {
          if { $loopIndex != -1 } {
             set loopExt [string range $line $loopStartIndex $loopEndIndex]
@@ -274,7 +278,7 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
 
                DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
                DEBUG "LogReader_processLine message=$msg" 5
-               if { [record exists instance $flowNode] } {
+               if { [info command $flowNode] != "" } {
                   # 1 - first we take care of setting the node status
                   if { [string tolower $type] == "init" } {
                      if { [$flowNode cget -flow.type] == "loop" } {

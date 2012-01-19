@@ -1,8 +1,8 @@
 proc DEBUG { output {level 2} } {
    global DEBUG_TRACE DEBUG_LEVEL
-   #set debugOn [getGlobalValue "DEBUG_TRACE"]
-   #set debugLevel [getGlobalValue "DEBUG_LEVEL"]
-   if { $DEBUG_TRACE && $DEBUG_LEVEL >= $level} {
+   set debugOn [getGlobalValue "DEBUG_TRACE"]
+   set debugLevel [getGlobalValue "DEBUG_LEVEL"]
+   if { $DEBUG_TRACE == "1" && $DEBUG_LEVEL >= $level} {
       puts "$output"
       flush stdout
    }
@@ -41,8 +41,7 @@ proc Utils_bindMouseWheel { widget units_value } {
 proc Utils_normalCursor { w } {
    if { [winfo exists $w] } {
       catch {
-         # $w configure -cursor arrow
-         $w configure -cursor ""
+         $w configure -cursor {}
          update idletasks
       }
    }
@@ -51,7 +50,6 @@ proc Utils_normalCursor { w } {
 proc Utils_busyCursor { w } {
    if { [winfo exists $w] } {
       $w configure -cursor watch
-      #blt::busy hold $w
       update idletasks
    }
 }

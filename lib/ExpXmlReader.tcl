@@ -107,6 +107,6 @@ proc ExpXmlReader_getExpList {} {
 
 global env
 if { ! [record exists record DisplayGroup] } {
-   puts "ExpXmlReader sourcing DisplayGrp.tcl"
+   # puts "ExpXmlReader sourcing DisplayGrp.tcl"
    source ${lib_dir}/DisplayGrp.tcl
 }
