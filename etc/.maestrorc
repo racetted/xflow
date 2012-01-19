@@ -41,6 +41,11 @@ text_viewer= default
 default_console = konsole --notabbar --nomenubar --schema Transparent_darkbg -e
 #default_console = xterm -e
 
+# specifies the items of the node_history sub_menu
+# when bringing up the node menu in xflow
+# format is either xxH for hours or xxD for days
+#node_history_options = 24H 48H 3D 4D 5D 6D 7D 14D 30D
+
 # this configuration refers to a tmp directory that
 # is mainly used by the gui to store temp files for
 # viewing text files. By default, the files are stored  in

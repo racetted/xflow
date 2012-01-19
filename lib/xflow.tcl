@@ -22,8 +22,6 @@ if { ! [info exists env(SEQ_XFLOW_BIN) ] } {
    exit
 }
 
-puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
-
 set lib_dir $env(SEQ_XFLOW_BIN)/../lib
 # puts "lib_dir=$lib_dir"
 set auto_path [linsert $auto_path 0 $lib_dir ]
@@ -1091,9 +1089,8 @@ proc xflow_drawNode { canvas node position {first_node false} } {
 # This function is called when user click on a box with button 3
 # It will display a popup menu for the current node.
 proc xflow_nodeMenu { canvas node x y } {
-   global ignoreDep
+   global ignoreDep 
    DEBUG "xflow_nodeMenu() node:$node" 5
-
    set suiteRecord [xflow_getActiveSuite]
 
    # highlights the selected node
@@ -1118,6 +1115,14 @@ proc xflow_nodeMenu { canvas node x y } {
       eval $NodeHighLightRestoreCmd
    }
 
+   set historyMenu ${popMenu}.history_menu
+   set historyOptions [xflow_getNodeHistoryOptions]
+      
+   ${popMenu} add cascade -label "History" -underline 0 -menu [menu ${historyMenu}]
+   foreach {itemName itemValue} ${historyOptions} {
+      ${historyMenu} add command -label ${itemName} -command [list xflow_historyCallback $node $canvas $popMenu ${itemValue}]
+   }
+
    ${popMenu} add cascade -label "Info" -underline 0 -menu [menu ${infoMenu}]
    ${popMenu} add cascade -label "Listing" -underline 0 -menu [menu ${listingMenu}]
    ${popMenu} add cascade -label "Submit" -underline 0 -menu [menu ${submitMenu}]
@@ -1134,7 +1139,7 @@ proc xflow_nodeMenu { canvas node x y } {
       xflow_addNptNodeMenu ${popMenu} ${canvas} ${node}
    } else {
 
-      ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback $node $canvas $popMenu 0 ]
+      #${infoMenu} add command -label "Node History" -command [list xflow_historyCallback $node $canvas $popMenu 0 ]
       ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback $node $canvas $popMenu]
       ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback $node $canvas $popMenu ]
 
@@ -1193,7 +1198,7 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    set submitNoDependMenu ${popmenu_w}.submit_nodep_menu
    set miscMenu ${popmenu_w}.misc_menu
 
-   ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback $node $canvas ${popmenu_w} 0 ]
+   ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Loop Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} 1]
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} 0]
@@ -1235,7 +1240,7 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
    set submitNoDependMenu ${popmenu_w}.submit_nodep_menu
    set miscMenu ${popmenu_w}.misc_menu
 
-   ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback $node $canvas ${popmenu_w} 0 ]
+   ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback $node $canvas ${popmenu_w} ]
@@ -1266,6 +1271,45 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
    ${miscMenu} add command -label "End" -command [list xflow_endNpasssTaskCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Abort" -command [list xflow_abortNpasssTaskCallback $node $canvas ${popmenu_w}]
    
+}
+
+# returns a list of menu items to be shown in the node history menu
+# the items is taken from maestrorc if defined else defaults
+# return value is list of items-hourvalue
+# {"48 Hours" "48" "7 Days" "168"}
+proc xflow_getNodeHistoryOptions {} {
+   global NODE_HIST_OPTIONS
+   if { [info exists NODE_HIST_OPTIONS] } {
+      return ${NODE_HIST_OPTIONS}
+   } else {
+      # format is ValueUnit ie 48H 7D
+      set historyOptions [SharedData_getMiscData NODE_HISTORY_OPTIONS]
+      if { ${historyOptions} == "" } {
+         set historyOptions {24H 48H 3D 4D 5D 6D 7D 14D 30D}
+      }
+      set histFormat "%d%s"
+      set NODE_HIST_OPTIONS {}
+      foreach histOption ${historyOptions} {
+         if { [scan ${histOption} ${histFormat} decValue unitValue] == 2 } {
+            switch ${unitValue} {
+               "h" -
+               "H" {
+                  lappend NODE_HIST_OPTIONS "${decValue} Hours"
+                  lappend NODE_HIST_OPTIONS ${decValue}
+               }
+               d -
+               D {
+                  lappend NODE_HIST_OPTIONS "${decValue} Days"
+                  lappend NODE_HIST_OPTIONS [expr ${decValue} * 24]
+               }
+               default {
+                  puts "Invalid value in .maestrorc node_history_options: ${histOption}"
+               }
+            }
+         }
+      }
+   }
+   return ${NODE_HIST_OPTIONS}
 }
 
 # this menu is called when the user request a new partial flow window to be launched
@@ -1323,7 +1367,7 @@ proc xflow_getFlowFrame {} {
 # this function is called to show the history of a node
 # By default, the middle mouse on a node shows the history for the last 48 hours.
 # The "Node History" from the Info menu on the node shows only the current datestamp
-proc xflow_historyCallback { node canvas caller_menu history {full_loop 0} } {
+proc xflow_historyCallback { node canvas caller_menu {history 48} {full_loop 0} } {
    DEBUG "xflow_historyCallback node:$node canvas:$canvas $full_loop" 5
 
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
@@ -2820,8 +2864,10 @@ proc xflow_createTmpDir {} {
 global XFLOW_STANDALONE
 
 xflow_parseCmdOptions
+
 # this section is only executed when xflow is run as a standalone application
 if { ${XFLOW_STANDALONE} == 1 } {
+   puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
    SharedData_init
    xflow_init
    xflow_validateSuite
