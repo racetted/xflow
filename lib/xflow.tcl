@@ -2390,6 +2390,10 @@ proc xflow_createFlowCanvas { parent } {
       }
       canvas $canvas -yscrollcommand [list ${drawFrame}.yscroll set] \
          -xscrollcommand [list ${drawFrame}.xscroll set] -relief raised -bg $canvasColor
+      # bind dragging right mouse button to drag canvas
+      bind $canvas <1> {%W scan mark %x %y}
+      bind $canvas <B1-Motion> {%W scan dragto %x %y}
+      
 
       grid $canvas -row 0 -column 0 -sticky nsew
 
