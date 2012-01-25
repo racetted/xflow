@@ -104,12 +104,17 @@ proc xflow_addHelpMenu { parent } {
       -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
 
+   $menuW add command -label "Experiment Support" -underline 9 -command [list xflow_showSupportCallback]
    $menuW add command -label "Maestro Commands" -underline 9 -command "xflow_maestroCmds"
 
    pack $menuButtonW -side left -pady 2 -padx 2
 }
 
-# displays the list of maestroe executables with a short description
+proc xflow_showSupportCallback {} {
+   set suiteRecord [xflow_getActiveSuite]
+   ExpOptions_showSupport  [${suiteRecord} cget -suite_path] [xflow_getWidgetName top_frame]
+}
+
 # no fancy format here, it's a simple dump of the content
 # of $SEQ_XFLOW_BIN/../etc/commands_summary.txt into a text widget
 proc xflow_maestroCmds {} {

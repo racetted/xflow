@@ -928,6 +928,7 @@ proc Overview_boxMenu { canvas exp_path x y } {
       -command [list Overview_historyCallback $canvas $exp_path $popMenu]
    $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $canvas $exp_path]
    $popMenu add command -label "Shell" -command [list Utils_launchShell $exp_path]
+   $popMenu add command -label "Support" -command [list ExpOptions_showSupport $exp_path [winfo toplevel ${canvas}]]
    tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
 }

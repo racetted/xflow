@@ -128,7 +128,7 @@ proc MsgCenter_createWidgets {} {
    set nodeColWidth 30
    set msgColWidth 30
    set suiteColWidth 40
-   set titleFont "-adobe-courier-bold-r-normal--14-100-100-100-m-90-iso8859-1"
+   #set titleFont "-adobe-courier-bold-r-normal--14-100-100-100-m-90-iso8859-1"
    set rowFgColor [SharedData_getColor DEFAULT_ROW_BG]
    set tableBgColor [SharedData_getColor DEFAULT_BG]
    set headerBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
@@ -148,7 +148,7 @@ proc MsgCenter_createWidgets {} {
          ${MessageColNumber} ${msgColWidth} \
          ${SuiteColNumber} ${suiteColWidth}
 
-      ${tableW} tag configure title -bd 1 -bg ${headerBgColor} -relief raised -font ${titleFont} -fg ${headerFgColor}
+      ${tableW} tag configure title -bd 1 -bg ${headerBgColor} -relief raised -font TkHeadingFont -fg ${headerFgColor}
       Utils_bindMouseWheel ${tableW} 2
    }
 
