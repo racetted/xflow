@@ -222,6 +222,9 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
 
    $canvas itemconfigure current_timetext -text "Current Time: ${current_time}Z"
 
+   # set overview title at the same time
+   Overview_setTitle [winfo toplevel ${canvas}] ${current_time}
+
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
 }
 
@@ -1860,13 +1863,10 @@ proc Overview_addCanvasImage { canvas } {
    ${canvas} lower canvas_bg_image
 }
 
-proc Overview_setTitle { top_w } {
+proc Overview_setTitle { top_w time_value } {
    global env
-   set winTitle "Xflow Overview"
-   if { [info exists env(USER)] } {
-      set winTitle "${winTitle} - User=$env(USER)"
-   }
-   wm title ${top_w} ${winTitle}
+   set winTitle "Xflow Overview - User=$env(USER) Host=[exec hostname] Time=${time_value}"
+   wm title [winfo toplevel ${top_w}] ${winTitle}
 }
 
 proc Overview_getCanvas {} {
@@ -1876,7 +1876,6 @@ proc Overview_getCanvas {} {
 proc Overview_getToplevel {} {
    return .overview_top
 }
-
 
 global MSG_CENTER_THREAD_ID
 global DEBUG_TRACE DEBUG_LEVEL
@@ -1899,7 +1898,7 @@ set topCanvas ${topOverview}.canvas
 toplevel ${topOverview}
 wm withdraw ${topOverview}
 
-Overview_setTitle ${topOverview}
+#Overview_setTitle ${topOverview}
 Overview_readExperiments
 
 Overview_createMenu ${topOverview}

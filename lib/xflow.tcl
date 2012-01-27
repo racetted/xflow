@@ -2218,7 +2218,7 @@ proc xflow_createCanvasFrame { parent suitePath bind_cmd {page_h 1} {page_w 1}} 
 }
 
 # this command is called from a variable trace
-# the proc definition required 3 parameters for variable tracing
+# the proc definition requires 3 parameters for variable tracing
 # however, defaults to empty strings... no need to pass parameters
 # when called manually
 proc xflow_nodeResourceCallback { {name1 ""} {name2 ""} {op ""} } {
@@ -2576,7 +2576,6 @@ proc xflow_validateSuite {} {
 
 # this function is called to create the widgets of the xflow main window
 proc xflow_createWidgets {} {
-
    DEBUG "xflow_createWidgets" 5
    wm iconify .
    set topFrame [xflow_getWidgetName top_frame]
@@ -2696,6 +2695,7 @@ proc xflow_displayFlow { calling_thread_id } {
       xflow_selectSuiteCallback
    }
 
+   xflow_setTitle ${topFrame} ${suitePath}
    xflow_toFront .
    # Console_create
 }
@@ -2730,6 +2730,16 @@ proc xflow_getShawdowStatus {} {
       set SHADOW_STATUS 0
    }
    return $SHADOW_STATUS
+}
+
+proc xflow_setTitle { top_w exp_path } {
+   global env
+   set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
+   set winTitle "Xflow - Exp=${exp_path} User=$env(USER) Host=[exec hostname] Time=${current_time}"
+   wm title [winfo toplevel ${top_w}] ${winTitle}
+
+   # refresh title every inute
+   set TimeAfterId [after 60000 [list xflow_setTitle ${top_w} ${exp_path}]]
 }
 
 proc out {} {

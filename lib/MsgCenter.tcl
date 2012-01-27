@@ -507,6 +507,16 @@ proc MsgCenter_getThread {} {
    return ${threadID}
 }
 
+proc MsgCenter_setTitle { top_w } {
+   global env
+   set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
+   set winTitle "Message Center - User=$env(USER) Host=[exec hostname] Time=${current_time}"
+   wm title [winfo toplevel ${top_w}] ${winTitle}
+
+   # refresh title every minute
+   set TimeAfterId [after 60000 [list MsgCenter_setTitle ${top_w}]]
+}
+
 proc MsgCenter_initThread {} {
    set threadID [SharedData_getMsgCenterThreadId]
    if { ${threadID} == "" } {
@@ -642,7 +652,8 @@ proc MsgCenter_init {} {
       bind ${tableW} <Button-3> [list MsgCenter_Button3Callback %W]
       bind ${tableW} <Double-Button-1> [ list MsgCenter_DoubleClickCallback %W]
       
-      wm title ${topLevelW} "Maestro Message Center"
+      #wm title ${topLevelW} "Maestro Message Center"
+      MsgCenter_setTitle ${topLevelW}
       grid columnconfigure ${topLevelW} 0 -weight 1
       # give new real estate to the msg table
       grid rowconfigure ${topLevelW} $RowNumberMap(MsgTable) -weight 1
