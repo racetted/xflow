@@ -2203,7 +2203,7 @@ proc xflow_resizeWindow { canvas } {
 # It is still use yet only to parse the exp flow.xml file.
 proc xflow_createCanvasFrame { parent suitePath bind_cmd {page_h 1} {page_w 1}} {
    global env
-   DEBUG "xflow_createCanvasFrame parent:$parent suiteList:$suiteList bind_cmd:$bind_cmd "
+   DEBUG "xflow_createCanvasFrame parent:$parent suiteList:$suiteList bind_cmd:$bind_cmd " 5
    set suiteName [file tail $suitePath]
    set drawFrame $parent.[::SuiteNode::formatName $suitePath]
    frame $drawFrame
@@ -2217,12 +2217,40 @@ proc xflow_createCanvasFrame { parent suitePath bind_cmd {page_h 1} {page_w 1}} 
    #xflow_getNodeResources ${rootNode} $suitePath 1
 }
 
+# this command is called from a variable trace
+# the proc definition required 3 parameters for variable tracing
+# however, defaults to empty strings... no need to pass parameters
+# when called manually
+proc xflow_nodeResourceCallback { {name1 ""} {name2 ""} {op ""} } {
+   global NODE_RESOURCE_DONE NODE_DISPLAY_PREF
+   global nodeResourceText
+   # we only load the resources once
+   if { ${NODE_DISPLAY_PREF} != "normal" } {
+      if { ! [info exists NODE_RESOURCE_DONE] || ${NODE_RESOURCE_DONE} == "false" } {
+         set activeSuiteRecord [xflow_getActiveSuite]
+         if { ${activeSuiteRecord} != "" } {
+            ProgressDlg .pd -title "Node Display Preferrences" -textvariable nodeResourceText
+            set nodeResourceText "Loading node resources ..."
+            # for some reason, I need to call the update for the progress dlg to appear properly
+            update idletasks
+            DEBUG "xflow_nodeResourceCallback retrieving resources for [${activeSuiteRecord} cget -suite_path]"
+            set rootNode [${activeSuiteRecord} cget -root_node]
+            xflow_getNodeResources ${rootNode} [${activeSuiteRecord} cget -suite_path] 1
+            set NODE_RESOURCE_DONE true
+            destroy .pd
+            unset nodeResourceText
+         }
+      }
+   }
+}
+
 # this function retrives the node resource info by executing
 # the maestro-utils nodeinfo. Recursivity can also be enabled using
 # is_recursive function parameter.
 proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
    global env
    DEBUG "xflow_getNodeResources node:$node"
+
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
@@ -2627,8 +2655,9 @@ proc xflow_displayFlow { calling_thread_id } {
    DEBUG "xflow_displayFlow suitePath ${suitePath}" 5
    set activeSuiteRecord [xflow_getActiveSuite]
    set rootNode [${activeSuiteRecord} cget -root_node]
-
-   xflow_getNodeResources ${rootNode} $suitePath 1
+   #xflow_getNodeResources ${rootNode} $suitePath 1
+   # resource will only be loaded if needed
+   xflow_nodeResourceCallback
 
    # initial monitor dates
    xflow_populateMonitorDate [xflow_getWidgetName monitor_date_frame]
@@ -2886,3 +2915,6 @@ if { ${XFLOW_STANDALONE} == 1 } {
    SharedData_setMiscData [thread::id]_STARTUP_DONE true
    thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
 }
+
+# trace the variable to see if we need to load the resources
+trace add variable NODE_DISPLAY_PREF write xflow_nodeResourceCallback

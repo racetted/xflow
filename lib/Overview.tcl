@@ -970,7 +970,6 @@ proc Overview_childInitDone { suite_path thread_id } {
    set childNotDone false
    incr STARTUP_PROGRESS_VALUE
    set STARTUP_PROGRESS_TXT "${suite_path} loaded."
-   raise .overview_progress
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach expPath ${expList} {
