@@ -16,13 +16,14 @@ eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
   -as 		"" 	"" 	"[start application as another user]" \
   -display 	"" 	"$DISPLAY" 	"[X windows display]" \
   -debug 	"0" 	"1"	"[debug message]" \
-  -noautomsg 	"0"     "1"	"[No Auto Message Display]" \
-  -suites 	""	""	"[Suites List File]" \
+  -noautomsg 	"0"     "1"	"[no auto message display]" \
+  -suites 	""	""	"[suites list file]" \
+  -rc ""	""	"[maestrorc preferrence file]" \
   ++ $arguments`
 
 if [[ "${SEQ_XFLOW_BIN}" = "" ]] ; then
    echo "xflow_overview getting maestro env from /home/binops/afsi/ssm/domain2"
-   eval `ssmuse sh -d /home/binops/afsi/ssm/domain2`
+   eval "`ssmuse sh -d /home/binops/afsi/ssm/domain2`"
    echo "which xflow_overview? $(which xflow_overview)"
 fi
 
@@ -69,6 +70,13 @@ if [[ "${suites}" != "" ]] ; then
    suites_opt="-suites ${suites}"
 fi
 
+rc_opt=""
+if [[ "${rc}" != "" ]] ; then
+   print "\n maestrorc preferrence file ${rc}"
+   [[ ! -f ${rc} ]] && print "\nxflow_overview ERROR: file not found ${rc}" && exit 1
+   rc_opt="-rc ${rc}"
+fi
+
 debug_opt=""
 if [[ "${debug}" = "1" ]] ; then
    debug_opt="-debug"
@@ -76,4 +84,4 @@ fi
 
 export NO_STOP_MESSAGE=on
 print "\n$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}"
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt} ${debug_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt} ${debug_opt} ${rc_opt}

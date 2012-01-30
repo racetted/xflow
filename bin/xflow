@@ -20,10 +20,24 @@ set +e
 arguments=$*
 eval `cclargs_lite -D "" $0 "[maestro gui]" \
   -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
+  -rc ""        ""      "[maestrorc preferrence file]" \
+  -debug        "0"     "1"     "[debug message]" \
   ++ $arguments`
 
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 
+rc_opt=""
+if [[ "${rc}" != "" ]] ; then
+   print "\n maestrorc preferrence file ${rc}"
+   [[ ! -f ${rc} ]] && print "\nxflow ERROR: file not found ${rc}" && exit 1
+   rc_opt="-rc ${rc}"
+fi
+
+debug_opt=""
+if [[ "${debug}" = "1" ]] ; then
+   debug_opt="-debug"
+fi
+
 echo "$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt}"
 export NO_STOP_MESSAGE=on
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt} ${rc_opt} ${debug_opt}

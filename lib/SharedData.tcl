@@ -141,7 +141,7 @@ proc SharedData_init {} {
    SharedData_setMiscData MSG_CENTER_NUMBER_ROWS 25
 
    SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
-   SharedData_setMiscData DEBUG_TRACE 1
+   SharedData_setMiscData DEBUG_TRACE 0
    SharedData_setMiscData DEBUG_LEVEL 5
    SharedData_setMiscData AUTO_LAUNCH true
    SharedData_setMiscData AUTO_MSG_DISPLAY true
@@ -155,16 +155,20 @@ proc SharedData_init {} {
 
    SharedData_setMiscData MENU_RELIEF flat
 
-   SharedData_readProperties
+   # SharedData_readProperties
 }
 
-proc SharedData_readProperties {} {
+proc SharedData_readProperties { {rc_file ""} } {
    global env DEBUG_TRACE DEBUG_LEVEL
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
    set errorMsg ""
+   if { ${rc_file} == "" } {
+      set fileName $env(HOME)/.maestrorc
+   } else {
+      set fileName ${rc_file}
+   }
 
-   set fileName $env(HOME)/.maestrorc
    if { [file exists ${fileName}] } {
       set propertiesFile [open ${fileName} r]
 

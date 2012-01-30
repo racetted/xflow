@@ -2764,11 +2764,14 @@ proc out {} {
 }
 
 proc xflow_parseCmdOptions {} {
-   global argv XFLOW_STANDALONE AUTO_MSG_DISPLAY
+   global env argv XFLOW_STANDALONE AUTO_MSG_DISPLAY MSG_CENTER_THREAD_ID
+   set rcFile ""
    if { [info exists argv] } {
       set options {
          {main ""}
+         {debug "Turn debug on"}
          {noautomsg ""}
+         {rc.arg "" "maestrorc preferrence file"}
       }
       
       set usage "\[options] \noptions:"
@@ -2786,6 +2789,32 @@ proc xflow_parseCmdOptions {} {
    } else {
       set XFLOW_STANDALONE 0
    }
+
+   # this section is only executed when xflow is run as a standalone application
+   if { ${XFLOW_STANDALONE} == 1 } {
+      puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
+      SharedData_init
+
+      if { $params(debug) } {
+         puts "xflow enabling debug trace"
+         SharedData_setMiscData DEBUG_TRACE 1
+      } 
+
+      if { ! ($params(rc) == "") } {
+         puts "xflow using maestrorc file: $params(rc)"
+         set rcFile $params(rc)
+      }
+
+      SharedData_readProperties ${rcFile}
+      xflow_init
+      xflow_validateSuite
+      xflow_readFlowXml
+      xflow_displayFlow [thread::id]
+      SharedData_setMiscData STARTUP_DONE true
+      SharedData_setMiscData [thread::id]_STARTUP_DONE true
+      thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
+   }
+
 }
 
 proc xflow_getWidgetName { key } {
@@ -2912,19 +2941,6 @@ proc xflow_createTmpDir {} {
 global XFLOW_STANDALONE
 
 xflow_parseCmdOptions
-
-# this section is only executed when xflow is run as a standalone application
-if { ${XFLOW_STANDALONE} == 1 } {
-   puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
-   SharedData_init
-   xflow_init
-   xflow_validateSuite
-   xflow_readFlowXml
-   xflow_displayFlow [thread::id]
-   SharedData_setMiscData STARTUP_DONE true
-   SharedData_setMiscData [thread::id]_STARTUP_DONE true
-   thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
-}
 
 # trace the variable to see if we need to load the resources
 trace add variable NODE_DISPLAY_PREF write xflow_nodeResourceCallback

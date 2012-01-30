@@ -1711,6 +1711,7 @@ proc Overview_parseCmdOptions {} {
          {debug "Turn debug on"}
          {noautomsg "No automatic message display"}
          {suites.arg "" "suites definition file"}
+         {rc.arg "" "maestrorc preferrence file"}
       }
    
       set usage "\[options] \noptions:"
@@ -1734,6 +1735,11 @@ proc Overview_parseCmdOptions {} {
       }
       # DEBUG "Overview_parseCmdOptions AUTO_MSG_DISPLAY: ${AUTO_MSG_DISPLAY}" 5
       # DEBUG "Overview_parseCmdOptions OVERVIEW_SUITES_FILE: [SharedData_getMiscData OVERVIEW_SUITES_FILE]" 5
+      if { ! ($params(rc) == "") } {
+         puts "Overview_parseCmdOptions using maestrorc file: $params(rc)"
+      }
+
+      SharedData_readProperties $params(rc)
    }
 }
 
@@ -1882,13 +1888,13 @@ global DEBUG_TRACE DEBUG_LEVEL
 
 wm withdraw .
 SharedData_init
-Overview_setTkOptions
-SharedData_setMiscData DEBUG_TRACE 0
+Overview_parseCmdOptions
+#SharedData_setMiscData DEBUG_TRACE 0
 set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
+Overview_setTkOptions
 SharedData_setMiscData OVERVIEW_MODE true
 SharedData_setMiscData OVERVIEW_THREAD_ID [thread::id]
 
-Overview_parseCmdOptions
 set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
 ::DrawUtils::init
 Overview_init
