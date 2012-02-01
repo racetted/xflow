@@ -1786,6 +1786,8 @@ proc Overview_addHelpMenu { parent } {
    menubutton $menuButtonW -text Help -underline 0 -menu $menuW
    menu $menuW -tearoff 0
 
+   $menuW add command -label "About Xflow" -underline 0 -command "About_show ${parent}"
+
    pack $menuButtonW -side right -padx 2
 }
 

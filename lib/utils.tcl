@@ -230,6 +230,15 @@ proc Utils_launchShell { exp_path } {
    exec ksh -c "ssh -Y $env(TRUE_HOST) 'cd ${exp_path}; export SEQ_EXP_HOME=${exp_path}; xterm -ls -T SEQ_EXP_HOME=${exp_path}'" &
 }
 
+proc Utils_goBrowser { url } {
+   set browser [SharedData_getMiscData BROWSER]
+   if { ${browser} == "" } {
+      set browser firefox
+   }
+   puts "Utils_goBrowser exec ${browser} ${url}"
+   exec ${browser} ${url} &
+}
+
 #setGlobalValue SEQ_BIN [Sequencer_getPath]
 #setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 #setGlobalValue DEBUG_TRACE 1

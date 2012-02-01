@@ -104,8 +104,9 @@ proc xflow_addHelpMenu { parent } {
       -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
 
-   $menuW add command -label "Experiment Support" -underline 9 -command [list xflow_showSupportCallback]
-   $menuW add command -label "Maestro Commands" -underline 9 -command "xflow_maestroCmds"
+   $menuW add command -label "Experiment Support" -underline 11 -command [list xflow_showSupportCallback]
+   $menuW add command -label "Maestro Commands" -underline 8 -command "xflow_maestroCmds"
+   $menuW add command -label "About" -underline 0 -command "About_show ${parent}"
 
    pack $menuButtonW -side left -pady 2 -padx 2
 }
