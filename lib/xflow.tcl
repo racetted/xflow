@@ -392,7 +392,7 @@ proc xflow_changeMonitorWidgetState { new_state } {
 # enabling or disabling access to select datestamps in history mode
 proc xflow_logsMonitorChanged { parent_w } {
    global MONITORING_LATEST
-   DEBUG "xflow_logsMonitorChanged called"
+   DEBUG "xflow_logsMonitorChanged called" 5
    if { $parent_w == "." } {
       set parent_w ""
    }
@@ -2179,24 +2179,31 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
 proc xflow_resizeWindow { canvas } {
    DEBUG "xflow_resizeWindow canvas:${canvas}" 5
 
-   if { [winfo exists ${canvas}] } {
-      set topLevel [winfo toplevel ${canvas}]
-      set suiteRecord [xflow_getActiveSuite]
-      set heightMax [lindex [wm maxsize ${topLevel}] 1]
-      set widthMax [lindex [wm maxsize ${topLevel}] 0]
-      set canvasMaximX [::SuiteNode::getDisplayMaximumX ${suiteRecord} ${canvas}]
-      set canvasMaximY [::SuiteNode::getDisplayMaximumY ${suiteRecord} ${canvas}]
-      set windowW [expr ${canvasMaximX} + 50]
-      set windowH [expr ${canvasMaximY} + 135]
-      if { [expr ${windowH} > ${heightMax}] } {
-         DEBUG "xflow_resizeWindow height ${windowH} > ${heightMax} (default)" 5
-         set windowH ${heightMax}
+   if { [SharedData_getMiscData FLOW_GEOMETRY] == "" } {
+      if { [winfo exists ${canvas}] } {
+         set topLevel [winfo toplevel ${canvas}]
+         set suiteRecord [xflow_getActiveSuite]
+         set heightMax [lindex [wm maxsize ${topLevel}] 1]
+         set widthMax [lindex [wm maxsize ${topLevel}] 0]
+         set canvasMaximX [::SuiteNode::getDisplayMaximumX ${suiteRecord} ${canvas}]
+         set canvasMaximY [::SuiteNode::getDisplayMaximumY ${suiteRecord} ${canvas}]
+         set windowW [expr ${canvasMaximX} + 50]
+         set windowH [expr ${canvasMaximY} + 135]
+         if { [expr ${windowH} > ${heightMax}] } {
+            DEBUG "xflow_resizeWindow height ${windowH} > ${heightMax} (default)" 5
+            set windowH ${heightMax}
+         }
+         if { [expr ${windowW} > ${widthMax}] } {
+            DEBUG "xflow_resizeWindow width ${windowW} > ${widthMax} (default)" 5
+            set windowW ${widthMax}
+         }
+         wm geometry ${topLevel} =${windowW}x${windowH}
       }
-      if { [expr ${windowW} > ${widthMax}] } {
-         DEBUG "xflow_resizeWindow width ${windowW} > ${widthMax} (default)" 5
-         set windowW ${widthMax}
-      }
-      wm geometry ${topLevel} =${windowW}x${windowH}
+   } else {
+      # limit the size of the flow window
+      # read value from ~/.maestrorc
+      set flowGeometry [SharedData_getMiscData FLOW_GEOMETRY]
+      wm geometry . =${flowGeometry}
    }
 }
 
@@ -2230,15 +2237,16 @@ proc xflow_nodeResourceCallback { {name1 ""} {name2 ""} {op ""} } {
       if { ! [info exists NODE_RESOURCE_DONE] || ${NODE_RESOURCE_DONE} == "false" } {
          set activeSuiteRecord [xflow_getActiveSuite]
          if { ${activeSuiteRecord} != "" } {
-            ProgressDlg .pd -title "Node Display Preferrences" -textvariable nodeResourceText
+            set progressW [ProgressDlg .pd -title "Node Display Preferrences" -textvariable nodeResourceText]
+            Utils_positionWindow ${progressW}
             set nodeResourceText "Loading node resources ..."
             # for some reason, I need to call the update for the progress dlg to appear properly
             update idletasks
-            DEBUG "xflow_nodeResourceCallback retrieving resources for [${activeSuiteRecord} cget -suite_path]"
+            DEBUG "xflow_nodeResourceCallback retrieving resources for [${activeSuiteRecord} cget -suite_path]" 5
             set rootNode [${activeSuiteRecord} cget -root_node]
             xflow_getNodeResources ${rootNode} [${activeSuiteRecord} cget -suite_path] 1
             set NODE_RESOURCE_DONE true
-            destroy .pd
+            destroy ${progressW}
             unset nodeResourceText
          }
       }
@@ -2250,31 +2258,25 @@ proc xflow_nodeResourceCallback { {name1 ""} {name2 ""} {op ""} } {
 # is_recursive function parameter.
 proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
    global env
-   DEBUG "xflow_getNodeResources node:$node"
+   DEBUG "xflow_getNodeResources node:$node" 5
 
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
 
    # for now we only care about batch resources from tasks
-   if { [string match "*task" [$node cget -flow.type] ] } {
-      # the next command runs nodeinfo and converts each line of the output
-      # into a tcl command
-      DEBUG "${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :'" 5
-      set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile} 2> /dev/null "]} message]
-   
-      if { $code != 0 } {
-         Utils_raiseError . "Get Node Resource" $message
-         return 0
-      }
-      if [ catch { eval [exec cat ${outputFile}] } message ] {
-         puts "\n$message"
-      }
+   DEBUG "${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :'" 5
+   set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile} 2> /dev/null "]} message]
 
-      catch { close $fileId }
-   } elseif { [$node cget -flow.type] == "loop" } {
-      xflow_getLoopResources ${node} ${suite_path}
-   } 
+   if { $code != 0 } {
+      Utils_raiseError . "Get Node Resource" $message
+      return 0
+   }
+   if [ catch { eval [exec cat ${outputFile}] } message ] {
+      DEBUG "\n$message" 5
+   }
+
+   catch { close $fileId }
 
    if { $is_recursive } {
       set childList [$node cget -flow.children]
@@ -2287,14 +2289,39 @@ proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
    }
 }
 
+# at startup fetches all the loop node attributes once only to be able to display
+# the loop parameters
+proc xflow_getAllLoopResourcesCallback { node suite_path } {
+   global LOOP_RESOURCES_DONE
+   if { ! [info exists LOOP_RESOURCES_DONE] || ${LOOP_RESOURCES_DONE} == "false" } {
+      DEBUG "xflow_getAllLoopResourcesCallback getting resources..." 5
+      xflow_getAllLoopResources ${node} ${suite_path}
+      set LOOP_RESOURCES_DONE true
+   }
+}
+
+# retrieve loop attributes recursively
+proc xflow_getAllLoopResources { node suite_path } {
+   if { [$node cget -flow.type] == "loop" } {
+      xflow_getLoopResources ${node} ${suite_path}
+   } 
+   set childList [$node cget -flow.children]
+   if { $childList != "" } {
+      foreach childName $childList {
+         set childNode $node/$childName
+         xflow_getAllLoopResources $childNode $suite_path
+      }
+   }
+}
+
 # now that the loops attributes are stored in the node resource xml file,
 # this function calls the nodeinfo to retrieve loop attributes.
 proc xflow_getLoopResources { node suite_path } {
    global env
-   DEBUG "xflow_getLoopResources node:$node"
+   DEBUG "xflow_getLoopResources node:$node" 5
 
    if { [$node cget -flow.type] != "loop" } {
-      DEBUG "xflow_getLoopResources nothing to be done for non-loop node"
+      DEBUG "xflow_getLoopResources nothing to be done for non-loop node" 5
       return
    }
 
@@ -2308,16 +2335,16 @@ proc xflow_getLoopResources { node suite_path } {
    # node.specific.END=10
    # node.specific.STEP=2
    # node.specific.TYPE=Default
-   DEBUG "xflow_getLoopResources ${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'"
+   DEBUG "xflow_getLoopResources ${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'" 5
    if [ catch { exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'  > ${outputFile} 2> /dev/null" } message ] {
       Utils_raiseError . "Get Loop Resources" $message
       return 0
    }
 
-   DEBUG "xflow_getLoopResources cat ${outputFile}"
+   DEBUG "xflow_getLoopResources cat ${outputFile}" 5
    array set valueList {}
    if [ catch { array set valueList [exec cat ${outputFile}] } message ] {
-      puts "\n$message"
+      DEBUG "\n$message" 5
    }
 
    # maps the node.specific attribute name to the
@@ -2335,7 +2362,7 @@ proc xflow_getLoopResources { node suite_path } {
          set attrName $attrMap(${name})
          ${node} configure -${attrName} ${value}
       } else {
-         DEBUG "xflow_getLoopResources invalid loop attribute token name:$name value:$value"
+         DEBUG "xflow_getLoopResources invalid loop attribute token name:$name value:$value" 5
       }
    }
 }
@@ -2345,7 +2372,7 @@ proc xflow_getLoopResources { node suite_path } {
 # however xflow supports only one exp now.
 proc xflow_selectSuiteTab { parent suite_record } {
 
-   DEBUG "xflow_selectSuiteTab parent:$parent suite_record:${suite_record}"
+   DEBUG "xflow_selectSuiteTab parent:$parent suite_record:${suite_record}" 5
 
    set title "xflow experiment path = [${suite_record} cget -suite_path]"
    wm title . $title
@@ -2501,7 +2528,7 @@ proc xflow_getActiveSuite {} {
    if { [info exists ACTIVE_SUITE] } {
       return $ACTIVE_SUITE
    } else {
-      DEBUG "xflow_getActiveSuite empty"
+      DEBUG "xflow_getActiveSuite empty" 5
       return ""
    }
 }
@@ -2511,13 +2538,15 @@ proc xflow_getActiveSuite {} {
 # if required.
 proc xflow_quit {} {
    global XFLOW_STANDALONE MONITOR_THREAD_ID
-   global SESSION_TMPDIR
+   global SESSION_TMPDIR TITLE_AFTER_ID
 
    DEBUG "xflow_quit exiting Xflow thread id:[thread::id]" 5
    set suiteRecord [xflow_getActiveSuite]
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+
+   catch { after cancel ${TITLE_AFTER_ID} }
    if { [info exists SESSION_TMPDIR] } {
-      DEBUG "xflow_quit deleting tmp dir ${SESSION_TMPDIR}"
+      DEBUG "xflow_quit deleting tmp dir ${SESSION_TMPDIR}" 5
       catch { file delete -force ${SESSION_TMPDIR} }
       set SESSION_TMPDIR ""
    }
@@ -2656,6 +2685,8 @@ proc xflow_displayFlow { calling_thread_id } {
    set activeSuiteRecord [xflow_getActiveSuite]
    set rootNode [${activeSuiteRecord} cget -root_node]
    #xflow_getNodeResources ${rootNode} $suitePath 1
+   xflow_getAllLoopResourcesCallback ${rootNode} ${SEQ_EXP_HOME}
+
    # resource will only be loaded if needed
    xflow_nodeResourceCallback
 
@@ -2734,13 +2765,15 @@ proc xflow_getShawdowStatus {} {
 }
 
 proc xflow_setTitle { top_w exp_path } {
-   global env
-   set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
-   set winTitle "Xflow - Exp=${exp_path} User=$env(USER) Host=[exec hostname] Time=${current_time}"
-   wm title [winfo toplevel ${top_w}] ${winTitle}
+   global env TITLE_AFTER_ID
+   if { [winfo exists ${top_w}] } {
+      set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
+      set winTitle "Xflow - Exp=${exp_path} User=$env(USER) Host=[exec hostname] Time=${current_time}"
+      wm title [winfo toplevel ${top_w}] ${winTitle}
 
-   # refresh title every inute
-   set TimeAfterId [after 60000 [list xflow_setTitle ${top_w} ${exp_path}]]
+      # refresh title every inute
+      set TITLE_AFTER_ID [after 60000 [list xflow_setTitle ${top_w} ${exp_path}]]
+   }
 }
 
 proc out {} {

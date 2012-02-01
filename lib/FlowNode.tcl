@@ -638,7 +638,7 @@ proc ::FlowNodes::getNodeExtension { current_node } {
 # returns 1 if the node requires a display refresh
 # returns 0 if not
 proc ::FlowNodes::isDisplayUpdate { current_node updated_ext } {
-   DEBUG "::FlowNodes::isDisplayUpdate current_node:$current_node updated_ext:$updated_ext"
+   DEBUG "::FlowNodes::isDisplayUpdate current_node:$current_node updated_ext:$updated_ext" 5
    set extension ""
    if { [${current_node} cget -flow.type] == "npass_task" } {
       set extension [${current_node} cget -current]
@@ -655,7 +655,7 @@ proc ::FlowNodes::isDisplayUpdate { current_node updated_ext } {
          set extension "${extension}${currentExt}"
       }
    }
-   DEBUG "::FlowNodes::isDisplayUpdate extension:$extension updated_ext:$updated_ext"
+   DEBUG "::FlowNodes::isDisplayUpdate extension:$extension updated_ext:$updated_ext" 5
 
    return [string match "${extension}" ${updated_ext}]
 }

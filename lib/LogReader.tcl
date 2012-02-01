@@ -246,7 +246,7 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
       set flowNode [::SuiteNode::getFlowNodeMapping $suite_record $node]
       set type [string range $line $typeStartIndex $typeEndIndex]
       set msg ""
-      DEBUG "LogReader_processLine node:$node flowNode:$flowNode"
+      DEBUG "LogReader_processLine node:$node flowNode:$flowNode" 5
       if { $type != "" } {
          if { $loopIndex != -1 } {
             set loopExt [string range $line $loopStartIndex $loopEndIndex]
