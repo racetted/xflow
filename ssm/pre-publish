@@ -6,4 +6,5 @@ profilePath=${profileDirPath}/${packageName}.sh
 mkdir -p ${profileDirPath}
 Platform=`uname -s` ; [[ $Platform = Linux ]] && Platform=${Platform}-`uname -m`
 echo "export SEQ_XFLOW_BIN=${packageHome}/bin" > ${profilePath}
+echo "export SEQ_XFLOW_DOMAIN=${packageHome}/bin" >> ${profilePath}
 chmod 644 ${profilePath}
