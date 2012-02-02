@@ -38,7 +38,7 @@ text_viewer= default
 # default_console: console to be used to display text files
 # supported: konsole (default) | xterm | etc
 # for xterm and konsole make sure the "-e" appears at the end
-default_console = konsole --notabbar --nomenubar --schema Transparent_darkbg -e
+default_console = konsole -e
 #default_console = xterm -e
 
 # specifies the items of the node_history sub_menu
@@ -59,3 +59,13 @@ default_console = konsole --notabbar --nomenubar --schema Transparent_darkbg -e
 # are not expanded
 # user_tmp_dir = /users/dor/afsi/sul/listings
 user_tmp_dir = default
+
+# this option is to set the background image used for xflow and overview
+# main window
+background_image = /home/ops/afsi/sul/tmp/images/artist_canvas_lightblue.gif
+
+# this option is used to set the geometry for flow windows
+flow_geometry = 1000x500
+
+# this option is to set the preferred browser
+browser = mozilla
