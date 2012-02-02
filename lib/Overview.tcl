@@ -1863,6 +1863,7 @@ proc Overview_addCanvasImage { canvas } {
 
    set boxCoords [${canvas} bbox all]
    set imageBg ${canvas}.bg_image
+   set tiledImage [image create photo]
    if { [SharedData_getMiscData BACKGROUND_IMAGE] != "" } {
       set imageFile [SharedData_getMiscData BACKGROUND_IMAGE]
    } else {
@@ -1872,9 +1873,32 @@ proc Overview_addCanvasImage { canvas } {
 
    ${canvas} delete canvas_bg_image
    image create photo ${imageBg} -file ${imageFile}
-   ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags canvas_bg_image
+   #${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags canvas_bg_image
+   ${canvas} create image 0 0 -anchor nw -image ${tiledImage} -tags canvas_bg_image
+   
+    bind $canvas <Configure> [list Overview_tileBgImage ${canvas} ${imageBg} ${tiledImage}]
+    Overview_tileBgImage $canvas ${imageBg} ${tiledImage}
    ${canvas} lower canvas_bg_image
 }
+
+ proc Overview_tileBgImage { canvas sourceImage tiledImage } {
+    set canvasBox [${canvas} bbox all]
+    set canvasItemsW [lindex ${canvasBox} 2]
+    set canvasItemsH [lindex ${canvasBox} 3]
+    set canvasW [winfo width ${canvas}]
+    set canvasH [winfo height ${canvas}]
+    set usedW ${canvasItemsW}
+    if { ${canvasW} > ${canvasItemsW} } {
+      set usedW ${canvasW}
+    }
+    set usedH ${canvasItemsH}
+    if { ${canvasH} > ${canvasItemsH} } {
+      set usedH ${canvasH}
+    }
+
+    $tiledImage copy $sourceImage \
+        -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
+ }
 
 proc Overview_setTitle { top_w time_value } {
    global env

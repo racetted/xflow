@@ -41,7 +41,7 @@ proc ExpOptions_showSupport { exp_path parent_widget } {
 
    destroy ${topW}
 
-   Utils_positionWindow [toplevel ${topW}]
+   Utils_positionWindow [toplevel ${topW}] ${parent_widget}
    wm title ${topW} "Experiment Support Info"
 
    set tableW [table ${topW}.table -cols 3 -rows ${nextRow} -titlerows 1 -rowheight 2 -pady 6 \
