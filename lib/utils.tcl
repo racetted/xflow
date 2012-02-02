@@ -1,8 +1,8 @@
 proc DEBUG { output {level 2} } {
    global DEBUG_TRACE DEBUG_LEVEL
-   #set debugOn [getGlobalValue "DEBUG_TRACE"]
-   #set debugLevel [getGlobalValue "DEBUG_LEVEL"]
-   if { $DEBUG_TRACE && $DEBUG_LEVEL >= $level} {
+   set debugOn [getGlobalValue "DEBUG_TRACE"]
+   set debugLevel [getGlobalValue "DEBUG_LEVEL"]
+   if { $DEBUG_TRACE == "1" && $DEBUG_LEVEL >= $level} {
       puts "$output"
       flush stdout
    }
@@ -41,8 +41,7 @@ proc Utils_bindMouseWheel { widget units_value } {
 proc Utils_normalCursor { w } {
    if { [winfo exists $w] } {
       catch {
-         # $w configure -cursor arrow
-         $w configure -cursor ""
+         $w configure -cursor {}
          update idletasks
       }
    }
@@ -51,7 +50,6 @@ proc Utils_normalCursor { w } {
 proc Utils_busyCursor { w } {
    if { [winfo exists $w] } {
       $w configure -cursor watch
-      #blt::busy hold $w
       update idletasks
    }
 }
@@ -230,6 +228,15 @@ proc Utils_launchShell { exp_path } {
    global env
    puts "ssh -Y $env(TRUE_HOST) \'cd ${exp_path}; xterm -ls -T SEQ_EXP_HOME=${exp_path}\'"
    exec ksh -c "ssh -Y $env(TRUE_HOST) 'cd ${exp_path}; export SEQ_EXP_HOME=${exp_path}; xterm -ls -T SEQ_EXP_HOME=${exp_path}'" &
+}
+
+proc Utils_goBrowser { url } {
+   set browser [SharedData_getMiscData BROWSER]
+   if { ${browser} == "" } {
+      set browser firefox
+   }
+   puts "Utils_goBrowser exec ${browser} ${url}"
+   exec ${browser} ${url} &
 }
 
 #setGlobalValue SEQ_BIN [Sequencer_getPath]

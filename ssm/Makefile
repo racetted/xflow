@@ -5,7 +5,7 @@
 # common section definition
 include config.mk
 
-ssm: 
+ssm: profile.sh
 	echo "Creating SSM package $(SSMPACKAGE)..."
 	if [ ! -d $(SSMPACKAGE) ]; then \
 	   mkdir $(SSMPACKAGE); \
@@ -16,6 +16,7 @@ ssm:
 	mkdir -p $(SSMPACKAGE)/.ssm.d;
 	cp -r pre-publish $(SSMPACKAGE)/.ssm.d;
 	cp -r post-install $(SSMPACKAGE)/.ssm.d;
+	cp -r profile.sh $(SSMPACKAGE)/.ssm.d;
 	ssmprep --basePath $(shell pwd)/$(SSMPACKAGE) -p $(SSMPACKAGE) --editorPath /bin/echo;
 	echo "Package: xflow" > $(SSMPACKAGE)/.ssm.d/control; \
 	echo "Version: ${VERSION}" >> $(SSMPACKAGE)/.ssm.d/control; \
@@ -24,6 +25,11 @@ ssm:
 	echo "BuildInfo:" >> $(SSMPACKAGE)/.ssm.d/control; \
 	echo "Description: Unified Tasks Monitor" >> $(SSMPACKAGE)/.ssm.d/control; \
 	tar cvf - $(SSMPACKAGE) | gzip -> $(SSMPACKAGE).ssm
+
+profile.sh: Makefile
+	touch profile ;\
+	echo "export SEQ_XFLOW_VERSION=${VERSION}" >$@ ;\
+	cat profile >>$@
 
 clean:
 	rm -r $(SSMPACKAGE).ssm $(SSMPACKAGE)

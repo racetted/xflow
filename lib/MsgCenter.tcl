@@ -128,7 +128,7 @@ proc MsgCenter_createWidgets {} {
    set nodeColWidth 30
    set msgColWidth 30
    set suiteColWidth 40
-   set titleFont "-adobe-courier-bold-r-normal--14-100-100-100-m-90-iso8859-1"
+   #set titleFont "-adobe-courier-bold-r-normal--14-100-100-100-m-90-iso8859-1"
    set rowFgColor [SharedData_getColor DEFAULT_ROW_BG]
    set tableBgColor [SharedData_getColor DEFAULT_BG]
    set headerBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
@@ -148,7 +148,7 @@ proc MsgCenter_createWidgets {} {
          ${MessageColNumber} ${msgColWidth} \
          ${SuiteColNumber} ${suiteColWidth}
 
-      ${tableW} tag configure title -bd 1 -bg ${headerBgColor} -relief raised -font ${titleFont} -fg ${headerFgColor}
+      ${tableW} tag configure title -bd 1 -bg ${headerBgColor} -relief raised -font TkHeadingFont -fg ${headerFgColor}
       Utils_bindMouseWheel ${tableW} 2
    }
 
@@ -344,6 +344,7 @@ proc MsgCenter_ackMessages { table_w_ } {
       thread::send ${xflowThreadId} "xflow_newMessageCallback false"
    }
 }
+
 proc MsgCenter_clearMessages { source_w table_w_ } {
    global MSG_ACTIVE_COUNTER
    if { ${MSG_ACTIVE_COUNTER} > 0 } {
@@ -390,7 +391,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
       # put the window on top of the rest
       wm attributes . -topmost 1
    }
-   if { ${autoMsgDisplay} == "true" } {
+   if { ${autoMsgDisplay} == "true" && [SharedData_getMiscData STARTUP_DONE] == "true" } {
       if { ${raiseAlarm} == "true" } {
          MsgCenter_setHeaderStatus ${table_w_} alarm
          if { [expr ${MSG_ALARM_COUNTER} > ${MSG_BELL_TRIGGER}] } {
@@ -490,7 +491,11 @@ proc MsgCenter_getThread {} {
          }
 
          proc MsgCenterThread_startupDone {} {
+	    global MSG_COUNTER
             MsgCenter_sendNotification
+	    if { ${MSG_COUNTER} > 0 } {
+	       MsgCenter_show
+	    }
          }
 
          # enter event loop
@@ -500,6 +505,16 @@ proc MsgCenter_getThread {} {
 
    DEBUG "MsgCenter_getThread returning id: ${threadID}" 5
    return ${threadID}
+}
+
+proc MsgCenter_setTitle { top_w } {
+   global env
+   set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
+   set winTitle "Message Center - User=$env(USER) Host=[exec hostname] Time=${current_time}"
+   wm title [winfo toplevel ${top_w}] ${winTitle}
+
+   # refresh title every minute
+   set TimeAfterId [after 60000 [list MsgCenter_setTitle ${top_w}]]
 }
 
 proc MsgCenter_initThread {} {
@@ -637,7 +652,8 @@ proc MsgCenter_init {} {
       bind ${tableW} <Button-3> [list MsgCenter_Button3Callback %W]
       bind ${tableW} <Double-Button-1> [ list MsgCenter_DoubleClickCallback %W]
       
-      wm title ${topLevelW} "Maestro Message Center"
+      #wm title ${topLevelW} "Maestro Message Center"
+      MsgCenter_setTitle ${topLevelW}
       grid columnconfigure ${topLevelW} 0 -weight 1
       # give new real estate to the msg table
       grid rowconfigure ${topLevelW} $RowNumberMap(MsgTable) -weight 1

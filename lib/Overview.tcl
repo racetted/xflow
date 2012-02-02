@@ -222,6 +222,9 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
 
    $canvas itemconfigure current_timetext -text "Current Time: ${current_time}Z"
 
+   # set overview title at the same time
+   Overview_setTitle [winfo toplevel ${canvas}] ${current_time}
+
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
 }
 
@@ -928,6 +931,7 @@ proc Overview_boxMenu { canvas exp_path x y } {
       -command [list Overview_historyCallback $canvas $exp_path $popMenu]
    $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $canvas $exp_path]
    $popMenu add command -label "Shell" -command [list Utils_launchShell $exp_path]
+   $popMenu add command -label "Support" -command [list ExpOptions_showSupport $exp_path [winfo toplevel ${canvas}]]
    tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
 }
@@ -960,12 +964,15 @@ proc Overview_launchExpFlow { calling_w exp_path } {
 # the exp log file... At startup, the overview waits for every exp thread
 # to finish before proceeding...
 proc Overview_childInitDone { suite_path thread_id } {
-   global EXP_THREAD_STARTUP_DONE ALL_CHILD_INIT_DONE
+   global EXP_THREAD_STARTUP_DONE ALL_CHILD_INIT_DONE STARTUP_PROGRESS_VALUE
+   global STARTUP_PROGRESS_TXT
    DEBUG "Overview_childInitDone suite_path:$suite_path thread: $thread_id" 5
    set EXP_THREAD_STARTUP_DONE(${suite_path}) 1
 
    set displayGroups [record show instances DisplayGroup]
    set childNotDone false
+   incr STARTUP_PROGRESS_VALUE
+   set STARTUP_PROGRESS_TXT "${suite_path} loaded."
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach expPath ${expList} {
@@ -1059,16 +1066,17 @@ proc Overview_addExp { display_group canvas exp_path } {
    set childId [Overview_createThread ${exp_path}]
 
    # read the flow xml for the xp
-   thread::send ${childId} "readMasterfile ${exp_path}/EntryModule/flow.xml ${exp_path} \"\" \"\" "
+   # thread::send ${childId} "readMasterfile ${exp_path}/EntryModule/flow.xml ${exp_path} \"\" \"\" "
 
    # retrieve the exp root node
    ${suiteRecord} configure -root_node [SharedData_getSuiteData ${exp_path} ROOT_NODE] -overview_group_record ${display_group}
 
-   # start reading the exp log file
-   thread::send ${childId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord}"
-
    # remove the dummy default tk window
-   thread::send ${childId} "wm withdraw ."
+   thread::send -async ${childId} "wm withdraw ."
+
+   # start reading the exp log file
+   thread::send -async ${childId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord}"
+
 
    # add the new thread to the list
    SharedData_setSuiteData ${exp_path} THREAD_ID ${childId}
@@ -1377,11 +1385,27 @@ proc Overview_getGroupDisplayY { group_display } {
 # the values of the labels are read from a suites/exp list
 proc Overview_addGroups { canvas } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
-   global ALL_CHILD_INIT_DONE
+   global ALL_CHILD_INIT_DONE STARTUP_PROGRESS_VALUE STARTUP_PROGRESS_TXT
    set displayGroups [record show instances DisplayGroup]
    set groupEntryCurrentY $entryStartY
    set expEntryCurrentX $entryStartX
    DEBUG "Overview_addGroups groupEntryCurrentY:$groupEntryCurrentY" 5
+
+   set expNumber 0
+   foreach displayGroup $displayGroups {
+      set expList [$displayGroup cget -exp_list]
+      foreach exp $expList {
+	incr expNumber
+      }
+   }
+   # startup progress bar
+   set STARTUP_PROGRESS_VALUE 0
+   set progressBar [ProgressDlg .overview_progress \
+    -title "Xflow_overview - Loading Experiments Data" -maximum ${expNumber} \
+    -variable STARTUP_PROGRESS_VALUE -textvariable STARTUP_PROGRESS_TXT]
+   wm geometry .overview_progress =600x200
+
+   ${progressBar} configure -foreground blue
 
    # this step is to create an thread for each experiment/suite and
    # then have each thread read the suite's log file once and then
@@ -1393,8 +1417,6 @@ proc Overview_addGroups { canvas } {
          Overview_addExp $displayGroup $canvas $exp
       }
    }
-   # wait for all child to be done with their init
-   vwait ALL_CHILD_INIT_DONE
 
    # here we will display the boxes
    foreach displayGroup $displayGroups {
@@ -1432,8 +1454,12 @@ proc Overview_addGroups { canvas } {
          set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord}]
          Overview_updateExpBox ${canvas} ${suiteRecord} ${currentStatus} ${statusTime}
       }
-      # Overview_shuffleExpBoxes
    }
+
+   # testing
+   # wait for all child to be done with their init
+   vwait ALL_CHILD_INIT_DONE
+   destroy ${progressBar}
 }
 
 # this function is a place holder to add logic to
@@ -1685,6 +1711,7 @@ proc Overview_parseCmdOptions {} {
          {debug "Turn debug on"}
          {noautomsg "No automatic message display"}
          {suites.arg "" "suites definition file"}
+         {rc.arg "" "maestrorc preferrence file"}
       }
    
       set usage "\[options] \noptions:"
@@ -1708,6 +1735,11 @@ proc Overview_parseCmdOptions {} {
       }
       # DEBUG "Overview_parseCmdOptions AUTO_MSG_DISPLAY: ${AUTO_MSG_DISPLAY}" 5
       # DEBUG "Overview_parseCmdOptions OVERVIEW_SUITES_FILE: [SharedData_getMiscData OVERVIEW_SUITES_FILE]" 5
+      if { ! ($params(rc) == "") } {
+         puts "Overview_parseCmdOptions using maestrorc file: $params(rc)"
+      }
+
+      SharedData_readProperties $params(rc)
    }
 }
 
@@ -1753,6 +1785,8 @@ proc Overview_addHelpMenu { parent } {
 
    menubutton $menuButtonW -text Help -underline 0 -menu $menuW
    menu $menuW -tearoff 0
+
+   $menuW add command -label "About Xflow" -underline 0 -command "About_show ${parent}"
 
    pack $menuButtonW -side right -padx 2
 }
@@ -1829,21 +1863,23 @@ proc Overview_addCanvasImage { canvas } {
 
    set boxCoords [${canvas} bbox all]
    set imageBg ${canvas}.bg_image
-   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   if { [SharedData_getMiscData BACKGROUND_IMAGE] != "" } {
+      set imageFile [SharedData_getMiscData BACKGROUND_IMAGE]
+   } else {
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      set imageFile [SharedData_getMiscData IMAGE_DIR]/artist-canvas_2.gif
+   }
 
    ${canvas} delete canvas_bg_image
-   image create photo ${canvas}.bg_image -file ${imageDir}/artist-canvas_2.gif
+   image create photo ${imageBg} -file ${imageFile}
    ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags canvas_bg_image
    ${canvas} lower canvas_bg_image
 }
 
-proc Overview_setTitle { top_w } {
+proc Overview_setTitle { top_w time_value } {
    global env
-   set winTitle "Xflow Overview"
-   if { [info exists env(USER)] } {
-      set winTitle "${winTitle} - User=$env(USER)"
-   }
-   wm title ${top_w} ${winTitle}
+   set winTitle "Xflow Overview - User=$env(USER) Host=[exec hostname] Time=${time_value}"
+   wm title [winfo toplevel ${top_w}] ${winTitle}
 }
 
 proc Overview_getCanvas {} {
@@ -1854,28 +1890,28 @@ proc Overview_getToplevel {} {
    return .overview_top
 }
 
-
 global MSG_CENTER_THREAD_ID
 global DEBUG_TRACE DEBUG_LEVEL
 
 wm withdraw .
 SharedData_init
-Overview_setTkOptions
-SharedData_setMiscData DEBUG_TRACE 0
+Overview_parseCmdOptions
+#SharedData_setMiscData DEBUG_TRACE 0
 set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
+Overview_setTkOptions
 SharedData_setMiscData OVERVIEW_MODE true
 SharedData_setMiscData OVERVIEW_THREAD_ID [thread::id]
 
-Overview_parseCmdOptions
 set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
-
 ::DrawUtils::init
 Overview_init
 set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
 set topOverview .overview_top
 set topCanvas ${topOverview}.canvas
 toplevel ${topOverview}
-Overview_setTitle ${topOverview}
+wm withdraw ${topOverview}
+
+#Overview_setTitle ${topOverview}
 Overview_readExperiments
 
 Overview_createMenu ${topOverview}
@@ -1888,13 +1924,16 @@ grid rowconfigure ${topOverview} 1 -weight 0
 grid rowconfigure ${topOverview} 2 -weight 1
 
 Overview_createGraph ${topCanvas}
+
+wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
+
 Overview_addGroups ${topCanvas}
 Overview_setCurrentTime ${topCanvas}
 Overview_addCanvasImage ${topCanvas}
 Overview_GridAdvanceHour
 
-wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
-#wm geometry ${topOverview} =1500x800
-wm geometry ${topOverview} =1500x600
 SharedData_setMiscData STARTUP_DONE true
 thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
+
+wm geometry ${topOverview} =1500x600
+wm deiconify ${topOverview}
