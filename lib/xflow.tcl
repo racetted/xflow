@@ -2166,9 +2166,11 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
       if { $initial_display == "1" } {
          $canvas yview moveto 0
       }
-      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      #set imageDir [SharedData_getMiscData IMAGE_DIR]
       set bgImage [xflow_getWidgetName bg_image]
-      xflow_addBgImage $canvas ${imageDir}/${bgImage}
+      #xflow_addBgImage $canvas ${imageDir}/${bgImage}
+      xflow_addBgImage $canvas ${bgImage}
+
    }
    DEBUG "xflow_drawflow() done" 5
 
@@ -2901,6 +2903,12 @@ proc xflow_setWidgetNames {} {
 
       bg_image artist-canvas_2.gif
       catchup_toplevel .catchup_top
+   }
+
+   if { [SharedData_getMiscData BACKGROUND_IMAGE] != "" } {
+      set XflowWidgetNames(bg_image) [SharedData_getMiscData BACKGROUND_IMAGE]
+   } else {
+      set XflowWidgetNames(bg_image) [SharedData_getMiscData IMAGE_DIR]/artist-canvas_2.gif
    }
 }
 

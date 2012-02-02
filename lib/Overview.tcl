@@ -1863,10 +1863,15 @@ proc Overview_addCanvasImage { canvas } {
 
    set boxCoords [${canvas} bbox all]
    set imageBg ${canvas}.bg_image
-   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   if { [SharedData_getMiscData BACKGROUND_IMAGE] != "" } {
+      set imageFile [SharedData_getMiscData BACKGROUND_IMAGE]
+   } else {
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      set imageFile [SharedData_getMiscData IMAGE_DIR]/artist-canvas_2.gif
+   }
 
    ${canvas} delete canvas_bg_image
-   image create photo ${canvas}.bg_image -file ${imageDir}/artist-canvas_2.gif
+   image create photo ${imageBg} -file ${imageFile}
    ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags canvas_bg_image
    ${canvas} lower canvas_bg_image
 }
