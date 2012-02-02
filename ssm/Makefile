@@ -27,9 +27,7 @@ ssm: profile.sh
 	tar cvf - $(SSMPACKAGE) | gzip -> $(SSMPACKAGE).ssm
 
 profile.sh: Makefile
-	touch profile ;\
-	echo "export SEQ_XFLOW_VERSION=${VERSION}" >$@ ;\
-	cat profile >>$@
+	echo "export SEQ_XFLOW_VERSION=${VERSION}" >$@
 
 clean:
-	rm -r profile.sh $(SSMPACKAGE).ssm $(SSMPACKAGE)
+	rm -fr profile.sh $(SSMPACKAGE).ssm $(SSMPACKAGE)

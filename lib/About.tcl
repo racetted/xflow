@@ -3,6 +3,7 @@ proc About_show { parent } {
    set topW .abouttop
    destroy ${topW}
    toplevel ${topW}
+   Utils_positionWindow ${topW} ${parent} 
    wm title ${topW} "About Xflow"
 
    # create text widget

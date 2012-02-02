@@ -105,7 +105,7 @@ proc xflow_addHelpMenu { parent } {
    menu $menuW -tearoff 0
 
    $menuW add command -label "Experiment Support" -underline 11 -command [list xflow_showSupportCallback]
-   $menuW add command -label "Maestro Commands" -underline 8 -command "xflow_maestroCmds"
+   $menuW add command -label "Maestro Commands" -underline 8 -command "xflow_maestroCmds ${parent}"
    $menuW add command -label "About" -underline 0 -command "About_show ${parent}"
 
    pack $menuButtonW -side left -pady 2 -padx 2
@@ -118,7 +118,7 @@ proc xflow_showSupportCallback {} {
 
 # no fancy format here, it's a simple dump of the content
 # of $SEQ_XFLOW_BIN/../etc/commands_summary.txt into a text widget
-proc xflow_maestroCmds {} {
+proc xflow_maestroCmds { parent } {
    global env
    set topW .maestro_cmds_top
 
@@ -126,6 +126,7 @@ proc xflow_maestroCmds {} {
       wm withdraw ${topW} ; wm deiconify ${topW}
    } else {
       toplevel ${topW}
+      Utils_positionWindow ${topW} ${parent}
       wm title ${topW} "Maestro Commands Summary"
 
       set txtW ${topW}.txt
