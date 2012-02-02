@@ -32,4 +32,4 @@ profile.sh: Makefile
 	cat profile >>$@
 
 clean:
-	rm -r $(SSMPACKAGE).ssm $(SSMPACKAGE)
+	rm -r profile.sh $(SSMPACKAGE).ssm $(SSMPACKAGE)
