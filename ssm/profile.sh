@@ -1,1 +1,1 @@
-export SEQ_XFLOW_VERSION=1.0.8
+export SEQ_XFLOW_VERSION=1.0.9
