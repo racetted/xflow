@@ -1033,10 +1033,10 @@ proc Overview_updateExp { suite_record datestamp status timestamp } {
          }
       }
 
-      if { ${isStartupDone} == "true"  } {
+      #if { ${isStartupDone} == "true"  } {
          # check for box overlapping, auto-refresh, etc
          Overview_updateExpBox ${canvas} ${suite_record} ${status} ${timeValue}
-      }
+      #}
 
    } else {
       DEBUG "Overview_updateExp canvas $canvas does not exists!" 5
