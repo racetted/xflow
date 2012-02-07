@@ -79,26 +79,26 @@ proc MsgCenter_createToolbar { table_w_ } {
    frame ${toolbarW}
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
-   image create photo ${toolbarW}.stop_bell -file ${imageDir}/bell_cross.ppm
-   button ${bellW} -image ${toolbarW}.stop_bell -command [list MsgCenter_stopBell ${table_w_}]
+   image create photo ${toolbarW}.stop_bell -file ${imageDir}/bell_cross.gif
+   button ${bellW} -image ${toolbarW}.stop_bell -relief flat -command [list MsgCenter_stopBell ${table_w_}]
    ::tooltip::tooltip ${bellW} "Stop ringing bell."
 
-   image create photo ${toolbarW}.ack_msg -file ${imageDir}/message_ack.ppm
-   button ${ackW} -image ${toolbarW}.ack_msg -command [list MsgCenter_ackMessages ${table_w_}]
+   image create photo ${toolbarW}.ack_msg -file ${imageDir}/message_ack.gif
+   button ${ackW} -image ${toolbarW}.ack_msg -relief flat -command [list MsgCenter_ackMessages ${table_w_}]
    ::tooltip::tooltip ${ackW} "Acknowledge new messages."
 
-   image create photo ${toolbarW}.clear_msg -file ${imageDir}/message_clear.ppm
-   button ${clearW} -image ${toolbarW}.clear_msg -command [list MsgCenter_clearMessages ${clearW} ${table_w_}]
+   image create photo ${toolbarW}.clear_msg -file ${imageDir}/message_clear.gif
+   button ${clearW} -image ${toolbarW}.clear_msg -relief flat -command [list MsgCenter_clearMessages ${clearW} ${table_w_}]
    ::tooltip::tooltip ${clearW} "Clear all messages."
 
-   image create photo ${toolbarW}.close -file ${imageDir}/cancel.ppm
-   button ${closeW} -image ${toolbarW}.close -command [list MsgCenter_close]
+   image create photo ${toolbarW}.close -file ${imageDir}/cancel.gif
+   button ${closeW} -image ${toolbarW}.close -relief flat -command [list MsgCenter_close]
    ::tooltip::tooltip ${closeW} "Close Message Center."
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
       set overviewW ${toolbarW}.button_overview
-      image create photo ${toolbarW}.overview -file ${imageDir}/calendar_clock.ppm
-      button ${overviewW} -image ${toolbarW}.overview -command {
+      image create photo ${toolbarW}.overview -file ${imageDir}/calendar_clock.gif
+      button ${overviewW} -image ${toolbarW}.overview -relief flat -command {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
          thread::send -async ${overviewThreadId} "Overview_toFront"
       }

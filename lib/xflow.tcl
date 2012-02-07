@@ -177,13 +177,15 @@ proc xflow_createToolbar { parent } {
 
    set noNewMsgImage [xflow_getWidgetName msg_center_img]
    set hasNewMsgImage [xflow_getWidgetName msg_center_new_img]
-   image create photo ${noNewMsgImage} -file ${imageDir}/open_mail_sh.ppm
-   image create photo ${hasNewMsgImage} -file ${imageDir}/open_mail_new.ppm
-   image create photo ${parent}.node_kill_img -file ${imageDir}/node_kill.ppm
-   image create photo ${parent}.catchup_img -file ${imageDir}/catchup.ppm
+   #image create photo ${noNewMsgImage} -file ${imageDir}/open_mail_sh.ppm
+   image create photo ${noNewMsgImage} -file ${imageDir}/open_mail_sh.gif
+   #image create photo ${hasNewMsgImage} -file ${imageDir}/open_mail_new.ppm
+   image create photo ${hasNewMsgImage} -file ${imageDir}/open_mail_new.gif
+   image create photo ${parent}.node_kill_img -file ${imageDir}/node_kill.gif
+   image create photo ${parent}.catchup_img -file ${imageDir}/catchup.gif
    image create photo ${parent}.node_list_img -file ${imageDir}/node_list.ppm
    image create photo ${parent}.node_abort_list_img -file ${imageDir}/node_abort_list.ppm
-   image create photo ${parent}.close -file ${imageDir}/cancel.ppm
+   image create photo ${parent}.close -file ${imageDir}/cancel.gif
    image create photo ${parent}.color_legend_img -file ${imageDir}/color_legend.gif
    image create photo ${parent}.ignore_dep_true -file ${imageDir}/dep_on.ppm
    image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
@@ -191,38 +193,38 @@ proc xflow_createToolbar { parent } {
 
    button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command {
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
-   }
+   } -relief flat
    ::tooltip::tooltip ${msgCenterW} "Show Message Center."
 
-   button ${nodeKillW} -image ${parent}.node_kill_img -command [list xflow_nodeKillDisplay ${parent} ]
+   button ${nodeKillW} -image ${parent}.node_kill_img -command [list xflow_nodeKillDisplay ${parent} ] -relief flat
    tooltip::tooltip ${nodeKillW}  "Open job killing dialog"
 
-   button ${catchupW} -image ${parent}.catchup_img -command [list Catchup_createMainWidgets ${catchupTopW}]
+   button ${catchupW} -image ${parent}.catchup_img -command [list Catchup_createMainWidgets ${catchupTopW}] -relief flat
    tooltip::tooltip ${catchupW}  "Open exp catchup window"
 
-   button ${shellW} -image ${parent}.shell_img -command xflow_launchShellCallback
+   button ${shellW} -image ${parent}.shell_img -command xflow_launchShellCallback -relief flat
    tooltip::tooltip ${shellW}  "Start shell at exp home"
 
-   button ${nodeListW} -image ${parent}.node_list_img  -state disabled
+   button ${nodeListW} -image ${parent}.node_list_img  -state disabled -relief flat
    tooltip::tooltip ${nodeListW} "Open succesfull node listing dialog -- future feature."
 
-   button ${nodeAbortListW} -image ${parent}.node_abort_list_img -state disabled
+   button ${nodeAbortListW} -image ${parent}.node_abort_list_img -state disabled -relief flat
    tooltip::tooltip ${nodeAbortListW} "Open abort node listing dialog -- future feature."
 
-   button ${closeW} -image ${parent}.close -command [list xflow_quit]
+   button ${closeW} -image ${parent}.close -command [list xflow_quit] -relief flat
    ::tooltip::tooltip ${closeW} "Close application."
 
-   button ${colorLegendW} -image ${parent}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}]
-   tooltip::tooltip ${colorLegendW} "Show color legend."
+   button ${colorLegendW} -image ${parent}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}] -relief flat
+   tooltip::tooltip ${colorLegendW} "Show color legend." 
 
-   button ${depW} -image ${parent}.ignore_dep_false -command [list xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false] -state disabled
+   button ${depW} -relief flat -image ${parent}.ignore_dep_false -command [list xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false] -state disabled
 
    #xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
       set overviewW [xflow_getWidgetName overview_button]
-      image create photo ${parent}.overview -file ${imageDir}/calendar_clock.ppm
-      button ${overviewW} -image ${parent}.overview -command {
+      image create photo ${parent}.overview -file ${imageDir}/calendar_clock.gif
+      button ${overviewW} -relief flat -image ${parent}.overview -command {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
          thread::send -async ${overviewThreadId} "Overview_toFront"
       }
@@ -290,8 +292,8 @@ proc xflow_addDatestampWidget { parent_widget } {
    frame ${buttonFrame}
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
-   image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.ppm
-   image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.ppm
+   image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.gif
+   image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.gif
 
    set setButton [button ${buttonFrame}.set_button -image ${buttonFrame}.set_image \
       -command [list xflow_setDateStamp ${dtFrame}]]
@@ -324,8 +326,8 @@ proc xflow_addMonitorDateWidget { parent_widget } {
    set buttonFrame [xflow_getWidgetName monitor_date_button_frame]
    frame ${buttonFrame}
    set imageDir [SharedData_getMiscData IMAGE_DIR]
-   image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.ppm
-   image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.ppm
+   image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.gif
+   image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.gif
 
    set setButton [xflow_getWidgetName monitor_date_set_button]
    button ${setButton} -image ${buttonFrame}.set_image \
