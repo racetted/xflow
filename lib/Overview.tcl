@@ -1838,24 +1838,24 @@ proc Overview_createToolbar { toplevel_ } {
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
 
-   image create photo ${toolbarW}.msg_center_img -file ${imageDir}/open_mail_sh.ppm
-   image create photo ${toolbarW}.msg_center_new_img -file ${imageDir}/open_mail_new.ppm
+   image create photo ${toolbarW}.msg_center_img -file ${imageDir}/open_mail_sh.gif
+   image create photo ${toolbarW}.msg_center_new_img -file ${imageDir}/open_mail_new.gif
    image create photo ${toolbarW}.color_legend_img -file ${imageDir}/color_legend.gif
 
    button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command {
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
-   }
+   } -relief flat
 
    ::tooltip::tooltip ${mesgCenterW} "Show Message Center."
 
-   image create photo ${toolbarW}.close -file ${imageDir}/cancel.ppm
-   button ${closeW} -image ${toolbarW}.close -command [list Overview_quit]
+   image create photo ${toolbarW}.close -file ${imageDir}/cancel.gif
+   button ${closeW} -image ${toolbarW}.close -command [list Overview_quit] -relief flat
    ::tooltip::tooltip ${closeW} "Close Application."
 
-   button ${colorLegendW} -image ${toolbarW}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}]
+   button ${colorLegendW} -image ${toolbarW}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}] -relief flat
    tooltip::tooltip ${colorLegendW} "Show color legend."
 
-   grid ${mesgCenterW} ${colorLegendW} ${closeW} -sticky w -padx 2
+   grid ${mesgCenterW} ${colorLegendW} ${closeW} -sticky w -padx 2 
    grid ${toolbarW} -row 1 -column 0 -sticky nsew -padx 2
 }
 
