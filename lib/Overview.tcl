@@ -1821,9 +1821,9 @@ proc Overview_newMessageCallback { has_new_msg } {
    if { [winfo exists ${msgCenterWidget}] } {
       set currentImage [${msgCenterWidget} cget -image]
       if { ${has_new_msg} == "true" && ${currentImage} != ${hasNewMsgImage} } {
-         ${msgCenterWidget} configure -image ${hasNewMsgImage} -bg ${newMsgBgColor} -bd 3
+         ${msgCenterWidget} configure -image ${hasNewMsgImage} -bg ${newMsgBgColor}
       } elseif { ${has_new_msg} == "false" && ${currentImage} != ${noNewMsgImage} } {
-         ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor} -bd 0
+         ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor}
       }
    }
 }
