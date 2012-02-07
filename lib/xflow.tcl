@@ -177,9 +177,7 @@ proc xflow_createToolbar { parent } {
 
    set noNewMsgImage [xflow_getWidgetName msg_center_img]
    set hasNewMsgImage [xflow_getWidgetName msg_center_new_img]
-   #image create photo ${noNewMsgImage} -file ${imageDir}/open_mail_sh.ppm
    image create photo ${noNewMsgImage} -file ${imageDir}/open_mail_sh.gif
-   #image create photo ${hasNewMsgImage} -file ${imageDir}/open_mail_new.ppm
    image create photo ${hasNewMsgImage} -file ${imageDir}/open_mail_new.gif
    image create photo ${parent}.node_kill_img -file ${imageDir}/node_kill.gif
    image create photo ${parent}.catchup_img -file ${imageDir}/catchup.gif
@@ -295,11 +293,11 @@ proc xflow_addDatestampWidget { parent_widget } {
    image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.gif
    image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.gif
 
-   set setButton [button ${buttonFrame}.set_button -image ${buttonFrame}.set_image \
+   set setButton [button ${buttonFrame}.set_button -relief flat -image ${buttonFrame}.set_image \
       -command [list xflow_setDateStamp ${dtFrame}]]
    tooltip::tooltip ${setButton} "Sets new datestamp value."
 
-   set refreshButton [button ${buttonFrame}.refresh_button -image ${buttonFrame}.refresh_image \
+   set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
       -command [list xflow_getDateStamp ${dtFrame}]]
    tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
 
@@ -330,11 +328,11 @@ proc xflow_addMonitorDateWidget { parent_widget } {
    image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.gif
 
    set setButton [xflow_getWidgetName monitor_date_set_button]
-   button ${setButton} -image ${buttonFrame}.set_image \
+   button ${setButton} -relief flat -image ${buttonFrame}.set_image \
       -command [list xflow_setMonitorDate ${monitorFrame}]
    tooltip::tooltip $setButton "Sets the datestamp value being displayed in the flow."
 
-   set refreshButton [button ${buttonFrame}.refresh_button -image ${buttonFrame}.refresh_image \
+   set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
       -command [list xflow_populateMonitorDate ${monitorFrame}]]
    tooltip::tooltip $refreshButton "Refresh the datestamp list."
 
