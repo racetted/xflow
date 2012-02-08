@@ -1788,7 +1788,7 @@ proc Overview_addHelpMenu { parent } {
 
    $menuW add command -label "About" -underline 0 -command "About_show ${parent}"
 
-   pack $menuButtonW -side right -padx 2
+   pack $menuButtonW -side left -padx 2
 }
 
 proc Overview_createMenu { toplevel_ } {
