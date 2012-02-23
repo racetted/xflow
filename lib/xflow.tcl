@@ -2925,11 +2925,11 @@ proc xflow_init {} {
    set MONITORING_LATEST 1
 
    # initate array containg name for widgets used in the application
-   xflow_setWidgetNames
-
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
+
+   xflow_setWidgetNames
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
