@@ -69,3 +69,6 @@ flow_geometry = 1000x500
 
 # this option is to set the preferred browser
 browser = mozilla
+
+# used by xflow_overview to know list of suites/experiments to monitor
+suites_file = /home/binops/afsi/ops/xflow.suites.xml
