@@ -388,14 +388,20 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
          ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
 
       }
+      set listboxW [${indexListW} getlistbox]
       set currentExt [${binder} cget -current]
-      if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-        ${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
-      } else {
-        set indexValue [::FlowNodes::getIndexValue ${currentExt}] 
-        ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
+
+      # only modify listbox value on the fly if the listbox is not currently mapped
+      # i.e. not being selected by the user
+      if { ! [winfo ismapped ${listboxW}] } {
+         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
+            ${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
+         } else {
+            set indexValue [::FlowNodes::getIndexValue ${currentExt}] 
+            ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
+         }
+         ${indexListW} setvalue first
       }
-      ${indexListW} setvalue first
 
       # setIndexWidgetStatuses ${binder} ${indexListW}
       pack ${indexListW} -fill both
@@ -678,15 +684,20 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
          ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
          ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
       }
+      set listboxW [${indexListW} getlistbox]
       set currentExt [${binder} cget -current]
-      if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-        ${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
-        # ${indexListW} configure -values {latest}
-      } else {
-        set indexValue [::FlowNodes::getIndexValue ${currentExt}]
-        ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
+
+      # only modify listbox value on the fly if the listbox is not currently mapped
+      # i.e. not being selected by the user
+      if { ! [winfo ismapped ${listboxW}] } {
+         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
+            ${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
+         } else {
+            set indexValue [::FlowNodes::getIndexValue ${currentExt}]
+            ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
+         }
+         ${indexListW} setvalue first
       }
-      ${indexListW} setvalue first
 
       pack ${indexListW} -fill both
       set barY [expr $sy2 + 15]
