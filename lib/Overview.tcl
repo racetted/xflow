@@ -1668,7 +1668,7 @@ proc Overview_init {} {
 # lists the exp to be monitored
 proc Overview_readExperiments {} {
    global env
-   set suitesFile [SharedData_getMiscData OVERVIEW_SUITES_FILE]
+   set suitesFile [SharedData_getMiscData SUITES_FILE]
    set suiteList {}
    if { [file exists $suitesFile] } {
       puts "Overview_readExperiments from file: $suitesFile"
@@ -1676,6 +1676,7 @@ proc Overview_readExperiments {} {
       set suiteList [ExpXmlReader_getExpList]
       puts "suiteList: $suiteList"
    } else {
+      puts "ERROR: file not found ${suitesFile}"
       Utils_fatalError . "Overview Startup Error" "${suitesFile} does not exists! Exiting..."
    }
 }
@@ -1728,18 +1729,22 @@ proc Overview_parseCmdOptions {} {
          SharedData_setMiscData DEBUG_TRACE 1
       } 
 
-      if { ! ($params(suites) == "") } {
-         SharedData_setMiscData OVERVIEW_SUITES_FILE $params(suites)
-      } else {
-         SharedData_setMiscData OVERVIEW_SUITES_FILE $env(HOME)/xflow.suites.xml
-      }
       # DEBUG "Overview_parseCmdOptions AUTO_MSG_DISPLAY: ${AUTO_MSG_DISPLAY}" 5
-      # DEBUG "Overview_parseCmdOptions OVERVIEW_SUITES_FILE: [SharedData_getMiscData OVERVIEW_SUITES_FILE]" 5
+      # DEBUG "Overview_parseCmdOptions SUITES_FILE: [SharedData_getMiscData SUITES_FILE]" 5
       if { ! ($params(rc) == "") } {
          puts "Overview_parseCmdOptions using maestrorc file: $params(rc)"
       }
 
       SharedData_readProperties $params(rc)
+
+      if { ! ($params(suites) == "") } {
+         # command line arguments overwrites maestrorc file
+         SharedData_setMiscData SUITES_FILE $params(suites)
+      } elseif { [SharedData_getMiscData SUITES_FILE] == "" } {
+         # if not defined in maestrorc, used a default one
+         SharedData_setMiscData SUITES_FILE $env(HOME)/xflow.suites.xml
+      }
+
    }
 }
 
