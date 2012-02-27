@@ -1676,7 +1676,7 @@ proc Overview_readExperiments {} {
       set suiteList [ExpXmlReader_getExpList]
       puts "suiteList: $suiteList"
    } else {
-      FatalError . "Overview Startup Error" "${suitesFile} does not exists! Exiting..."
+      Utils_fatalError . "Overview Startup Error" "${suitesFile} does not exists! Exiting..."
    }
 }
 

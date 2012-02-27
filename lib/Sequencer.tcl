@@ -6,7 +6,7 @@ proc Sequencer_getPath {} {
    set sequencerPath ""
    catch { set sequencerPath [exec which maestro] }
    if { $sequencerPath == "" } {
-      FatalError . "Application Error" "SEQ_BIN not set. Cannot find sequencer binaries path!"
+      Utils_fatalError . "Application Error" "SEQ_BIN not set. Cannot find sequencer binaries path!"
    }
    return [file dirname $sequencerPath]
 }
@@ -19,7 +19,7 @@ proc Sequencer_getUtilsPath {} {
    set utilsPath ""
    catch { set utilsPath [exec which nodetracer] }
    if { $utilsPath == "" } {
-      FatalError . "Application Error" "SEQ_UTILS_BIN not set. Cannot find sequencer utilities path!"
+      Utils_fatalError . "Application Error" "SEQ_UTILS_BIN not set. Cannot find sequencer utilities path!"
    }
    return [file dirname $utilsPath]
 }

@@ -195,7 +195,7 @@ proc SharedData_readProperties { {rc_file ""} } {
       }
       catch { close ${propertiesFile} }
       if { ${errorMsg} != "" } {
-         FatalError . "Xflow Startup Error" ${errorMsg}
+         Utils_fatalError . "Xflow Startup Error" ${errorMsg}
       }
    }
 }
