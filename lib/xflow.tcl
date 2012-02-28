@@ -1150,6 +1150,11 @@ proc xflow_nodeMenu { canvas node x y } {
       ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback $node $canvas $popMenu]
       ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback $node $canvas $popMenu ]
 
+      set currentExtension [::FlowNodes::getNodeExtension $node]
+      set status [::FlowNodes::getMemberStatus $node $currentExtension]
+      if { ${status} == "begin" } {
+	  ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback $node $canvas ]
+      }
       ${listingMenu} add command -label "Node Listing" -command [list xflow_listingCallback $node $canvas $popMenu]
       ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback $node $canvas $popMenu success]
       ${listingMenu} add command -label "Node Abort Listing" \
@@ -1161,6 +1166,7 @@ proc xflow_nodeMenu { canvas node x y } {
          -foreground [::DrawUtils::getBgStatusColor abort]
 
       ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas $popMenu]
+      ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback $node $canvas ]
       if { [$node cget -flow.type] != "task" } {
          ${submitMenu} add command -label "Submit" -command [list xflow_submitCallback $node $canvas $popMenu continue ]
          ${submitMenu} add cascade -label "NO Dependency" -underline 4 -menu [menu ${submitNoDependMenu}]
@@ -1211,6 +1217,11 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} 0]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback $node $canvas ${popmenu_w} ]
 
+   set currentExtension [::FlowNodes::getNodeExtension $node]
+   set status [::FlowNodes::getMemberStatus $node $currentExtension]
+   if { ${status} == "begin" } {
+       ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback $node $canvas ]
+   }
    ${listingMenu} add command -label "Loop Listing" -command [list xflow_listingCallback $node $canvas ${popmenu_w} 1]
    ${listingMenu} add command -label "Loop Abort Listing" \
       -command [list xflow_abortListingCallback $node $canvas ${popmenu_w} 1] \
@@ -1231,6 +1242,7 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
       -command [list xflow_submitCallback $node $canvas ${popmenu_w} continue dep_off]
 
    ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
+   ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback $node $canvas ]
    ${miscMenu} add command -label "Loop End" -command [list xflow_endLoopCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Loop Initbranch" -command [list xflow_initbranchLoopCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Member End" -command [list xflow_endCallback $node $canvas ${popmenu_w}]
@@ -1254,6 +1266,11 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback $node $canvas ${popmenu_w} ]
 
+   set currentExtension [::FlowNodes::getNodeExtension $node]
+   set status [::FlowNodes::getMemberStatus $node $currentExtension]
+   if { ${status} == "begin" } {
+       ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback $node $canvas ]
+   }
    ${listingMenu} add command -label "Node Listing" -command [list xflow_listingCallback $node $canvas ${popmenu_w}]
    ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback $node $canvas ${popmenu_w} success]
    ${listingMenu} add command -label "Node Abort Listing" \
@@ -1274,6 +1291,7 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
       -command [list xflow_submitNpassTaskCallback $node $canvas ${popmenu_w} stop dep_off ]
 
    ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
+   ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback $node $canvas ]
    ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "End" -command [list xflow_endNpasssTaskCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Abort" -command [list xflow_abortNpasssTaskCallback $node $canvas ${popmenu_w}]
@@ -1569,9 +1587,38 @@ proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
 
 # launch an xterm at $SEQ_EXP_HOME
 proc xflow_launchShellCallback {} {
-   set suiteRecord [xflow_getActiveSuite]
-   set expPath [${suiteRecord} cget -suite_path]
-   Utils_launchShell ${expPath}
+    global env
+    set suiteRecord [xflow_getActiveSuite]
+    set expPath [${suiteRecord} cget -suite_path]
+    Utils_launchShell $env(TRUE_HOST) ${expPath} "SEQ_EXP_HOME=${expPath}"
+}
+
+# launch an xterm in ${TASK_BASEDIR} on the execution host
+proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
+    DEBUG "xflow_launchWorkCallback node$node canvas$canvas" 5
+    set seqExecWork "[SharedData_getMiscData SEQ_UTILS_BIN]/nodework"
+    set seqNode [::FlowNodes::getSequencerNode $node]
+    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
+    set suiteRecord [xflow_getActiveSuite]
+    set expPath [${suiteRecord} cget -suite_path]
+
+    # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
+    set dateStamp [xflow_getMonitoringDatestamp]
+    if { $dateStamp == "" } {
+	set dateStamp [xflow_retrieveDateStamp $canvas $suiteRecord]
+    }
+
+    if { $nodeExt == "-1" } {
+	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
+    } else {
+	DEBUG "$seqExecWork -n ${seqNode}" 5
+	if [ catch { set workpath [split [exec ksh -c "export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode}"] ':'] } message ] {
+	    Utils_raiseError . "Retrieve node output" $message
+	    return 0
+	}
+	set taskBasedir "[lindex $workpath 1]${seqNode}${nodeExt}"
+	Utils_launchShell [lindex $workpath 0] ${taskBasedir} "TASK_BASEDIR=${taskBasedir}"
+    }	
 }
 
 # this function is invoked from the "Kill Node" menu item.
@@ -1855,7 +1902,36 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
    }
 }
 
-# this funtion is invoked to show the latest succesfull node listing
+# this function is invoked to do a 'tail -f' of tha currently-running task
+proc xflow_tailfCallback { node canvas {full_loop 0} } {
+    global env
+    DEBUG "xflow_tailfCallback node$node canvas$canvas" 5
+    set seqNode [::FlowNodes::getSequencerNode $node]
+    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
+    set suiteRecord [xflow_getActiveSuite]
+    set expPath [${suiteRecord} cget -suite_path]
+
+    # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
+    set dateStamp [xflow_getMonitoringDatestamp]
+    if { $dateStamp == "" } {
+	set dateStamp [xflow_retrieveDateStamp $canvas $suiteRecord]
+    }
+
+    if { $nodeExt == "-1" } {
+	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
+    } else {
+	if { $nodeExt != "" } {
+	    set nodeExt ".${nodeExt}"
+	}
+	if [ catch { set listPath [exec ksh -c "ls -rt1 ${expPath}/sequencing/output${seqNode}${nodeExt}.${dateStamp}.pgmout* | tail -n 1"] } message ] {
+	    Utils_raiseError . "Retrieve node output" $message
+	    return 0
+	}
+	Utils_launchShell $env(TRUE_HOST) ${expPath} "Monitoring=${seqNode}${nodeExt}" "tail -f ${listPath}"
+    }
+}
+
+# this function is invoked to show the latest succesfull node listing
 proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    DEBUG "xflow_allListingCallback node:$node canvas:$canvas" 5
