@@ -26,7 +26,7 @@ ssm: profile.sh
 	echo "Description: Unified Tasks Monitor" >> $(SSMPACKAGE)/.ssm.d/control; \
 	tar cvf - $(SSMPACKAGE) | gzip -> $(SSMPACKAGE).ssm
 
-profile.sh: Makefile
+profile.sh: Makefile config.mk
 	echo "export SEQ_XFLOW_VERSION=${VERSION}" >$@
 
 clean:
