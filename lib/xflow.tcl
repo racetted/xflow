@@ -1590,7 +1590,7 @@ proc xflow_launchShellCallback {} {
     global env
     set suiteRecord [xflow_getActiveSuite]
     set expPath [${suiteRecord} cget -suite_path]
-    Utils_launchShell $env(TRUE_HOST) ${expPath} "SEQ_EXP_HOME=${expPath}"
+     Utils_launchShell $env(TRUE_HOST) ${expPath} ${expPath} "SEQ_EXP_HOME=${expPath}"
 }
 
 # launch an xterm in ${TASK_BASEDIR} on the execution host
@@ -1612,12 +1612,12 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
 	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
     } else {
 	DEBUG "$seqExecWork -n ${seqNode}" 5
-	if [ catch { set workpath [split [exec ksh -c "export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode}"] ':'] } message ] {
+	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode}"] ':'] } message ] {
 	    Utils_raiseError . "Retrieve node output" $message
 	    return 0
 	}
 	set taskBasedir "[lindex $workpath 1]${seqNode}${nodeExt}"
-	Utils_launchShell [lindex $workpath 0] ${taskBasedir} "TASK_BASEDIR=${taskBasedir}"
+    Utils_launchShell [lindex $workpath 0] ${expPath} ${taskBasedir} "TASK_BASEDIR=${taskBasedir}"
     }	
 }
 
@@ -1927,7 +1927,7 @@ proc xflow_tailfCallback { node canvas {full_loop 0} } {
 	    Utils_raiseError . "Retrieve node output" $message
 	    return 0
 	}
-	Utils_launchShell $env(TRUE_HOST) ${expPath} "Monitoring=${seqNode}${nodeExt}" "tail -f ${listPath}"
+	Utils_launchShell $env(TRUE_HOST) ${expPath} ${expPath} "Monitoring=${seqNode}${nodeExt}" "tail -f ${listPath}"
     }
 }
 

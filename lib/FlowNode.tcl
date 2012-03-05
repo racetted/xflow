@@ -68,11 +68,13 @@ record define FlowTask {
    {record_type "FlowTask"}
    {catchup 4}
    {cpu 1}
+   {cpu_multiplier 1}
    {machine dorval-ib}
    {queue null}
    {wallclock 3}
    {memory 40M}
    {mpi 0}
+   {soumetArgs ""}
 }
 
 # loop_type can be default , date, or set

@@ -921,6 +921,7 @@ proc Overview_resolveOverlap { canvas suite_record x1 y1 x2 y2 } {
 
 # this function is called to pop-up an exp node menu
 proc Overview_boxMenu { canvas exp_path x y } {
+   global env
    DEBUG "Overview_boxMenu() exp_path:$exp_path" 5
    set popMenu .popupMenu
    if { [winfo exists $popMenu] } {
@@ -930,7 +931,7 @@ proc Overview_boxMenu { canvas exp_path x y } {
    $popMenu add command -label "History" \
       -command [list Overview_historyCallback $canvas $exp_path $popMenu]
    $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $canvas $exp_path]
-   $popMenu add command -label "Shell" -command [list Utils_launchShell $exp_path]
+   $popMenu add command -label "Shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
    $popMenu add command -label "Support" -command [list ExpOptions_showSupport $exp_path [winfo toplevel ${canvas}]]
    tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
