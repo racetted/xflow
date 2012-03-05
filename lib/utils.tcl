@@ -227,12 +227,12 @@ proc Utils_getRealDatestampValue { date } {
 proc Utils_launchShell { mach exp_path title {cmd ""} } {
     global env
     if { $cmd != "" } {
-	set xtermCmd "-e $cmd"
+	set userCmd "$cmd;"
     } else {
-	set xtermCmd ""
+	set userCmd ""
     }
-    puts "ssh -Y ${mach} \'cd ${exp_path}; xterm -ls -T ${title} ${xtermCmd}\'"
-    exec ksh -c "ssh -Y ${mach} 'cd ${exp_path}; export SEQ_EXP_HOME=$env(SEQ_EXP_HOME); xterm -ls -T ${title} ${xtermCmd}'" &
+    puts "xterm -ls -T ${title} -e \"ssh -t -Y ${mach} 'cd ${exp_path}; export SEQ_EXP_HOME=$env(SEQ_EXP_HOME); ${userCmd} bash --login -i'\""
+    exec ksh -c "xterm -ls -T ${title} -e \"ssh -t -Y ${mach} 'cd ${exp_path}; export SEQ_EXP_HOME=$env(SEQ_EXP_HOME); ${userCmd} bash --login -i'\"" & 
 }
 
 proc Utils_goBrowser { url } {
