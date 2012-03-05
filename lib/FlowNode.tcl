@@ -312,9 +312,11 @@ proc ::FlowNodes::isParentCollapsed { node canvas } {
    set parentNode [${node} cget -flow.parent]
    if { ${parentNode} != "" } {
       array set displayInfoList [${parentNode} cget -flow.display_infos]
-      set displayInfo $displayInfoList($canvas)
-      set value [lindex $displayInfo 0]
-      return $value
+      if { [info exists displayInfoList($canvas)] } {
+         set displayInfo $displayInfoList($canvas)
+         set value [lindex $displayInfo 0]
+         return $value
+      }
    }
    return 0
 }
