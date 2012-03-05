@@ -1762,7 +1762,13 @@ proc Overview_addFileMenu { parent } {
 
 proc Overview_toFront {} {
    set topW [Overview_getToplevel]
-   wm withdraw ${topW}; wm deiconify ${topW}
+   switch [wm state ${topW}] {
+      withdrawn -
+      "iconic" {
+         wm deiconify ${topW}
+      }
+   }
+   raise ${topW}
 }
 
 proc Overview_addPrefMenu { parent } {

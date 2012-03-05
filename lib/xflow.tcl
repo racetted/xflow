@@ -2812,14 +2812,14 @@ proc xflow_displayFlow { calling_thread_id } {
 }
 
 proc xflow_toFront { toplevel_w } {
+   
    switch [wm state ${toplevel_w}] {
+      withdrawn -
       "iconic" {
          wm deiconify ${toplevel_w}
       }
-      "withdrawn" {
-         wm withdraw ${toplevel_w} ; wm deiconify ${toplevel_w}
-      }
    }
+   raise ${toplevel_w}
 }
 
 proc xflow_getMonitoringDatestamp {} {

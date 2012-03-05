@@ -443,11 +443,9 @@ proc MsgCenter_show {} {
       iconic {
          wm deiconify ${topW}
       }
-      normal {
-         if { [SharedData_getMiscData STARTUP_DONE] == "true" && [wm attributes . -topmost] == "0" } {
-            wm withdraw ${topW} ; wm deiconify ${topW}
-         }
-      }
+   }
+   if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+      raise ${topW}
    }
 }
 
