@@ -13,11 +13,6 @@ else
    exit
 fi
 
-# check for allowed users
-set -e 
-/home/ordenv/GIT-DEPOTS/impl/isst/xflow/etc/check_unknown_users
-set +e
-
 arguments=$*
 eval `cclargs_lite -D "" $0 "[maestro gui]" \
   -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
