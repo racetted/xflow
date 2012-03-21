@@ -104,8 +104,12 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       close $f_logfile
 
    } else {
-      puts "LogReader_readFile $logfile file does not exists! Creating it..."
-      close [open $logfile a]
+      if { [file writable $suitePath/logs/] } {
+         puts "LogReader_readFile $logfile file does not exists! Creating it..."
+         catch { close [open $logfile a] }
+      } else {
+         puts "LogReader_readFile $logfile file does not exists!"
+      }
    
       # Need to notify the main thread that this child is done reading
       # the log file for initialization
