@@ -211,7 +211,8 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    if { ${isMsgActive} == "true" } {
 
       # do we need to add more rows to the table?
-      set currentNumberRows [${table_w_} cget -rows]
+      # remove the table header row from the count
+      set currentNumberRows [expr [${table_w_} cget -rows] - 1]
       if { [expr ${MSG_ACTIVE_COUNTER} > ${currentNumberRows}] } {
          # on ajoute 10
          ${table_w_} configure -rows [expr ${currentNumberRows} + 10]
