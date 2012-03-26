@@ -329,7 +329,7 @@ proc MsgCenter_initActiveMessages {} {
 }
 
 proc MsgCenter_ackMessages { table_w_ } {
-   wm attributes . -topmost 0
+   #wm attributes . -topmost 0
    MsgCenter_stopBell ${table_w_}
    set rows [${table_w_} tag row NewMessageTag]
    foreach row ${rows} {
@@ -390,7 +390,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
       set MSG_ALARM_ON true
       set raiseAlarm true
       # put the window on top of the rest
-      wm attributes . -topmost 1
+      #wm attributes . -topmost 1
    }
    if { ${autoMsgDisplay} == "true" && [SharedData_getMiscData STARTUP_DONE] == "true" } {
       if { ${raiseAlarm} == "true" } {
@@ -410,7 +410,7 @@ proc MsgCenter_stopBell { table_w_ } {
 
    set MSG_ALARM_ON false
    set MSG_ALARM_COUNTER 0
-   wm attributes . -topmost 0
+   #wm attributes . -topmost 0
    if { [info exists MSG_ALARM_ID] } {
       after cancel ${MSG_ALARM_ID}
    }
@@ -490,11 +490,11 @@ proc MsgCenter_getThread {} {
          }
 
          proc MsgCenterThread_startupDone {} {
-	    global MSG_COUNTER
-            MsgCenter_sendNotification
-	    if { ${MSG_COUNTER} > 0 } {
-	       MsgCenter_show
-	    }
+            global MSG_COUNTER
+               MsgCenter_sendNotification
+            if { [SharedData_getMiscData AUTO_MSG_DISPLAY] == true && ${MSG_COUNTER} > 0 } {
+               MsgCenter_show
+            }
          }
 
          # enter event loop
