@@ -573,7 +573,7 @@ proc xflow_killNode { list_widget } {
          set nodeID [file tail ${jobPath}]
          set node [file dirname ${jobPath}]/[lindex $listEntryValue end]
          DEBUG "xflow_killNode command: $seqExec  -n $node -job_id $nodeID" 5
-         Sequencer_runCommandWithWindow $suitePath $seqExec "Node Kill [file tail $node]" -n $node -job_id $nodeID
+         Sequencer_runCommandWithWindow $suitePath $seqExec "Node Kill [file tail $node]" top -n $node -job_id $nodeID
       } else {
          Utils_raiseError [winfo toplevel ${list_widget}] "Kill Node" "Application Error: Unable to retrieve Task Id."
       }
@@ -1415,7 +1415,7 @@ proc xflow_historyCallback { node canvas caller_menu {history 48} {full_loop 0} 
       }
 
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec \
-         "Node History [file tail $node]$nodeExt -history $history" \
+         "Node History [file tail $node]$nodeExt -history $history" bottom \
          -n $seqNode$nodeExt -history $history -edate $dateStamp 
    }
 }
@@ -1485,7 +1485,8 @@ proc xflow_initbranchCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "initbranch" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initbranch [file tail $node] $seqLoopArgs" -n $seqNode -s initbranch -f continue $seqLoopArgs
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s initbranch -f continue $seqLoopArgs
    }
    #$node configure -flow.status initialize
    #::DrawUtils::drawNodeStatus $node
@@ -1503,7 +1504,8 @@ proc xflow_initnodeCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "initnode" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initnode [file tail $node] $seqLoopArgs" -n $seqNode -s initnode -f continue $seqLoopArgs
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initnode [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s initnode -f continue $seqLoopArgs
    }
 }
 
@@ -1519,7 +1521,8 @@ proc xflow_initbranchLoopCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "initbranch" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initbranch [file tail $node] $seqLoopArgs" -n $seqNode -s initbranch -f continue $seqLoopArgs
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s initbranch -f continue $seqLoopArgs
    }
 }
 
@@ -1532,7 +1535,8 @@ proc xflow_abortCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "node abort" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "abort [file tail $node] $seqLoopArgs" -n $seqNode -s abort -f continue $seqLoopArgs
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "abort [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s abort -f continue $seqLoopArgs
    }
 }
 
@@ -1555,7 +1559,8 @@ proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
          Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
          DEBUG "xflow_abortNpasssTaskCallback $seqNpassTaskArgs" 5
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqNpassTaskArgs" -n $seqNode -s end $seqNpassTaskArgs
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqNpassTaskArgs" top \
+            -n $seqNode -s end $seqNpassTaskArgs
       }
    }
 }
@@ -1579,7 +1584,8 @@ proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
          Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
          DEBUG "xflow_abortNpasssTaskCallback $seqNpassTaskArgs" 5
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s abort $seqNpassTaskArgs
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
+            -n $seqNode -s abort $seqNpassTaskArgs
 
       }
    }
@@ -1691,7 +1697,8 @@ proc xflow_endCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "node end" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqLoopArgs" -n $seqNode -s end -f continue $seqLoopArgs
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s end -f continue $seqLoopArgs
    }
 
 }
@@ -1707,7 +1714,8 @@ proc xflow_endLoopCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "loop end" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqLoopArgs" -n $seqNode -s end -f continue $seqLoopArgs
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s end -f continue $seqLoopArgs
    }
 }
 
@@ -1804,7 +1812,6 @@ proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
       if { $nodeExt != "" } {
          set nodeExt ".${nodeExt}"
       }
-      # Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "batch file [file tail $node]$nodeExt " -n $seqNode$nodeExt 
 
       set winTitle "Node Batch [file tail ${node}]${nodeExt}"
       regsub -all " " ${winTitle} _ tempfile
@@ -1842,7 +1849,8 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "node submit" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
 
    }
 }
@@ -1862,7 +1870,8 @@ proc xflow_submitLoopCallback { node canvas caller_menu flow {local_ignore_dep d
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "loop submit" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs   
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs   
    }
 }
 
@@ -1896,7 +1905,8 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
          Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
          DEBUG "xflow_submitNpassTaskCallback $seqNpassTaskArgs" 5
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqNpassTaskArgs
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
+            -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqNpassTaskArgs
 
       }
    }
@@ -2045,7 +2055,6 @@ proc xflow_showAllListingItem { suite_record listw list_type} {
 
          set seqCmd "${listingExec} -f $listingFile"
          Sequencer_runCommand ${suitePath} ${outputfile} ${seqCmd}
-         # Sequencer_runCommandWithWindow $suitePath $listingExec "${list_type} listing ${wTitle}" -f $listingFile
          if { ${listingViewer} == "default" } {
             create_text_window ${winTitle} ${outputfile} top .
          } else {
