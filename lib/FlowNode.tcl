@@ -3,6 +3,10 @@ package require struct::record
 namespace import ::struct::record::*
 
 #
+# a FlowNode record is used to represent the node as it appears in the flow 
+# i.e. submits relation and not container relations.
+# example: /enkf_mod/f1/t1/t2 even though t1 is a task and not a container
+#
 # statuses: is an array that contains the status of 
 # the node or nodes when it's part of a loop for instance.
 #
@@ -31,6 +35,7 @@ namespace import ::struct::record::*
 # example:" -6 job complete testsuite n/a"
 # "n/a" must be set if the data member has no value
 # "
+#
 record define FlowNode {
    name
    parent
@@ -157,7 +162,7 @@ proc ::FlowNodes::getNodeFromOverview { node } {
    return [string range $node [expr [string first / $node] + 1] end]
 }
 
-proc ::FlowNodes::isNodeFromOverview { node } {
+# proc ::FlowNodes::isNodeFromOverview { node } {
 
    return [string match overview/* $node]
 }
@@ -205,30 +210,30 @@ proc ::FlowNodes::getPosition { node } {
    return ${returnValue}
 }
 
-# search the node subtree & returns the path of the node that contains a specific child
-# returns "" if not found
-proc ::FlowNodes::searchForChild { node child } {
-   #puts "searchForChild called node:$node child:$child"
-   set currentList [$node cget -flow.children]
+# search the _node tree down to find which node submits the given node
+# If the submitter node is not the _node itself, it will only
+# go down nodes that are of type task_node or npt nodes... because you cannot
+# submit a node that belongs to another container than your own.
+# _node is full path of the node to begin search on i.e. /exp_root/my_container
+# _submitted_node is the xml node name of the submitted node
+proc ::FlowNodes::searchSubmitNode { _node _submitted_node } {
+   set currentList [${_node} cget -flow.children]
    set value ""
-   if { $currentList != "" } {
-      if { [lsearch $currentList $child] != -1 } {
-         set value $node
-         set foundNode $node
+   if { ${currentList} != "" } {
+      if { [lsearch ${currentList} ${_submitted_node}] != -1 } {
+         set value ${_node}
+         set foundNode ${_node}
       } else {
-         foreach childName $currentList {
-            set value [searchForChild $node/$childName $child]
-            if { $value != "" } {
-               set foundNode $node/$childName
+         foreach childName ${currentList} {
+            set value [searchSubmitNode ${_node}/${childName} ${_submitted_node}]
+            if { ${value} != "" } {
+               set foundNode ${_node}/${childName}
                break
             }
          }
       }
    }
-   if { $value != "" } {
-      #puts "searchForChild found in $foundNode"
-   }
-   return $value
+   return ${value}
 }
 
 # search the node uptree & returns the path of the node that

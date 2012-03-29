@@ -63,8 +63,8 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I need to get the node that has a submit to this node. It is not
    # necessarily the xml parent node that is effectively the flow parent
    # node
-   DEBUG "createNodeFromXml() parent_flow_node:$parent_flow_node" 5
-   set actualFlowParent [::FlowNodes::searchForChild $parent_flow_node $nodeName]
+   DEBUG "createNodeFromXml() parent_flow_node:$parent_flow_node nodeName:$nodeName" 5
+   set actualFlowParent [::FlowNodes::searchSubmitNode $parent_flow_node $nodeName]
    set newFlowDirname $actualFlowParent/$nodeName
    set flowCreateCmd [lindex [string map $FlowNodeTypeMap $xmlNodeName] 0]
    set flowType [lindex [string map $FlowNodeTypeMap $xmlNodeName] 1]
@@ -80,7 +80,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I'm storing the closest container of the node
    set parentContainer "[$actualFlowParent cget -flow.container]"
    set parentName "[$actualFlowParent cget -flow.name]"
-   DEBUG "createNodeFromXml() parentContainer:$parentContainer $parentName $flowType [$actualFlowParent cget -flow.type]" 5
+   DEBUG "createNodeFromXml() parentContainer:$parentContainer parentName:$parentName type:$flowType parentType:[$actualFlowParent cget -flow.type]" 5
    set parentType [$actualFlowParent cget -flow.type]
    if { [string match "*task" ${parentType} ] } {
       $newFlowDirname configure -flow.container "$parentContainer"
