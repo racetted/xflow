@@ -26,7 +26,7 @@ set lib_dir $env(SEQ_XFLOW_BIN)/../lib
 # puts "lib_dir=$lib_dir"
 set auto_path [linsert $auto_path 0 $lib_dir ]
 
-::ttk::setTheme classic
+#::ttk::setTheme classic
 package require DrawUtils
 package require SuiteNode
 package require FlowNodes
@@ -36,6 +36,7 @@ package require FlowNodes
 proc xflow_setTkOptions {} {
    option add *activeBackground [SharedData_getColor ACTIVE_BG]
    option add *selectBackground [SharedData_getColor SELECT_BG]
+   option add *troughColor [::tk::Darken [option get . background Scrollbar] 85]
 
    # ttk::style configure Xflow.Menu -background cornsilk4
 }

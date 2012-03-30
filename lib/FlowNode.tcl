@@ -162,7 +162,7 @@ proc ::FlowNodes::getNodeFromOverview { node } {
    return [string range $node [expr [string first / $node] + 1] end]
 }
 
-# proc ::FlowNodes::isNodeFromOverview { node } {
+proc ::FlowNodes::isNodeFromOverview { node } {
 
    return [string match overview/* $node]
 }
