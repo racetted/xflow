@@ -71,6 +71,7 @@ proc SharedData_initColors {} {
       SharedData_setColor FLOW_SUBMIT_ARROW "#787878"
       SharedData_setColor FLOW_SUBMIT_ARROW "#787878"
 
+      SharedData_setColor FLOW_FIND_SELECT "#ffe600"
       SharedData_setColor CANVAS_COLOR "#ececec"
       SharedData_setColor SHADOW_COLOR "#676559"
       SharedData_setColor NORMAL_RUN_OUTLINE black
@@ -188,7 +189,8 @@ proc SharedData_readProperties { {rc_file ""} } {
             } else {
                set keyFound [string toupper [string trim [lindex $splittedList 0]]]
                set valueFound [string trim [lindex $splittedList 1]]
-               puts "SharedData_readProperties found key:${keyFound} value:${valueFound}"
+               #puts "SharedData_readProperties found key:${keyFound} value:${valueFound}"
+               puts "maestrorc preference name:${keyFound} value:${valueFound}"
                SharedData_setMiscData ${keyFound} ${valueFound}
             }
          }

@@ -733,7 +733,9 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
    
       set x_offset 25
       set y_offset 25
-   
+      #set x_offset [expr abs(($target_x - $target_x2) / 2)]
+      #set y_offset [expr abs(($target_y - $target_y2) / 2)]
+
       # draw four lines with arrows pointing at the job
       ${canvasW} create line $target_x $target_y [expr $target_x - $x_offset] \
       [expr $target_y - $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
@@ -832,4 +834,67 @@ proc ::DrawUtils::highLightNode { suite_record node canvas_w } {
    set currentOutline [${canvas_w} itemcget ${canvasTag} -outline]
    ${canvas_w} itemconfigure ${canvasTag} -width 2 -outline ${selectColor}
    set NodeHighLightRestoreCmd "${canvas_w} itemconfigure ${canvasTag} -width ${currentWidth} -outline ${currentOutline}"
+}
+
+# highlights a node that is selected with the find functionality
+# by drawing a yellow rectangle around the node
+proc ::DrawUtils::highLightFindNode { _suite_record _node _canvas_w } {
+   global NodeHighLightRestoreCmd 
+   variable nodeTypeMap
+
+   set nodeShadowTag ${_node}.shadow
+   set selectColor [SharedData_getColor FLOW_FIND_SELECT]
+
+   # create a rectangle around the node
+   foreach {x1 y1 x2 y2} [${_canvas_w} bbox ${_node}] break
+   set findBoxDelta 5
+   set x1 [expr ${x1} - ${findBoxDelta}]
+   set y1 [expr ${y1} - ${findBoxDelta}]
+   set x2 [expr ${x2} + ${findBoxDelta}]
+   set y2 [expr ${y2} + ${findBoxDelta}]
+
+   set selectTag ${_canvas_w}.find_select
+   ${_canvas_w} create rectangle ${x1} ${y1} ${x2} ${y2} -fill ${selectColor} -tag ${selectTag}
+   ${_canvas_w} lower ${selectTag} ${nodeShadowTag}
+
+   # sets the command to restore the node to its previous state
+   set NodeHighLightRestoreCmd "${_canvas_w} delete ${selectTag};"
+   return ${selectTag}
+}
+
+# returns the visible area of the canvas
+proc ::DrawUtils::getCanvasViewArea { _canvas } {
+
+   # This foreach is used only as a "list assign", and has an empty body.
+   foreach {junk junk totalXArea totalYArea} [${_canvas} cget -scrollregion] {break}
+   set xview  [${_canvas} xview]
+   set yview  [${_canvas} yview]
+
+   set xstart [expr {int([lindex $xview 0] * $totalXArea)}]
+   set xend   [expr {int([lindex $xview 1] * $totalXArea)}] 
+
+   set ystart [expr {int([lindex $yview 0] * $totalYArea)}]
+   set yend   [expr {int([lindex $yview 1] * $totalYArea)}] 
+
+   return [list $xstart $ystart $xend $yend]
+}
+
+# move the item referenced by _tag to a visible area if it is not
+# visible within the current scroll area
+proc ::DrawUtils::viewCanvasItem { _canvas _tag } {
+
+   foreach {x1 y1 x2 y2} [${_canvas} bbox ${_tag}] break
+   set y1 [expr $y1 - 10]
+   set x1 [expr $x1 - 10]
+
+   foreach {vx1 vy1 vx2 vy2} [::DrawUtils::getCanvasViewArea ${_canvas}] break
+   foreach {sx1 sy1 sx2 sy2} [${_canvas} cget -scrollregion] break
+
+    if { ! ( ${x1} > ${vx1} && ${x2} < ${vx2} && ${y1} > ${vy1} && ${y2} < ${vy2} ) } {
+      # item is not within visible area
+      set xfraction [expr {double($x1 - $sx1) / ($sx2 - $sx1)}]
+      set yfraction [expr {double($y1 - $sy1) / ($sy2 - $sy1)}]
+      ${_canvas} xview moveto $xfraction
+      ${_canvas} yview moveto $yfraction
+    }
 }

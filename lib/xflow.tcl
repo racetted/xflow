@@ -166,6 +166,7 @@ proc xflow_createToolbar { parent } {
    set msgCenterW [xflow_getWidgetName msgcenter_button]
    set nodeKillW [xflow_getWidgetName nodekill_button]
    set catchupW [xflow_getWidgetName catchup_button]
+   set findW [xflow_getWidgetName find_button]
    set nodeListW [xflow_getWidgetName nodelist_button]
    set nodeAbortListW [xflow_getWidgetName abortlist_button]
    set colorLegendW [xflow_getWidgetName legend_button]
@@ -182,6 +183,7 @@ proc xflow_createToolbar { parent } {
    image create photo ${hasNewMsgImage} -file ${imageDir}/open_mail_new.gif
    image create photo ${parent}.node_kill_img -file ${imageDir}/node_kill.gif
    image create photo ${parent}.catchup_img -file ${imageDir}/catchup.gif
+   image create photo ${parent}.find_img -file ${imageDir}/find.png
    image create photo ${parent}.node_list_img -file ${imageDir}/node_list.ppm
    image create photo ${parent}.node_abort_list_img -file ${imageDir}/node_abort_list.ppm
    image create photo ${parent}.close -file ${imageDir}/cancel.gif
@@ -203,6 +205,9 @@ proc xflow_createToolbar { parent } {
 
    button ${shellW} -image ${parent}.shell_img -command xflow_launchShellCallback -relief flat
    tooltip::tooltip ${shellW}  "Start shell at exp home"
+
+   button ${findW} -image ${parent}.find_img -relief flat -command [list xflow_showFindWidgets]
+   tooltip::tooltip ${findW}  "Find a node."
 
    button ${nodeListW} -image ${parent}.node_list_img  -state disabled -relief flat
    tooltip::tooltip ${nodeListW} "Open succesfull node listing dialog -- future feature."
@@ -229,9 +234,9 @@ proc xflow_createToolbar { parent } {
       }
       ::tooltip::tooltip ${overviewW} "Show overview window."
       ::tooltip::tooltip ${closeW} "Close window."
-      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
    } else {
-      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${depW}  ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${depW}  ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
    }
 
 }
@@ -348,6 +353,117 @@ proc xflow_addMonitorDateWidget { parent_widget } {
    tooltip::tooltip ${monitorEntryCombo} "Select value of the date being displayed in the flow."
 }
 
+# creates the widget for the find node functionality
+proc xflow_createFindWidgets { _parent_widget } {
+   global FIND_MATCH_CASE
+   set findLabel [xflow_getWidgetName find_label]
+   set findEntry [xflow_getWidgetName find_entry]
+   set findCloseB [xflow_getWidgetName find_close_button]
+   set findNextB [xflow_getWidgetName find_next_button]
+   set findPreviousB [xflow_getWidgetName find_previous_button]
+   set findCloseImg [xflow_getWidgetName find_close_image]
+   set findNextImg [xflow_getWidgetName find_next_image]
+   set findPreviousImg [xflow_getWidgetName find_previous_image]
+   set findCaseCheck [xflow_getWidgetName find_matchcase_check]
+   Label ${findLabel} -text "Find:"
+   Entry ${findEntry} -width 25
+   bind ${findEntry} <Return> [list xflow_findCallback ${findEntry} next]
+
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   image create photo ${findNextImg} -file [SharedData_getMiscData IMAGE_DIR]/[xflow_getWidgetName find_next_image_file]
+   image create photo ${findPreviousImg} -file [SharedData_getMiscData IMAGE_DIR]/[xflow_getWidgetName find_previous_image_file]
+   image create photo ${findCloseImg} -file [SharedData_getMiscData IMAGE_DIR]/[xflow_getWidgetName find_close_image_file]
+
+   Button ${findCloseB} -image ${findCloseImg} -relief flat
+   Button ${findNextB} -image ${findNextImg} -relief flat -text Next -compound left -underline 0  -command [list xflow_findCallback ${findEntry} next]
+   Button ${findPreviousB} -image ${findPreviousImg} -relief flat -text Previous -compound left -underline 0  -command [list xflow_findCallback ${findEntry} previous]
+   checkbutton ${findCaseCheck} -text "Match case" -indicatoron true -variable FIND_MATCH_CASE \
+      -command {
+         # reset the search everytime the case is changed
+         set XFLOW_FIND_TEXT ""
+      }
+
+   set FIND_MATCH_CASE 0
+
+   bind . <Control-Key-f> [list xflow_showFindWidgets]
+   bind . <Key-F3> [list xflow_findCallback ${findEntry} next]
+   bind . <Shift-Key-F3> [list xflow_findCallback ${findEntry} previous]
+   pack ${findCloseB} ${findLabel} ${findEntry} ${findNextB} ${findPreviousB} ${findCaseCheck} -side left -padx 2 -pady 2
+}
+
+# this is call whenever the user hits on next or previous on the find 
+proc xflow_findCallback { _entry_w _next_or_previous } {
+   global XFLOW_FIND_TEXT XFLOW_FIND_RESULTS XFLOW_FIND_INDEX XFLOW_AFTER_EVAL
+   global FIND_MATCH_CASE NodeHighLightRestoreCmd
+   DEBUG "xflow_findCallback _entry_w:${_entry_w} _next_or_previous:${_next_or_previous}" 5
+   set findFrame [xflow_getWidgetName find_frame]
+   if { [grid info ${findFrame}] == "" } {
+      # the find window is close, do nothing
+      return
+   }
+
+   if { ! [info exists XFLOW_FIND_TEXT] } {
+      set XFLOW_FIND_TEXT ""
+   }
+   if { [info exists XFLOW_AFTER_EVAL] } {
+      after cancel ${XFLOW_AFTER_EVAL}
+      eval $NodeHighLightRestoreCmd
+   }
+
+   set findText [${_entry_w} cget -text]
+   if { ${findText} == "" } {
+      return
+   }
+   set activeSuiteRecord [xflow_getActiveSuite]
+   if { ${findText} != ${XFLOW_FIND_TEXT} } {
+      # new find
+      set XFLOW_FIND_TEXT ${findText}
+      set XFLOW_FIND_RESULTS {}
+      set rootNode [${activeSuiteRecord} cget -root_node]
+      ::FlowNodes::searchForNode ${rootNode} ${findText} ${FIND_MATCH_CASE} XFLOW_FIND_RESULTS
+      if { [llength ${XFLOW_FIND_RESULTS}] != 0 } {
+         # found something
+         set XFLOW_FIND_INDEX 0
+         DEBUG "new search ound node: [lindex ${XFLOW_FIND_RESULTS} ${XFLOW_FIND_INDEX}]" 5
+      }
+   } else {
+      # existing search
+      if { ${_next_or_previous} == "next" } {
+         incr XFLOW_FIND_INDEX
+         if { ${XFLOW_FIND_INDEX} == [llength ${XFLOW_FIND_RESULTS}] } {
+            set XFLOW_FIND_INDEX 0
+         }
+      } else {
+         # assume previous
+         incr XFLOW_FIND_INDEX -1
+         if { ${XFLOW_FIND_INDEX} == -1 } {
+            set XFLOW_FIND_INDEX [expr [llength ${XFLOW_FIND_RESULTS}] - 1]
+         }
+      }
+      DEBUG "found node: [lindex ${XFLOW_FIND_RESULTS} ${XFLOW_FIND_INDEX}]" 5
+   }
+   if { [llength ${XFLOW_FIND_RESULTS}] != 0 } {
+      set foundNode [lindex ${XFLOW_FIND_RESULTS} ${XFLOW_FIND_INDEX}]
+      set mainFlowCanvas [xflow_getMainFlowCanvas]
+      # if the node is collapsed, uncollapse it
+      if { [::FlowNodes::uncollapseBranch ${foundNode} ${mainFlowCanvas}] != "" } {
+         xflow_drawflow ${mainFlowCanvas}
+      }
+
+      set foundTag [::DrawUtils::highLightFindNode ${activeSuiteRecord} ${foundNode} ${mainFlowCanvas}]
+      # make sure the node is visible
+      ::DrawUtils::viewCanvasItem [xflow_getMainFlowCanvas] ${foundTag}
+
+      set XFLOW_AFTER_EVAL [after 5000 eval $NodeHighLightRestoreCmd]
+   }
+}
+
+proc xflow_showFindWidgets {} {
+   set findFrame [xflow_getWidgetName find_frame]
+   set findEntry [xflow_getWidgetName find_entry]
+   grid ${findFrame}
+   focus ${findEntry}
+}
 
 # this function is only called in xflow standalone mode.
 # It propagates the Auto Message Display configuration. Alghouh this configuration
@@ -2245,8 +2361,14 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
 
       set callback xflow_changeCollapsed
       xflow_drawNode $canvas $rootNode 0 true
-      set canvasArea [$canvas bbox all]
-      $canvas  configure -scrollregion $canvasArea -yscrollincrement 5 -xscrollincrement 5
+      foreach { x1 y1 x2 y2 } [$canvas bbox all] {
+         set x1 [expr ${x1} - 5]
+         set y1 [expr ${y1} - 5]
+         set x2 [expr ${x2} + 5]
+         set y2 [expr ${y2} + 5]
+      }
+
+      $canvas  configure -scrollregion [list ${x1} ${y1} ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
       # resize the window depending on size of canvas elements
       xflow_resizeWindow ${canvas}
 
@@ -2697,9 +2819,7 @@ proc xflow_validateSuite {} {
 proc xflow_createWidgets {} {
    DEBUG "xflow_createWidgets" 5
    wm iconify .
-   set topFrame [xflow_getWidgetName top_frame]
-
-   frame $topFrame
+   set topFrame [frame [xflow_getWidgetName top_frame]]
    xflow_addFileMenu $topFrame
    xflow_addViewMenu $topFrame
    xflow_addHelpMenu $topFrame
@@ -2717,19 +2837,22 @@ proc xflow_createWidgets {} {
    # monitor date
    xflow_addMonitorDateWidget ${monDateFrame}
 
+   set findFrame [frame [xflow_getWidgetName find_frame]]
+   xflow_createFindWidgets ${findFrame}
+   set findCloseB [xflow_getWidgetName find_close_button]
+   ${findCloseB} configure -command [list grid remove ${findFrame}]
+
    # this displays the widget on the second frame
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
    grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
    grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
 
    # flow_frame is the 3nd widget
-   set flowFrame [xflow_getWidgetName flow_frame]
-   frame ${flowFrame}
+   set flowFrame [frame [xflow_getWidgetName flow_frame]]
    # xflow_createCanvasFrame ${tabFrame} $env(SEQ_EXP_HOME) "xflow_selectSuiteCallback"
    #set suiteName [file tail $suitePath]
    #set drawFrame ${flowFrame}.[::SuiteNode::formatName $suitePath]
-   set drawFrame ${flowFrame}.draw_frame
-   frame $drawFrame
+   set drawFrame [frame ${flowFrame}.draw_frame]
 
    grid columnconfigure ${flowFrame} 0 -weight 1
    grid rowconfigure ${flowFrame} 0 -weight 1
@@ -2737,14 +2860,17 @@ proc xflow_createWidgets {} {
    # this displays the widgets in the main window layout
    grid $topFrame -row 0 -column 0 -sticky w -padx 2
    grid ${secondFrame} -row 1 -column 0  -sticky nsew -pady 2
-   grid ${flowFrame}  -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
+   grid ${findFrame} -row 2 -column 0  -sticky nsew -pady 2 -padx 2
+   grid remove ${findFrame}
+   grid ${flowFrame}  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
    grid columnconfigure . 0 -weight 1
    grid columnconfigure . 1 -weight 1
-   grid rowconfigure . 2 -weight 2
+   #grid rowconfigure . 2 -weight 2
+   grid rowconfigure . 3 -weight 2
 
    set sizeGripW [xflow_getWidgetName main_size_grip]
    ttk::sizegrip ${sizeGripW}
-   grid ${sizeGripW} -row 2 -column 1 -sticky se
+   grid ${sizeGripW} -row 3 -column 1 -sticky se
    
    wm geometry . =1200x800
 }
@@ -2860,9 +2986,15 @@ proc xflow_setTitle { top_w exp_path } {
       set winTitle "Xflow - Exp=${exp_path} User=$env(USER) Host=[exec hostname] Time=${current_time}"
       wm title [winfo toplevel ${top_w}] ${winTitle}
 
-      # refresh title every inute
+      # refresh title every minute
       set TITLE_AFTER_ID [after 60000 [list xflow_setTitle ${top_w} ${exp_path}]]
    }
+}
+
+proc xflow_getMainFlowCanvas {} {
+   set flowFrame [xflow_getWidgetName flow_frame]
+   set canvasW ${flowFrame}.draw_frame.canvas
+   return ${canvasW}
 }
 
 proc out {} {
@@ -2962,6 +3094,7 @@ proc xflow_setWidgetNames {} {
 
       top_frame .top_frame
       second_frame .second_frame
+      find_frame .find_frame
       flow_frame .flow_frame
       main_size_grip .size_grip
 
@@ -2969,6 +3102,7 @@ proc xflow_setWidgetNames {} {
       msgcenter_button .second_frame.toolbar.button_msgcenter
       nodekill_button .second_frame.toolbar.button_nodekill
       catchup_button .second_frame.toolbar.button_catchup
+      find_button .second_frame.toolbar.button_find
       nodelist_button .second_frame.toolbar.button_nodelist
       abortlist_button .second_frame.toolbar.button_nodeabortlist
       dep_button .second_frame.toolbar.button_dep
@@ -2987,6 +3121,19 @@ proc xflow_setWidgetNames {} {
       monitor_date_combo .second_frame.mon_date_frame.entry_combo
       monitor_date_button_frame .second_frame.mon_date_frame.button_frame
       monitor_date_set_button .second_frame.mon_date_frame.button_frame.set_button
+
+      find_close_button .find_frame.close_button
+      find_label .find_frame.entry_label
+      find_entry .find_frame.entry_field
+      find_next_button .find_frame.next_button
+      find_previous_button .find_frame.previous_button
+      find_matchcase_check .find_frame.matchcase_check
+      find_close_image .find_frame.close_img
+      find_next_image .find_frame.next_img
+      find_previous_image .find_frame.previous_img
+      find_close_image_file cancel_small.png
+      find_next_image_file next_down.png
+      find_previous_image_file previous_up.png
 
       bg_image artist-canvas_2.gif
       catchup_toplevel .catchup_top

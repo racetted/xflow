@@ -236,6 +236,34 @@ proc ::FlowNodes::searchSubmitNode { _node _submitted_node } {
    return ${value}
 }
 
+# 
+# searches nodes recursively down the flow submits relation
+# starting at _node for a match using the
+# _search_value. Only the leaf part of the node is used for the match.
+# For example, if the node is /enkf_mod/Analysis/enkf_task and the
+# the _search_value is "enkf" it will match because the leaf part i.e. enkf_task
+# matches the search string. The /enkf_mod/Analysis/ is not used.
+# 
+# _node : node value i.e. /enkf_mod/Analysis/enkf_task
+# _search_value: i.e enkf
+# _match_case: 1=case_sensitive 0=no_case_sensitive
+# _results_output: global variable list use to append found nodes that matches the
+#                   search.
+proc ::FlowNodes::searchForNode { _node _search_value _match_case _results_output } {
+   upvar #0 ${_results_output} myOutput
+
+   set matchCaseFlag "-nocase"
+
+   if { ${_match_case} == 1 } { set matchCaseFlag "" }
+   if { [eval string match ${matchCaseFlag} *${_search_value}* [file tail ${_node}]] == 1 } {
+      lappend myOutput ${_node}
+   }
+
+   foreach childName [${_node} cget -flow.children] {
+      ::FlowNodes::searchForNode ${_node}/${childName} ${_search_value} ${_match_case} ${_results_output}
+   }
+}
+
 # search the node uptree & returns the path of the node that
 # is of type family
 # throw an error if not found
@@ -299,13 +327,13 @@ proc ::FlowNodes::uncollapseAll { node canvas } {
       ::FlowNodes::initNode $node $canvas
    }
    setCollapsed $node $canvas 0
-   set currentList [$node cget -flow.children]
-   if { $currentList != "" } {
-      foreach childName $currentList {
-         set childNode $node/$childName
-         uncollapseAll $childNode $canvas
-      }
-   }
+   #set currentList [$node cget -flow.children]
+   #if { $currentList != "" } {
+   #   foreach childName $currentList {
+   #      set childNode $node/$childName
+   #      uncollapseAll $childNode $canvas
+   #   }
+   #}
 }
 
 proc ::FlowNodes::isCollapsed { node canvas } {
@@ -347,6 +375,35 @@ proc ::FlowNodes::setCollapsed { node canvas value } {
       }
    }
 
+}
+
+# if the current node is collapsed,
+# searches up the submit parent chain to look for first parent that is collapsed,
+# and then sets the collapse value to 0 from the found parent down to every submit child
+# returns the first parent found 
+# else returns empty string
+proc ::FlowNodes::uncollapseBranch { node canvas } {
+   if { [::FlowNodes::isCollapsed ${node} ${canvas}] == 0 } {
+      return ""
+   }
+
+   set previousNode ${node}
+   set nextNode [${node} cget -flow.parent]
+   set found false
+   while { ${nextNode} != "" && ${found} == false } {
+      array set displayInfoList [${nextNode} cget -flow.display_infos]
+      if { [info exists displayInfoList($canvas)] } {
+         set displayInfo $displayInfoList($canvas)
+         set value [lindex $displayInfo 0]
+         if { $value == 0 } {
+            set found true ; break
+         }
+         set previousNode ${nextNode}
+         set nextNode [${nextNode} cget -flow.parent]
+      }
+   }
+   ::FlowNodes::setCollapsed ${previousNode} ${canvas} 0
+   return ${previousNode}
 }
 
 # values must be a list of {x1 y1 x2 y2 max_x max_y}

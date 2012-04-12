@@ -209,6 +209,7 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
 
    set isMsgActive [MsgCenter_addActiveMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}]
 
+   MsgCenter_sendNotification
    if { ${isMsgActive} == "true" } {
 
       # do we need to add more rows to the table?
@@ -221,7 +222,6 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
       ${table_w_} tag row NewMessageTag ${MSG_ACTIVE_COUNTER}
       ${table_w_} see ${MSG_ACTIVE_COUNTER},0
       MsgCengter_processAlarm ${table_w_}
-      MsgCenter_sendNotification
    }
 
    # adjust field length
@@ -239,7 +239,7 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
 proc MsgCenter_sendNotification {} {
    global MSG_ACTIVE_COUNTER
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
-   if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 1] } {
+   if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 0] } {
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       if { ${isOverviewMode} == "true" } {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
