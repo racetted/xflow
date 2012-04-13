@@ -1101,7 +1101,7 @@ proc xflow_drawNode { canvas node position {first_node false} } {
       # first draw left arrow, the shape depends on the position of the
       # subnode and previous nodes being drawn
       # if position is 0, means first node job so same level as parent node only x coords changes
-      set lineTagName ${node}.submit_tag
+      set lineTagName "flow_element ${node}.submit_tag"
 
       if { $position == 0 } {
          set linex1 $px2
@@ -2354,13 +2354,14 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
    if { [winfo exists ${canvas}] } {
       DEBUG "xflow_drawflow() found existing canvas:$canvas" 5
       #::DrawUtils::clearCanvas $canvas
-      xflow_clearCanvasFlow ${canvas}
+      #xflow_clearCanvasFlow ${canvas}
       set suiteRecord [xflow_getActiveSuite]
       # reset the default spacing for drawing flow
       ::SuiteNode::resetDisplayData ${suiteRecord} ${canvas}
       set rootNode [::SuiteNode::getDisplayRoot $suiteRecord $canvas]
 
       set callback xflow_changeCollapsed
+      xflow_clearCanvasFlow ${canvas}
       xflow_drawNode $canvas $rootNode 0 true
       xflow_addBgImage $canvas [xflow_getWidgetName bg_image]
       foreach { x1 y1 x2 y2 } [$canvas bbox all] {
@@ -2386,7 +2387,12 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
 # this function resizes the xflow main window depending on the
 # items in the canvas
 proc xflow_resizeWindow { canvas } {
+   global FLOW_RESIZED
    DEBUG "xflow_resizeWindow canvas:${canvas}" 5
+
+   if { ${FLOW_RESIZED} == true } {
+      return
+   }
 
    if { [SharedData_getMiscData FLOW_GEOMETRY] == "" } {
       if { [winfo exists ${canvas}] } {
@@ -2678,6 +2684,15 @@ proc xflow_createFlowCanvas { parent } {
 }
 
 proc xflow_clearCanvasFlow { _canvas } {
+   if { [winfo exists ${_canvas}] } {
+
+      # retrieve all flow elements to delete
+      ${_canvas} delete flow_element
+   }
+   update idletasks
+}
+
+proc _________________xflow_clearCanvasFlow { _canvas } {
    if { [winfo exists ${_canvas}] && [${_canvas} find withtag backgroundBitmap] != "" } {
        # hide the bg image
        xflow_hideBgImage ${_canvas} [xflow_getWidgetName bg_image]
@@ -2702,7 +2717,6 @@ proc xflow_addBgImage { _canvas _bitmapFilename} {
 
    if { [${_canvas} find withtag backgroundBitmap] == "" } {
       # does not exists, create new one
-      puts "xflow_addBgImage creating new bg image"
       set sourceImage [image create photo -file ${_bitmapFilename}]
       set tiledImage [image create photo]
 
@@ -2718,10 +2732,10 @@ proc xflow_addBgImage { _canvas _bitmapFilename} {
       xflow_tileBgImage ${_canvas} ${sourceImage} ${tiledImage}
    } else {
       # item already exists, revive it
-      foreach {x y} [${_canvas} coords backgroundBitmap] {break}
-      if { ${x} == -10000.0 && ${y} == -10000.0 } {
-         ${_canvas} move backgroundBitmap +10000 +10000
-      }
+      #foreach {x y} [${_canvas} coords backgroundBitmap] {break}
+      #if { ${x} == -10000.0 && ${y} == -10000.0 } {
+      #   ${_canvas} move backgroundBitmap +10000 +10000
+      #}
    }
  }
 
@@ -2898,6 +2912,12 @@ proc xflow_createWidgets {} {
 
    set sizeGripW [xflow_getWidgetName main_size_grip]
    ttk::sizegrip ${sizeGripW}
+   bind TSizegrip <B1-Motion> { 
+      global FLOW_RESIZED
+      ttk::sizegrip::Drag   %W %X %Y
+      set FLOW_RESIZED true
+   }
+
    grid ${sizeGripW} -row 3 -column 1 -sticky se
    
    wm geometry . =1200x800
@@ -2911,12 +2931,13 @@ proc xflow_createWidgets {} {
 # for each exp in history mode.
 proc xflow_displayFlow { calling_thread_id } {
    global env XFLOW_STANDALONE SEQ_EXP_HOME
-   global MONITORING_LATEST MONITOR_DATESTAMP
+   global MONITORING_LATEST MONITOR_DATESTAMP FLOW_RESIZED
+   
 
    DEBUG "xflow_displayFlow thread id:[thread::id]" 5
 
+   set FLOW_RESIZED false
    set topFrame [xflow_getWidgetName top_frame]
-
    xflow_createTmpDir
    #xflow_validateSuite
 

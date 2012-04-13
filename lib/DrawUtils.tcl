@@ -332,7 +332,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
    set newtx1 [expr ${tx1} + 10]
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    $canvas itemconfigure ${binder}.text -text $txt
@@ -344,7 +344,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
    set ny2 [expr [lindex $boxArea 3] + ${ovalSize}]
    
    $canvas create oval ${nx1} ${ny1} ${nx2} ${ny2}  \
-          -fill $fill -tags "$binder ${binder}.oval"
+          -fill $fill -tags "flow_element $binder ${binder}.oval"
 
    if { [$binder cget -record_type] == "FlowLoop" &&
          [$binder cget -loop_type] == "loopset" } {
@@ -353,8 +353,8 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
       set parx2 $parx1
       set pary1 [expr [lindex $boxArea 1] + 4]
       set pary2 [lindex $boxArea 3]
-      $canvas create line $parx1 $pary1 [expr $parx1 - 5] [expr $pary1 + 5] -width 1.5 -fill black
-      $canvas create line [expr $parx1 - 5] $pary1 [expr $parx1 - 10] [expr $pary1 + 5] -width 1.5 -fill black
+      $canvas create line $parx1 $pary1 [expr $parx1 - 5] [expr $pary1 + 5] -width 1.5 -fill black -tags flow_element
+      $canvas create line [expr $parx1 - 5] $pary1 [expr $parx1 - 10] [expr $pary1 + 5] -width 1.5 -fill black -tags flow_element
    }
 
    $canvas lower ${binder}.oval ${binder}.text
@@ -366,7 +366,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
        set sy1 [expr $ny1 + 5]
        set sy2 [expr $ny2 + 5]
        $canvas create oval ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
-               -fill $shadowColor  -tags "${binder} ${binder}.shadow"
+               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.oval
    }
 
@@ -406,7 +406,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
       pack ${indexListW} -fill both
       set barY [expr $sy2 + 15]
       set barX [expr ($nx1 + $nx2)/2]
-      $canvas create window $barX $barY -window ${indexListW}
+      $canvas create window $barX $barY -window ${indexListW} -tags flow_element
       set maximX ${sx2}
       set maximY ${barY}
       set nextY [expr $barY + [winfo height ${indexListW}] + 20]
@@ -568,7 +568,7 @@ proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadow
 }
 
 proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
-    DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1" 5
+    DEBUG "drawX canvas:$canvas x1:$x1 y1:$y1" 5
 
     if { $x1 < $x2 } {
       set x2 [expr $x2 - 3 ]
@@ -601,7 +601,7 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
    DEBUG "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder" 5
    set family [$binder cget -flow.family]
    $canvas create text ${tx1} ${ty1} -text /$maxtext -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
@@ -614,7 +614,7 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
    set ny2 [expr [lindex $boxArea 3] +5]
    DEBUG "drawBoxSansOutline Doug text=$text nx1=$nx1 ny1=$ny1 nx2=$nx2 ny2=$ny2"
    $canvas create rectangle ${nx1} ${ny1} ${nx2} ${ny2} \
-           -fill $fill -tags "$binder ${binder}.rectangle" 
+           -fill $fill -tags "flow_element $binder ${binder}.rectangle" 
    $canvas lower ${binder}.rectangle ${binder}.text
 
    if { $drawshadow == "on" } {
@@ -624,7 +624,7 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
        set sy1 [expr $ny1 + 5]
        set sy2 [expr $ny2 + 5]
        $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
-               -fill $shadowColor  -tags "${binder} ${binder}.shadow"
+               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.rectangle
    }
 
@@ -642,7 +642,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    DEBUG "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill binder:$binder" 5
 
    $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
@@ -654,7 +654,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    set nx2 [expr [lindex $boxArea 2] +5]
    set ny2 [expr [lindex $boxArea 3] +5]
    $canvas create rectangle ${nx1} ${ny1} ${nx2} ${ny2} \
-            -fill $fill -outline $outline -tags "$binder ${binder}.rectangle"
+            -fill $fill -outline $outline -tags "flow_element $binder ${binder}.rectangle"
    $canvas lower ${binder}.rectangle ${binder}.text
 
    if { $drawshadow == "on" } {
@@ -664,7 +664,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
        set sy1 [expr $ny1 + 5]
        set sy2 [expr $ny2 + 5]
        $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
-               -fill $shadowColor  -tags "${binder} ${binder}.shadow"
+               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.rectangle
    }
 
@@ -701,7 +701,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
       pack ${indexListW} -fill both
       set barY [expr $sy2 + 15]
       set barX [expr ($nx1 + $nx2)/2]
-      $canvas create window $barX $barY -window  ${indexListW}
+      $canvas create window $barX $barY -window  ${indexListW} -tags flow_element
       set maximX ${sx2}
       set maximY ${barY}
       set nextY  [expr $barY + [winfo height  ${indexListW}] + 20]
