@@ -2353,7 +2353,8 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
 
    if { [winfo exists ${canvas}] } {
       DEBUG "xflow_drawflow() found existing canvas:$canvas" 5
-      ::DrawUtils::clearCanvas $canvas
+      #::DrawUtils::clearCanvas $canvas
+      xflow_clearCanvasFlow ${canvas}
       set suiteRecord [xflow_getActiveSuite]
       # reset the default spacing for drawing flow
       ::SuiteNode::resetDisplayData ${suiteRecord} ${canvas}
@@ -2361,6 +2362,7 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
 
       set callback xflow_changeCollapsed
       xflow_drawNode $canvas $rootNode 0 true
+      xflow_addBgImage $canvas [xflow_getWidgetName bg_image]
       foreach { x1 y1 x2 y2 } [$canvas bbox all] {
          set x1 [expr ${x1} - 5]
          set y1 [expr ${y1} - 5]
@@ -2375,10 +2377,6 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
       if { $initial_display == "1" } {
          $canvas yview moveto 0
       }
-      #set imageDir [SharedData_getMiscData IMAGE_DIR]
-      set bgImage [xflow_getWidgetName bg_image]
-      #xflow_addBgImage $canvas ${imageDir}/${bgImage}
-      xflow_addBgImage $canvas ${bgImage}
 
    }
    DEBUG "xflow_drawflow() done" 5
@@ -2679,22 +2677,52 @@ proc xflow_createFlowCanvas { parent } {
    return $canvas
 }
 
-proc xflow_addBgImage {canvas bitmapFilename} {
+proc xflow_clearCanvasFlow { _canvas } {
+   if { [winfo exists ${_canvas}] && [${_canvas} find withtag backgroundBitmap] != "" } {
+       # hide the bg image
+       xflow_hideBgImage ${_canvas} [xflow_getWidgetName bg_image]
+
+      # retrieve all flow elements to delete
+      set flowElements [eval ${_canvas} find enclosed [${_canvas} cget -scrollregion]]
+      eval ${_canvas} delete ${flowElements}
+   }
+   update idletasks
+}
+
+proc xflow_hideBgImage { _canvas _bitmapFilename } {
+   if { [winfo exists ${_canvas}] && [${_canvas} find withtag backgroundBitmap] != "" } {
+      puts "xflow_hideBgImage move backgroundBitmap -10000 -10000"
+      # mv the bg to a far far galaxy
+      ${_canvas} move backgroundBitmap -10000 -10000
+   }
+}
+
+proc xflow_addBgImage { _canvas _bitmapFilename} {
     package require img::gif
 
-    set sourceImage [image create photo -file $bitmapFilename]
-    set tiledImage [image create photo]
+   if { [${_canvas} find withtag backgroundBitmap] == "" } {
+      # does not exists, create new one
+      puts "xflow_addBgImage creating new bg image"
+      set sourceImage [image create photo -file ${_bitmapFilename}]
+      set tiledImage [image create photo]
 
-    $canvas create image 0 0 \
-        -anchor nw \
-        -image $tiledImage \
-        -tags {backgroundBitmap}
+      ${_canvas} create image 0 0 \
+         -anchor nw \
+         -image ${tiledImage} \
+         -tags backgroundBitmap
 
-    $canvas lower backgroundBitmap
+      ${_canvas} lower backgroundBitmap
 
-    bind $canvas <Configure> [list xflow_tileBgImage $canvas $sourceImage $tiledImage]
-    bind $canvas <Destroy> [list image delete $sourceImage $tiledImage]
-    xflow_tileBgImage $canvas $sourceImage $tiledImage
+      # bind ${_canvas} <Configure> [list xflow_tileBgImage ${_canvas} ${sourceImage} ${tiledImage}]
+      bind ${_canvas} <Destroy> [list image delete ${sourceImage} ${tiledImage}]
+      xflow_tileBgImage ${_canvas} ${sourceImage} ${tiledImage}
+   } else {
+      # item already exists, revive it
+      foreach {x y} [${_canvas} coords backgroundBitmap] {break}
+      if { ${x} == -10000.0 && ${y} == -10000.0 } {
+         ${_canvas} move backgroundBitmap +10000 +10000
+      }
+   }
  }
 
  proc xflow_tileBgImage {canvas sourceImage tiledImage} {

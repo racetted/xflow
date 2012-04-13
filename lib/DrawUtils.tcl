@@ -165,7 +165,6 @@ proc ::DrawUtils::clearCanvas { canvas } {
    if { [winfo exists $canvas] } {
       # flush everything in the canvas
       $canvas delete all
-      set suiteRecord [xflow_getActiveSuite]
    }
    update idletasks
 }
@@ -846,7 +845,7 @@ proc ::DrawUtils::highLightFindNode { _suite_record _node _canvas_w } {
    set selectColor [SharedData_getColor FLOW_FIND_SELECT]
 
    # create a rectangle around the node
-   foreach {x1 y1 x2 y2} [${_canvas_w} bbox ${_node}] break
+   foreach {x1 y1 x2 y2} [${_canvas_w} bbox ${_node}] {break}
    set findBoxDelta 5
    set x1 [expr ${x1} - ${findBoxDelta}]
    set y1 [expr ${y1} - ${findBoxDelta}]
