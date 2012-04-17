@@ -447,7 +447,7 @@ proc xflow_findCallback { _entry_w _next_or_previous } {
       set mainFlowCanvas [xflow_getMainFlowCanvas]
       # if the node is collapsed, uncollapse it
       if { [::FlowNodes::uncollapseBranch ${foundNode} ${mainFlowCanvas}] != "" } {
-         xflow_drawflow ${mainFlowCanvas}
+         xflow_drawflow ${mainFlowCanvas} 0
       }
 
       set foundTag [::DrawUtils::highLightFindNode ${activeSuiteRecord} ${foundNode} ${mainFlowCanvas}]
@@ -2268,7 +2268,7 @@ proc xflow_changeCollapsed { canvas binder x y } {
    }
 
    #DEBUG "xflow_changeCollapsed: new collapse value:[${binder} cget -flow.display.collapse]" 4
-   xflow_drawflow $canvas
+   xflow_drawflow $canvas 0
 }
 
 # redraws the flow starting from a node... without having
@@ -2370,11 +2370,10 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
          set x2 [expr ${x2} + 5]
          set y2 [expr ${y2} + 5]
       }
-
       $canvas  configure -scrollregion [list ${x1} ${y1} ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
       # resize the window depending on size of canvas elements
       xflow_resizeWindow ${canvas}
-
+   
       if { $initial_display == "1" } {
          $canvas yview moveto 0
       }
@@ -2391,6 +2390,7 @@ proc xflow_resizeWindow { canvas } {
    DEBUG "xflow_resizeWindow canvas:${canvas}" 5
 
    if { ${FLOW_RESIZED} == true } {
+      DEBUG "xflow_resizeWindow FLOW_RESIZED== true returing without resize" 5
       return
    }
 
@@ -2599,9 +2599,7 @@ proc xflow_selectSuiteTab { parent suite_record } {
    set canvas [xflow_createFlowCanvas $drawFrame]
    xflow_getDateStamp [xflow_getWidgetName exp_date_frame] ${suite_record}
 
-   catch {
-      xflow_drawflow $canvas
-   }
+   xflow_drawflow $canvas
 }
 
 # not used for now, will be used when we implement global dependency configuration
@@ -2634,8 +2632,6 @@ proc xflow_changeIgnoreDep { source_w dep_off_img dep_on_img } {
 # It returns the new canvas or the existing one.
 proc xflow_createFlowCanvas { parent } {
    DEBUG "xflow_createFlowCanvas parent:$parent " 5
-   set canvasBgImageWidth 3000
-   set canvasBgImageHeight 1500
    set drawFrame $parent
    set canvas ${drawFrame}.canvas
    set canvasColor [SharedData_getColor CANVAS_COLOR]
@@ -2712,10 +2708,10 @@ proc xflow_hideBgImage { _canvas _bitmapFilename } {
    }
 }
 
-proc xflow_addBgImage { _canvas _bitmapFilename} {
+proc xflow_addBgImage { _canvas _bitmapFilename {force false} } {
     package require img::gif
 
-   if { [${_canvas} find withtag backgroundBitmap] == "" } {
+   if { [${_canvas} find withtag backgroundBitmap] == ""  || ${force} == true } {
       # does not exists, create new one
       set sourceImage [image create photo -file ${_bitmapFilename}]
       set tiledImage [image create photo]
@@ -2740,22 +2736,25 @@ proc xflow_addBgImage { _canvas _bitmapFilename} {
  }
 
  proc xflow_tileBgImage {canvas sourceImage tiledImage} {
-    set canvasBox [${canvas} bbox all]
-    set canvasItemsW [lindex ${canvasBox} 2]
-    set canvasItemsH [lindex ${canvasBox} 3]
-    set canvasW [winfo width ${canvas}]
-    set canvasH [winfo height ${canvas}]
-    set usedW ${canvasItemsW}
-    if { ${canvasW} > ${canvasItemsW} } {
-      set usedW ${canvasW}
-    }
-    set usedH ${canvasItemsH}
-    if { ${canvasH} > ${canvasItemsH} } {
-      set usedH ${canvasH}
-    }
+   set canvasBox [${canvas} bbox all]
+   set canvasItemsW [lindex ${canvasBox} 2]
+   set canvasItemsH [lindex ${canvasBox} 3]
+   set canvasW [winfo width ${canvas}]
+   set canvasH [winfo height ${canvas}]
+   set usedW ${canvasItemsW}
 
-    $tiledImage copy $sourceImage \
-        -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
+   # if the canvas is bigger than the number of elements, we use the
+   # canvas width and height
+   if { ${canvasW} > ${canvasItemsW} } {
+      set usedW ${canvasW}
+   }
+   set usedH ${canvasItemsH}
+   if { ${canvasH} > ${canvasItemsH} } {
+      set usedH ${canvasH}
+   }
+
+   $tiledImage copy $sourceImage \
+      -to 0 0 [expr ${usedW} + 50] [expr ${usedH} + 50]
  }
 
 proc setErrorMessages {} {
@@ -2912,15 +2911,26 @@ proc xflow_createWidgets {} {
 
    set sizeGripW [xflow_getWidgetName main_size_grip]
    ttk::sizegrip ${sizeGripW}
-   bind TSizegrip <B1-Motion> { 
-      global FLOW_RESIZED
+   bind ${sizeGripW} <B1-Motion> { 
+      global FLOW_RESIZED MOTION_STARTS
       ttk::sizegrip::Drag   %W %X %Y
       set FLOW_RESIZED true
+      set MOTION_STARTS true
    }
 
+   bind ${sizeGripW} <ButtonRelease-1> [list xflow_resizedCallback]
    grid ${sizeGripW} -row 3 -column 1 -sticky se
    
    wm geometry . =1200x800
+}
+
+proc xflow_resizedCallback {} {
+   global MOTION_STARTS
+   ttk::sizegrip::Release %W %X %Y
+   if { [info exists MOTION_STARTS] && ${MOTION_STARTS} == true } {
+      xflow_addBgImage [xflow_getMainFlowCanvas] [xflow_getWidgetName bg_image] true
+   }
+   set MOTION_STARTS false
 }
 
 # this function is called to create an exp flow.
