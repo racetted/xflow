@@ -1694,7 +1694,7 @@ proc Overview_readExperiments {} {
 }
 
 proc Overview_quit {} {
-   global TimeAfterId
+   global TimeAfterId MSG_CENTER_THREAD_ID
    DEBUG "Overview_quit" 5
    if { [info exists TimeAfterId] } {
       after cancel $TimeAfterId
@@ -1710,6 +1710,8 @@ proc Overview_quit {} {
          thread::send ${threadId} "thread_quit"
       }
    }
+   
+   thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_quit"
 
    # destroy $top
    exit 0

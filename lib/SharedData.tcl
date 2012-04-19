@@ -90,6 +90,8 @@ proc SharedData_initColors {} {
       SharedData_setColor MSG_CENTER_NORMAL_FG "black"
       SharedData_setColor MSG_CENTER_ALT_BG "black"
       SharedData_setColor MSG_CENTER_ABORT_FG "white"
+      SharedData_setColor MSG_CENTER_STRIPE_BG "grey95"
+      SharedData_setColor MSG_CENTER_NORMAL_BG "grey90"
 
       # the key is the status
       # first color is fg, second color is bg, 3rd is overview box outline

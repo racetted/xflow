@@ -1,6 +1,7 @@
 #!/home/binops/afsi/ssm/domain2/tcl-tk_8.5.7_linux26-i686/bin/tclsh8.5
 package require Tk
-package require Tktable
+#package require Tktable
+package require tablelist
 package require autoscroll
 package require tooltip
 
@@ -18,13 +19,13 @@ proc MsgCenter_setTkOptions {} {
 }
 
 proc MsgCenter_createMenus {} {
-   global RowNumberMap
+   global MsgCenterMainGridRowMap
    set topFrame .topframe
    frame ${topFrame} -relief [SharedData_getMiscData MENU_RELIEF]
    MsgCenter_addFileMenu ${topFrame}
    MsgCenter_addPrefMenu ${topFrame}
    MsgCenter_addHelpMenu ${topFrame}
-   grid ${topFrame} -row $RowNumberMap(Menu) -column 0 -sticky ew -padx 2
+   grid ${topFrame} -row $MsgCenterMainGridRowMap(Menu) -column 0 -sticky ew -padx 2
 }
 
 proc MsgCenter_addFileMenu { parent } {
@@ -71,7 +72,7 @@ proc MsgCenter_addHelpMenu { parent } {
 }
 
 proc MsgCenter_createToolbar { table_w_ } {
-   global RowNumberMap
+   global MsgCenterMainGridRowMap
    set toolbarW .toolbar
    set bellW ${toolbarW}.button_bell
    set ackW ${toolbarW}.button_ack
@@ -109,59 +110,83 @@ proc MsgCenter_createToolbar { table_w_ } {
       grid ${bellW} ${ackW} ${clearW} ${closeW} -padx 2 -sticky w
    }
 
-   grid ${toolbarW} -row $RowNumberMap(Toolbar) -column 0 -sticky ew -padx 2 -pady 2
+   grid ${toolbarW} -row $MsgCenterMainGridRowMap(Toolbar) -column 0 -sticky ew -padx 2 -pady 2
    grid columnconfigure ${toolbarW} ${closeW} -weight 1
 }
 
 proc MsgCenter_createWidgets {} {
-   global TimestampColNumber DatestampColNumber TypeColNumber
-   global NodeColNumber MessageColNumber SuiteColNumber
-   global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
-   global RowNumberMap
+   global MSG_ACTIVE_TABLE 
+   global MsgCenterMainGridRowMap MsgTableColMap
 
    set tableW .table
-   set yscrollW .sy
-   set xscrollW .sx
-   set defaultRows [SharedData_getMiscData MSG_CENTER_NUMBER_ROWS]
-   set timeStampColWidth 16
-   set dateStampColWidth 16
-   set typeColWidth 8
-   set nodeColWidth 30
-   set msgColWidth 30
-   set suiteColWidth 40
-   #set titleFont "-adobe-courier-bold-r-normal--14-100-100-100-m-90-iso8859-1"
-   set rowFgColor [SharedData_getColor DEFAULT_ROW_BG]
-   set tableBgColor [SharedData_getColor DEFAULT_BG]
-   set headerBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
-   set headerFgColor [SharedData_getColor DEFAULT_HEADER_FG]
    if { ! [winfo exists ${tableW}] } {
-      DEBUG "MsgCenter_createWidgets ..." 5
       MsgCenter_createMenus
       MsgCenter_createToolbar ${tableW}
-      table ${tableW} -cols 6 -rows ${defaultRows} -titlecols 0 -titlerows 1 -pady 6 -rowheight 1 \
-         -colstretchmode all -rowstretchmode unset -variable MSG_ACTIVE_TABLE -state disabled -bg ${tableBgColor} \
-         -yscrollcommand [list ${yscrollW} set] -xscrollcommand [list ${xscrollW} set] -selecttitle 1 -drawmode fast
 
-      ${tableW} width ${TimestampColNumber} ${timeStampColWidth} \
-         ${DatestampColNumber} ${dateStampColWidth} \
-         ${TypeColNumber} ${typeColWidth} \
-         ${NodeColNumber} ${nodeColWidth} \
-         ${MessageColNumber} ${msgColWidth} \
-         ${SuiteColNumber} ${suiteColWidth}
+      array set MsgTableColMap {
+         TimestampColNumber 0
+         DatestampColNumber 1
+         TypeColNumber 2
+         NodeColNumber 3
+         MessageColNumber 4
+         SuiteColNumber 5
+         UnackColNumber 6
+      }
 
-      ${tableW} tag configure title -bd 1 -bg ${headerBgColor} -relief raised -font TkHeadingFont -fg ${headerFgColor}
-      Utils_bindMouseWheel ${tableW} 2
+      set yscrollW .sy
+      set xscrollW .sx
+      set rowFgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+      set tableBgColor [SharedData_getColor DEFAULT_BG]
+      set headerBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+      set headerFgColor [SharedData_getColor DEFAULT_HEADER_FG]
+      set stripeBgColor [SharedData_getColor MSG_CENTER_STRIPE_BG]
+      set normalBgColor [SharedData_getColor MSG_CENTER_NORMAL_BG]
+      set defaultAlign center
+      set columns [list 0 Timestamp ${defaultAlign} \
+                        0 Datestamp ${defaultAlign} \
+                        0 Type ${defaultAlign} \
+                        0 Node ${defaultAlign} \
+                        0 Message ${defaultAlign} \
+                        0 Suite ${defaultAlign} \
+                        0 Unack ${defaultAlign}]
+
+      tablelist::tablelist ${tableW} -columns ${columns} \
+         -arrowcolor white -spacing 1 -resizablecolumns 1 \
+         -stretch all -relief flat -labelrelief flat -showseparators 0 -borderwidth 0 -listvariable  MSG_ACTIVE_TABLE \
+         -bg ${normalBgColor} -fg ${rowFgColor} \
+         -labelcommand tablelist::sortByColumn -labelbg ${headerBgColor} \
+         -labelfg ${headerFgColor} -labelpady 5 \
+         -labelfont TkHeadingFont -labelbd 1 -labelrelief raised \
+         -stripebg ${stripeBgColor} \
+         -yscrollcommand [list ${yscrollW} set] -xscrollcommand [list ${xscrollW} set]
+
+      ${tableW} columnconfigure $MsgTableColMap(TimestampColNumber) -resizable false
+      ${tableW} columnconfigure $MsgTableColMap(DatestampColNumber) -resizable false
+      ${tableW} columnconfigure $MsgTableColMap(TypeColNumber) -resizable false -align left
+      ${tableW} columnconfigure $MsgTableColMap(NodeColNumber) -align left
+      ${tableW} columnconfigure $MsgTableColMap(MessageColNumber) -align left -wrap 1 -maxwidth 35
+      ${tableW} columnconfigure $MsgTableColMap(SuiteColNumber) -align left
+      ${tableW} columnconfigure $MsgTableColMap(UnackColNumber) -hide 1
+
+      if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } { ${tableW} columnconfigure $MsgTableColMap(SuiteColNumber) -hide 1 }
+
+      # creating scrollbars
+      scrollbar ${yscrollW} -command [list ${tableW} yview]
+      scrollbar ${xscrollW} -command [list ${tableW} xview] -orient horizontal
+      ::autoscroll::autoscroll ${yscrollW}
+      ::autoscroll::autoscroll ${xscrollW}
+
+      grid ${tableW} -row $MsgCenterMainGridRowMap(MsgTable) -column 0 -sticky nsew -padx 2 -pady 2
+      grid ${yscrollW} -row $MsgCenterMainGridRowMap(MsgTable) -column 1 -sticky nsew -padx 2 -pady 2
+      grid ${xscrollW} -sticky ew
    }
+}
 
-   # creating scrollbars
-   scrollbar ${yscrollW} -command [list ${tableW} yview]
-   scrollbar ${xscrollW} -command [list ${tableW} xview] -orient horizontal
-   ::autoscroll::autoscroll ${yscrollW}
-   ::autoscroll::autoscroll ${xscrollW}
-
-   grid ${tableW} -row $RowNumberMap(MsgTable) -column 0 -sticky nsew -padx 2 -pady 2
-   grid ${yscrollW} -row $RowNumberMap(MsgTable) -column 1 -sticky nsew -padx 2 -pady 2
-   grid ${xscrollW} -sticky ew
+# at application startup, we sort the log entries by
+# their timestamp values.
+proc MsgCenter_initialSort { _tableW } {
+   global MsgTableColMap
+   ${_tableW} sortbycolumn $MsgTableColMap(TimestampColNumber) -increasing
 }
 
 proc MsgCenter_getTableWidget {} {
@@ -172,65 +197,45 @@ proc MsgCenter_getToplevel {} {
    return .
 }
 
+# sets the color of the table headers.
+# When a new messsage comes in,
+# we flash the table headers so this function is called
+# might be called multiple times
 proc MsgCenter_setHeaderStatus { table_w_ status_ } {
    set alarmBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
    set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
    set normalBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
    set alarmAltBgColor [SharedData_getColor MSG_CENTER_ALT_BG]
 
-   set currentBgColor [${table_w_} tag cget title -bg]
+   set currentBgColor [${table_w_} cget -labelbg]
    if { ${status_} == "normal" } {
-      ${table_w_} tag configure title -bg ${normalBgColor} -fg ${normalFgColor}
+      ${table_w_} configure -labelbg ${normalBgColor} -labelfg ${normalFgColor}
    } elseif { ${status_} == "alarm_bg" } {
-      ${table_w_} tag configure title -bg ${alarmBgColor} -fg ${normalFgColor}
+      ${table_w_} configure -labelbg  ${alarmBgColor} -labelfg ${normalFgColor}
    } else {
       # alarm state
       if { ${currentBgColor} == ${alarmBgColor} } {
-         ${table_w_} tag configure title -bg ${alarmAltBgColor}
+         ${table_w_} configure -labelbg ${alarmAltBgColor}
       } else {
-         ${table_w_} tag configure title -bg ${alarmBgColor}
+         ${table_w_} configure -labelbg ${alarmBgColor}
       }
    }
 }
 
+# this function is called when a new message comes in
+# 
 proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_ } {
-   global TimestampColNumber DatestampColNumber TypeColNumber
-   global NodeColNumber MessageColNumber SuiteColNumber
    global MSG_TABLE MSG_COUNTER MSG_ACTIVE_COUNTER
    incr MSG_COUNTER
    DEBUG "MsgCenter_newMessage node_:$node_ type_:$type_ msg_:$msg_"
-   set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
-   set MSG_TABLE(${MSG_COUNTER},${TimestampColNumber}) ${timestamp_}
-   set MSG_TABLE(${MSG_COUNTER},${DatestampColNumber}) ${datestamp_}
-   set MSG_TABLE(${MSG_COUNTER},${TypeColNumber}) ${type_}
-   set MSG_TABLE(${MSG_COUNTER},${NodeColNumber}) ${displayedNodeText}
-   set MSG_TABLE(${MSG_COUNTER},${MessageColNumber}) ${msg_}
-   set MSG_TABLE(${MSG_COUNTER},${SuiteColNumber}) ${exp_}
+   lappend MSG_TABLE [list ${timestamp_} ${datestamp_} ${type_} ${node_} ${msg_} ${exp_}]
 
    set isMsgActive [MsgCenter_addActiveMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}]
 
    MsgCenter_sendNotification
    if { ${isMsgActive} == "true" } {
-
-      # do we need to add more rows to the table?
-      # remove the table header row from the count
-      set currentNumberRows [expr [${table_w_} cget -rows] - 1]
-      if { [expr ${MSG_ACTIVE_COUNTER} > ${currentNumberRows}] } {
-         # on ajoute 10
-         ${table_w_} configure -rows [expr ${currentNumberRows} + 10]
-      }
-      ${table_w_} tag row NewMessageTag ${MSG_ACTIVE_COUNTER}
-      ${table_w_} see ${MSG_ACTIVE_COUNTER},0
+      ${table_w_} see ${MSG_ACTIVE_COUNTER}
       MsgCengter_processAlarm ${table_w_}
-   }
-
-   # adjust field length
-   # for limit setting in GUI
-   set currentLength [SharedData_getMiscData MAX_NODE_LENGTH]
-   set nodeLength [string length ${node_}]
-   if { ${nodeLength} > ${currentLength} } {
-      SharedData_setMiscData MAX_NODE_LENGTH [string length ${node_}]
-      ${table_w_} width ${NodeColNumber} ${nodeLength} 
    }
 }
 
@@ -252,8 +257,6 @@ proc MsgCenter_sendNotification {} {
 }
 
 proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } {
-   global TimestampColNumber DatestampColNumber TypeColNumber
-   global NodeColNumber MessageColNumber SuiteColNumber
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
    global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
 
@@ -279,62 +282,50 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
    if { ${isMsgActive} == "true" } {
       DEBUG "MsgCenter_addActiveMessage adding ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
       set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
+      # add 2 spaces between date and time
+      set displayedTimestamp [join [split ${timestamp_} .] "  "]
+      # show only first 10 digits of datestamp
+      set displayedDatestamp [string range ${datestamp_} 0 9]
       incr MSG_ACTIVE_COUNTER
-      set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${TimestampColNumber}) ${timestamp_}
-      set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${DatestampColNumber}) ${datestamp_}
-      set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${TypeColNumber}) ${type_}
-      set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${NodeColNumber}) ${displayedNodeText}
-      set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${MessageColNumber}) ${msg_}
-      set MSG_ACTIVE_TABLE(${MSG_ACTIVE_COUNTER},${SuiteColNumber}) ${exp_}
+      lappend MSG_ACTIVE_TABLE [list ${displayedTimestamp} ${displayedDatestamp} ${type_} ${displayedNodeText} ${msg_} ${exp_} 1]
    }
 
    return ${isMsgActive}
 }
 
 # refresh shown messages based on user message type filters
+# this function is called when the user changes the "Message Type" settings
+# under the Preferences menu
 proc MsgCenter_refreshActiveMessages { table_w_ } {
    global MSG_TABLE MSG_COUNTER
-   global TimestampColNumber DatestampColNumber TypeColNumber
-   global NodeColNumber MessageColNumber SuiteColNumber
-
-   MsgCenter_ackMessages ${table_w_}
-   set counter 1
+   # reset active messages
    MsgCenter_initActiveMessages
+   set counter 1
+   # reprocess all received messages
    while { ${counter} <= ${MSG_COUNTER} } {
-      set timestamp $MSG_TABLE(${counter},${TimestampColNumber})
-      set datestamp $MSG_TABLE(${counter},${DatestampColNumber})
-      set type $MSG_TABLE(${counter},${TypeColNumber})
-      set node $MSG_TABLE(${counter},${NodeColNumber})
-      set msg $MSG_TABLE(${counter},${MessageColNumber})
-      set exp $MSG_TABLE(${counter},${SuiteColNumber})
+      foreach {timestamp datestamp type node msg exp} [lindex ${MSG_TABLE} ${counter}] {break}
       DEBUG "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp" 5
       MsgCenter_addActiveMessage ${datestamp} ${timestamp} ${type} ${node} ${msg} ${exp}
       incr counter
    }
+   MsgCenter_ackMessages ${table_w_}
+   MsgCenter_initialSort ${table_w_}
 }
 
 proc MsgCenter_initActiveMessages {} {
-   global TimestampColNumber DatestampColNumber TypeColNumber NodeColNumber MessageColNumber SuiteColNumber
-
    global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
-   array unset MSG_ACTIVE_TABLE
-
-   set MSG_ACTIVE_TABLE(0,${TimestampColNumber}) "Timestamp"
-   set MSG_ACTIVE_TABLE(0,${DatestampColNumber}) "Datestamp"
-   set MSG_ACTIVE_TABLE(0,${TypeColNumber}) "Type"
-   set MSG_ACTIVE_TABLE(0,${NodeColNumber}) "Node"
-   set MSG_ACTIVE_TABLE(0,${MessageColNumber}) "Message"
-   set MSG_ACTIVE_TABLE(0,${SuiteColNumber}) "Suite"
-
+   set MSG_ACTIVE_TABLE {}
    set MSG_ACTIVE_COUNTER 0
 }
 
 proc MsgCenter_ackMessages { table_w_ } {
+   global MsgTableColMap
    #wm attributes . -topmost 0
    MsgCenter_stopBell ${table_w_}
-   set rows [${table_w_} tag row NewMessageTag]
-   foreach row ${rows} {
-      ${table_w_} tag row NormalMessageTag ${row}
+   # look for rows that have unack state
+   set normalFg [SharedData_getColor MSG_CENTER_NORMAL_FG]
+   foreach row [${table_w_} searchcolumn $MsgTableColMap(UnackColNumber) 1 -exact -all] {
+         ${table_w_} rowconfigure ${row} -fg ${normalFg}
    }
    MsgCenter_setHeaderStatus ${table_w_} normal
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
@@ -360,8 +351,6 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
       MsgCenter_ackMessages ${table_w_}
       MsgCenter_initActiveMessages
 
-      # reset default rows
-      ${table_w_} configure -rows [SharedData_getMiscData MSG_CENTER_NUMBER_ROWS]
    }
 }
 
@@ -381,7 +370,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
       incr MSG_ALARM_COUNTER
    }
 
-   DEBUG "MsgCengter_processAlarm MSG_ALARM_COUNTER:${MSG_ALARM_COUNTER} MSG_BELL_TRIGGER:${MSG_BELL_TRIGGER}" 5
+   DEBUG "MsgCenter_processAlarm MSG_ALARM_COUNTER:${MSG_ALARM_COUNTER} MSG_BELL_TRIGGER:${MSG_BELL_TRIGGER}" 5
    # only raise alarm if no other alarm already exists
    if { ${MSG_ALARM_ON} == "true" } {
       if { ${repeat_alarm} == "true" } {
@@ -411,25 +400,10 @@ proc MsgCenter_stopBell { table_w_ } {
 
    set MSG_ALARM_ON false
    set MSG_ALARM_COUNTER 0
-   #wm attributes . -topmost 0
    if { [info exists MSG_ALARM_ID] } {
       after cancel ${MSG_ALARM_ID}
    }
    MsgCenter_setHeaderStatus ${table_w_} alarm_bg
-}
-
-proc MsgCenter_refreshTable { table_w_ } {
-   # workaround for refresh bug in table
-   ${table_w_} width 0 [${table_w_} width 0]
-   update idletasks
-   ${table_w_} width 0 [${table_w_} width 0]
-}
-
-proc MsgCenter_createTags { table_w_ } {
-   set newMsgFgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
-   set normalMsgFgColor [SharedData_getColor MSG_CENTER_NORMAL_FG]
-   ${table_w_} tag configure NewMessageTag -fg ${newMsgFgColor}
-   ${table_w_} tag configure NormalMessageTag -fg ${normalMsgFgColor}
 }
 
 proc MsgCenter_close {} {
@@ -456,7 +430,10 @@ proc MsgCenter_show {} {
 # The MsgCenter Thread act as a singleton
 # for new messages coming from all the
 # monitored suites.
-# Messages coming from the each suite thread
+# It is either called from xflow standalone thread (one experiment)
+# or from xflow_overview (multiple experiments).
+# 
+# Messages coming from each suite's thread
 # should be sent to the MsgCenterThread_newMessage
 ########################################
 proc MsgCenter_getThread {} {
@@ -481,21 +458,31 @@ proc MsgCenter_getThread {} {
          # The 'thread::wait' is required to keep this thread alive indefinitely.
          #
 
+         # called everytime a new message comes in from experiment threads
          proc MsgCenterThread_newMessage { datestamp_ timestamp_ type_ node_ exp_ msg_ } {
             DEBUG "MsgCenterThread_newMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
             MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
          }
 
+         # called by xflow or xflow_overview to show msg center on demand
          proc MsgCenterThread_showWindow {} {
             MsgCenter_show
          }
 
+         # called by xflow or xflow_overview to let msg center
+         # that application startup is done
          proc MsgCenterThread_startupDone {} {
             global MSG_COUNTER
-               MsgCenter_sendNotification
+            MsgCenter_sendNotification
+            # sort the msg by timestamp ascending order
+            MsgCenter_initialSort [MsgCenter_getTableWidget]
             if { [SharedData_getMiscData AUTO_MSG_DISPLAY] == true && ${MSG_COUNTER} > 0 } {
                MsgCenter_show
             }
+         }
+
+         proc MsgCenterThread_quit {} {
+            exit
          }
 
          # enter event loop
@@ -517,65 +504,25 @@ proc MsgCenter_setTitle { top_w } {
    set TimeAfterId [after 60000 [list MsgCenter_setTitle ${top_w}]]
 }
 
-proc MsgCenter_initThread {} {
-   set threadID [SharedData_getMsgCenterThreadId]
-   if { ${threadID} == "" } {
-      set threadID [thread::create {
-         global env
-         set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-         set auto_path [linsert $auto_path 0 $lib_dir ]
-   
-         #
-         # From here to the 'thread::wait' statement, define the procedure(s)
-         # that will be called from your main program
-         #
-         # The 'thread::wait' is required to keep this thread alive indefinitely.
-         #
-         global this_id
-         set this_id [thread::id]
-   
-         proc MsgCenterThread_newMessage { datestamp_ timestamp_ type_ node_ exp_ msg_ } {
-            DEBUG "MsgCenterThread_newMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
-            MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
-         }
-         MsgCenter_init
-         SharedData_setMsgCenterThreadId ${this_id}
-         # enter event loop
-         thread::wait
-      }]
-   }
-}
-
-########################################
-# end thread procedures
-########################################
-
 ########################################
 # callback procedures
 ########################################
-# %W
-proc MsgCenter_Button3Callback { widget_ } {
-   DEBUG "MsgCenter_Button3Callback widget:${widget_}" 5
-}
-
 proc MsgCenter_DoubleClickCallback { table_widget } {
-   global NodeColNumber SuiteColNumber
+   global MsgTableColMap
+
    DEBUG "MsgCenter_DoubleClickCallback widget:${table_widget}" 5
-   #puts "MsgCenter_DoubleClickCallback active cell: [${widget_} tag cell active]"
-   #puts "MsgCenter_DoubleClickCallback active cell: [${widget_} tag cell active]"
-   set currentCell [${table_widget} curselection]
-   set selectedRow [lindex [split ${currentCell} ,] 0]
-   set selectedCol [lindex [split ${currentCell} ,] 1]
-   if { [expr ${selectedRow} > 0] && ${selectedCol} == ${NodeColNumber} } {
-      # retrieve needed information
-      set node [${table_widget} get ${selectedRow},${NodeColNumber}]
-      set suitePath [${table_widget} get ${selectedRow},${SuiteColNumber}]
-      DEBUG "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}" 5
+   set selectedRow [${table_widget} curselection]
+   # retrieve needed information
+   set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
+   set suitePath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
+   DEBUG "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}" 5
 
-      if { ${node} == "" || ${suitePath} == "" } {
-         return
-      }
+   if { ${node} == "" || ${suitePath} == "" } {
+      return
+   }
 
+   Utils_busyCursor ${table_widget}
+   set result [ catch {
       # start the suite flow if not started
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       set suiteThreadId [SharedData_getSuiteData ${suitePath} THREAD_ID]
@@ -588,6 +535,22 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
       # ask the suite thread to take care of showing the selected node in it's flow
       set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
       thread::send ${suiteThreadId} "xflow_findNode ${suiteRecord} ${convertedNode}"
+
+      Utils_normalCursor ${table_widget}
+
+   } message ]
+
+   # any errors, put the cursor back to normal state
+   if { ${result} != 0  } {
+
+      set einfo $::errorInfo
+      set ecode $::errorCode
+      Utils_normalCursor ${table_widget}
+      # report the error with original details
+      return -code ${result} \
+         -errorcode ${ecode} \
+         -errorinfo ${einfo} \
+         ${message}
    }
 }
 
@@ -596,42 +559,42 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
 ########################################
 
 proc MsgCenter_init {} {
-   global MSG_ALARM_ON RowNumberMap
+   global MSG_ALARM_ON MsgCenterMainGridRowMap
    global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
    global DEBUG_TRACE DEBUG_LEVEL MSG_BELL_TRIGGER
-   global TimestampColNumber DatestampColNumber TypeColNumber NodeColNumber MessageColNumber SuiteColNumber
-
-   set TimestampColNumber 0
-   set DatestampColNumber 1
-   set TypeColNumber 2
-   set NodeColNumber 3
-   set MessageColNumber 4
-   set SuiteColNumber 5
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
+   # this variable is true when a new message comes in
+   # and we need to warn the user about it
    set MSG_ALARM_ON false
+
+   # this variable is used to count the number of times we warn the user
+   # by flashing the msg center. After a defined number of times
+   # we beep
    set MSG_ALARM_COUNTER 0
 
-   array set RowNumberMap {
-      Menu 0
-      Toolbar 1
-      MsgTable 2
-   }
-   set MSG_TABLE(0,${TimestampColNumber}) "Timestamp"
-   set MSG_TABLE(0,${DatestampColNumber}) "Datestamp"
-   set MSG_TABLE(0,${TypeColNumber}) "Type"
-   set MSG_TABLE(0,${NodeColNumber}) "Node"
-   set MSG_TABLE(0,${MessageColNumber}) "Message"
-   set MSG_TABLE(0,${SuiteColNumber}) "Suite"
+   # this variable is a list that is used to store all messages received.
+   # each list is {timestamp datestamp status node  msg exp}
+   # 
+   # example for a list of 2 messages:
+   # {20120418.07:02:10 20120418000000 abort /reps_mod/Forecasts/gem_loop/prep_pilot+2 \
+   # {ABORTED job stopped , job_ID=c2sn2h0.cmc.ec.gc.ca.586135.0} /home/binops/afsi/par/maestro_suites/reps/forecast/er00}
+   # {20120418.07:04:00 20120418000000 abort /reps_mod/Forecasts/gem_loop/prep_pilot+2 \
+   # {ABORTED job stopped , job_ID=c2sn1h0.cmc.ec.gc.ca.586250.0} /home/binops/afsi/par/maestro_suites/reps/forecast/er00}
+   set MSG_TABLE {}
 
+   # counter for all received messages
    set MSG_COUNTER 0
 
+   # reset active messages, the list of active messages is a bit different than the MSG_TABLE.
+   # The active messages can be filtered out by "Message Type"
    MsgCenter_initActiveMessages
 
+   # get the list of message filters
    set SHOW_ABORT_TYPE [SharedData_getMiscData SHOW_ABORT_TYPE]
    set SHOW_INFO_TYPE [SharedData_getMiscData SHOW_INFO_TYPE]
    set SHOW_EVENT_TYPE [SharedData_getMiscData SHOW_EVENT_TYPE]
@@ -640,23 +603,33 @@ proc MsgCenter_init {} {
    set tableW .table
    
    if { ! [winfo exists ${tableW}] } {
+      array set MsgCenterMainGridRowMap {
+         Menu 0
+         Toolbar 1
+         MsgTable 2
+      }
+
       #SharedData_initColors
       MsgCenter_setTkOptions
 
       MsgCenter_createWidgets
-      MsgCenter_createTags ${tableW}
+
       MsgCenter_close
       
       wm protocol ${topLevelW} WM_DELETE_WINDOW [list MsgCenter_close]
       
-      bind ${tableW} <Button-3> [list MsgCenter_Button3Callback %W]
-      bind ${tableW} <Double-Button-1> [ list MsgCenter_DoubleClickCallback %W]
+      # point the node in its respective flow on double click
+      bind [${tableW} bodytag] <Double-Button-1> [ list MsgCenter_DoubleClickCallback ${tableW}]
       
-      #wm title ${topLevelW} "Maestro Message Center"
       MsgCenter_setTitle ${topLevelW}
+
+      # give full space to message table
       grid columnconfigure ${topLevelW} 0 -weight 1
+
       # give new real estate to the msg table
-      grid rowconfigure ${topLevelW} $RowNumberMap(MsgTable) -weight 1
+      grid rowconfigure ${topLevelW} $MsgCenterMainGridRowMap(MsgTable) -weight 1
+
+      wm minsize ${topLevelW} 800 200
    }
 }
 
