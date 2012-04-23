@@ -1039,9 +1039,9 @@ proc xflow_findNode { suite_record real_node } {
    }
    
    if { ${refreshNode} != "" } {
-      xflow_redrawNodes ${refreshNode}
+      xflow_redrawNodes ${refreshNode} [xflow_getMainFlowCanvas]
    }
-
+   after 100
    ::DrawUtils::pointNode ${suite_record} ${flowNode}
 }
 
@@ -2363,7 +2363,7 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
       set callback xflow_changeCollapsed
       xflow_clearCanvasFlow ${canvas}
       xflow_drawNode $canvas $rootNode 0 true
-      xflow_addBgImage $canvas [xflow_getWidgetName bg_image]
+      #xflow_addBgImage $canvas [xflow_getWidgetName bg_image]
       foreach { x1 y1 x2 y2 } [$canvas bbox all] {
          set x1 [expr ${x1} - 5]
          set y1 [expr ${y1} - 5]
@@ -2665,7 +2665,16 @@ proc xflow_createFlowCanvas { parent } {
       # bind dragging right mouse button to drag canvas
       bind $canvas <1> {%W scan mark %x %y}
       bind $canvas <B1-Motion> {%W scan dragto %x %y}
-      
+      bind $canvas <Configure> {
+         
+         global CANVAS_RESIZE_ID
+         # when the window is resizing, there is at least 5-6 configure events generated.
+         # I only want one resize at the end, not at every event so 
+         # the after will cancel each other except the last one
+         catch { after cancel ${CANVAS_RESIZE_ID} }
+         set CANVAS_RESIZE_ID [after 100 [list xflow_addBgImage [xflow_getMainFlowCanvas] [xflow_getWidgetName bg_image] %w %h true]]
+      }
+
 
       grid $canvas -row 0 -column 0 -sticky nsew
 
@@ -2688,18 +2697,6 @@ proc xflow_clearCanvasFlow { _canvas } {
    update idletasks
 }
 
-proc _________________xflow_clearCanvasFlow { _canvas } {
-   if { [winfo exists ${_canvas}] && [${_canvas} find withtag backgroundBitmap] != "" } {
-       # hide the bg image
-       xflow_hideBgImage ${_canvas} [xflow_getWidgetName bg_image]
-
-      # retrieve all flow elements to delete
-      set flowElements [eval ${_canvas} find enclosed [${_canvas} cget -scrollregion]]
-      eval ${_canvas} delete ${flowElements}
-   }
-   update idletasks
-}
-
 proc xflow_hideBgImage { _canvas _bitmapFilename } {
    if { [winfo exists ${_canvas}] && [${_canvas} find withtag backgroundBitmap] != "" } {
       puts "xflow_hideBgImage move backgroundBitmap -10000 -10000"
@@ -2708,9 +2705,10 @@ proc xflow_hideBgImage { _canvas _bitmapFilename } {
    }
 }
 
-proc xflow_addBgImage { _canvas _bitmapFilename {force false} } {
+proc xflow_addBgImage { _canvas _bitmapFilename _width _height {force false} } {
     package require img::gif
 
+   Utils_busyCursor [winfo toplevel ${_canvas}]
    if { [${_canvas} find withtag backgroundBitmap] == ""  || ${force} == true } {
       # does not exists, create new one
       set sourceImage [image create photo -file ${_bitmapFilename}]
@@ -2725,36 +2723,29 @@ proc xflow_addBgImage { _canvas _bitmapFilename {force false} } {
 
       # bind ${_canvas} <Configure> [list xflow_tileBgImage ${_canvas} ${sourceImage} ${tiledImage}]
       bind ${_canvas} <Destroy> [list image delete ${sourceImage} ${tiledImage}]
-      xflow_tileBgImage ${_canvas} ${sourceImage} ${tiledImage}
-   } else {
-      # item already exists, revive it
-      #foreach {x y} [${_canvas} coords backgroundBitmap] {break}
-      #if { ${x} == -10000.0 && ${y} == -10000.0 } {
-      #   ${_canvas} move backgroundBitmap +10000 +10000
-      #}
+      xflow_tileBgImage ${_canvas} ${sourceImage} ${tiledImage} ${_width} ${_height}
    }
+   Utils_normalCursor [winfo toplevel ${_canvas}]
  }
 
- proc xflow_tileBgImage {canvas sourceImage tiledImage} {
+ proc xflow_tileBgImage {canvas sourceImage tiledImage _width _height} {
+
    set canvasBox [${canvas} bbox all]
    set canvasItemsW [lindex ${canvasBox} 2]
    set canvasItemsH [lindex ${canvasBox} 3]
-   set canvasW [winfo width ${canvas}]
-   set canvasH [winfo height ${canvas}]
    set usedW ${canvasItemsW}
+   set usedH ${canvasItemsH}
 
    # if the canvas is bigger than the number of elements, we use the
    # canvas width and height
-   if { ${canvasW} > ${canvasItemsW} } {
-      set usedW ${canvasW}
+   if { ${_width} > ${canvasItemsW} } {
+      set usedW ${_width}
    }
-   set usedH ${canvasItemsH}
-   if { ${canvasH} > ${canvasItemsH} } {
-      set usedH ${canvasH}
+   if { ${_height} > ${canvasItemsH} } {
+      set usedH ${_height}
    }
 
-   $tiledImage copy $sourceImage \
-      -to 0 0 [expr ${usedW} + 50] [expr ${usedH} + 50]
+   $tiledImage copy $sourceImage -to 0 0 [expr ${usedW} + 50] [expr ${usedH} + 50]
  }
 
 proc setErrorMessages {} {
@@ -2912,25 +2903,14 @@ proc xflow_createWidgets {} {
    set sizeGripW [xflow_getWidgetName main_size_grip]
    ttk::sizegrip ${sizeGripW}
    bind ${sizeGripW} <B1-Motion> { 
-      global FLOW_RESIZED MOTION_STARTS
+      global FLOW_RESIZED
       ttk::sizegrip::Drag   %W %X %Y
       set FLOW_RESIZED true
-      set MOTION_STARTS true
    }
 
-   bind ${sizeGripW} <ButtonRelease-1> [list xflow_resizedCallback]
    grid ${sizeGripW} -row 3 -column 1 -sticky se
    
    wm geometry . =1200x800
-}
-
-proc xflow_resizedCallback {} {
-   global MOTION_STARTS
-   ttk::sizegrip::Release %W %X %Y
-   if { [info exists MOTION_STARTS] && ${MOTION_STARTS} == true } {
-      xflow_addBgImage [xflow_getMainFlowCanvas] [xflow_getWidgetName bg_image] true
-   }
-   set MOTION_STARTS false
 }
 
 # this function is called to create an exp flow.
