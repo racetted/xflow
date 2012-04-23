@@ -720,7 +720,7 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
       set newcords [${canvasW} coords ${node}]
    
       if { [string length $newcords] == 0 } {
-         DEBUG "cb_findjob_no_widget can't find node:${node}" 5
+         DEBUG "::DrawUtils::pointNode can't find node:${node}" 5
          return 0
       }
       # the "target"s are the top-left and bottom-right
@@ -732,34 +732,32 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
    
       set x_offset 25
       set y_offset 25
-      #set x_offset [expr abs(($target_x - $target_x2) / 2)]
-      #set y_offset [expr abs(($target_y - $target_y2) / 2)]
+
+      set searchTag ${canvasW}searchlines
 
       # draw four lines with arrows pointing at the job
       ${canvasW} create line $target_x $target_y [expr $target_x - $x_offset] \
-      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
       ${canvasW} create line $target_x2 $target_y [expr $target_x2 + $x_offset] \
-      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
       ${canvasW} create line $target_x $target_y2 [expr $target_x - $x_offset] \
-      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
       ${canvasW} create line $target_x2 $target_y2 [expr $target_x2 + $x_offset] \
-      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${canvasW}searchlines -fill black
+      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
 
       # adjust the canvas so that the job is centered {if possible}
       # the height and width are the size of the canvas that
       # is visible
       set height [winfo height ${canvasW}]
       set width  [winfo width  ${canvasW}]
-
       set scrollregion [${canvasW} cget -scrollregion]
       set heightp [winfo fpixels ${canvasW} [lindex $scrollregion 3]]
       set widthp [winfo fpixels ${canvasW} [lindex $scrollregion 2]]
 
       ${canvasW} xview moveto [expr ($target_x - $width / 2) / $widthp]
       ${canvasW} yview moveto [expr ($target_y - $height / 2)/ $heightp]
-   
-      # bring to front
-      wm withdraw .; wm deiconify .
+
+      raise [winfo toplevel ${canvasW}]
       # after 5 seconds, delete the lines pointing at the job
       after 5000 [list ::DrawUtils::delPointNode ${canvasW}]
    }

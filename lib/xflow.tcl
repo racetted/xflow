@@ -1041,7 +1041,7 @@ proc xflow_findNode { suite_record real_node } {
    if { ${refreshNode} != "" } {
       xflow_redrawNodes ${refreshNode} [xflow_getMainFlowCanvas]
    }
-   after 100
+   update idletasks
    ::DrawUtils::pointNode ${suite_record} ${flowNode}
 }
 
@@ -2671,8 +2671,10 @@ proc xflow_createFlowCanvas { parent } {
          # when the window is resizing, there is at least 5-6 configure events generated.
          # I only want one resize at the end, not at every event so 
          # the after will cancel each other except the last one
-         catch { after cancel ${CANVAS_RESIZE_ID} }
-         set CANVAS_RESIZE_ID [after 100 [list xflow_addBgImage [xflow_getMainFlowCanvas] [xflow_getWidgetName bg_image] %w %h true]]
+         #catch { after cancel ${CANVAS_RESIZE_ID} }
+         #set CANVAS_RESIZE_ID [after 100 [list xflow_addBgImage [xflow_getMainFlowCanvas] [xflow_getWidgetName bg_image] %w %h true]]
+         # update idletasks
+         xflow_addBgImage [xflow_getMainFlowCanvas] [xflow_getWidgetName bg_image] %w %h true
       }
 
 
