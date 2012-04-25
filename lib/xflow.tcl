@@ -2663,8 +2663,51 @@ proc xflow_createFlowCanvas { parent } {
       canvas $canvas -yscrollcommand [list ${drawFrame}.yscroll set] \
          -xscrollcommand [list ${drawFrame}.xscroll set] -relief raised -bg $canvasColor
       # bind dragging right mouse button to drag canvas
-      bind $canvas <1> {%W scan mark %x %y}
-      bind $canvas <B1-Motion> {%W scan dragto %x %y}
+      bind $canvas <1> {
+         global CANVAS_DRAG_X CANVAS_DRAG_Y
+         %W scan mark %x %y
+         set CANVAS_DRAG_X %x
+         set CANVAS_DRAG_Y %y
+      }
+      bind $canvas <B1-Motion> {
+         global CANVAS_DRAG_X CANVAS_DRAG_Y
+         # the code below is mainly to limit the drag of the canvas
+         # within the scrollable area... Else the canvas would end up
+         # dragged to a place where there is no background image... ugly
+         foreach { leftx rightx } [%W xview] {break}
+         foreach { topy bottomy } [%W yview] {break}
+         set dragtox %x
+         set dragtoy %y
+         if { ${leftx} == "0.0" && ${rightx} == "1.0" } {
+            # no horizontal drag allowed
+            set dragtox ${CANVAS_DRAG_X}
+         } else {
+            if { [expr %x - ${CANVAS_DRAG_X}] > 0  } {
+               if { ${leftx} == "0.0" } {
+                  # can't drag to right if nothing to drag
+                  set dragtox [winfo width %W]
+               }
+            } else {
+               if { ${rightx} == "1.0" } {
+                  # can't drag to left if nothing to drag
+                  set dragtox 0
+               }
+            }
+         }
+         if { [expr %y - ${CANVAS_DRAG_Y}] > 0 } {
+            if { ${topy} == "0.0" } {
+               # can't drag to bottom if nothing to drag
+               set dragtoy [winfo height %W]
+            }
+         } else {
+            if { ${bottomy} == "1.0" } {
+               # can't drag to top if nothing to drag
+               set dragtoy 0
+            }
+         }
+         %W scan dragto ${dragtox} ${dragtoy}
+      }
+
       bind $canvas <Configure> {
          
          global CANVAS_RESIZE_ID
