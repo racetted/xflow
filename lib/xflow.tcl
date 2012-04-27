@@ -58,7 +58,7 @@ proc xflow_addFileMenu { parent } {
 }
 
 proc xflow_addViewMenu { parent } {
-   global AUTO_MSG_DISPLAY
+   global AUTO_MSG_DISPLAY FLOW_SCALE
    if { $parent == "." } {
       set parent ""
    }
@@ -81,15 +81,23 @@ proc xflow_addViewMenu { parent } {
    $menuW add checkbutton -label "Show Shadow Status" -variable SHADOW_STATUS \
       -onvalue 1 -offvalue 0 -command [list xflow_redrawAllFlow]
 
-   set labelMenu $menuW.labelmenu
+   set displayMenu $menuW.displayMenu
 
-   $menuW add cascade -label "Node Display" -underline 5 -menu $labelMenu
-   menu $labelMenu -tearoff 0
+   $menuW add cascade -label "Node Display" -underline 5 -menu ${displayMenu}
+   menu ${displayMenu} -tearoff 0
    foreach item "normal catchup cpu machine_queue memory mpi wallclock" {
       set value ${item}
-      $labelMenu add radiobutton -label ${item} -variable NODE_DISPLAY_PREF -value ${value} \
+      ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF -value ${value} \
          -command [list xflow_redrawAllFlow]
    }
+
+   set scaleMenu $menuW.scaleMenu
+   $menuW add cascade -label "Flow Scale" -underline 5 -menu ${scaleMenu}
+   menu ${scaleMenu} -tearoff 0
+   ${scaleMenu} add radiobutton -label "scale-normal" -variable FLOW_SCALE -value 1 \
+      -command [list xflow_redrawAllFlow]
+   ${scaleMenu} add radiobutton -label "scale-2" -variable FLOW_SCALE -value 2 \
+      -command [list xflow_redrawAllFlow]
 
    pack $menuButtonW -side left -pady 2 -padx 2
 }
@@ -393,7 +401,7 @@ proc xflow_createFindWidgets { _parent_widget } {
 
 # this is call whenever the user hits on next or previous on the find 
 proc xflow_findCallback { _entry_w _next_or_previous } {
-   global XFLOW_FIND_TEXT XFLOW_FIND_RESULTS XFLOW_FIND_INDEX XFLOW_AFTER_EVAL
+   global XFLOW_FIND_TEXT XFLOW_FIND_RESULTS XFLOW_FIND_INDEX XFLOW_FIND_AFTER_ID
    global FIND_MATCH_CASE NodeHighLightRestoreCmd
    DEBUG "xflow_findCallback _entry_w:${_entry_w} _next_or_previous:${_next_or_previous}" 5
    set findFrame [xflow_getWidgetName find_frame]
@@ -405,8 +413,8 @@ proc xflow_findCallback { _entry_w _next_or_previous } {
    if { ! [info exists XFLOW_FIND_TEXT] } {
       set XFLOW_FIND_TEXT ""
    }
-   if { [info exists XFLOW_AFTER_EVAL] } {
-      after cancel ${XFLOW_AFTER_EVAL}
+   if { [info exists XFLOW_FIND_AFTER_ID] } {
+      after cancel ${XFLOW_FIND_AFTER_ID}
       eval $NodeHighLightRestoreCmd
    }
 
@@ -454,7 +462,7 @@ proc xflow_findCallback { _entry_w _next_or_previous } {
       # make sure the node is visible
       ::DrawUtils::viewCanvasItem [xflow_getMainFlowCanvas] ${foundTag}
 
-      set XFLOW_AFTER_EVAL [after 5000 eval $NodeHighLightRestoreCmd]
+      set XFLOW_FIND_AFTER_ID [after 5000 eval $NodeHighLightRestoreCmd]
    }
 }
 
@@ -1054,7 +1062,7 @@ proc xflow_findNode { suite_record real_node } {
 #   position: specifies the position of the node within its parent
 #   first_node: set to true only for the experiment root node.
 proc xflow_drawNode { canvas node position {first_node false} } {
-   global REFRESH_MODE
+   global REFRESH_MODE FLOW_SCALE
    DEBUG "xflow_drawNode drawing sub node:$node position:$position " 5
    if { [::FlowNodes::isParentCollapsed ${node} ${canvas}] } {
       DEBUG "xflow_drawNode parent is collapsed, not drawing node:$node" 5
@@ -1069,13 +1077,15 @@ proc xflow_drawNode { canvas node position {first_node false} } {
    set shadowColor [SharedData_getColor SHADOW_COLOR]
    set deltaY [::DrawUtils::getLineDeltaSpace ${node}]
    set drawshadow on
+   if { ${FLOW_SCALE} != "1" } {
+      set drawshadow off
+   }
 
    set suiteRecord [xflow_getActiveSuite]
    ::FlowNodes::initNode $node $canvas
    set parentNode [${node} cget -flow.parent]
    if { $parentNode == "" || ${first_node} == "true" } {
       set linex2 [SharedData_getMiscData CANVAS_X_START]
-      # set liney2 [ SharedData_getMiscData CANVAS_Y_START]
       set liney2 [expr [SharedData_getMiscData CANVAS_Y_START] + ${deltaY}]
       DEBUG "xflow_drawNode linex2:$linex2 liney2:$liney2"
    } else {
@@ -1091,12 +1101,8 @@ proc xflow_drawNode { canvas node position {first_node false} } {
           }
       }
 
-      set displayInfo [::FlowNodes::getDisplayCoords $parentNode $canvas]
-      DEBUG "xflow_drawNode displayInfo:$displayInfo"
-      set px1 [lindex $displayInfo 0]
-      set px2 [lindex $displayInfo 2]
-      set py1 [lindex $displayInfo 1]
-      set py2 [lindex $displayInfo 3]
+      # get the coordinates of the submitter
+      foreach { px1 py1 px2 py2 } [::FlowNodes::getDisplayCoords $parentNode $canvas] { break }
 
       # first draw left arrow, the shape depends on the position of the
       # subnode and previous nodes being drawn
@@ -1107,7 +1113,8 @@ proc xflow_drawNode { canvas node position {first_node false} } {
          set linex1 $px2
          set liney1 [expr $py1 + ($py2 - $py1) / 2 + $deltaY]
          set liney2 $liney1
-         set linex2 [expr $linex1 + $boxW/2]
+         # nodedeltax mainly for nptask, size of index widgets different than box
+         set linex2 [expr $linex1 + $boxW/2/${FLOW_SCALE} + [::DrawUtils::getNodeDeltaX $parentNode $canvas]]
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor $drawshadow $shadowColor ${lineTagName}
       } else {
          # draw L-shape arrow
@@ -1120,26 +1127,27 @@ proc xflow_drawNode { canvas node position {first_node false} } {
          }
          ::FlowNodes::setDisplayY ${node} $canvas ${nextY}
 
-         set linex1 [expr $px2 + $boxW/4]
+         #set linex1 [expr $px2 + $boxW/4/3]
+         set linex1 [expr $px2 + $boxW/2/${FLOW_SCALE}/3]
          set linex2 $linex1
          set liney1 [expr $py1 + ($py2 - $py1) / 2 ]
-         set liney2 [expr $nextY + ($boxH/4) + $pady + $deltaY]
+         set liney2 [expr $nextY + (( $boxH/4 + $pady)/${FLOW_SCALE}) + $deltaY]
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 none $lineColor $drawshadow $shadowColor ${lineTagName}
          # then draw hor line with arrow at end
-         set linex2 [expr $px2 + $boxW/2]
+         set linex2 [expr $px2 + $boxW/2/${FLOW_SCALE}]
          set liney1 $liney2
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor  $drawshadow $shadowColor ${lineTagName}
       }
    }
+   set isCollapsed [::FlowNodes::isCollapsed $node $canvas]
+   set children [$node cget -flow.children]
    set normalTxtFill [SharedData_getColor NORMAL_RUN_TEXT]
    set normalFill [::DrawUtils::getBgStatusColor init]
    set outline [SharedData_getColor NORMAL_RUN_OUTLINE]
    # now draw the node
-   set tx1 [expr $linex2 + $padTx]
+   set tx1 [expr $linex2 + ${padTx}/${FLOW_SCALE}]
    set ty1 $liney2
-   set children [$node cget -flow.children]
    set text [$node cget -flow.name]
-   set isCollapsed [::FlowNodes::isCollapsed $node $canvas]
    if { !(($children == "none") ||  ($children == "")) && $isCollapsed == 1} {
       set text ${text}+
    }
@@ -1152,7 +1160,10 @@ proc xflow_drawNode { canvas node position {first_node false} } {
    if { $dispPref != "" } {
       set text "${text}\n${dispPref}"
    }
-   
+   set currentExtension [::FlowNodes::getNodeExtension $node]
+   set status [FlowNodes::getMemberStatus $node $currentExtension ]
+
+   #set helpText "node: [file tail ${node}${currentExtension}] \nstatus: ${status}"
    switch [$node cget -flow.type] {
       "family" {
          ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
@@ -1173,6 +1184,7 @@ proc xflow_drawNode { canvas node position {first_node false} } {
       }
       "loop" {
          set text "${text}\n[::FlowNodes::getLoopInfo $node]"
+         set helpText "[::FlowNodes::getLoopTooltip ${node}]"
          ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
          #bind ${indexListW} <<ComboboxSelected>> [list xflow_indexedNodeSelectionCallback ${node} ${canvas} %W]
@@ -1188,6 +1200,8 @@ proc xflow_drawNode { canvas node position {first_node false} } {
          error "Invalid node type:[$node cget -flow.type] in proc xflow_drawNode()"
       }
    }
+   if { ${FLOW_SCALE} != "1" } { ::tooltip::tooltip $canvas -item ${node} ${text} }
+
    ::DrawUtils::drawNodeStatus $node [xflow_getShawdowStatus]
    Utils_bindMouseWheel $canvas 20
    $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed $canvas $node %X %Y]
@@ -1330,6 +1344,7 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
 
    ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Loop Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} 1]
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} 0]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback $node $canvas ${popmenu_w} ]
@@ -2364,7 +2379,7 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
       xflow_clearCanvasFlow ${canvas}
       xflow_drawNode $canvas $rootNode 0 true
       #xflow_addBgImage $canvas [xflow_getWidgetName bg_image]
-      foreach { x1 y1 x2 y2 } [$canvas bbox all] {
+      foreach { x1 y1 x2 y2 } [$canvas bbox flow_element] {
          set x1 [expr ${x1} - 5]
          set y1 [expr ${y1} - 5]
          set x2 [expr ${x2} + 5]
@@ -2669,6 +2684,7 @@ proc xflow_createFlowCanvas { parent } {
          set CANVAS_DRAG_X %x
          set CANVAS_DRAG_Y %y
       }
+
       bind $canvas <B1-Motion> {
          global CANVAS_DRAG_X CANVAS_DRAG_Y
          # the code below is mainly to limit the drag of the canvas
@@ -2694,15 +2710,21 @@ proc xflow_createFlowCanvas { parent } {
                }
             }
          }
-         if { [expr %y - ${CANVAS_DRAG_Y}] > 0 } {
-            if { ${topy} == "0.0" } {
-               # can't drag to bottom if nothing to drag
-               set dragtoy [winfo height %W]
-            }
+
+         if { ${topy} == "0.0" && ${bottomy} == "1.0" } {
+            # no vertical drag allowed
+            set dragtoy ${CANVAS_DRAG_Y}
          } else {
-            if { ${bottomy} == "1.0" } {
-               # can't drag to top if nothing to drag
-               set dragtoy 0
+            if { [expr %y - ${CANVAS_DRAG_Y}] > 0 } {
+               if { ${topy} == "0.0" } {
+                  # can't drag to bottom if nothing to drag
+                  set dragtoy [winfo height %W]
+               }
+            } else {
+               if { ${bottomy} == "1.0" } {
+                  # can't drag to top if nothing to drag
+                  set dragtoy 0
+               }
             }
          }
          %W scan dragto ${dragtox} ${dragtoy}
@@ -2826,13 +2848,14 @@ proc xflow_getActiveSuite {} {
 # if required.
 proc xflow_quit {} {
    global XFLOW_STANDALONE MONITOR_THREAD_ID
-   global SESSION_TMPDIR TITLE_AFTER_ID
+   global SESSION_TMPDIR TITLE_AFTER_ID XFLOW_FIND_AFTER_ID
 
    DEBUG "xflow_quit exiting Xflow thread id:[thread::id]" 5
    set suiteRecord [xflow_getActiveSuite]
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
 
    catch { after cancel ${TITLE_AFTER_ID} }
+   catch { after cancel ${XFLOW_FIND_AFTER_ID} }
    if { [info exists SESSION_TMPDIR] } {
       DEBUG "xflow_quit deleting tmp dir ${SESSION_TMPDIR}" 5
       catch { file delete -force ${SESSION_TMPDIR} }
@@ -3235,18 +3258,17 @@ proc xflow_init {} {
    global NODE_DISPLAY_PREF AUTO_MSG_DISPLAY
    global SHADOW_STATUS MONITORING_LATEST
    global MSG_CENTER_THREAD_ID MONITOR_THREAD_ID
-   global REFRESH_MODE SESSION_TMPDIR
+   global REFRESH_MODE SESSION_TMPDIR FLOW_SCALE
    set REFRESH_MODE false
    set MONITOR_THREAD_ID ""
    set SHADOW_STATUS 0
    set MONITORING_LATEST 1
-
    # initate array containg name for widgets used in the application
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
 
-   xflow_setWidgetNames
+   xflow_setWidgetNames 
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
@@ -3258,6 +3280,10 @@ proc xflow_init {} {
    } else {
       DEBUG "xflow_init SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}" 5
       SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
+   }
+   set FLOW_SCALE 1
+   if { [SharedData_getMiscData FLOW_SCALE] != "" } {
+      set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
    }
 
    setErrorMessages

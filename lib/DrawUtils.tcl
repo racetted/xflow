@@ -326,9 +326,12 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder
 
 
 proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
+   global FLOW_SCALE
    variable constants
    DEBUG "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder" 5
    DEBUG "drawOval textfill:$textfill fill:$fill binder:$binder" 5
+
+   set suiteRecord [xflow_getActiveSuite]
    set newtx1 [expr ${tx1} + 10]
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
@@ -339,9 +342,10 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
 
    set ovalSize [SharedData_getMiscData LOOP_OVAL_SIZE]
    set nx1 [expr [lindex $boxArea 0] - ${ovalSize}]
-   set ny1 [expr [lindex $boxArea 1] - ${ovalSize}]
+   set ny1 [expr [lindex $boxArea 1] - ${ovalSize}/${FLOW_SCALE}]
    set nx2 [expr [lindex $boxArea 2] + ${ovalSize}]
-   set ny2 [expr [lindex $boxArea 3] + ${ovalSize}]
+   set ny2 [expr [lindex $boxArea 3] + ${ovalSize}/${FLOW_SCALE}]
+   set nextY ${ny2}
    
    $canvas create oval ${nx1} ${ny1} ${nx2} ${ny2}  \
           -fill $fill -tags "flow_element $binder ${binder}.oval"
@@ -360,21 +364,24 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
    $canvas lower ${binder}.oval ${binder}.text
 
    if { $drawshadow == "on" } {
-       # draw a shadow
-       set sx1 [expr $nx1 + 5]
-       set sx2 [expr $nx2 + 5]
-       set sy1 [expr $ny1 + 5]
-       set sy2 [expr $ny2 + 5]
-       $canvas create oval ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
-               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
-       $canvas lower ${binder}.shadow ${binder}.oval
+      # draw a shadow
+      set sx1 [expr $nx1 + 5]
+      set sx2 [expr $nx2 + 5]
+      set sy1 [expr $ny1 + 5]
+      set sy2 [expr $ny2 + 5]
+      set nextY  [expr $sy2 + 10]
+      $canvas create oval ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
+            -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
+      $canvas lower ${binder}.shadow ${binder}.oval
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+      set maxX ${sx2}
+      set maxY ${sy2}
+   } else {
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
+      set maxX ${nx2}
+      set maxY ${ny2}
    }
 
-   set suiteRecord [xflow_getActiveSuite]
-   set maximX ${sx2}
-   set maximY ${sy2}
-   set nextY  [expr $sy2 + 10]
-   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 
    # this part adds a combo box to hold the index values of a loop node
@@ -402,17 +409,18 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
          ${indexListW} setvalue first
       }
 
-      # setIndexWidgetStatuses ${binder} ${indexListW}
       pack ${indexListW} -fill both
-      set barY [expr $sy2 + 15]
+      set barY [expr ${maxY} + 15]
       set barX [expr ($nx1 + $nx2)/2]
-      $canvas create window $barX $barY -window ${indexListW} -tags flow_element
-      set maximX ${sx2}
-      set maximY ${barY}
-      set nextY [expr $barY + [winfo height ${indexListW}] + 20]
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
-      # popup tooltip with loop arguments
-      ::tooltip::tooltip $canvas -item ${binder} [::FlowNodes::getLoopTooltip ${binder}]
+      $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget"
+      set maxY ${barY}
+      update idletasks
+      if { [winfo height ${indexListW}] == "1" } {
+         set nextY [expr $barY + 20]
+      } else {
+         set nextY [expr $barY + [winfo height ${indexListW}]]
+      }
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maxX} ${maxY}
    }
 }
 
@@ -596,50 +604,70 @@ proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
     $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.5 -arrow $arrow -fill $fill -dash { 4 3 }
 }
 
-proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor} {
+proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
+   global FLOW_SCALE
    variable constants
    DEBUG "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder" 5
-   set family [$binder cget -flow.family]
-   $canvas create text ${tx1} ${ty1} -text /$maxtext -fill $textfill \
+   set pad 5
+   if { ${FLOW_SCALE} != "1" } {
+      set text "/   "
+      set maxtext ${text}
+      set pad 0
+   } else {
+      set text /$maxtext
+   }
+   $canvas create text ${tx1} ${ty1} -text ${text} -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
 
-   $canvas itemconfigure ${binder}.text -text /$text
+   #$canvas itemconfigure ${binder}.text -text /$text
 
-   set nx1 [expr [lindex $boxArea 0] -5]
-   set ny1 [expr [lindex $boxArea 1] -5]
-   set nx2 [expr [lindex $boxArea 2] +5]
-   set ny2 [expr [lindex $boxArea 3] +5]
-   DEBUG "drawBoxSansOutline Doug text=$text nx1=$nx1 ny1=$ny1 nx2=$nx2 ny2=$ny2"
+   set nx1 [expr [lindex $boxArea 0] - ${pad}]
+   set ny1 [expr [lindex $boxArea 1] - ${pad}]
+   set nx2 [expr [lindex $boxArea 2] + ${pad}]
+   set ny2 [expr [lindex $boxArea 3] + ${pad}]
+   set nextY ${ny2}
+
+   DEBUG "drawBoxSansOutline text=$text nx1=$nx1 ny1=$ny1 nx2=$nx2 ny2=$ny2"
    $canvas create rectangle ${nx1} ${ny1} ${nx2} ${ny2} \
            -fill $fill -tags "flow_element $binder ${binder}.rectangle" 
    $canvas lower ${binder}.rectangle ${binder}.text
 
-   if { $drawshadow == "on" } {
-       # draw a shadow
-       set sx1 [expr $nx1 + 5]
-       set sx2 [expr $nx2 + 5]
-       set sy1 [expr $ny1 + 5]
-       set sy2 [expr $ny2 + 5]
-       $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
-               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
-       $canvas lower ${binder}.shadow ${binder}.rectangle
-   }
-
    set suiteRecord [xflow_getActiveSuite]
 
+   if { $drawshadow == "on" } {
+      # draw a shadow
+      set sx1 [expr $nx1 + ${pad}]
+      set sx2 [expr $nx2 + ${pad}]
+      set sy1 [expr $ny1 + ${pad}]
+      set sy2 [expr $ny2 + ${pad}]
+      $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
+            -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
+      $canvas lower ${binder}.shadow ${binder}.rectangle
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+   } else {
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
+   }
+
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
-   set maximX ${sx2}
-   set maximY ${sy2}
-   set nextY ${ny2}
-   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
 }
 
 proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
+   global FLOW_SCALE
    variable constants
    DEBUG "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill binder:$binder" 5
+   if { ${FLOW_SCALE} != "1" && [$binder cget -record_type] != "FlowNpassTask" } {
+      set text "   "
+      set maxtext ${text}
+      set padx 5
+      set pady 0
+   } else {
+      set padx 5
+      set pady 5
+      set text /$maxtext
+   }
 
    $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
@@ -647,36 +675,41 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
 
-   $canvas itemconfigure ${binder}.text -text $text
+   #$canvas itemconfigure ${binder}.text -text $text
+   set suiteRecord [xflow_getActiveSuite]
 
-   set nx1 [expr [lindex $boxArea 0] -5]
-   set ny1 [expr [lindex $boxArea 1] -5]
-   set nx2 [expr [lindex $boxArea 2] +5]
-   set ny2 [expr [lindex $boxArea 3] +5]
+   set nx1 [expr [lindex $boxArea 0] - ${padx}]
+   set ny1 [expr [lindex $boxArea 1] - ${pady}]
+   set nx2 [expr [lindex $boxArea 2] + ${padx}]
+   set ny2 [expr [lindex $boxArea 3] + ${pady}]
+   set nextY ${ny2}
    $canvas create rectangle ${nx1} ${ny1} ${nx2} ${ny2} \
             -fill $fill -outline $outline -tags "flow_element $binder ${binder}.rectangle"
    $canvas lower ${binder}.rectangle ${binder}.text
 
    if { $drawshadow == "on" } {
        # draw a shadow
-       set sx1 [expr $nx1 + 5]
-       set sx2 [expr $nx2 + 5]
-       set sy1 [expr $ny1 + 5]
-       set sy2 [expr $ny2 + 5]
+       set sx1 [expr $nx1 + ${padx}]
+       set sx2 [expr $nx2 + ${pady}]
+       set sy1 [expr $ny1 + ${padx}]
+       set sy2 [expr $ny2 + ${pady}]
        $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
                -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.rectangle
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+      set maxX ${sx2}
+      set maxY ${sy2}
+   } else {
+      set maxX ${nx2}
+      set maxY ${ny2}
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
    }
 
-   set suiteRecord [xflow_getActiveSuite]
-   set maximX ${sx2}
-   set maximY ${sy2}
-   set nextY ${ny2}
-   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
-
    ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+
    if { [$binder cget -record_type] == "FlowNpassTask" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
+      puts "getIndexWidgetName indexListW:${indexListW}"
       if { ! [winfo exists ${indexListW}] } {
          ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
             -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
@@ -690,7 +723,8 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
       # i.e. not being selected by the user
       if { ! [winfo ismapped ${listboxW}] } {
          if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-            ${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
+            #${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
+            ${indexListW} configure -values {latest} -width 7
          } else {
             set indexValue [::FlowNodes::getIndexValue ${currentExt}]
             ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
@@ -699,15 +733,19 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
       }
 
       pack ${indexListW} -fill both
-      set barY [expr $sy2 + 15]
-      set barX [expr ($nx1 + $nx2)/2]
-      $canvas create window $barX $barY -window  ${indexListW} -tags flow_element
-      set maximX ${sx2}
-      set maximY ${barY}
-      set nextY  [expr $barY + [winfo height  ${indexListW}] + 20]
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
+      set barY [expr ${maxY} + 15]
+      #set barX [expr ($nx1 + $nx2)/2]
+      set barX ${nx1}
+      $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
+      set maxY ${barY}
+      update idletasks
+      if { [winfo height ${indexListW}] == "1" } {
+         set nextY [expr $barY + 20]
+      } else {
+         set nextY [expr $barY + [winfo height ${indexListW}]]
+      }
+      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maxX} ${maxY}
    }
-
 }
 
 proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
@@ -745,6 +783,7 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
       ${canvasW} create line $target_x2 $target_y2 [expr $target_x2 + $x_offset] \
       [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
 
+      proc out {} {
       # adjust the canvas so that the job is centered {if possible}
       # the height and width are the size of the canvas that
       # is visible
@@ -756,7 +795,8 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
 
       ${canvasW} xview moveto [expr ($target_x - $width / 2) / $widthp]
       ${canvasW} yview moveto [expr ($target_y - $height / 2)/ $heightp]
-
+      }
+      ::DrawUtils::viewCanvasItem ${canvasW} ${searchTag}
       raise [winfo toplevel ${canvasW}]
       # after 5 seconds, delete the lines pointing at the job
       after 5000 [list ::DrawUtils::delPointNode ${canvasW}]
@@ -768,6 +808,7 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
 # usual ones Example loop. Used mainly to know where to draw the first
 # node of a branch
 proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
+   global FLOW_SCALE
    DEBUG "::DrawUtils::getLineDeltaSpace $flow_node delta_value: $delta_value" 5
    set value ${delta_value}
    # I only need to calculate extra space if the current node is not in position 0
@@ -781,8 +822,12 @@ proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
          if { [${node} cget -flow.type] == "loop" } {
             if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
                set value [SharedData_getMiscData LOOP_OVAL_SIZE]
+               #if { ${FLOW_SCALE} != "1" } { set value [expr ${value} + 5 ] }
             }
+         } elseif { [${node} cget -flow.type] == "npass_task" } {
+            if { [expr ${value} < 5] && ${FLOW_SCALE} != "1" } { set value 5 }
          }
+
          set childNodes [${node} cget -flow.children]
          # i'm only interested in the first position of the child list, the others will be calculated
          # when we move down the tree
@@ -797,6 +842,19 @@ proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
       }
    }
    return $value
+}
+
+proc ::DrawUtils::getNodeDeltaX { _flow_node _canvas } {
+   set deltax 0
+   if { [${_flow_node} cget -flow.type] == "npass_task" } {
+      set indexListW [::DrawUtils::getIndexWidgetName ${_flow_node} ${_canvas}]
+      foreach { px1 py1 px2 py2 } [::FlowNodes::getDisplayCoords ${_flow_node} ${_canvas}] { break }
+      foreach { nx1 ny1 nx2 ny2 } [${_canvas} bbox ${_flow_node}.index_widget] { break }
+      if { ${nx2} > ${px2} } {
+         set deltax [expr ${nx2} - ${px2}]
+      }
+   }
+   return ${deltax}
 }
 
 proc  ::DrawUtils::delPointNode {canvas } {
@@ -852,7 +910,7 @@ proc ::DrawUtils::highLightFindNode { _suite_record _node _canvas_w } {
 
    set selectTag ${_canvas_w}.find_select
    ${_canvas_w} create rectangle ${x1} ${y1} ${x2} ${y2} -fill ${selectColor} -tag ${selectTag}
-   ${_canvas_w} lower ${selectTag} ${nodeShadowTag}
+   ${_canvas_w} lower ${selectTag} ${_node}
 
    # sets the command to restore the node to its previous state
    set NodeHighLightRestoreCmd "${_canvas_w} delete ${selectTag};"
