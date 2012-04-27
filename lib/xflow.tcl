@@ -2690,6 +2690,7 @@ proc xflow_createFlowCanvas { parent } {
          # the code below is mainly to limit the drag of the canvas
          # within the scrollable area... Else the canvas would end up
          # dragged to a place where there is no background image... ugly
+         if { ! ([info exists CANVAS_DRAG_X] && [info exists CANVAS_DRAG_Y]) } { return }
          foreach { leftx rightx } [%W xview] {break}
          foreach { topy bottomy } [%W yview] {break}
          set dragtox %x

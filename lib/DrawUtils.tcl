@@ -709,7 +709,6 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
 
    if { [$binder cget -record_type] == "FlowNpassTask" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
-      puts "getIndexWidgetName indexListW:${indexListW}"
       if { ! [winfo exists ${indexListW}] } {
          ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
             -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
