@@ -356,7 +356,7 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
 
 proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    global MSG_ALARM_ON MSG_ALARM_ID MSG_BELL_TRIGGER
-   global MSG_ALARM_COUNTER
+   global MSG_ALARM_COUNTER MSG_CENTER_USE_BELL
 
    set autoMsgDisplay [SharedData_getMiscData AUTO_MSG_DISPLAY]
 
@@ -385,7 +385,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    if { ${autoMsgDisplay} == "true" && [SharedData_getMiscData STARTUP_DONE] == "true" } {
       if { ${raiseAlarm} == "true" } {
          MsgCenter_setHeaderStatus ${table_w_} alarm
-         if { [expr ${MSG_ALARM_COUNTER} > ${MSG_BELL_TRIGGER}] } {
+         if { [expr ${MSG_ALARM_COUNTER} > ${MSG_BELL_TRIGGER}] && ${MSG_CENTER_USE_BELL} == true } {
             bell
          }
          set MSG_ALARM_ID [after 1500 [list MsgCengter_processAlarm ${table_w_} true]]
@@ -567,7 +567,7 @@ proc MsgCenter_init {} {
    global MSG_ALARM_ON MsgCenterMainGridRowMap
    global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
-   global DEBUG_TRACE DEBUG_LEVEL MSG_BELL_TRIGGER
+   global DEBUG_TRACE DEBUG_LEVEL MSG_BELL_TRIGGER MSG_CENTER_USE_BELL
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
@@ -603,6 +603,12 @@ proc MsgCenter_init {} {
    set SHOW_ABORT_TYPE [SharedData_getMiscData SHOW_ABORT_TYPE]
    set SHOW_INFO_TYPE [SharedData_getMiscData SHOW_INFO_TYPE]
    set SHOW_EVENT_TYPE [SharedData_getMiscData SHOW_EVENT_TYPE]
+
+   # is bell activated?
+   set MSG_CENTER_USE_BELL true
+   if { [SharedData_getMiscData USE_BELL] == false } {
+      set MSG_CENTER_USE_BELL false
+   }
 
    set topLevelW .
    set tableW .table

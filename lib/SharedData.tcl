@@ -141,7 +141,7 @@ proc SharedData_init {} {
    SharedData_setMiscData SHOW_INFO_TYPE true
 
    SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
-   SharedData_setMiscData MSG_CENTER_NUMBER_ROWS 25
+   SharedData_setMiscData MSG_CENTER_USE_BELL true
 
    SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData DEBUG_TRACE 0
