@@ -232,7 +232,7 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
 
    set isMsgActive [MsgCenter_addActiveMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}]
 
-   MsgCenter_sendNotification
+   #MsgCenter_sendNotification
    if { ${isMsgActive} == "true" } {
       ${table_w_} see ${MSG_ACTIVE_COUNTER}
       MsgCengter_processAlarm ${table_w_}
@@ -459,9 +459,14 @@ proc MsgCenter_getThread {} {
          #
 
          # called everytime a new message comes in from experiment threads
-         proc MsgCenterThread_newMessage { datestamp_ timestamp_ type_ node_ exp_ msg_ } {
-            DEBUG "MsgCenterThread_newMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
+         proc MsgCenterThread_newMessage { calling_thread_id datestamp_ timestamp_ type_ node_ exp_ msg_ } {
+            DEBUG "MsgCenterThread_newMessage calling_thread_id:${calling_thread_id} ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
             MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
+            # if the exp is done reading messages, we send a notification out
+            # to warn about new messages available in the msg center
+            if { [SharedData_getMiscData ${calling_thread_id}_STARTUP_DONE] == true } {
+               MsgCenter_sendNotification
+            }
          }
 
          # called by xflow or xflow_overview to show msg center on demand

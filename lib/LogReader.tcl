@@ -211,6 +211,8 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record line } {
 
 proc LogReader_processLine { calling_thread_id suite_record line } {
    global MSG_CENTER_THREAD_ID
+   set thisThreadId [thread::id]
+
    DEBUG "LogReader_processLine line:$line" 5
    # node & signal is mandatory to be processed
    # else the line is ignored
@@ -268,7 +270,7 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
             set expPath [${suite_record} cget -suite_path]
             set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
             thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenterThread_newMessage \"${currentDatestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${expPath} \"${msg}\""
+               "MsgCenterThread_newMessage ${thisThreadId} \"${currentDatestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${expPath} \"${msg}\""
             # Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
          }
          # abortx, endx, beginx type are used for signals we send to the parent containers nodes
