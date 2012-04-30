@@ -67,6 +67,10 @@ background_image = /home/ops/afsi/sul/tmp/images/artist_canvas_lightblue.gif
 # this option is used to set the geometry for flow windows
 flow_geometry = 1000x500
 
+# this option is  used to set the scale mode of xflow
+# 1=normal_mode 2=scale-2 mode
+flow_scale = 1
+
 # this option is to set the preferred browser
 browser = mozilla
 
