@@ -855,11 +855,13 @@ proc xflow_getMonitoredThread {} {
          # For the moment, a single thread is created to handle the history mode for
          # a specific exp.
          proc xflowThread_monitorNewDate { exp_path datestamp } {
-            global XFLOW_STANDALONE MONITORING_LATEST MONITOR_DATESTAMP MONITOR_THREAD_ID SEQ_EXP_HOME
+            global XFLOW_STANDALONE MONITORING_LATEST MONITOR_DATESTAMP MONITOR_THREAD_ID SEQ_EXP_HOME 
+            global LOOP_RESOURCES_DONE
             DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] exp_path:$exp_path " 5
 
             set SEQ_EXP_HOME ${exp_path}
             xflow_init
+            set LOOP_RESOURCES_DONE false
             set XFLOW_STANDALONE 1
             set MONITORING_LATEST 0
             set MONITOR_DATESTAMP ${datestamp}
@@ -1184,11 +1186,13 @@ proc xflow_drawNode { canvas node position {first_node false} } {
       }
       "loop" {
          set text "${text}\n[::FlowNodes::getLoopInfo $node]"
-         set helpText "[::FlowNodes::getLoopTooltip ${node}]"
          ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         set helpText "[::FlowNodes::getLoopTooltip ${node}]"
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
-         #bind ${indexListW} <<ComboboxSelected>> [list xflow_indexedNodeSelectionCallback ${node} ${canvas} %W]
          ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${node} ${canvas} ${indexListW}]
+         ::tooltip::tooltip $canvas -item ${node} ${helpText}
+         # reset the text to be used for generic tooltip on scaling mode
+         set text "${helpText}"
       }
       "case" {
          ::DrawUtils::drawLosange $canvas $tx1 $ty1 $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
@@ -2309,7 +2313,8 @@ proc xflow_redrawNodes { node {canvas ""} } {
          set nodePosition [::FlowNodes::getPosition ${node}]
          eval ${cmdList}
          xflow_drawNode ${canvas} ${node} ${nodePosition}
-         #xflow_resizeWindow ${canvas}
+         xflow_resetScrollRegion ${canvas}
+         xflow_addBgImage ${canvas} [xflow_getWidgetName bg_image] [winfo width ${canvas}] [winfo height ${canvas}] true
       }
    }
    set REFRESH_MODE false
@@ -2378,14 +2383,7 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
       set callback xflow_changeCollapsed
       xflow_clearCanvasFlow ${canvas}
       xflow_drawNode $canvas $rootNode 0 true
-      #xflow_addBgImage $canvas [xflow_getWidgetName bg_image]
-      foreach { x1 y1 x2 y2 } [$canvas bbox flow_element] {
-         set x1 [expr ${x1} - 5]
-         set y1 [expr ${y1} - 5]
-         set x2 [expr ${x2} + 5]
-         set y2 [expr ${y2} + 5]
-      }
-      $canvas  configure -scrollregion [list ${x1} ${y1} ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
+      xflow_resetScrollRegion ${canvas}
       # resize the window depending on size of canvas elements
       xflow_resizeWindow ${canvas}
    
@@ -2435,6 +2433,17 @@ proc xflow_resizeWindow { canvas } {
       set flowGeometry [SharedData_getMiscData FLOW_GEOMETRY]
       wm geometry . =${flowGeometry}
    }
+}
+
+proc xflow_resetScrollRegion { _canvas } {
+   set delta 5
+   foreach { x1 y1 x2 y2 } [${_canvas} bbox flow_element] {
+      set x1 [expr ${x1} - ${delta}]
+      set y1 [expr ${y1} - ${delta}]
+      set x2 [expr ${x2} + ${delta}]
+      set y2 [expr ${y2} + ${delta}]
+   }
+   ${_canvas} configure -scrollregion [list ${x1} ${y1} ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
 }
 
 # this function is a leftover when xflow was supporting multipe exps.
@@ -2797,23 +2806,34 @@ proc xflow_addBgImage { _canvas _bitmapFilename _width _height {force false} } {
  }
 
  proc xflow_tileBgImage {canvas sourceImage tiledImage _width _height} {
-
+   global XFLOW_BG_WIDTH XFLOW_BG_HEIGHT
    set canvasBox [${canvas} bbox all]
    set canvasItemsW [lindex ${canvasBox} 2]
    set canvasItemsH [lindex ${canvasBox} 3]
    set usedW ${canvasItemsW}
    set usedH ${canvasItemsH}
 
+
    # if the canvas is bigger than the number of elements, we use the
    # canvas width and height
    if { ${_width} > ${canvasItemsW} } {
-      set usedW ${_width}
+      set usedW [expr ${_width} + 50]
    }
    if { ${_height} > ${canvasItemsH} } {
-      set usedH ${_height}
+      set usedH [expr ${_height} + 50]
    }
 
-   $tiledImage copy $sourceImage -to 0 0 [expr ${usedW} + 50] [expr ${usedH} + 50]
+   if { ! [info exists XFLOW_BG_WIDTH] } {
+      set XFLOW_BG_WIDTH ${usedW}
+      set XFLOW_BG_HEIGHT ${usedH}
+      $tiledImage copy $sourceImage -to 0 0 ${XFLOW_BG_WIDTH} ${XFLOW_BG_HEIGHT}
+   } else {
+      if { ${usedW} > ${XFLOW_BG_WIDTH} || ${usedH} > ${XFLOW_BG_HEIGHT} } {
+         set XFLOW_BG_WIDTH ${usedW}
+         set XFLOW_BG_HEIGHT ${usedH}
+         $tiledImage copy $sourceImage -to 0 0 ${XFLOW_BG_WIDTH} ${XFLOW_BG_HEIGHT}
+      }
+   }
  }
 
 proc setErrorMessages {} {
