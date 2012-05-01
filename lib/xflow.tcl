@@ -55,6 +55,7 @@ proc xflow_addFileMenu { parent } {
    $menuW add command -label "Quit" -underline 0 -command "xflow_quit" 
 
    pack $menuButtonW -side left -pady 2 -padx 2
+   tooltip::tooltip $menuW -index "Quit" "test tooltip"
 }
 
 proc xflow_addViewMenu { parent } {
@@ -1308,6 +1309,7 @@ proc xflow_nodeMenu { canvas node x y } {
          ${submitNoDependMenu} add command -label "Submit" \
             -command [list xflow_submitCallback $node $canvas $popMenu continue dep_off]
          ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback $node $canvas $popMenu ]
+         ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback $node $canvas $popMenu ]
          ${miscMenu} add command -label "Initbranch" -command [list xflow_initbranchCallback $node $canvas $popMenu]
       } else {
          ${submitMenu} add command -label "Submit & Continue" -underline 9 -command [list xflow_submitCallback $node $canvas $popMenu continue ]
@@ -1319,8 +1321,9 @@ proc xflow_nodeMenu { canvas node x y } {
          ${submitNoDependMenu} add command -label "Submit & Stop" -underline 9 \
             -command [list xflow_submitCallback $node $canvas $popMenu stop dep_off ]
 
-         ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback $node $canvas $popMenu ]
-         ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback $node $canvas $popMenu ]
+         ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback $node $canvas $popMenu]
+         ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback $node $canvas $popMenu]
+         ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback $node $canvas $popMenu]
          ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback $node $canvas $popMenu]
       }
       ${miscMenu} add command -label "End" -command [list xflow_endCallback $node $canvas $popMenu]
@@ -1349,6 +1352,7 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Loop Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} 1]
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} 0]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback $node $canvas ${popmenu_w} ]
@@ -1400,6 +1404,7 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
    ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback $node $canvas ${popmenu_w} ]
+   ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback $node $canvas ${popmenu_w} ]
 
    set currentExtension [::FlowNodes::getNodeExtension $node]
@@ -1896,6 +1901,31 @@ proc xflow_configCallback { node canvas caller_menu} {
 
    set seqCmd "${seqExec} -n ${seqNode}"
    Sequencer_runCommand [$suiteRecord cget -suite_path] ${outputfile} ${seqCmd}
+
+   if { ${textViewer} == "default" } {
+      create_text_window ${winTitle} ${outputfile} top .
+   } else {
+      set editorCmd "${textViewer} ${outputfile}"
+      DEBUG "xflow_sourceCallback running ${defaultConsole} ${editorCmd}" 5
+      TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
+   }
+}
+
+proc xflow_evalConfigCallback { node canvas caller_menu } {
+   global SESSION_TMPDIR
+   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/chaindot.py"
+   set suiteRecord [xflow_getActiveSuite]
+   set seqNode [::FlowNodes::getSequencerNode $node]
+
+   set textViewer [SharedData_getMiscData TEXT_VIEWER]
+   set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
+
+   set winTitle "Node Full Config [file tail $node]"
+   regsub -all " " ${winTitle} _ tempfile
+   set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+
+   set seqCmd "${seqExec} -n ${seqNode} -e [$suiteRecord cget -suite_path] -o ${outputfile}"
+   Sequencer_runCommand [$suiteRecord cget -suite_path] /dev/null ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
