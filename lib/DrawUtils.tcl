@@ -350,16 +350,16 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
    $canvas create oval ${nx1} ${ny1} ${nx2} ${ny2}  \
           -fill $fill -tags "flow_element $binder ${binder}.oval"
 
-   if { [$binder cget -record_type] == "FlowLoop" &&
-         [$binder cget -loop_type] == "loopset" } {
+   #if { [$binder cget -record_type] == "FlowLoop" &&
+   #      [$binder cget -loop_type] == "loopset" } {
       # add parallel icon
-      set parx1 [expr $nx2 -5]
-      set parx2 $parx1
-      set pary1 [expr [lindex $boxArea 1] + 4]
-      set pary2 [lindex $boxArea 3]
-      $canvas create line $parx1 $pary1 [expr $parx1 - 5] [expr $pary1 + 5] -width 1.5 -fill black -tags flow_element
-      $canvas create line [expr $parx1 - 5] $pary1 [expr $parx1 - 10] [expr $pary1 + 5] -width 1.5 -fill black -tags flow_element
-   }
+   #   set parx1 [expr $nx2 -5]
+   #   set parx2 $parx1
+   #   set pary1 [expr [lindex $boxArea 1] + 4]
+   #   set pary2 [lindex $boxArea 3]
+   #   $canvas create line $parx1 $pary1 [expr $parx1 - 5] [expr $pary1 + 5] -width 1.5 -fill black -tags flow_element
+   #   $canvas create line [expr $parx1 - 5] $pary1 [expr $parx1 - 10] [expr $pary1 + 5] -width 1.5 -fill black -tags flow_element
+   #}
 
    $canvas lower ${binder}.oval ${binder}.text
 
