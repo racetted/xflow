@@ -1008,7 +1008,7 @@ proc Overview_childInitDone { suite_path thread_id } {
 # this function is called asynchronously by experiment child threads to
 # update the status of an experiment node in the overview panel.
 # See LogReader.tcl
-proc Overview_updateExp { suite_record datestamp status timestamp } {
+proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp } {
    global AUTO_LAUNCH
    DEBUG "Overview_updateExp $suite_record status:$status timestamp:$timestamp " 5
 
@@ -1039,8 +1039,9 @@ proc Overview_updateExp { suite_record datestamp status timestamp } {
 
       set isStartupDone [SharedData_getMiscData STARTUP_DONE]
       if { $status == "begin" } {
+         set isExpStartupDone [SharedData_getMiscData ${exp_thread_id}_STARTUP_DONE]
          # launch the flow if needed... but not when the app is startup up
-         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true" } {
+         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true" && ${isExpStartupDone} == "true" } {
             Overview_launchExpFlow $canvas [$suite_record cget -suite_path]
          }
       }

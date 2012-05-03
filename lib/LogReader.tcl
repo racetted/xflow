@@ -203,7 +203,7 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record datestamp li
             if { ${node} == [${suite_record} cget -root_node] } {
                DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
                thread::send -async ${calling_thread_id} \
-                  "Overview_updateExp  ${suite_record} ${datestamp} ${type} ${timestamp}"
+                  "Overview_updateExp [thread::id] ${suite_record} ${datestamp} ${type} ${timestamp}"
             }
          }
       }

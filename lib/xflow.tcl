@@ -176,11 +176,12 @@ proc xflow_createToolbar { parent } {
    set nodeKillW [xflow_getWidgetName nodekill_button]
    set catchupW [xflow_getWidgetName catchup_button]
    set findW [xflow_getWidgetName find_button]
-   set nodeListW [xflow_getWidgetName nodelist_button]
-   set nodeAbortListW [xflow_getWidgetName abortlist_button]
+   set refreshW [xflow_getWidgetName refresh_button]
+   #set nodeListW [xflow_getWidgetName nodelist_button]
+   #set nodeAbortListW [xflow_getWidgetName abortlist_button]
    set colorLegendW [xflow_getWidgetName legend_button]
-   set closeW [xflow_getWidgetName dep_button]
-   set depW [xflow_getWidgetName close_button]
+   set closeW [xflow_getWidgetName close_button]
+   #set depW [xflow_getWidgetName dep_button]
    set shellW [xflow_getWidgetName shell_button]
    set catchupTopW [xflow_getWidgetName catchup_toplevel]
 
@@ -193,12 +194,13 @@ proc xflow_createToolbar { parent } {
    image create photo ${parent}.node_kill_img -file ${imageDir}/node_kill.gif
    image create photo ${parent}.catchup_img -file ${imageDir}/catchup.gif
    image create photo ${parent}.find_img -file ${imageDir}/find.png
-   image create photo ${parent}.node_list_img -file ${imageDir}/node_list.ppm
-   image create photo ${parent}.node_abort_list_img -file ${imageDir}/node_abort_list.ppm
+   #image create photo ${parent}.node_list_img -file ${imageDir}/node_list.ppm
+   #image create photo ${parent}.node_abort_list_img -file ${imageDir}/node_abort_list.ppm
+   image create photo ${parent}.refresh_img -file ${imageDir}/refresh.gif
    image create photo ${parent}.close -file ${imageDir}/cancel.gif
    image create photo ${parent}.color_legend_img -file ${imageDir}/color_legend.gif
-   image create photo ${parent}.ignore_dep_true -file ${imageDir}/dep_on.ppm
-   image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
+   #image create photo ${parent}.ignore_dep_true -file ${imageDir}/dep_on.ppm
+   #image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
    image create photo ${parent}.shell_img -file ${imageDir}/terminal.ppm
 
    button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command {
@@ -218,11 +220,14 @@ proc xflow_createToolbar { parent } {
    button ${findW} -image ${parent}.find_img -relief flat -command [list xflow_showFindWidgets]
    tooltip::tooltip ${findW}  "Find a node."
 
-   button ${nodeListW} -image ${parent}.node_list_img  -state disabled -relief flat
-   tooltip::tooltip ${nodeListW} "Open succesfull node listing dialog -- future feature."
+   button ${refreshW} -image ${parent}.refresh_img -relief flat -command [list xflow_refreshFlow]
+   tooltip::tooltip ${refreshW}  "Flow refresh."
 
-   button ${nodeAbortListW} -image ${parent}.node_abort_list_img -state disabled -relief flat
-   tooltip::tooltip ${nodeAbortListW} "Open abort node listing dialog -- future feature."
+   #button ${nodeListW} -image ${parent}.node_list_img  -state disabled -relief flat
+   #tooltip::tooltip ${nodeListW} "Open succesfull node listing dialog -- future feature."
+
+   #button ${nodeAbortListW} -image ${parent}.node_abort_list_img -state disabled -relief flat
+   #tooltip::tooltip ${nodeAbortListW} "Open abort node listing dialog -- future feature."
 
    button ${closeW} -image ${parent}.close -command [list xflow_quit] -relief flat
    ::tooltip::tooltip ${closeW} "Close application."
@@ -230,9 +235,7 @@ proc xflow_createToolbar { parent } {
    button ${colorLegendW} -image ${parent}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}] -relief flat
    tooltip::tooltip ${colorLegendW} "Show color legend." 
 
-   button ${depW} -relief flat -image ${parent}.ignore_dep_false -command [list xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false] -state disabled
-
-   #xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false
+   #button ${depW} -relief flat -image ${parent}.ignore_dep_false -command [list xflow_changeIgnoreDep ${depW} ${parent}.ignore_dep_true ${parent}.ignore_dep_false] -state disabled
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
       set overviewW [xflow_getWidgetName overview_button]
@@ -243,9 +246,9 @@ proc xflow_createToolbar { parent } {
       }
       ::tooltip::tooltip ${overviewW} "Show overview window."
       ::tooltip::tooltip ${closeW} "Close window."
-      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${depW} ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${colorLegendW} ${closeW} -sticky w -padx 2
    } else {
-      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${depW}  ${nodeListW} ${nodeAbortListW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${colorLegendW} ${closeW} -sticky w -padx 2
    }
 
 }
@@ -2344,7 +2347,7 @@ proc xflow_redrawNodes { node {canvas ""} } {
          eval ${cmdList}
          xflow_drawNode ${canvas} ${node} ${nodePosition}
          xflow_resetScrollRegion ${canvas}
-         xflow_addBgImage ${canvas} [xflow_getWidgetName bg_image] [winfo width ${canvas}] [winfo height ${canvas}] true
+         xflow_addBgImage ${canvas} [winfo width ${canvas}] [winfo height ${canvas}] true
       }
    }
    set REFRESH_MODE false
@@ -2364,29 +2367,72 @@ proc xflow_redrawAllFlow {} {
    }
 }
 
-proc xflow_processFlowModified {} {
-   
-   DEBUG "xflow_processFlowModified" 5
-   # flow has been modified we need to reread log files and restart
-
+# user clicks on refresh button in the
+# toolbar
+# - deletes all nodes
+# - rereads flow.xml for each module
+# - reread the log file
+# - redisplay the flow
+proc xflow_refreshFlow { } {
+   global PROGRESS_REPORT_TXT
    set suiteRecord [xflow_getActiveSuite]
-   ::FlowNodes::clearAllNodes
-   record delete instance ${suiteRecord}
 
-   set thisThreadId [thread::id]
-   set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
-   if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
-      xflow_readFlowXml
-      xflow_initStartupMode
-      xflow_displayFlow ${callingThreadId}
-      xflow_stopStartupMode
-   } else {
-      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      xflow_readFlowXml
-      xflow_initStartupMode
-      LogReader_readFile ${suiteRecord} ${overviewThreadId}
-      xflow_stopStartupMode
-      xflow_displayFlow ${callingThreadId}
+   set progressW [ProgressDlg .pd -title "Flow Refresh" -parent .  -textvariable PROGRESS_REPORT_TXT]
+   set PROGRESS_REPORT_TXT "Refreshing experiment ..."
+   # for some reason, I need to call the update for the progress dlg to appear properly
+   update idletasks
+
+   set result [ catch {
+
+      global NODE_RESOURCE_DONE LOOP_RESOURCES_DONE
+      set LOOP_RESOURCES_DONE false
+      set NODE_RESOURCE_DONE false
+      # clear all nodes
+      set PROGRESS_REPORT_TXT "Deleting node data ..."
+      update idletasks
+      ::FlowNodes::clearAllNodes
+      record delete instance ${suiteRecord}
+
+      set thisThreadId [thread::id]
+      set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
+      if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
+         set PROGRESS_REPORT_TXT "Parsing module's flow.xml ..."
+         update idletasks
+         xflow_readFlowXml
+         xflow_initStartupMode
+         xflow_displayFlow ${callingThreadId}
+         xflow_stopStartupMode
+      } else {
+         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+         set PROGRESS_REPORT_TXT "Parsing module's flow.xml ..."
+         update idletasks
+         xflow_readFlowXml
+         xflow_initStartupMode
+         set PROGRESS_REPORT_TXT "Processing log file ..."
+         update idletasks
+         LogReader_readFile ${suiteRecord} ${overviewThreadId}
+         xflow_displayFlow ${callingThreadId}
+         xflow_stopStartupMode
+      }
+
+      destroy ${progressW}
+
+   } message ]
+
+
+   # any errors, put the cursor back to normal state
+   if { ${result} != 0  } {
+
+      set einfo $::errorInfo
+      set ecode $::errorCode
+      #Utils_normalCursor .
+      destroy ${progressW}
+
+      # report the error with original details
+      return -code ${result} \
+         -errorcode ${ecode} \
+         -errorinfo ${einfo} \
+         ${message}
    }
 }
 
@@ -2396,8 +2442,8 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
    DEBUG "xflow_drawflow() canvas:$canvas" 5
 
    if { [::FlowNodes::isFlowModified ${SEQ_EXP_HOME}] == "true" } {
-      DEBUG "xflow_drawflow() xflow_processFlowModified" 5
-      xflow_processFlowModified
+      DEBUG "xflow_drawflow() xflow_refreshFlow" 5
+      xflow_refreshFlow
       return
    }
 
@@ -2561,7 +2607,7 @@ proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
 # at startup fetches all the loop node attributes once only to be able to display
 # the loop parameters
 proc xflow_getAllLoopResourcesCallback { node suite_path } {
-   global LOOP_RESOURCES_DONE
+   global LOOP_RESOURCES_DONE 
    if { ! [info exists LOOP_RESOURCES_DONE] || ${LOOP_RESOURCES_DONE} == "false" } {
       DEBUG "xflow_getAllLoopResourcesCallback getting resources..." 5
       xflow_getAllLoopResources ${node} ${suite_path}
@@ -2773,13 +2819,7 @@ proc xflow_createFlowCanvas { parent } {
       bind $canvas <Configure> {
          
          global CANVAS_RESIZE_ID
-         # when the window is resizing, there is at least 5-6 configure events generated.
-         # I only want one resize at the end, not at every event so 
-         # the after will cancel each other except the last one
-         #catch { after cancel ${CANVAS_RESIZE_ID} }
-         #set CANVAS_RESIZE_ID [after 100 [list xflow_addBgImage [xflow_getMainFlowCanvas] [xflow_getWidgetName bg_image] %w %h true]]
-         # update idletasks
-         xflow_addBgImage [xflow_getMainFlowCanvas] [xflow_getWidgetName bg_image] %w %h true
+         xflow_addBgImage [xflow_getMainFlowCanvas] %w %h true
       }
 
 
@@ -2804,34 +2844,33 @@ proc xflow_clearCanvasFlow { _canvas } {
    update idletasks
 }
 
-proc xflow_hideBgImage { _canvas _bitmapFilename } {
-   if { [winfo exists ${_canvas}] && [${_canvas} find withtag backgroundBitmap] != "" } {
-      puts "xflow_hideBgImage move backgroundBitmap -10000 -10000"
-      # mv the bg to a far far galaxy
-      ${_canvas} move backgroundBitmap -10000 -10000
-   }
-}
+proc xflow_addBgImage { _canvas _width _height {force false} } {
 
-proc xflow_addBgImage { _canvas _bitmapFilename _width _height {force false} } {
-    package require img::gif
+   global FLOW_BG_SOURCE_IMG FLOW_TILED_IMG
+   package require img::gif
 
    Utils_busyCursor [winfo toplevel ${_canvas}]
-   if { [${_canvas} find withtag backgroundBitmap] == ""  || ${force} == true } {
-      # does not exists, create new one
-      set sourceImage [image create photo -file ${_bitmapFilename}]
-      set tiledImage [image create photo]
 
+   if { [${_canvas} find withtag backgroundBitmap] == "" } {
+      set FLOW_BG_SOURCE_IMG [image create photo -file [xflow_getWidgetName bg_image]]
+      set FLOW_TILED_IMG [image create photo]
+      # does not exists, create new one
       ${_canvas} create image 0 0 \
          -anchor nw \
-         -image ${tiledImage} \
+         -image ${FLOW_TILED_IMG} \
          -tags backgroundBitmap
 
       ${_canvas} lower backgroundBitmap
-
-      # bind ${_canvas} <Configure> [list xflow_tileBgImage ${_canvas} ${sourceImage} ${tiledImage}]
-      bind ${_canvas} <Destroy> [list image delete ${sourceImage} ${tiledImage}]
-      xflow_tileBgImage ${_canvas} ${sourceImage} ${tiledImage} ${_width} ${_height}
+      bind ${_canvas} <Destroy> { 
+         global FLOW_BG_SOURCE_IMG FLOW_TILED_IMG
+         global XFLOW_BG_WIDTH XFLOW_BG_HEIGHT
+         catch { image delete ${FLOW_BG_SOURCE_IMG} ${FLOW_TILED_IMG} }
+         catch { unset XFLOW_BG_WIDTH XFLOW_BG_HEIGHT }
+      }
    }
+
+   xflow_tileBgImage ${_canvas} ${FLOW_BG_SOURCE_IMG} ${FLOW_TILED_IMG} ${_width} ${_height}
+
    Utils_normalCursor [winfo toplevel ${_canvas}]
  }
 
@@ -3039,7 +3078,7 @@ proc xflow_createWidgets {} {
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
 proc xflow_displayFlow { calling_thread_id } {
-   global env XFLOW_STANDALONE SEQ_EXP_HOME
+   global env XFLOW_STANDALONE SEQ_EXP_HOME PROGRESS_REPORT_TXT
    global MONITORING_LATEST MONITOR_DATESTAMP FLOW_RESIZED
    
 
@@ -3048,16 +3087,17 @@ proc xflow_displayFlow { calling_thread_id } {
    set FLOW_RESIZED false
    set topFrame [xflow_getWidgetName top_frame]
    xflow_createTmpDir
-   #xflow_validateSuite
 
    if { ! [winfo exists ${topFrame}] } {
+      set PROGRESS_REPORT_TXT "Creating widgets..."
       xflow_createWidgets
    }
    set suitePath ${SEQ_EXP_HOME}
    DEBUG "xflow_displayFlow suitePath ${suitePath}" 5
    set activeSuiteRecord [xflow_getActiveSuite]
    set rootNode [${activeSuiteRecord} cget -root_node]
-   #xflow_getNodeResources ${rootNode} $suitePath 1
+
+   set PROGRESS_REPORT_TXT "Getting loop node resources ..."
    xflow_getAllLoopResourcesCallback ${rootNode} ${SEQ_EXP_HOME}
 
    # resource will only be loaded if needed
@@ -3084,6 +3124,7 @@ proc xflow_displayFlow { calling_thread_id } {
       ::FlowNodes::resetNodeStatus  [${activeSuiteRecord} cget -root_node]
       # read the content of the log file
       xflow_initStartupMode
+      set PROGRESS_REPORT_TXT "Processing log file ..."
       LogReader_readFile ${activeSuiteRecord} ${calling_thread_id}
       xflow_stopStartupMode
       # then show the flow
@@ -3094,6 +3135,7 @@ proc xflow_displayFlow { calling_thread_id } {
         # in overview mode, the log has already been read once before it reached here,
         # no need to read again... only read for xflow standalone
         xflow_initStartupMode
+        set PROGRESS_REPORT_TXT "Processing log file ..."
         LogReader_readFile $activeSuiteRecord $calling_thread_id
         xflow_stopStartupMode
       }
@@ -3261,6 +3303,7 @@ proc xflow_setWidgetNames {} {
       nodekill_button .second_frame.toolbar.button_nodekill
       catchup_button .second_frame.toolbar.button_catchup
       find_button .second_frame.toolbar.button_find
+      refresh_button .second_frame.toolbar.button_refresh
       nodelist_button .second_frame.toolbar.button_nodelist
       abortlist_button .second_frame.toolbar.button_nodeabortlist
       dep_button .second_frame.toolbar.button_dep
@@ -3310,6 +3353,7 @@ proc xflow_init {} {
    global SHADOW_STATUS MONITORING_LATEST
    global MSG_CENTER_THREAD_ID MONITOR_THREAD_ID
    global REFRESH_MODE SESSION_TMPDIR FLOW_SCALE
+
    set REFRESH_MODE false
    set MONITOR_THREAD_ID ""
    set SHADOW_STATUS 0

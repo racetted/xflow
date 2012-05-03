@@ -797,8 +797,8 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
       }
       ::DrawUtils::viewCanvasItem ${canvasW} ${searchTag}
       raise [winfo toplevel ${canvasW}]
-      # after 5 seconds, delete the lines pointing at the job
-      after 5000 [list ::DrawUtils::delPointNode ${canvasW}]
+      # after a few seconds, delete the lines pointing at the job
+      after 8000 [list ::DrawUtils::delPointNode ${canvasW}]
    }
 }
 
