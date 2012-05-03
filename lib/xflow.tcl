@@ -2425,7 +2425,6 @@ proc xflow_refreshFlow { } {
 
       set einfo $::errorInfo
       set ecode $::errorCode
-      #Utils_normalCursor .
       destroy ${progressW}
 
       # report the error with original details

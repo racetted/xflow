@@ -715,6 +715,7 @@ proc Overview_ExpCreateMiddleBox { canvas suite_record timevalue {shift_day fals
       $canvas lower ${expPath}.middle ${expPath}.text
 
       $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow $canvas ${expPath} ]
+      $canvas bind ${expPath}.text <Double-Button-1> [list Overview_launchExpFlow $canvas ${expPath} ]
    }
 
 }
@@ -960,15 +961,39 @@ proc Overview_historyCallback { canvas exp_path caller_menu } {
 # this function is called to launch an exp window
 # It sends the request to the exp thread to care of it.
 proc Overview_launchExpFlow { calling_w exp_path } {
-   global env ExpThreadList
+   global env ExpThreadList PROGRESS_REPORT_TXT
    set xflowCmd $env(SEQ_XFLOW_BIN)/xflow
 
-   set mainid [thread::id]
-   # retrieve the exp thread based on the exp_path
-   set formatName [::SuiteNode::formatName ${exp_path}]
-   set threadId [SharedData_getSuiteData ${exp_path} THREAD_ID]
-   # send the request to the exp thread
-   thread::send ${threadId} "thread_launchFLow ${mainid} ${exp_path}"
+   set progressW [ProgressDlg .pd -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT]
+   set PROGRESS_REPORT_TXT "Lauching [file tail ${exp_path}] ..."
+   # for some reason, I need to call the update for the progress dlg to appear properly
+   update idletasks
+
+   set result [ catch {
+
+      set mainid [thread::id]
+      # retrieve the exp thread based on the exp_path
+      set formatName [::SuiteNode::formatName ${exp_path}]
+      set threadId [SharedData_getSuiteData ${exp_path} THREAD_ID]
+      # send the request to the exp thread
+      thread::send ${threadId} "thread_launchFLow ${mainid} ${exp_path}"
+      destroy ${progressW}
+
+   } message ]
+
+   # any errors, put the cursor back to normal state
+   if { ${result} != 0  } {
+
+      set einfo $::errorInfo
+      set ecode $::errorCode
+      destroy ${progressW}
+
+      # report the error with original details
+      return -code ${result} \
+         -errorcode ${ecode} \
+         -errorinfo ${einfo} \
+         ${message}
+   }
 }
 
 # At application startup, this function is called by each
