@@ -964,12 +964,12 @@ proc Overview_launchExpFlow { calling_w exp_path } {
    global env ExpThreadList PROGRESS_REPORT_TXT
    set xflowCmd $env(SEQ_XFLOW_BIN)/xflow
 
-   set progressW [ProgressDlg .pd -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT]
-   set PROGRESS_REPORT_TXT "Lauching [file tail ${exp_path}] ..."
-   # for some reason, I need to call the update for the progress dlg to appear properly
-   update idletasks
-
    set result [ catch {
+      set progressW [ProgressDlg .pd -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT]
+      set PROGRESS_REPORT_TXT "Lauching [file tail ${exp_path}] ..."
+      # for some reason, I need to call the update for the progress dlg to appear properly
+      update idletasks
+
 
       set mainid [thread::id]
       # retrieve the exp thread based on the exp_path
