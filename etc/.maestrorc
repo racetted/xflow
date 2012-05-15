@@ -3,6 +3,12 @@
 # This file must be stored in $HOME/.maestrorc
 #
 
+# use_bell: specifies whether or not message center will use
+# system bell notification on new messages
+# true: system bell used (default)
+# false: system bell not used
+use_bell = true
+
 # auto_msg_display: modifies the automatic display of message center in the gui
 # true: gui autodisplay msg center (default)
 # false: no autodisplay  
@@ -66,6 +72,10 @@ background_image = /home/ops/afsi/sul/tmp/images/artist_canvas_lightblue.gif
 
 # this option is used to set the geometry for flow windows
 flow_geometry = 1000x500
+
+# this option is  used to set the scale mode of xflow
+# 1=normal_mode 2=scale-2 mode
+flow_scale = 1
 
 # this option is to set the preferred browser
 browser = mozilla

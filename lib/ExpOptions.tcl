@@ -1,3 +1,5 @@
+package require Tktable
+
 # show support info from xml file
 #
 # for now the xml is quite small so I don't

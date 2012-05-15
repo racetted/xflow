@@ -71,6 +71,7 @@ proc SharedData_initColors {} {
       SharedData_setColor FLOW_SUBMIT_ARROW "#787878"
       SharedData_setColor FLOW_SUBMIT_ARROW "#787878"
 
+      SharedData_setColor FLOW_FIND_SELECT "#ffe600"
       SharedData_setColor CANVAS_COLOR "#ececec"
       SharedData_setColor SHADOW_COLOR "#676559"
       SharedData_setColor NORMAL_RUN_OUTLINE black
@@ -89,6 +90,8 @@ proc SharedData_initColors {} {
       SharedData_setColor MSG_CENTER_NORMAL_FG "black"
       SharedData_setColor MSG_CENTER_ALT_BG "black"
       SharedData_setColor MSG_CENTER_ABORT_FG "white"
+      SharedData_setColor MSG_CENTER_STRIPE_BG "grey95"
+      SharedData_setColor MSG_CENTER_NORMAL_BG "grey90"
 
       # the key is the status
       # first color is fg, second color is bg, 3rd is overview box outline
@@ -138,7 +141,7 @@ proc SharedData_init {} {
    SharedData_setMiscData SHOW_INFO_TYPE true
 
    SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
-   SharedData_setMiscData MSG_CENTER_NUMBER_ROWS 25
+   SharedData_setMiscData MSG_CENTER_USE_BELL true
 
    SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData DEBUG_TRACE 0
@@ -188,7 +191,8 @@ proc SharedData_readProperties { {rc_file ""} } {
             } else {
                set keyFound [string toupper [string trim [lindex $splittedList 0]]]
                set valueFound [string trim [lindex $splittedList 1]]
-               puts "SharedData_readProperties found key:${keyFound} value:${valueFound}"
+               #puts "SharedData_readProperties found key:${keyFound} value:${valueFound}"
+               puts "maestrorc preference name:${keyFound} value:${valueFound}"
                SharedData_setMiscData ${keyFound} ${valueFound}
             }
          }

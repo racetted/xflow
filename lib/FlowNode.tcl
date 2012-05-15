@@ -3,6 +3,10 @@ package require struct::record
 namespace import ::struct::record::*
 
 #
+# a FlowNode record is used to represent the node as it appears in the flow 
+# i.e. submits relation and not container relations.
+# example: /enkf_mod/f1/t1/t2 even though t1 is a task and not a container
+#
 # statuses: is an array that contains the status of 
 # the node or nodes when it's part of a loop for instance.
 #
@@ -31,6 +35,7 @@ namespace import ::struct::record::*
 # example:" -6 job complete testsuite n/a"
 # "n/a" must be set if the data member has no value
 # "
+#
 record define FlowNode {
    name
    parent
@@ -205,30 +210,58 @@ proc ::FlowNodes::getPosition { node } {
    return ${returnValue}
 }
 
-# search the node subtree & returns the path of the node that contains a specific child
-# returns "" if not found
-proc ::FlowNodes::searchForChild { node child } {
-   #puts "searchForChild called node:$node child:$child"
-   set currentList [$node cget -flow.children]
+# search the _node tree down to find which node submits the given node
+# If the submitter node is not the _node itself, it will only
+# go down nodes that are of type task_node or npt nodes... because you cannot
+# submit a node that belongs to another container than your own.
+# _node is full path of the node to begin search on i.e. /exp_root/my_container
+# _submitted_node is the xml node name of the submitted node
+proc ::FlowNodes::searchSubmitNode { _node _submitted_node } {
+   set currentList [${_node} cget -flow.children]
    set value ""
-   if { $currentList != "" } {
-      if { [lsearch $currentList $child] != -1 } {
-         set value $node
-         set foundNode $node
+   if { ${currentList} != "" } {
+      if { [lsearch ${currentList} ${_submitted_node}] != -1 } {
+         set value ${_node}
+         set foundNode ${_node}
       } else {
-         foreach childName $currentList {
-            set value [searchForChild $node/$childName $child]
-            if { $value != "" } {
-               set foundNode $node/$childName
+         foreach childName ${currentList} {
+            set value [searchSubmitNode ${_node}/${childName} ${_submitted_node}]
+            if { ${value} != "" } {
+               set foundNode ${_node}/${childName}
                break
             }
          }
       }
    }
-   if { $value != "" } {
-      #puts "searchForChild found in $foundNode"
+   return ${value}
+}
+
+# 
+# searches nodes recursively down the flow submits relation
+# starting at _node for a match using the
+# _search_value. Only the leaf part of the node is used for the match.
+# For example, if the node is /enkf_mod/Analysis/enkf_task and the
+# the _search_value is "enkf" it will match because the leaf part i.e. enkf_task
+# matches the search string. The /enkf_mod/Analysis/ is not used.
+# 
+# _node : node value i.e. /enkf_mod/Analysis/enkf_task
+# _search_value: i.e enkf
+# _match_case: 1=case_sensitive 0=no_case_sensitive
+# _results_output: global variable list use to append found nodes that matches the
+#                   search.
+proc ::FlowNodes::searchForNode { _node _search_value _match_case _results_output } {
+   upvar #0 ${_results_output} myOutput
+
+   set matchCaseFlag "-nocase"
+
+   if { ${_match_case} == 1 } { set matchCaseFlag "" }
+   if { [eval string match ${matchCaseFlag} *${_search_value}* [file tail ${_node}]] == 1 } {
+      lappend myOutput ${_node}
    }
-   return $value
+
+   foreach childName [${_node} cget -flow.children] {
+      ::FlowNodes::searchForNode ${_node}/${childName} ${_search_value} ${_match_case} ${_results_output}
+   }
 }
 
 # search the node uptree & returns the path of the node that
@@ -294,13 +327,13 @@ proc ::FlowNodes::uncollapseAll { node canvas } {
       ::FlowNodes::initNode $node $canvas
    }
    setCollapsed $node $canvas 0
-   set currentList [$node cget -flow.children]
-   if { $currentList != "" } {
-      foreach childName $currentList {
-         set childNode $node/$childName
-         uncollapseAll $childNode $canvas
-      }
-   }
+   #set currentList [$node cget -flow.children]
+   #if { $currentList != "" } {
+   #   foreach childName $currentList {
+   #      set childNode $node/$childName
+   #      uncollapseAll $childNode $canvas
+   #   }
+   #}
 }
 
 proc ::FlowNodes::isCollapsed { node canvas } {
@@ -342,6 +375,35 @@ proc ::FlowNodes::setCollapsed { node canvas value } {
       }
    }
 
+}
+
+# if the current node is collapsed,
+# searches up the submit parent chain to look for first parent that is collapsed,
+# and then sets the collapse value to 0 from the found parent down to every submit child
+# returns the first parent found 
+# else returns empty string
+proc ::FlowNodes::uncollapseBranch { node canvas } {
+   if { [::FlowNodes::isCollapsed ${node} ${canvas}] == 0 } {
+      return ""
+   }
+
+   set previousNode ${node}
+   set nextNode [${node} cget -flow.parent]
+   set found false
+   while { ${nextNode} != "" && ${found} == false } {
+      array set displayInfoList [${nextNode} cget -flow.display_infos]
+      if { [info exists displayInfoList($canvas)] } {
+         set displayInfo $displayInfoList($canvas)
+         set value [lindex $displayInfo 0]
+         if { $value == 0 } {
+            set found true ; break
+         }
+         set previousNode ${nextNode}
+         set nextNode [${nextNode} cget -flow.parent]
+      }
+   }
+   ::FlowNodes::setCollapsed ${previousNode} ${canvas} 0
+   return ${previousNode}
 }
 
 # values must be a list of {x1 y1 x2 y2 max_x max_y}

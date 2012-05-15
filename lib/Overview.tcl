@@ -20,8 +20,10 @@ set auto_path [linsert $auto_path 0 $lib_dir ]
 package require SuiteNode
 
 proc Overview_setTkOptions {} {
+
    option add *activeBackground [SharedData_getColor ACTIVE_BG]
    option add *selectBackground [SharedData_getColor SELECT_BG]
+   option add *troughColor [::tk::Darken [option get . background Scrollbar] 85]
 
    #ttk::style configure Xflow.Menu -background cornsilk4
 }
@@ -713,6 +715,7 @@ proc Overview_ExpCreateMiddleBox { canvas suite_record timevalue {shift_day fals
       $canvas lower ${expPath}.middle ${expPath}.text
 
       $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow $canvas ${expPath} ]
+      $canvas bind ${expPath}.text <Double-Button-1> [list Overview_launchExpFlow $canvas ${expPath} ]
    }
 
 }
@@ -941,23 +944,56 @@ proc Overview_boxMenu { canvas exp_path x y } {
 proc Overview_historyCallback { canvas exp_path caller_menu } {
    DEBUG "Overview_historyCallback exp_path:$exp_path" 5
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
-
+   set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
    set seqNode [SharedData_getSuiteData ${exp_path} ROOT_NODE]
-   Sequencer_runCommandWithWindow $exp_path $seqExec "Node History ${exp_path}" -n $seqNode
+   set currentDatestamp [::SuiteNode::getLastStatusDatestamp ${suiteRecord}]
+   if { ${currentDatestamp} != "" } {
+      # retrieve the last 30 days
+      set cmdArgs "-n $seqNode -edate ${currentDatestamp} -history [expr 30*24]"
+   } else {
+      # retrieve all
+      set cmdArgs "-n $seqNode"
+   }
+
+   Sequencer_runCommandWithWindow $exp_path $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
 }
 
 # this function is called to launch an exp window
 # It sends the request to the exp thread to care of it.
 proc Overview_launchExpFlow { calling_w exp_path } {
-   global env ExpThreadList
+   global env ExpThreadList PROGRESS_REPORT_TXT
    set xflowCmd $env(SEQ_XFLOW_BIN)/xflow
 
-   set mainid [thread::id]
-   # retrieve the exp thread based on the exp_path
-   set formatName [::SuiteNode::formatName ${exp_path}]
-   set threadId [SharedData_getSuiteData ${exp_path} THREAD_ID]
-   # send the request to the exp thread
-   thread::send ${threadId} "thread_launchFLow ${mainid} ${exp_path}"
+   set result [ catch {
+      set progressW [ProgressDlg .pd -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT]
+      set PROGRESS_REPORT_TXT "Lauching [file tail ${exp_path}] ..."
+      # for some reason, I need to call the update for the progress dlg to appear properly
+      update idletasks
+
+
+      set mainid [thread::id]
+      # retrieve the exp thread based on the exp_path
+      set formatName [::SuiteNode::formatName ${exp_path}]
+      set threadId [SharedData_getSuiteData ${exp_path} THREAD_ID]
+      # send the request to the exp thread
+      thread::send ${threadId} "thread_launchFLow ${mainid} ${exp_path}"
+      destroy ${progressW}
+
+   } message ]
+
+   # any errors, put the cursor back to normal state
+   if { ${result} != 0  } {
+
+      set einfo $::errorInfo
+      set ecode $::errorCode
+      destroy ${progressW}
+
+      # report the error with original details
+      return -code ${result} \
+         -errorcode ${ecode} \
+         -errorinfo ${einfo} \
+         ${message}
+   }
 }
 
 # At application startup, this function is called by each
@@ -997,7 +1033,7 @@ proc Overview_childInitDone { suite_path thread_id } {
 # this function is called asynchronously by experiment child threads to
 # update the status of an experiment node in the overview panel.
 # See LogReader.tcl
-proc Overview_updateExp { suite_record datestamp status timestamp } {
+proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp } {
    global AUTO_LAUNCH
    DEBUG "Overview_updateExp $suite_record status:$status timestamp:$timestamp " 5
 
@@ -1028,8 +1064,9 @@ proc Overview_updateExp { suite_record datestamp status timestamp } {
 
       set isStartupDone [SharedData_getMiscData STARTUP_DONE]
       if { $status == "begin" } {
+         set isExpStartupDone [SharedData_getMiscData ${exp_thread_id}_STARTUP_DONE]
          # launch the flow if needed... but not when the app is startup up
-         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true" } {
+         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true" && ${isExpStartupDone} == "true" } {
             Overview_launchExpFlow $canvas [$suite_record cget -suite_path]
          }
       }
@@ -1683,7 +1720,7 @@ proc Overview_readExperiments {} {
 }
 
 proc Overview_quit {} {
-   global TimeAfterId
+   global TimeAfterId MSG_CENTER_THREAD_ID
    DEBUG "Overview_quit" 5
    if { [info exists TimeAfterId] } {
       after cancel $TimeAfterId
@@ -1699,6 +1736,8 @@ proc Overview_quit {} {
          thread::send ${threadId} "thread_quit"
       }
    }
+   
+   thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_quit"
 
    # destroy $top
    exit 0

@@ -31,6 +31,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       }
 
       set logfile $suitePath/logs/${expDate}_nodelog
+      set datestamp ${expDate}
       set expLog [ ${suite_record} cget -exp_log ]
       if { ${expLog} == "" } {
          ${suite_record} configure -exp_log ${logfile}
@@ -67,6 +68,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
    } else {
       # view history mode
       set logfile $suitePath/logs/${monitorLog}_nodelog
+      set datestamp ${monitorLog}
    }
    DEBUG "LogReader_readFile calling_thread_id:$calling_thread_id date:[exec date] suite:[$suite_record cget -suite_path] file:[file tail $logfile]" 5
 
@@ -88,9 +90,9 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       
       while {[gets $f_logfile line] >= 0} {
          if { ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
-            LogReader_processOverviewLine $calling_thread_id $suite_record $line
+            LogReader_processOverviewLine $calling_thread_id $suite_record $datestamp $line
          }
-         LogReader_processLine $calling_thread_id $suite_record $line
+         LogReader_processLine $calling_thread_id $suite_record $datestamp $line
       }
       
       # Need to notify the main thread that this child is done reading
@@ -146,7 +148,7 @@ proc LogReader_cancelAfter { suite_record } {
 }
 
 # this is meant to be running inside a child thread
-proc LogReader_processOverviewLine { calling_thread_id suite_record line } {  
+proc LogReader_processOverviewLine { calling_thread_id suite_record datestamp line } {  
    DEBUG "LogReader_processOverviewLine suite_record:$suite_record line:$line" 5
 
    set nodeIndex [string first "SEQNODE=" $line]
@@ -199,18 +201,19 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record line } {
               || ${type} == "abort" || ${type} == "end" 
               || ${type} == "wait" || ${type} == "submit" || ${type} == "catchup" } {
             if { ${node} == [${suite_record} cget -root_node] } {
-               set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
                DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
                thread::send -async ${calling_thread_id} \
-                  "Overview_updateExp  ${suite_record} ${currentDatestamp} ${type} ${timestamp}"
+                  "Overview_updateExp [thread::id] ${suite_record} ${datestamp} ${type} ${timestamp}"
             }
          }
       }
    }
 }
 
-proc LogReader_processLine { calling_thread_id suite_record line } {
+proc LogReader_processLine { calling_thread_id suite_record datestamp line } {
    global MSG_CENTER_THREAD_ID
+   set thisThreadId [thread::id]
+
    DEBUG "LogReader_processLine line:$line" 5
    # node & signal is mandatory to be processed
    # else the line is ignored
@@ -266,9 +269,8 @@ proc LogReader_processLine { calling_thread_id suite_record line } {
                set msgNode ${node}
             }
             set expPath [${suite_record} cget -suite_path]
-            set currentDatestamp [::SuiteNode::getActiveDatestamp ${suite_record}]
             thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenterThread_newMessage \"${currentDatestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${expPath} \"${msg}\""
+               "MsgCenterThread_newMessage ${thisThreadId} \"${datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${expPath} \"${msg}\""
             # Console_insertMessage "EXP:[${suite_record} cget -suite_path] ${timestamp} ${node} ${type} ${msg}"
          }
          # abortx, endx, beginx type are used for signals we send to the parent containers nodes
