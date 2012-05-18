@@ -3006,6 +3006,8 @@ proc xflow_validateSuite {} {
 
 # this function is called to create the widgets of the xflow main window
 proc xflow_createWidgets {} {
+   global SEQ_EXP_HOME
+
    DEBUG "xflow_createWidgets" 5
    wm iconify .
    set topFrame [frame [xflow_getWidgetName top_frame]]
@@ -3026,6 +3028,19 @@ proc xflow_createWidgets {} {
    # monitor date
    xflow_addMonitorDateWidget ${monDateFrame}
 
+   # exp label frame
+   set expLabelFrame [frame [xflow_getWidgetName exp_label_frame]]
+   set expLabelFont ExpLabelFont
+   if { [lsearch [font names] ExpLabelFont] == -1 } {
+      # create the font if not exists
+      font create ExpLabelFont
+      font configure ${expLabelFont} -size 25 -weight bold
+   }
+
+   set expLabel [label ${expLabelFrame}.exp_label -text [file tail ${SEQ_EXP_HOME}] -font ${expLabelFont}]
+   grid ${expLabel} 
+
+   # find frame
    set findFrame [frame [xflow_getWidgetName find_frame]]
    xflow_createFindWidgets ${findFrame}
    set findCloseB [xflow_getWidgetName find_close_button]
@@ -3035,12 +3050,11 @@ proc xflow_createWidgets {} {
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
    grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
    grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
+   #grid ${expLabelFrame} -row 0 -column 3 -sticky nsew -padx 2 -pady 0 -ipadx 2
+   grid ${expLabelFrame} -row 0 -column 3 -padx { 20 0 }
 
    # flow_frame is the 3nd widget
    set flowFrame [frame [xflow_getWidgetName flow_frame]]
-   # xflow_createCanvasFrame ${tabFrame} $env(SEQ_EXP_HOME) "xflow_selectSuiteCallback"
-   #set suiteName [file tail $suitePath]
-   #set drawFrame ${flowFrame}.[::SuiteNode::formatName $suitePath]
    set drawFrame [frame ${flowFrame}.draw_frame]
 
    grid columnconfigure ${flowFrame} 0 -weight 1
@@ -3321,6 +3335,7 @@ proc xflow_setWidgetNames {} {
       monitor_date_combo .second_frame.mon_date_frame.entry_combo
       monitor_date_button_frame .second_frame.mon_date_frame.button_frame
       monitor_date_set_button .second_frame.mon_date_frame.button_frame.set_button
+      exp_label_frame .second_frame.exp_label_frame
 
       find_close_button .find_frame.close_button
       find_label .find_frame.entry_label

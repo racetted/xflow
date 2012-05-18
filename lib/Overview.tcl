@@ -986,7 +986,7 @@ proc Overview_launchExpFlow { calling_w exp_path } {
 
       set einfo $::errorInfo
       set ecode $::errorCode
-      destroy ${progressW}
+      if { [winfo exists ${progressW}] } { destroy ${progressW} }
 
       # report the error with original details
       return -code ${result} \
