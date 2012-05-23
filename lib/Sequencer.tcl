@@ -34,12 +34,12 @@ proc Sequencer_runCommandWithWindow { suite_path command title position args } {
    #DEBUG "Sequencer_runCommand ksh -c $cmd" 5
    #catch { eval [exec ksh -c $cmd]}
    Sequencer_runCommand ${suite_path} ${tmpfile} "${command} [join ${args}]"
-   create_text_window "$title" $tmpfile ${position} .
-   catch {[exec rm -f $tmpfile]}
+   create_text_window "$title" ${tmpfile} ${position} .
+   catch {[exec rm -f ${tmpfile}}
 }
 
 proc Sequencer_runCommand { suite_path out_file command } {
-   set cmd "export SEQ_EXP_HOME=$suite_path;$command > ${out_file} 2>&1"
+   set cmd "export SEQ_EXP_HOME=$suite_path;print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
    DEBUG "Sequencer_runCommand ksh -c $cmd" 5
    catch { eval [exec ksh -c $cmd]}
 }
