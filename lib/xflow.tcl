@@ -1567,6 +1567,7 @@ proc xflow_historyCallback { node canvas caller_menu {history 48} {full_loop 0} 
 # shows the node information and is invoked from the "Node Info" menu item.
 proc xflow_nodeInfoCallback { node canvas caller_menu } {
    global env
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set suiteRecord [xflow_getActiveSuite]
 
    set suiteName [$suiteRecord cget -suite_name]
@@ -1576,11 +1577,11 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
    if { [winfo exists $infoWidget] } {
       destroy $infoWidget
    }
-   toplevel $infoWidget
-   Utils_positionWindow $infoWidget $canvas
-   wm title $infoWidget "Node Info ${nodeTail}"
-   set textWidget [text $infoWidget.txt]
-   set outputFile $env(TMPDIR)/nodeinfo_output_${nodeTail}_[clock seconds]
+   #toplevel $infoWidget
+   #Utils_positionWindow $infoWidget $canvas
+   #wm title $infoWidget "Node Info ${nodeTail}"
+   #set textWidget [text $infoWidget.txt]
+   #set outputFile $env(TMPDIR)/nodeinfo_output_${nodeTail}_[clock seconds]
    set seqExpHome [$suiteRecord cget -suite_path]
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
@@ -1593,27 +1594,28 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
       set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    }
 
-   DEBUG "xflow_nodeInfoCallback export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs}" 5
-   set code [catch {eval [exec ksh -c "export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs} > ${outputFile} 2> /dev/null"]} message]
+   #DEBUG "xflow_nodeInfoCallback export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs}" 5
+   # set code [catch {eval [exec ksh -c "export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs} > ${outputFile} 2> /dev/null"]} message]
+   Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] ${nodeInfoExec} "Node Info ${nodeTail}" top -n $seqNode  ${seqLoopArgs}
 
-   if { $code != 0 } {
-      DEBUG "xflow_newWindowCallback ERROR:${message}" 5
-      return
-   }
+   #if { $code != 0 } {
+   #   DEBUG "xflow_newWindowCallback ERROR:${message}" 5
+   #   return
+   #}
 
-   if [catch {open "$outputFile" "r"} fileId] {
-      puts stderr "Cannot open $outputFile: $outputFile"
-      return 0
-   } else {
-    while {[gets $fileId line] >= 0} {
-      $textWidget insert end "${line}\n"
-    }
-   }
-   catch { close $fileId }
+   #if [catch {open "$outputFile" "r"} fileId] {
+   #   puts stderr "Cannot open $outputFile: $outputFile"
+   #   return 0
+   #} else {
+   # while {[gets $fileId line] >= 0} {
+   #   $textWidget insert end "${line}\n"
+   # }
+   #}
+   #catch { close $fileId }
    #$textWidget configure -height [$textWidget count -lines 0.0 end]
-   grid $textWidget -column 0 -row 0 -sticky nsew -padx 2 -pady 2
-   grid columnconfigure $infoWidget 0 -weight 1
-   grid rowconfigure $infoWidget 0 -weight 1
+   #grid $textWidget -column 0 -row 0 -sticky nsew -padx 2 -pady 2
+   #grid columnconfigure $infoWidget 0 -weight 1
+   #grid rowconfigure $infoWidget 0 -weight 1
 }
 
 # this command is invoked from the Misc->initbranch menu item
@@ -3050,7 +3052,6 @@ proc xflow_createWidgets {} {
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
    grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
    grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
-   #grid ${expLabelFrame} -row 0 -column 3 -sticky nsew -padx 2 -pady 0 -ipadx 2
    grid ${expLabelFrame} -row 0 -column 3 -padx { 20 0 }
 
    # flow_frame is the 3nd widget
@@ -3068,7 +3069,6 @@ proc xflow_createWidgets {} {
    grid ${flowFrame}  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
    grid columnconfigure . 0 -weight 1
    grid columnconfigure . 1 -weight 1
-   #grid rowconfigure . 2 -weight 2
    grid rowconfigure . 3 -weight 2
 
    set sizeGripW [xflow_getWidgetName main_size_grip]
