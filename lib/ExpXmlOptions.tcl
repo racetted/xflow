@@ -34,7 +34,7 @@ proc ExpXmlOptions_getSupport { dom_doc {exp_name ""} } {
    set expNodes [${root} selectNodes ${query}]
    set results {}
    foreach expNode ${expNodes} {
-      puts "ExpXmlConfig_read exp: [${expNode} getAttribute name]"
+      #puts "ExpXmlConfig_read exp: [${expNode} getAttribute name]"
       lappend results [${expNode} getAttribute name]
       # retrieve the SupportExec
       set supportExec [${expNode} selectNodes {string(SupportExec)}]

@@ -211,7 +211,7 @@ proc xflow_createToolbar { parent } {
    button ${nodeKillW} -image ${parent}.node_kill_img -command [list xflow_nodeKillDisplay ${parent} ] -relief flat
    tooltip::tooltip ${nodeKillW}  "Open job killing dialog"
 
-   button ${catchupW} -image ${parent}.catchup_img -command [list Catchup_createMainWidgets ${catchupTopW}] -relief flat
+   button ${catchupW} -image ${parent}.catchup_img -command [list Catchup_createMainWidgets ${catchupTopW} [winfo toplevel ${parent}]] -relief flat
    tooltip::tooltip ${catchupW}  "Open exp catchup window"
 
    button ${shellW} -image ${parent}.shell_img -command xflow_launchShellCallback -relief flat
@@ -644,6 +644,7 @@ proc xflow_nodeKillDisplay { parent_w } {
     }
 
    toplevel $soloWindow
+   wm geometry ${soloWindow} +[winfo pointerx ${parent_w}]+[winfo pointery ${parent_w}]
    
    frame $soloWindow.frame -relief raised -bd 2 -bg $bgColor
    pack $soloWindow.frame -fill both -expand 1 
@@ -1577,11 +1578,6 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
    if { [winfo exists $infoWidget] } {
       destroy $infoWidget
    }
-   #toplevel $infoWidget
-   #Utils_positionWindow $infoWidget $canvas
-   #wm title $infoWidget "Node Info ${nodeTail}"
-   #set textWidget [text $infoWidget.txt]
-   #set outputFile $env(TMPDIR)/nodeinfo_output_${nodeTail}_[clock seconds]
    set seqExpHome [$suiteRecord cget -suite_path]
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [::FlowNodes::getSequencerNode $node]
@@ -1594,28 +1590,7 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
       set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    }
 
-   #DEBUG "xflow_nodeInfoCallback export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs}" 5
-   # set code [catch {eval [exec ksh -c "export SEQ_EXP_HOME=${seqExpHome};${nodeInfoExec} -n $seqNode  ${seqLoopArgs} > ${outputFile} 2> /dev/null"]} message]
    Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] ${nodeInfoExec} "Node Info ${nodeTail}" top -n $seqNode  ${seqLoopArgs}
-
-   #if { $code != 0 } {
-   #   DEBUG "xflow_newWindowCallback ERROR:${message}" 5
-   #   return
-   #}
-
-   #if [catch {open "$outputFile" "r"} fileId] {
-   #   puts stderr "Cannot open $outputFile: $outputFile"
-   #   return 0
-   #} else {
-   # while {[gets $fileId line] >= 0} {
-   #   $textWidget insert end "${line}\n"
-   # }
-   #}
-   #catch { close $fileId }
-   #$textWidget configure -height [$textWidget count -lines 0.0 end]
-   #grid $textWidget -column 0 -row 0 -sticky nsew -padx 2 -pady 2
-   #grid columnconfigure $infoWidget 0 -weight 1
-   #grid rowconfigure $infoWidget 0 -weight 1
 }
 
 # this command is invoked from the Misc->initbranch menu item
@@ -2179,6 +2154,8 @@ proc xflow_allListingCallback { node canvas caller_menu type } {
       destroy ${listingW}
    }
    toplevel ${listingW}
+   wm geometry ${listingW} +[winfo pointerx ${caller_menu}]+[winfo pointery ${caller_menu}]
+
    wm title  ${listingW} "${type} listings ${node}"
    frame ${listingW}.frame -relief raised -bd 2 -bg $bgColor
    pack ${listingW}.frame -fill both -expand 1
@@ -3094,8 +3071,12 @@ proc xflow_displayFlow { calling_thread_id } {
    global env XFLOW_STANDALONE SEQ_EXP_HOME PROGRESS_REPORT_TXT
    global MONITORING_LATEST MONITOR_DATESTAMP FLOW_RESIZED
    
-
    DEBUG "xflow_displayFlow thread id:[thread::id]" 5
+   set overview_x ""
+   foreach {overview_x overview_y} [SharedData_getMiscData OVERVIEW_MAIN_COORDS] { break }
+   if { ${overview_x} != "" } {
+      xflow_positionFlowWindow . ${overview_x} ${overview_y}
+   }
 
    set FLOW_RESIZED false
    set topFrame [xflow_getWidgetName top_frame]
@@ -3158,6 +3139,42 @@ proc xflow_displayFlow { calling_thread_id } {
    xflow_setTitle ${topFrame} ${suitePath}
    xflow_toFront .
    # Console_create
+
+   #if { ${_overview_x} != "" } {
+   #   xflow_positionFlowWindow . ${_overview_x} ${_overview_y}
+   #}
+}
+
+# Position the flow windows relative to the main overview window.
+# Only done the first time the flow is launched...Next time reuses the same 
+# positioning.
+# _toplevel is the toplevel of the current flow
+# _overview_x is the x coord of the upper left corner of the overview window
+# _overview_y is the y coord of the upper left corner of the overview window
+proc xflow_positionFlowWindow { _toplevel _overview_x _overview_y} {
+   global XFLOW_INIT_POSITION
+   DEBUG "xflow_positionFlowWindow _overview_x:$_overview_x _overview_y:$_overview_y" 5
+   #puts "xflow_positionFlowWindow _overview_x:$_overview_x _overview_y:$_overview_y"
+   # the XFLOW_POS_COUNTER is shared among all exp threads
+   if { ! [info exists XFLOW_INIT_POSITION] } {
+      if { [SharedData_getMiscData XFLOW_POS_COUNTER] != "" } {
+         set counter [SharedData_getMiscData XFLOW_POS_COUNTER]
+         incr counter
+         if { ${counter} == 20 } {
+            set counter 1
+         }
+      } else {
+         set counter 1
+      }
+      set XFLOW_INIT_POSITION 1
+      SharedData_setMiscData XFLOW_POS_COUNTER ${counter}
+      # I'm using the overview main window x and y and the XFLOW_POS_COUNTER to
+      # position a window relative to the main window
+      set newx [expr ${_overview_x} + ${counter} * 40]
+      set newy [expr ${_overview_y} + 200 + ${counter} * 40]
+      wm geometry ${_toplevel} +${newx}+${newy}
+      #puts "xflow_positionFlowWindow wm geometry ${_toplevel} +${newx}+${newy}"
+   }
 }
 
 proc xflow_toFront { toplevel_w } {
