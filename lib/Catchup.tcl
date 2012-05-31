@@ -1,14 +1,15 @@
 package require Tk
 package require tooltip
 
-proc Catchup_createMainWidgets { _topLevelW } {
+proc Catchup_createMainWidgets { _topLevelW _parentW } {
    if { [winfo exists ${_topLevelW}] } {
       destroy ${_topLevelW}
    }
 
    toplevel ${_topLevelW}
+   wm geometry ${_topLevelW} +[winfo pointerx ${_parentW}]+[winfo pointery ${_parentW}]
 
-   Utils_positionWindow ${_topLevelW}
+   # Utils_positionWindow ${_topLevelW}
 
    wm title ${_topLevelW} "Maestro Catchup Settings"
    set catchupValues { Stop 1 2 3 4 5 6 7 Normal Discretionary }

@@ -986,7 +986,7 @@ proc Overview_launchExpFlow { calling_w exp_path } {
 
       set einfo $::errorInfo
       set ecode $::errorCode
-      if { [winfo exists ${progressW}] } { destroy ${progressW} }
+      destroy ${progressW}
 
       # report the error with original details
       return -code ${result} \
@@ -1185,7 +1185,7 @@ proc Overview_createThread { exp_path } {
 
       # this function is called from the overview main thread to the exp thread
       # to display the exp flow either on user's request or because of "Auto Launch"
-      proc thread_launchFLow { parent_id exp_path } {
+      proc thread_launchFLow { parent_id exp_path} {
          global this_id 
          DEBUG "thread_launchFLow" 5
 
@@ -1433,7 +1433,7 @@ proc Overview_addGroups { canvas } {
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
-	incr expNumber
+         incr expNumber
       }
    }
    # startup progress bar
@@ -1984,6 +1984,10 @@ set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
 set topOverview .overview_top
 set topCanvas ${topOverview}.canvas
 toplevel ${topOverview}
+# keep track of coords
+bind ${topOverview} <Configure> {
+  SharedData_setMiscData OVERVIEW_MAIN_COORDS "[winfo x ${topOverview}] [winfo y ${topOverview}]"
+}
 wm withdraw ${topOverview}
 
 #Overview_setTitle ${topOverview}

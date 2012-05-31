@@ -27,8 +27,8 @@ proc Utils_positionWindow { top {parent ""} } {
       set POSITION_X [winfo pointerx $parent]
       set POSITION_Y [winfo pointery $parent]
    } else {
-      set POSITION_X [expr [winfo screenwidth .]/4]
-      set POSITION_Y [expr [winfo screenheight .]/8]
+      set POSITION_X [expr [winfo pointerx .] + [winfo screenwidth .]/4]
+      set POSITION_Y [expr [winfo pointery .] + [winfo screenheight .]/8]
    }
    wm geometry $top +${POSITION_X}+${POSITION_Y}
 }
