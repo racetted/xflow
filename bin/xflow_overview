@@ -8,7 +8,12 @@ if [[ "$arch" = "Linux" ]]; then
    TCLSH=/home/binops/afsi/ssm/domain2/linux26-i686/bin/wish8.5
    TCLSH=/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
 else
-   echo xflow_overview is only supported on Linux platforms
+   echo xflow_overview is only supported on Linux platforms >&2
+   exit
+fi
+
+if [[ "${SEQ_XFLOW_BIN}" == "" ]] ; then
+   echo "SEQ_XFLOW_BIN environment variable not defined! Exiting..." >&2
    exit
 fi
 
@@ -36,6 +41,8 @@ else
    sshX=""
    export DISPLAY=${display:-${DISPLAY}}
 fi
+
+[[ -f "${SEQ_XFLOW_BIN}/../etc/check_deprecation" ]] && . "${SEQ_XFLOW_BIN}/../etc/check_deprecation"
 
 print "\ndisplay=${display}"
 print "\nusing DISPLAY=$DISPLAY"

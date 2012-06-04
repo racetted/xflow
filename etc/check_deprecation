@@ -1,0 +1,29 @@
+#!/bin/ksh
+
+# Description: this script displays a dialog to the maestro user
+# that the package he is using is deprecated; the message
+# is only displayed if the ${SEQ_XFLOW_BIN}/../etc/.deprecated
+# is available.
+# The content of the .deprecated file will be used as is as part of the
+# message sent to the user.
+# The file should contain info about the date the ssm packages
+# are removed and the names of the packages.
+
+#set -x
+deprecateFile=${SEQ_XFLOW_BIN}/../etc/.deprecated
+if [[ -f ${deprecateFile} ]] ; then
+   #echo "deprecated file found"
+   beginMsg="The current maestro package is deprecated and will be removed shortly.\n\n"
+   endMsg=$(cat ${deprecateFile})
+   if [[ "$(which kdialog)" == "" ]] ; then
+      echo "kdialog not found"
+      echo "------------------- WARNING! ----------------"
+      echo "------------------- WARNING! ----------------"
+      echo "${beginMsg}${endMsg}"
+      echo "------------------- WARNING! ----------------"
+      echo "------------------- WARNING! ----------------"
+   else
+      #echo "kdialog found"
+      kdialog --title "Maestro Warning!" --msgbox "${beginMsg}${endMsg}"
+   fi
+fi
