@@ -13,7 +13,7 @@ set auto_path [linsert $auto_path 0 $lib_dir ]
 proc MsgCenter_setTkOptions {} {
    option add *activeBackground [SharedData_getColor ACTIVE_BG]
    option add *selectBackground [SharedData_getColor SELECT_BG]
-   option add *troughColor [::tk::Darken [option get . background Scrollbar] 85]
+   catch { option add *troughColor [::tk::Darken [option get . background Scrollbar] 85] }
 
    #ttk::style configure Xflow.Menu -background cornsilk4
 }
