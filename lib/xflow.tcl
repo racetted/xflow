@@ -296,14 +296,20 @@ proc xflow_showColorLegend { caller_w } {
 # the user to set/query the current datestamp
 proc xflow_addDatestampWidget { parent_widget } {
    set dtFrame ${parent_widget}
-   set dateEntry [xflow_getWidgetName exp_date_entry]
+   #set dateEntry [xflow_getWidgetName exp_date_entry]
+   set dateEntryCombo [xflow_getWidgetName exp_date_entry]
    set buttonFrame [xflow_getWidgetName exp_date_button_frame]
 
    labelframe ${dtFrame} -text "Exp Datestamp (yyyymmddhh)"
    tooltip::tooltip ${dtFrame} "Current Datestamp"
 
-   entry ${dateEntry} -width 11
-   tooltip::tooltip $dateEntry "Enter a value then set the experiment datestamp."
+   # entry ${dateEntry} -width 11
+   # set monitorEntryCombo [xflow_getWidgetName monitor_date_combo]
+   # tooltip::tooltip $dateEntry "Enter a value then set the experiment datestamp."
+   ttk::combobox ${dateEntryCombo}
+
+   set hiddenDate [xflow_getWidgetName exp_date_hidden]
+   label ${hiddenDate}
 
    frame ${buttonFrame}
 
@@ -312,16 +318,19 @@ proc xflow_addDatestampWidget { parent_widget } {
    image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.gif
 
    set setButton [button ${buttonFrame}.set_button -relief flat -image ${buttonFrame}.set_image \
-      -command [list xflow_setDateStamp ${dtFrame}]]
+      -command [list xflow_setDateStampCallback ${dtFrame}]]
    tooltip::tooltip ${setButton} "Sets new datestamp value."
 
+   #set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
+   #   -command [list xflow_initDatestamp ${dtFrame}]]
    set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
-      -command [list xflow_getDateStamp ${dtFrame}]]
+      -command [list xflow_populateDatestamp ${dtFrame}]]
+
    tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
 
    #pack $setButton $refreshButton -side left -pady 2 -padx 5
    pack $setButton $refreshButton -side left -pady 2 -padx 2
-   pack $dateEntry -side left -pady 2 -padx 2
+   pack ${dateEntryCombo} -side left -pady 2 -padx 2
    pack $buttonFrame -pady 2 -side left
    #pack $dtFrame -side left -pady 2 -padx 2 -fill x -expand 1
 }
@@ -703,7 +712,7 @@ proc xflow_killNode { list_widget } {
          set nodeID [file tail ${jobPath}]
          set node [file dirname ${jobPath}]/[lindex $listEntryValue end]
          DEBUG "xflow_killNode command: $seqExec  -n $node -job_id $nodeID" 5
-         Sequencer_runCommandWithWindow $suitePath $seqExec "Node Kill [file tail $node]" top -n $node -job_id $nodeID
+         Sequencer_runCommandWithWindow $suitePath [xflow_getSequencerDatestamp] $seqExec "Node Kill [file tail $node]" top -n $node -job_id $nodeID
       } else {
          Utils_raiseError [winfo toplevel ${list_widget}] "Kill Node" "Application Error: Unable to retrieve Task Id."
       }
@@ -725,6 +734,26 @@ proc xflow_populateMonitorDate { monitor_frame } {
       set values "$values [Utils_getVisibleDatestampValue ${date}]"
    }
    ${monitorEntryCombo} configure -values $values
+}
+
+proc xflow_populateDatestamp { exp_date_frame } {
+
+   set suite_record [xflow_getActiveSuite]
+   set suitePath [${suite_record} cget -suite_path]
+   set dateList [LogReader_getAvailableDates $suitePath]
+   set dateEntryCombo [xflow_getWidgetName exp_date_entry]
+   
+   set values ""
+   foreach date $dateList {
+      set values "$values [Utils_getVisibleDatestampValue ${date}]"
+   }
+   ${dateEntryCombo} configure -values $values
+
+   #set hiddenDateLabel [xflow_getWidgetName exp_date_hidden]
+   #set dateValue [${hiddenDateLabel} cget -text]
+   #if { ${dateValue} != "" } {
+   #   ${dateEntryCombo} set ${dateValue}
+   #}
 }
 
 # this function is called when the user selects a monitoring datestamp
@@ -781,7 +810,7 @@ proc xflow_setMonitorDate { parent_w } {
 
             set thisThreadId [thread::id]
             set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
-            xflow_displayFlow ${callingThreadId}
+            #xflow_displayFlow ${callingThreadId}
          }
       }
    }
@@ -874,7 +903,7 @@ proc xflow_getMonitoredThread {} {
             set thisThreadId [thread::id]
             DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} overview_mode?  [SharedData_getMiscData OVERVIEW_MODE]" 5
             xflow_readFlowXml
-            xflow_displayFlow [thread::id]
+            #xflow_displayFlow [thread::id]
             xflow_setMonitorDateWidget
             DEBUG "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} DONE" 5
          }
@@ -892,32 +921,39 @@ proc xflow_getMonitoredThread {} {
 # value given by tictac executable ($SEQ_EXP_DATE/ExpDate)
 # It also sets the global value MONITOR_DATESTAMP that is used to retrieve
 # datestamp based utilities such as node listing and node history
-proc xflow_getDateStamp { parent_w {suite_record ""} } {
+proc xflow_initDatestamp { parent_w} {
+   global SEQ_EXP_HOME
    global MONITOR_DATESTAMP MONITORING_LATEST
-   if { ${suite_record} == "" } {
-      set suite_record [xflow_getActiveSuite]
-   }
-   set dateStamp [xflow_retrieveDateStamp $parent_w ${suite_record}]
-   set shortDatestamp [Utils_getVisibleDatestampValue ${dateStamp}]
+   DEBUG "xflow_initDatestamp" 5
    set dateEntry [xflow_getWidgetName exp_date_entry]
-   $dateEntry delete 0 end
-   $dateEntry insert 0 $shortDatestamp
-
-   if { ${MONITORING_LATEST} == 1 } {
-      set MONITOR_DATESTAMP $dateStamp
+   set datestamp [LogMonitor_getNewestDatestamp ${SEQ_EXP_HOME}]
+   if { ${datestamp} != "" } {
+      $dateEntry insert 0 [Utils_getVisibleDatestampValue ${datestamp}]
+      xflow_setDateStamp [xflow_getWidgetName exp_date_frame]
    }
-
-   DEBUG "xflow_getDateStamp dateStamp:$shortDatestamp" 5
+   DEBUG "xflow_initDatestamp datestamp:$datestamp" 5
 }
 
-# this function is mainly used as a notification from the
-# LogReader when it detects that the ${SEQ_EXP_HOME}/ExpDate has changed
-# so that the displayed datestamp should be changed in the gui.
-proc xflow_datestampChanged { suite_record } {
-   set dateFrame [xflow_getWidgetName exp_date_frame]
-   if { [winfo exists $dateFrame] } {
-      xflow_getDateStamp $dateFrame ${suite_record}
-   }
+proc xflow_initDatestampEntry { datestamp } {
+   set dateEntry [xflow_getWidgetName exp_date_entry]
+   $dateEntry set [Utils_getVisibleDatestampValue ${datestamp}]
+}
+
+proc xflow_gettDatestampEntry {} {
+   set dateEntry [xflow_getWidgetName exp_date_entry]
+   set datestamp [$dateEntry get]
+   return ${datestamp}
+}
+
+proc xflow_getSequencerDatestamp { {parent_w .} } {
+
+   #set dateEntry [xflow_getWidgetName exp_date_entry]
+   #set datestamp [$dateEntry get]
+   set hiddenDate [xflow_getWidgetName exp_date_hidden]
+   set datestamp [${hiddenDate} cget -text]
+
+   set datestamp [Utils_getRealDatestampValue ${datestamp}]
+   return ${datestamp}
 }
 
 # this function returns the current exp datestamp value as given
@@ -927,55 +963,49 @@ proc xflow_retrieveDateStamp { parent_w suite_record } {
    set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
    set suitePath [${suite_record} cget -suite_path]
    set cmd "export SEQ_EXP_HOME=$suitePath;$dateExec -f '%Y%M%D%H%Min%S'"
-   set dateStamp ""
-   if [ catch { set dateStamp [exec ksh -c $cmd] } message ] {
+   set datestamp ""
+   if [ catch { set datestamp [exec ksh -c $cmd] } message ] {
       Utils_raiseError [winfo toplevel $parent_w] "Datestamp" $message
    }
-   return $dateStamp
+   return $datestamp
 }
 
 # this function is called when the user sets a new datestamp in the
 # "Exp Datestamp" field. 
-# - It calls maestro tictac to set the exp datestamp
 # - Resets flow node status
-# - Reads the log file of the exp datestamp
 # - redraw the flow
-proc xflow_setDateStamp { parent_w } {
-   global MONITOR_DATESTAMP
-   set top [winfo toplevel $parent_w]
-   set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
+proc xflow_setDateStampCallback { parent_w } {
+   xflow_setDateStamp ${parent_w}
+
    set suiteRecord [xflow_getActiveSuite]
    set suitePath [$suiteRecord cget -suite_path]
+   set thisThreadId [thread::id]
+   set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
+   $suiteRecord configure -read_offset 0
+   ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
+   set datestamp [xflow_gettDatestampEntry]
+   xflow_displayFlow ${callingThreadId} [LogMonitor_getFormattedDatestamp $datestamp]
+}
+
+# - Reads the log file of the exp datestamp
+proc xflow_setDateStamp { parent_w } {
+   DEBUG "xflow_setDateStamp parent_w:$parent_w" 5
+   set top [winfo toplevel $parent_w]
+   set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
    set dateEntry [xflow_getWidgetName exp_date_entry]
 
    Utils_busyCursor $top
-
    catch {
-      set dateStamp [$dateEntry get]
-      set cmd "export SEQ_EXP_HOME=$suitePath;$dateExec -s $dateStamp"
-      DEBUG "xflow_setDateStamp $cmd" 5
-      if [ catch { exec ksh -c $cmd } message ] {
-         Utils_raiseError $top "Datestamp" $message
+      set datestamp [$dateEntry get]
+      DEBUG "xflow_setDateStamp datestamp from date entry: $datestamp" 5
+      if { [Utils_validateVisibleDatestamp ${datestamp}] == false } {
+         tk_messageBox -title "Datestamp Error" -parent ${parent_w} -type ok -icon error \
+            -message "Invalid datestamp value: ${datestamp}. Format must be yyymmddhh."
+         return
       }
-      set MONITOR_DATESTAMP $dateStamp
-      $suiteRecord configure -read_offset 0
-      ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
 
-      set thisThreadId [thread::id]
-      set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
-      xflow_displayFlow ${callingThreadId}
-
-      #set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-      #xflow_initStartupMode
-      #if { ${isOverviewMode} == "true" } {
-      #   set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      #   LogReader_readFile $suiteRecord ${overviewThreadId}
-      #} else {
-      #   LogReader_readFile $suiteRecord [thread::id]
-      #}
-      #xflow_stopStartupMode
-
-      #xflow_selectSuiteCallback
+      set hiddenDate [xflow_getWidgetName exp_date_hidden]
+      ${hiddenDate} configure -text ${datestamp}
    }
 
    Utils_normalCursor $top
@@ -1554,14 +1584,15 @@ proc xflow_historyCallback { node canvas caller_menu {history 48} {full_loop 0} 
       }
 
       # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
-      set dateStamp [xflow_getMonitoringDatestamp]
-      if { $dateStamp == "" } {
-          set dateStamp [xflow_retrieveDateStamp $canvas $suiteRecord]
-      }
+      #set datestamp [xflow_getMonitoringDatestamp]
+      #if { $datestamp == "" } {
+      #    set datestamp [xflow_retrieveDateStamp $canvas $suiteRecord]
+      #}
+      set datestamp [xflow_getSequencerDatestamp]
 
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec \
          "Node History [file tail $node]$nodeExt -history $history" bottom \
-         -n $seqNode$nodeExt -history $history -edate $dateStamp 
+         -n $seqNode$nodeExt -history $history -edate $datestamp 
    }
 }
 
@@ -1590,7 +1621,7 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
       set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    }
 
-   Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] ${nodeInfoExec} "Node Info ${nodeTail}" top -n $seqNode  ${seqLoopArgs}
+   Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${nodeInfoExec} "Node Info ${nodeTail}" top -n $seqNode  ${seqLoopArgs}
 }
 
 # this command is invoked from the Misc->initbranch menu item
@@ -1606,7 +1637,7 @@ proc xflow_initbranchCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "initbranch" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initbranch -f continue $seqLoopArgs
    }
    #$node configure -flow.status initialize
@@ -1625,7 +1656,7 @@ proc xflow_initnodeCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "initnode" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initnode [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initnode [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initnode -f continue $seqLoopArgs
    }
 }
@@ -1642,7 +1673,7 @@ proc xflow_initbranchLoopCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "initbranch" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initbranch -f continue $seqLoopArgs
    }
 }
@@ -1656,7 +1687,7 @@ proc xflow_abortCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "node abort" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "abort [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "abort [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s abort -f continue $seqLoopArgs
    }
 }
@@ -1680,7 +1711,7 @@ proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
          Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
          DEBUG "xflow_abortNpasssTaskCallback $seqNpassTaskArgs" 5
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqNpassTaskArgs" top \
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqNpassTaskArgs" top \
             -n $seqNode -s end $seqNpassTaskArgs
       }
    }
@@ -1705,7 +1736,7 @@ proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
          Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
          DEBUG "xflow_abortNpasssTaskCallback $seqNpassTaskArgs" 5
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
             -n $seqNode -s abort $seqNpassTaskArgs
 
       }
@@ -1730,16 +1761,17 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
     set expPath [${suiteRecord} cget -suite_path]
 
     # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
-    set dateStamp [xflow_getMonitoringDatestamp]
-    if { $dateStamp == "" } {
-	set dateStamp [xflow_retrieveDateStamp $canvas $suiteRecord]
-    }
+    #set datestamp [xflow_getMonitoringDatestamp]
+    #if { $datestamp == "" } {
+	#set datestamp [xflow_retrieveDateStamp $canvas $suiteRecord]
+    #}
+   set datestamp [xflow_getSequencerDatestamp]
 
     if { $nodeExt == "-1" } {
 	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
     } else {
 	DEBUG "$seqExecWork -n ${seqNode}" 5
-	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode}"] ':'] } message ] {
+	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${datestamp}; $seqExecWork -n ${seqNode}"] ':'] } message ] {
 	    Utils_raiseError . "Retrieve node output" $message
 	    return 0
 	}
@@ -1818,7 +1850,7 @@ proc xflow_endCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "node end" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s end -f continue $seqLoopArgs
    }
 
@@ -1835,7 +1867,7 @@ proc xflow_endLoopCallback { node canvas caller_menu } {
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "loop end" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "end [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s end -f continue $seqLoopArgs
    }
 }
@@ -1854,7 +1886,7 @@ proc xflow_sourceCallback { node canvas caller_menu} {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand [$suiteRecord cget -suite_path] ${outputfile} ${seqCmd}
+   Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1880,7 +1912,7 @@ proc xflow_configCallback { node canvas caller_menu} {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand [$suiteRecord cget -suite_path] ${outputfile} ${seqCmd}
+   Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1905,7 +1937,7 @@ proc xflow_evalConfigCallback { node canvas caller_menu } {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode} -e [$suiteRecord cget -suite_path] -o ${outputfile}"
-   Sequencer_runCommand [$suiteRecord cget -suite_path] /dev/null ${seqCmd}
+   Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] /dev/null ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1930,7 +1962,7 @@ proc xflow_resourceCallback { node canvas caller_menu } {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand [$suiteRecord cget -suite_path] ${outputfile} ${seqCmd}
+   Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1964,7 +1996,7 @@ proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
    
       set seqCmd "${seqExec} -n ${seqNode}${nodeExt}"
-      Sequencer_runCommand [$suiteRecord cget -suite_path] ${outputfile} ${seqCmd}
+      Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
    
       if { ${textViewer} == "default" } {
          create_text_window ${winTitle} ${outputfile} top .
@@ -1995,9 +2027,8 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "node submit" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
-
    }
 }
 
@@ -2016,7 +2047,7 @@ proc xflow_submitLoopCallback { node canvas caller_menu flow {local_ignore_dep d
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
       Utils_raiseError $canvas "loop submit" [getErrorMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs   
    }
 }
@@ -2051,7 +2082,7 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
          Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
       } else {
          DEBUG "xflow_submitNpassTaskCallback $seqNpassTaskArgs" 5
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
+         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
             -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqNpassTaskArgs
 
       }
@@ -2068,10 +2099,11 @@ proc xflow_tailfCallback { node canvas {full_loop 0} } {
     set expPath [${suiteRecord} cget -suite_path]
 
     # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
-    set dateStamp [xflow_getMonitoringDatestamp]
-    if { $dateStamp == "" } {
-	set dateStamp [xflow_retrieveDateStamp $canvas $suiteRecord]
-    }
+    #set datestamp [xflow_getMonitoringDatestamp]
+    #if { $datestamp == "" } {
+	#set datestamp [xflow_retrieveDateStamp $canvas $suiteRecord]
+    #}
+   set datestamp [xflow_getSequencerDatestamp]
 
     if { $nodeExt == "-1" } {
 	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
@@ -2079,7 +2111,7 @@ proc xflow_tailfCallback { node canvas {full_loop 0} } {
 	if { $nodeExt != "" } {
 	    set nodeExt ".${nodeExt}"
 	}
-	if [ catch { set listPath [exec ksh -c "ls -rt1 ${expPath}/sequencing/output${seqNode}${nodeExt}.${dateStamp}.pgmout* | tail -n 1"] } message ] {
+	if [ catch { set listPath [exec ksh -c "ls -rt1 ${expPath}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] } message ] {
 	    Utils_raiseError . "Retrieve node output" $message
 	    return 0
 	}
@@ -2096,7 +2128,9 @@ proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
-   set datestamp [xflow_getMonitoringDatestamp]
+   #set datestamp [xflow_getMonitoringDatestamp]
+   set datestamp [xflow_getSequencerDatestamp]
+
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
@@ -2112,7 +2146,7 @@ proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set seqCmd "${listingExec} -n ${seqNode}${nodeExt} -d ${datestamp}"
-      Sequencer_runCommand [$suiteRecord cget -suite_path] ${outputfile} ${seqCmd}
+      Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
 
       if { ${listingViewer} == "default" } {
          create_text_window ${winTitle} ${outputfile} top .
@@ -2202,7 +2236,7 @@ proc xflow_showAllListingItem { suite_record listw list_type} {
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
          set seqCmd "${listingExec} -f $listingFile"
-         Sequencer_runCommand ${suitePath} ${outputfile} ${seqCmd}
+         Sequencer_runCommand ${suitePath} [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
          if { ${listingViewer} == "default" } {
             create_text_window ${winTitle} ${outputfile} top .
          } else {
@@ -2221,7 +2255,8 @@ proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
    set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
-   set datestamp [xflow_getMonitoringDatestamp]
+   #set datestamp [xflow_getMonitoringDatestamp]
+   set datestamp [xflow_getSequencerDatestamp]
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
@@ -2237,7 +2272,7 @@ proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set seqCmd "${abortListingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}"
-      Sequencer_runCommand [$suiteRecord cget -suite_path] ${outputfile} ${seqCmd}
+      Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
 
       if { ${listingViewer} == "default" } {
          create_text_window ${winTitle} ${outputfile} top .
@@ -2675,7 +2710,7 @@ proc xflow_selectSuiteTab { parent suite_record } {
    #set drawFrame ${parent}.${formattedName}
    set drawFrame ${parent}.draw_frame
    set canvas [xflow_createFlowCanvas $drawFrame]
-   xflow_getDateStamp [xflow_getWidgetName exp_date_frame] ${suite_record}
+   #xflow_initDatestamp [xflow_getWidgetName exp_date_frame] ${suite_record}
 
    xflow_drawflow $canvas
 }
@@ -3005,7 +3040,7 @@ proc xflow_createWidgets {} {
    xflow_addDatestampWidget ${expDateFrame}
 
    # monitor date
-   xflow_addMonitorDateWidget ${monDateFrame}
+   # xflow_addMonitorDateWidget ${monDateFrame}
 
    # exp label frame
    set expLabelFrame [frame [xflow_getWidgetName exp_label_frame]]
@@ -3028,8 +3063,9 @@ proc xflow_createWidgets {} {
    # this displays the widget on the second frame
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
    grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
-   grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
-   grid ${expLabelFrame} -row 0 -column 3 -padx { 20 0 }
+   #grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
+   #grid ${expLabelFrame} -row 0 -column 3 -padx { 20 0 }
+   grid ${expLabelFrame} -row 0 -column 2 -padx { 20 0 }
 
    # flow_frame is the 3nd widget
    set flowFrame [frame [xflow_getWidgetName flow_frame]]
@@ -3067,11 +3103,11 @@ proc xflow_createWidgets {} {
 # 2) in overview mode, this function is called everytime the user wants to view the exp flow with the latest
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
-proc xflow_displayFlow { calling_thread_id } {
+proc xflow_displayFlow { calling_thread_id datestamp } {
    global env XFLOW_STANDALONE SEQ_EXP_HOME PROGRESS_REPORT_TXT
    global MONITORING_LATEST MONITOR_DATESTAMP FLOW_RESIZED
    
-   DEBUG "xflow_displayFlow thread id:[thread::id]" 5
+   DEBUG "xflow_displayFlow thread id:[thread::id] datestamp:${datestamp}" 5
    set overview_x ""
    foreach {overview_x overview_y} [SharedData_getMiscData OVERVIEW_MAIN_COORDS] { break }
    if { ${overview_x} != "" } {
@@ -3085,6 +3121,7 @@ proc xflow_displayFlow { calling_thread_id } {
    if { ! [winfo exists ${topFrame}] } {
       set PROGRESS_REPORT_TXT "Creating widgets..."
       xflow_createWidgets
+      xflow_initDatestamp [xflow_getWidgetName exp_date_frame]
    }
    set suitePath ${SEQ_EXP_HOME}
    DEBUG "xflow_displayFlow suitePath ${suitePath}" 5
@@ -3095,10 +3132,11 @@ proc xflow_displayFlow { calling_thread_id } {
    xflow_getAllLoopResourcesCallback ${rootNode} ${SEQ_EXP_HOME}
 
    # resource will only be loaded if needed
-   xflow_nodeResourceCallback
+   xflow_nodeResourceCallback 
 
    # initial monitor dates
-   xflow_populateMonitorDate [xflow_getWidgetName monitor_date_frame]
+   # xflow_populateMonitorDate [xflow_getWidgetName monitor_date_frame]
+   xflow_populateDatestamp [xflow_getWidgetName exp_date_frame]
 
    if { ${MONITORING_LATEST} == "1" } {
       # the thread id associated to an exp path is mainly used by
@@ -3126,23 +3164,23 @@ proc xflow_displayFlow { calling_thread_id } {
    } else {
       # normal mode
       if { ${XFLOW_STANDALONE} == "1" && [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
-        # in overview mode, the log has already been read once before it reached here,
-        # no need to read again... only read for xflow standalone
-        xflow_initStartupMode
-        set PROGRESS_REPORT_TXT "Processing log file ..."
-        LogReader_readFile $activeSuiteRecord $calling_thread_id
-        xflow_stopStartupMode
+         # in overview mode, the log has already been read once before it reached here,
+         # no need to read again... only read for xflow standalone
+         xflow_initStartupMode
+         set PROGRESS_REPORT_TXT "Processing log file ..."
+         if { ${datestamp} != "" } {
+            LogReader_readFile $activeSuiteRecord $calling_thread_id ${datestamp}
+         }
+         xflow_stopStartupMode
       }
+      #xflow_initDatestampEntry ${datestamp}
       xflow_selectSuiteCallback
    }
 
    xflow_setTitle ${topFrame} ${suitePath}
    xflow_toFront .
-   # Console_create
 
-   #if { ${_overview_x} != "" } {
-   #   xflow_positionFlowWindow . ${_overview_x} ${_overview_y}
-   #}
+   DEBUG "xflow_displayFlow ${SEQ_EXP_HOME} done..." 5
 }
 
 # Position the flow windows relative to the main overview window.
@@ -3249,7 +3287,7 @@ proc out {} {
 }
 
 proc xflow_parseCmdOptions {} {
-   global env argv XFLOW_STANDALONE AUTO_MSG_DISPLAY MSG_CENTER_THREAD_ID
+   global env argv XFLOW_STANDALONE AUTO_MSG_DISPLAY MSG_CENTER_THREAD_ID SEQ_EXP_HOME
    set rcFile ""
    if { [info exists argv] } {
       set options {
@@ -3294,7 +3332,9 @@ proc xflow_parseCmdOptions {} {
       xflow_init
       xflow_validateSuite
       xflow_readFlowXml
-      xflow_displayFlow [thread::id]
+
+      set newestDatestamp [LogMonitor_getNewestDatestamp ${SEQ_EXP_HOME}]
+      xflow_displayFlow [thread::id] ${newestDatestamp}
       SharedData_setMiscData STARTUP_DONE true
       SharedData_setMiscData [thread::id]_STARTUP_DONE true
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
@@ -3346,6 +3386,7 @@ proc xflow_setWidgetNames {} {
 
       exp_date_frame  .second_frame.date_frame
       exp_date_entry  .second_frame.date_frame.entry
+      exp_date_hidden  .second_frame.date_frame.hidden
       exp_date_button_frame .second_frame.date_frame.button_frame
       monitor_date_frame .second_frame.mon_date_frame
       monitor_date_combo .second_frame.mon_date_frame.entry_combo

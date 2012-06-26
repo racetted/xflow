@@ -119,11 +119,13 @@ record define FlowNpassTask {
    {max_ext_value 5}
    {catchup 4}
    {cpu 1}
+   {cpu_multiplier 1}
    {machine dorval-ib}
    {queue null}
    {wallclock 3}
    {memory 40M}
    {mpi 0}
+   {soumetArgs ""}
 }
 
 namespace eval ::FlowNodes {

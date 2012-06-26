@@ -955,7 +955,7 @@ proc Overview_historyCallback { canvas exp_path caller_menu } {
       set cmdArgs "-n $seqNode"
    }
 
-   Sequencer_runCommandWithWindow $exp_path $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
+   Sequencer_runCommandWithWindow $exp_path ${currentDatestamp} $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
 }
 
 # this function is called to launch an exp window
@@ -975,8 +975,11 @@ proc Overview_launchExpFlow { calling_w exp_path } {
       # retrieve the exp thread based on the exp_path
       set formatName [::SuiteNode::formatName ${exp_path}]
       set threadId [SharedData_getSuiteData ${exp_path} THREAD_ID]
+
+      set newestDatestamp [LogMonitor_getNewestDatestamp ${exp_path}]
+
       # send the request to the exp thread
-      thread::send ${threadId} "thread_launchFLow ${mainid} ${exp_path}"
+      thread::send ${threadId} "thread_launchFLow ${mainid} ${exp_path} ${newestDatestamp}"
       destroy ${progressW}
 
    } message ]
@@ -1035,7 +1038,7 @@ proc Overview_childInitDone { suite_path thread_id } {
 # See LogReader.tcl
 proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp } {
    global AUTO_LAUNCH
-   DEBUG "Overview_updateExp $suite_record status:$status timestamp:$timestamp " 5
+   DEBUG "Overview_updateExp $suite_record datestamp:$datestamp status:$status timestamp:$timestamp " 5
 
    # start synchronizing this block, get an exclusive lock
    set mutex [thread::mutex create]
@@ -1112,8 +1115,10 @@ proc Overview_addExp { display_group canvas exp_path } {
    # remove the dummy default tk window
    thread::send -async ${childId} "wm withdraw ."
 
+   set newestDatestamp [LogMonitor_getNewestDatestamp ${exp_path}]
+   puts "sua ${exp_path} newestDatestamp:$newestDatestamp"
    # start reading the exp log file
-   thread::send -async ${childId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord}"
+   thread::send -async ${childId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord} ${newestDatestamp}"
 
 
    # add the new thread to the list
@@ -1171,26 +1176,26 @@ proc Overview_createThread { exp_path } {
 
       # this function is called from the overview main thread to the exp thread
       # to start the processing of the exp log file
-      proc thread_startLogReader { parent_id exp_path suite_record } {
+      proc thread_startLogReader { parent_id exp_path suite_record datestamp} {
          global env this_id SEQ_EXP_HOME
          DEBUG "thread_startLogReader parent_id:$parent_id"
 
          set SEQ_EXP_HOME ${exp_path}
-         DEBUG "thread_startLogReader SEQ_EXP_HOME=$SEQ_EXP_HOME"
+         DEBUG "thread_startLogReader SEQ_EXP_HOME=${SEQ_EXP_HOME} datestamp:${datestamp}"
          xflow_readFlowXml
          xflow_initStartupMode
-         LogReader_readFile ${suite_record} ${parent_id}    
+         LogReader_readFile ${suite_record} ${parent_id} ${datestamp}
          xflow_stopStartupMode
       }
 
       # this function is called from the overview main thread to the exp thread
       # to display the exp flow either on user's request or because of "Auto Launch"
-      proc thread_launchFLow { parent_id exp_path} {
+      proc thread_launchFLow { parent_id exp_path datestamp } {
          global this_id 
          DEBUG "thread_launchFLow" 5
 
          xflow_setMonitoringLatest 1
-         xflow_displayFlow ${parent_id}
+         xflow_displayFlow ${parent_id} ${datestamp}
       }
 
       # this function is called from the overview main thread to the exp thread
@@ -1449,10 +1454,13 @@ proc Overview_addGroups { canvas } {
    # then have each thread read the suite's log file once and then
    # then the main thread will continue...
    # it will give us status box information
+   set currentTime [clock format [clock seconds]]
+
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
          Overview_addExp $displayGroup $canvas $exp
+         SharedData_setSuiteData ${exp} LAST_CHECKED_TIME ${currentTime}
       }
    }
 
@@ -2016,3 +2024,5 @@ thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
 
 wm geometry ${topOverview} =1500x600
 wm deiconify ${topOverview}
+
+#LogMonitor_checkNewLogFiles

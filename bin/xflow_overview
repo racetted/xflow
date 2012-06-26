@@ -12,11 +12,6 @@ else
    exit
 fi
 
-if [[ "${SEQ_XFLOW_BIN}" == "" ]] ; then
-   echo "SEQ_XFLOW_BIN environment variable not defined! Exiting..." >&2
-   exit
-fi
-
 arguments=$*
 eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
   -as 		"" 	"" 	"[start application as another user]" \

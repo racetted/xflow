@@ -214,14 +214,45 @@ proc Utils_getPaddedValue { value } {
    return ${value}
 }
 
+# must be 10 digits values yyyymmddhh
+proc Utils_validateVisibleDatestamp { _datestamp } {
+   if { [string length ${_datestamp}] != 10 } {
+      return false
+   }
+   if [ catch { clock scan ${_datestamp} } message ] {
+      return false
+   }
+   return true
+}
+
+proc Utils_validateRealDatestamp { _datestamp } {
+   if { [string length ${_datestamp}] != 14 } {
+      return false
+   }
+   if [ catch { clock scan ${_datestamp} } message ] {
+      return false
+   }
+   return true
+}
+
 proc Utils_getVisibleDatestampValue { date } {
    set newValue [string range $date 0 9]
    return ${newValue}
 }
 
-proc Utils_getRealDatestampValue { date } {
-   set newValue ${date}0000
-   return ${newValue}
+#proc Utils_getRealDatestampValue { date } {
+#   set newValue ${date}0000
+#   return ${newValue}
+#}
+
+proc Utils_getRealDatestampValue { _datestamp } { 
+   set newDateStamp ${_datestamp}
+   # the format of the log file is 14 digits
+   if { [string length ${_datestamp}] < 14 } {
+      set padNumber [expr 14 - [string length ${_datestamp}]]
+      set newDateStamp "${_datestamp}[join [lrepeat ${padNumber} 0] ""]"
+   }
+   return ${newDateStamp}
 }
 
 proc Utils_launchShell { mach exp_path init_dir title {cmd ""} } {

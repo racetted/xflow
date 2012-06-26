@@ -1,15 +1,14 @@
 package require textutil::string
 
-proc LogReader_readFile { suite_record calling_thread_id } {
+proc LogReader_readFile { suite_record calling_thread_id datestamp } {
    global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODES
-   DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id" 5
+   DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp}" 5
    set REDRAW_FLOW false
    set LOGREADER_UPDATE_NODES ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set thisThreadId [thread::id]
    SharedData_setMiscData ${thisThreadId}_CALLING_THREAD_ID ${calling_thread_id}
-
 
    set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
    if { ${isThreadStartupDone} == "true" } {
@@ -20,76 +19,26 @@ proc LogReader_readFile { suite_record calling_thread_id } {
    LogReader_cancelAfter $suite_record
    set suitePath [$suite_record cget -suite_path]
    set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
-   set expDate ""
-   set monitorLog [$suite_record cget -active_log]
-   if { $monitorLog == "" } {
-      # view latest mode, fetch the exp datestamp
-      set cmd "export SEQ_EXP_HOME=$suitePath;$dateExec -f '%Y%M%D%H%Min%S'"
-      set expDate ""
-      if [ catch { set expDate [exec ksh -c $cmd] } message ] {
-         puts "ERROR: $message"
-      }
+   set logfile $suitePath/logs/${datestamp}_nodelog
 
-      set logfile $suitePath/logs/${expDate}_nodelog
-      set datestamp ${expDate}
-      set expLog [ ${suite_record} cget -exp_log ]
-      if { ${expLog} == "" } {
-         ${suite_record} configure -exp_log ${logfile}
-      }
-      if { ${expLog} != ${logfile} } {
-         # new log detected, advise main thread of this event
-         if { "${isOverviewMode}" == "false" } {
-            # we are in standalone xflow mode
-            thread::send -async ${calling_thread_id} \
-            "xflow_datestampChanged ${suite_record}"
-         } elseif { ${thisThreadId} != ${MONITOR_THREAD_ID} } {
-            puts "LogReader_readFile reading new log file $logfile"
-            # send event to overview mode
-            set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-            thread::send -async ${overviewThreadId} \
-            "Overview_ExpDateStampChanged ${suite_record} ${logfile}"
-            # send event to own xflow
-            thread::send ${thisThreadId} "xflow_datestampChanged ${suite_record}"
-         }
-         ${suite_record} configure -read_offset 0 -exp_log ${logfile}
-         if { ${expLog} != "" } {
-            # means that the datestamp changed while we are monitoring a existing one
-            # set the exp in startup mode
-            SharedData_setMiscData ${thisThreadId}_STARTUP_DONE false
-            set isStartupDone false
-            # force a redraw at the end of the read
-            set REDRAW_FLOW true
-            # re-init all nodes
-            set rootNode [${suite_record} cget -root_node]
-            ::FlowNodes::resetAllStatus ${rootNode} init 1
-         }
-         puts "LogReader_readFile reading new log file previous:${expLog} new:$logfile"
-      }
-   } else {
-      # view history mode
-      set logfile $suitePath/logs/${monitorLog}_nodelog
-      set datestamp ${monitorLog}
-   }
-   DEBUG "LogReader_readFile calling_thread_id:$calling_thread_id date:[exec date] suite:[$suite_record cget -suite_path] file:[file tail $logfile]" 5
-
-   if { ${isStartupDone} == "false" } {
-      set date1 [exec date "+%s"]
-   }
    if { [file exists $logfile] } {
       set f_logfile [ open $logfile r ]
       flush stdout
       
       if { ${isStartupDone} == "true" } {
          set logFileOffset [$suite_record cget -read_offset]
+         DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} read_offset:$logFileOffset" 5
       } else {
+         DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} reset read_offset" 5
          set logFileOffset 0
+         ${suite_record} configure -read_offset 0 -exp_log ${logfile}
       }
 
       # position yourself in the file
       seek $f_logfile $logFileOffset
       
       while {[gets $f_logfile line] >= 0} {
-         if { ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
+         if { ${isOverviewMode} == "true" } {
             LogReader_processOverviewLine $calling_thread_id $suite_record $datestamp $line
          }
          LogReader_processLine $calling_thread_id $suite_record $datestamp $line
@@ -97,7 +46,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       
       # Need to notify the main thread that this child is done reading
       # the log file for initialization
-      if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
+      if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
             thread::send -async ${calling_thread_id} \
                "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id}"
       }
@@ -115,7 +64,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
    
       # Need to notify the main thread that this child is done reading
       # the log file for initialization
-      if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" && ${thisThreadId} != ${MONITOR_THREAD_ID} } {
+      if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
             thread::send -async ${calling_thread_id} \
                "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id}"
       }
@@ -129,14 +78,14 @@ proc LogReader_readFile { suite_record calling_thread_id } {
          xflow_redrawNodes ${updatedNode}
       }
    }
-   LogReader_readAgain $suite_record $calling_thread_id
+   LogReader_readAgain $suite_record $calling_thread_id ${datestamp}
 }
 
-proc LogReader_readAgain { suite_record calling_thread_id } {
+proc LogReader_readAgain { suite_record calling_thread_id datestamp } {
    global ${suite_record}_READ_LOG_IDS
    
    set READ_INTERVAL [$suite_record cget -read_interval]
-   catch { set ${suite_record}_READ_LOG_IDS [after $READ_INTERVAL [list LogReader_readFile $suite_record  $calling_thread_id]]}
+   catch { set ${suite_record}_READ_LOG_IDS [after $READ_INTERVAL [list LogReader_readFile $suite_record  $calling_thread_id ${datestamp}]]}
 }
 
 proc LogReader_cancelAfter { suite_record } {
@@ -197,14 +146,23 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record datestamp li
          if { $msgIndex != -1 } {
             set msg [string range $line $msgStartIndex end]
          }
-         if { ${type} == "init" || ${type} == "begin" || ${type} == "beginx" 
-              || ${type} == "abort" || ${type} == "end" 
-              || ${type} == "wait" || ${type} == "submit" || ${type} == "catchup" } {
+         if { ${type} != "info" } {
             if { ${node} == [${suite_record} cget -root_node] } {
                DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
                thread::send -async ${calling_thread_id} \
                   "Overview_updateExp [thread::id] ${suite_record} ${datestamp} ${type} ${timestamp}"
             }
+         }
+         proc out {} {
+         if { ${node} == [${suite_record} cget -root_node] } {
+            if { ${type} == "init" || ${type} == "begin" || ${type} == "beginx" 
+               || ${type} == "abort" || ${type} == "end" 
+               || ${type} == "wait" || ${type} == "submit" || ${type} == "catchup" } {
+               DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
+               thread::send -async ${calling_thread_id} \
+                  "Overview_updateExp [thread::id] ${suite_record} ${datestamp} ${type} ${timestamp}"
+            }
+         }
          }
       }
    }

@@ -24,7 +24,7 @@ proc Sequencer_getUtilsPath {} {
    return [file dirname $utilsPath]
 }
 
-proc Sequencer_runCommandWithWindow { suite_path command title position args } {
+proc Sequencer_runCommandWithWindow { suite_path datestamp command title position args } {
    global env
    regsub -all " " [file tail $command] _ tmpfile
    set id [clock seconds]
@@ -33,13 +33,17 @@ proc Sequencer_runCommandWithWindow { suite_path command title position args } {
    #set cmd "export SEQ_EXP_HOME=$suite_path;$command [join $args] > $tmpfile 2>&1"
    #DEBUG "Sequencer_runCommand ksh -c $cmd" 5
    #catch { eval [exec ksh -c $cmd]}
-   Sequencer_runCommand ${suite_path} ${tmpfile} "${command} [join ${args}]"
+   Sequencer_runCommand ${suite_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
    create_text_window "$title" ${tmpfile} ${position} .
    catch {[exec rm -f ${tmpfile}}
 }
 
-proc Sequencer_runCommand { suite_path out_file command } {
-   set cmd "export SEQ_EXP_HOME=$suite_path;print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
+proc Sequencer_runCommand { suite_path datestamp out_file command } {
+   if { [Utils_validateRealDatestamp ${datestamp}] == false } {
+      error "Invalid datestamp"
+   }
+
+   set cmd "export SEQ_EXP_HOME=$suite_path;export SEQ_DATE=${datestamp}; print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
    DEBUG "Sequencer_runCommand ksh -c $cmd" 5
    catch { eval [exec ksh -c $cmd]}
 }
