@@ -676,7 +676,6 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
 
-   #$canvas itemconfigure ${binder}.text -text $text
    set suiteRecord [xflow_getActiveSuite]
 
    set nx1 [expr [lindex $boxArea 0] - ${padx}]

@@ -56,6 +56,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
                            CASE "FlowCase case"
                            MODULE "FlowModule module"
                            NPASS_TASK "FlowNpassTask npass_task"
+                           SUPER_TASK "FlowSuperTask super_task"
                        }
 
    set xmlNodeName [$xml_node nodeName]
@@ -63,7 +64,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I need to get the node that has a submit to this node. It is not
    # necessarily the xml parent node that is effectively the flow parent
    # node
-   DEBUG "createNodeFromXml() parent_flow_node:$parent_flow_node nodeName:$nodeName" 5
+   DEBUG "createNodeFromXml() parent_flow_node:$parent_flow_node nodeName:$nodeName xmlNodeName:${xmlNodeName}" 5
    set actualFlowParent [::FlowNodes::searchSubmitNode $parent_flow_node $nodeName]
    set newFlowDirname $actualFlowParent/$nodeName
    set flowCreateCmd [lindex [string map $FlowNodeTypeMap $xmlNodeName] 0]
@@ -126,6 +127,9 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
    set parseChild 1
    set parentFlowNode $parent_flow_node
    set newParentNode ""
+   # defaults to 0
+   set singleReserv [$current_xml_node getAttribute single_reserv 0] 
+
    switch $xmlNodeName {
       "TASK" -
       "NPASS_TASK" -
@@ -135,8 +139,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
       }
       "MODULE" { 
          set suiteName [$suite cget -suite_name]
-	      set nodeName [$current_xml_node getAttribute name]
-         #set newXmlFile $env(SEQ_EXP_HOME)/modules/$nodeName/flow.xml
+         set nodeName [$current_xml_node getAttribute name]
          set newXmlFile [$suite cget -suite_path]/modules/$nodeName/flow.xml
          DEBUG "ParseXmlNode:: suite_path: [$suite cget -suite_path]"  5
          DEBUG "ParseXmlNode:: newXmlFile = $newXmlFile"  5
@@ -174,13 +177,16 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          set parseChild 0
       }
    }
-   if { $newParentNode != "" } {
-      set parentFlowNode $newParentNode
-   }
-   if { [$current_xml_node hasChildNodes] && $parseChild == 1 } {
-      set xmlChildren [$current_xml_node childNodes]
-      foreach xmlChild $xmlChildren {
-         parseXmlNode $suite $parentFlowNode $xmlChild
+   if { ${parseChild} == 1 } {
+      if { $newParentNode != "" } {
+         set parentFlowNode $newParentNode
+         ${newParentNode} configure -flow.single_reserv ${singleReserv}
+      }
+      if { [$current_xml_node hasChildNodes] && $parseChild == 1 } {
+         set xmlChildren [$current_xml_node childNodes]
+         foreach xmlChild $xmlChildren {
+            parseXmlNode $suite $parentFlowNode $xmlChild
+         }
       }
    }
 }
@@ -196,6 +202,9 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
    # get the top node of the xml tree
    set topXmlNode [$rootNode selectNodes /MODULE]
    set recordName [$topXmlNode getAttribute name]
+   # defaults to 0
+   set singleReserv [$topXmlNode getAttribute single_reserv 0] 
+   # DEBUG "parseModuleMasterfile suite_record:$suite_record recordName:${recordName} singleReserv:${singleReserv}" 5
    
    set suiteRecord [::SuiteNode::formatSuiteRecord $suite_path]
    if { $parent_flow_node == "" } {
@@ -210,15 +219,16 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
       # create the top node of our flow tree
       if { ! [record exists instance ${recordName}] } {
          FlowModule $recordName
-         $recordName configure -load_time [clock seconds]
+         $recordName configure -load_time [clock seconds] 
       }
       $recordName configure -flow.name $suiteName -flow.type module -flow.family $recordName
    } else {
       DEBUG "parseModuleMasterfile suite_record:$suite_record" 5
       set suiteName [$suite_record cget -suite_name]
       set recordName $parent_flow_node
-      DEBUG "suiteName:$suiteName" 5
+      DEBUG "parseModuleMasterfile suiteName:$suiteName" 5
    }
+   $recordName configure  -flow.single_reserv ${singleReserv}
 
    getSubmits $recordName $topXmlNode
    # recursively parse the children nodes of the xml tree
