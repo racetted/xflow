@@ -1770,8 +1770,7 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
 	    Utils_raiseError . "Retrieve node output" $message
 	    return 0
 	}
-	set taskBasedir "[lindex $workpath 1]${seqNode}${nodeExt}"
-    Utils_launchShell [lindex $workpath 0] ${expPath} ${taskBasedir} "TASK_BASEDIR=${taskBasedir}"
+    Utils_launchShell [lindex $workpath 0] ${expPath} [lindex $workpath 1] "TASK_BASEDIR=[lindex $workpath 1]"
     }	
 }
 
