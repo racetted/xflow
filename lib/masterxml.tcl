@@ -128,7 +128,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
    set parentFlowNode $parent_flow_node
    set newParentNode ""
    # defaults to 0
-   set singleReserv [$current_xml_node getAttribute single_reserv 0] 
+   set workUnitMode [$current_xml_node getAttribute work_unit 0] 
 
    switch $xmlNodeName {
       "TASK" -
@@ -180,7 +180,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
    if { ${parseChild} == 1 } {
       if { $newParentNode != "" } {
          set parentFlowNode $newParentNode
-         ${newParentNode} configure -flow.single_reserv ${singleReserv}
+         ${newParentNode} configure -flow.work_unit ${workUnitMode}
       }
       if { [$current_xml_node hasChildNodes] && $parseChild == 1 } {
          set xmlChildren [$current_xml_node childNodes]
@@ -203,8 +203,8 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
    set topXmlNode [$rootNode selectNodes /MODULE]
    set recordName [$topXmlNode getAttribute name]
    # defaults to 0
-   set singleReserv [$topXmlNode getAttribute single_reserv 0] 
-   # DEBUG "parseModuleMasterfile suite_record:$suite_record recordName:${recordName} singleReserv:${singleReserv}" 5
+   set workUnitMode [$topXmlNode getAttribute work_unit 0] 
+   # DEBUG "parseModuleMasterfile suite_record:$suite_record recordName:${recordName} workUnitMode:${workUnitMode}" 5
    
    set suiteRecord [::SuiteNode::formatSuiteRecord $suite_path]
    if { $parent_flow_node == "" } {
@@ -228,7 +228,7 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
       set recordName $parent_flow_node
       DEBUG "parseModuleMasterfile suiteName:$suiteName" 5
    }
-   $recordName configure  -flow.single_reserv ${singleReserv}
+   $recordName configure  -flow.work_unit ${workUnitMode}
 
    getSubmits $recordName $topXmlNode
    # recursively parse the children nodes of the xml tree

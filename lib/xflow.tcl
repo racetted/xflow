@@ -1180,7 +1180,7 @@ proc xflow_drawNode { canvas node position {first_node false} } {
          ::FlowNodes::addToFamilyList $node
       }
       "module" {
-         if { [${node} cget -flow.single_reserv] == 0 } {
+         if { [${node} cget -flow.work_unit] == 0 } {
             ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          } else {
 	    ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
@@ -1249,12 +1249,12 @@ proc xflow_drawNode { canvas node position {first_node false} } {
 # 
 proc xflow_addSingleReservIndicator { _canvas _node _startX _startY } {
    global SingleReservImg
-   if { [${_node} cget -flow.single_reserv] == 1 } {
+   if { [${_node} cget -flow.work_unit] == 1 } {
       if { [info exists SingleReservImg] == 0 } {
          set SingleReservImg [image create photo -file [SharedData_getMiscData IMAGE_DIR]/round_stripe.png]
       }
 
-      ${_canvas} create image ${_startX} ${_startY} -image ${SingleReservImg} -tags "flow_element ${_node} ${_node}.single_reserv"
+      ${_canvas} create image ${_startX} ${_startY} -image ${SingleReservImg} -tags "flow_element ${_node} ${_node}.work_unit"
       return [list [expr ${_startX} + [image height $SingleReservImg] + 1] ${_startY}]
    }
    return [list ${_startX} ${_startY}]
