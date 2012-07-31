@@ -55,9 +55,9 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
       if { $parent_name != "" } {
          set goupName ${parent_name}/${goupName}
          set newLevel [expr $level + 1]
-         DEBUG "ExpXmlReader_readGroup goupName:$goupName newLevel:$newLevel" 5
+         ::log::log debug "ExpXmlReader_readGroup goupName:$goupName newLevel:$newLevel"
       } else {
-         DEBUG "ExpXmlReader_readGroup goupName:$goupName newLevel:$newLevel" 5
+         ::log::log debug "ExpXmlReader_readGroup goupName:$goupName newLevel:$newLevel"
       }
 
       # replace / and spaces with _
@@ -78,7 +78,7 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
                set firstChild [$child firstChild]
                set expPath [$firstChild nodeValue]
                ExpXmlReader_addExp $groupRecordName $expPath
-               DEBUG "exp:$expPath" 5
+               ::log::log debug "exp:$expPath"
             } elseif { $childName == "Group" } {
                ExpXmlReader_readGroup $child $groupRecordName $newLevel
             }
@@ -99,7 +99,7 @@ proc ExpXmlReader_getExpList {} {
    set expList ""
    set displayGroups [record show instances DisplayGroup]
    foreach dispGroup $displayGroups {
-      DEBUG "ExpXmlReader_getExpList $dispGroup [$dispGroup cget -exp_list]" 5
+      ::log::log debug "ExpXmlReader_getExpList $dispGroup [$dispGroup cget -exp_list]"
       append expList [$dispGroup cget -exp_list]
    }
    return $expList

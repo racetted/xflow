@@ -80,6 +80,7 @@ proc Catchup_save { _catchupIntValue } {
    set catchupExec "[SharedData_getMiscData SEQ_BIN]/expcatchup"
    set cmd "export SEQ_EXP_HOME=${SEQ_EXP_HOME};${catchupExec} -s ${_catchupIntValue}"
    set catchupValue ""
+   ::log::log notice ${cmd}
    set catchupValue [exec ksh -c $cmd]
    return ${catchupValue}
 }

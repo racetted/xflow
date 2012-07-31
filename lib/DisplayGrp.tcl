@@ -45,7 +45,7 @@ proc DisplayGrp_setSlotY { display_group y_value } {
 
    set slotValue [DisplayGrp_getCurrentSlotY ${y_value}]
    ${display_group} configure -y ${slotValue} -maxy ${slotValue}
-   DEBUG "DisplayGrp_setSlotY currentMinY:[${display_group} cget -y] currentMaxY:[${display_group} cget -maxy]" 5
+   ::log::log debug "DisplayGrp_setSlotY currentMinY:[${display_group} cget -y] currentMaxY:[${display_group} cget -maxy]"
 }
 
 # will set the max value for the current group display
@@ -54,7 +54,7 @@ proc DisplayGrp_setSlotY { display_group y_value } {
 # set force to be "true"
 proc DisplayGrp_setMaxY { display_group y_value {force ""} } {
    global graphStartY expEntryHeight
-   DEBUG "DisplayGrp_setMaxY ${display_group} y_value:${y_value}" 5
+   ::log::log debug "DisplayGrp_setMaxY ${display_group} y_value:${y_value}"
 
    set currentMaxY [${display_group} cget -maxy]
    set slotValue [DisplayGrp_getCurrentSlotY ${y_value}]
@@ -65,7 +65,7 @@ proc DisplayGrp_setMaxY { display_group y_value {force ""} } {
    if { [expr ${slotValue} < [${display_group} cget -y] ] } {
       ${display_group} configure -y ${slotValue}
    }
-   DEBUG "DisplayGrp_setMaxY currentMaxY:[${display_group} cget -maxy]" 5
+   ::log::log debug "DisplayGrp_setMaxY currentMaxY:[${display_group} cget -maxy]"
 }
 
 
@@ -101,7 +101,7 @@ proc DisplayGrp_processEmptyRows { display_group } {
 
    # start with the group's 2nd y slot if any, first is allowed to be empty   
    set yslot [expr [${display_group} cget -y] + ${expEntryHeight}]
-   DEBUG "DisplayGrp_processEmptyRows ${display_group} initial yslot:$yslot" 5
+   ::log::log debug "DisplayGrp_processEmptyRows ${display_group} initial yslot:$yslot"
    # start of grid minus buffer just to be sure it picks up the boxes on the line
    set x1 [expr ${graphStartX} - 10]
    # til the end of the x graph
@@ -112,7 +112,7 @@ proc DisplayGrp_processEmptyRows { display_group } {
       # locate any exp items
       set itemsFound [${overviewCanvas} find enclosed ${x1} ${yslot} ${x2} ${y2}]
       if { ${itemsFound} == "" } {
-         DEBUG "DisplayGrp_processEmptyRows ${display_group} found empty row at ${yslot}" 5
+         ::log::log debug "DisplayGrp_processEmptyRows ${display_group} found empty row at ${yslot}"
          # liberate the slot from the current group
          # any exp from the same group that is in the slots below must be moved up first
          
@@ -132,7 +132,7 @@ proc DisplayGrp_processEmptyRows { display_group } {
       }
       set yslot [expr ${yslot} + ${expEntryHeight}]
    }
-   DEBUG "DisplayGrp_processEmptyRows done" 5
+   ::log::log debug "DisplayGrp_processEmptyRows done"
 
 }
 
@@ -142,7 +142,7 @@ proc DisplayGrp_processEmptyRows { display_group } {
 # not shifted... This function is useful when you just created or updated a exp box
 # and you want to make sure that it does not walk on someone else's ground
 proc DisplayGrp_processOverlap { display_group } {
-   DEBUG "DisplayGrp_processOverlap display_group:$display_group" 5
+   ::log::log debug "DisplayGrp_processOverlap display_group:$display_group"
    # set groupOwner [${suite_record} cget -overview_group_record]
    set displayGroups [record show instances DisplayGroup]
    set canvas [Overview_getCanvas]
@@ -156,7 +156,7 @@ proc DisplayGrp_processOverlap { display_group } {
          if { [${canvas} gettags ${checkGroup}] != "" } {
             set goodY [Overview_getGroupDisplayY ${checkGroup}]
             set currentY [${checkGroup} cget -y]
-            DEBUG "DisplayGrp_processOverlap display_group:$display_group goodY:$goodY currentY:$currentY" 5
+            ::log::log debug "DisplayGrp_processOverlap display_group:$display_group goodY:$goodY currentY:$currentY"
             if { ${currentY} != ${goodY} } {
                set deltaY [expr ${goodY} - ${currentY}]
                Overview_moveGroups ${checkGroup} 0 ${deltaY}

@@ -56,7 +56,6 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
                            CASE "FlowCase case"
                            MODULE "FlowModule module"
                            NPASS_TASK "FlowNpassTask npass_task"
-                           SUPER_TASK "FlowSuperTask super_task"
                        }
 
    set xmlNodeName [$xml_node nodeName]
@@ -64,7 +63,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I need to get the node that has a submit to this node. It is not
    # necessarily the xml parent node that is effectively the flow parent
    # node
-   DEBUG "createNodeFromXml() parent_flow_node:$parent_flow_node nodeName:$nodeName xmlNodeName:${xmlNodeName}" 5
+   ::log::log debug "createNodeFromXml() parent_flow_node:$parent_flow_node nodeName:$nodeName"
    set actualFlowParent [::FlowNodes::searchSubmitNode $parent_flow_node $nodeName]
    set newFlowDirname $actualFlowParent/$nodeName
    set flowCreateCmd [lindex [string map $FlowNodeTypeMap $xmlNodeName] 0]
@@ -81,7 +80,7 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # I'm storing the closest container of the node
    set parentContainer "[$actualFlowParent cget -flow.container]"
    set parentName "[$actualFlowParent cget -flow.name]"
-   DEBUG "createNodeFromXml() parentContainer:$parentContainer parentName:$parentName type:$flowType parentType:[$actualFlowParent cget -flow.type]" 5
+   ::log::log debug "createNodeFromXml() parentContainer:$parentContainer parentName:$parentName type:$flowType parentType:[$actualFlowParent cget -flow.type]"
    set parentType [$actualFlowParent cget -flow.type]
    if { [string match "*task" ${parentType} ] } {
       $newFlowDirname configure -flow.container "$parentContainer"
@@ -123,13 +122,12 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
 
    global env
    set xmlNodeName [$current_xml_node nodeName]
-   DEBUG "parseXmlNode: suite:$suite parent_flow_node=$parent_flow_node xmlNodeName=$xmlNodeName" 5
+   ::log::log debug "parseXmlNode: suite:$suite parent_flow_node=$parent_flow_node xmlNodeName=$xmlNodeName"
    set parseChild 1
    set parentFlowNode $parent_flow_node
    set newParentNode ""
    # defaults to 0
    set workUnitMode [$current_xml_node getAttribute work_unit 0] 
-
    switch $xmlNodeName {
       "TASK" -
       "NPASS_TASK" -
@@ -139,10 +137,10 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
       }
       "MODULE" { 
          set suiteName [$suite cget -suite_name]
-         set nodeName [$current_xml_node getAttribute name]
+	      set nodeName [$current_xml_node getAttribute name]
          set newXmlFile [$suite cget -suite_path]/modules/$nodeName/flow.xml
-         DEBUG "ParseXmlNode:: suite_path: [$suite cget -suite_path]"  5
-         DEBUG "ParseXmlNode:: newXmlFile = $newXmlFile"  5
+         ::log::log debug "ParseXmlNode:: suite_path: [$suite cget -suite_path]"
+         ::log::log debug "ParseXmlNode:: newXmlFile = $newXmlFile"
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
          readMasterfile $newXmlFile [$suite cget -suite_path] $newParentNode $suite
          set parseChild 0
@@ -177,11 +175,12 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          set parseChild 0
       }
    }
+   if { $newParentNode != "" } {
+      set parentFlowNode $newParentNode
+      ${newParentNode} configure -flow.work_unit ${workUnitMode}
+   }
+   # do I need to go down further?
    if { ${parseChild} == 1 } {
-      if { $newParentNode != "" } {
-         set parentFlowNode $newParentNode
-         ${newParentNode} configure -flow.work_unit ${workUnitMode}
-      }
       if { [$current_xml_node hasChildNodes] && $parseChild == 1 } {
          set xmlChildren [$current_xml_node childNodes]
          foreach xmlChild $xmlChildren {
@@ -192,7 +191,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
 }
 
 proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record } {
-   DEBUG "parseModuleMasterfile suite_path:$suite_path parent_flow_node:$parent_flow_node" 4
+   ::log::log debug "parseModuleMasterfile suite_path:$suite_path parent_flow_node:$parent_flow_node"
    # First you parse the XML, the result is held in token d.
    set xml_data [string trim $xml_data] ;# v2.6 barfed w/o this
    
@@ -202,15 +201,12 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
    # get the top node of the xml tree
    set topXmlNode [$rootNode selectNodes /MODULE]
    set recordName [$topXmlNode getAttribute name]
-   # defaults to 0
-   set workUnitMode [$topXmlNode getAttribute work_unit 0] 
-   # DEBUG "parseModuleMasterfile suite_record:$suite_record recordName:${recordName} workUnitMode:${workUnitMode}" 5
    
    set suiteRecord [::SuiteNode::formatSuiteRecord $suite_path]
    if { $parent_flow_node == "" } {
       set suiteName [$topXmlNode getAttribute name]
       if { ! [record exists instance $suiteRecord] } {
-         DEBUG "parseModuleMasterfile $suiteRecord does not exists" 5
+         ::log::log debug "parseModuleMasterfile $suiteRecord does not exists"
          SuiteInfo $suiteRecord
       }
       set recordName "/$suiteName"
@@ -219,17 +215,16 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
       # create the top node of our flow tree
       if { ! [record exists instance ${recordName}] } {
          FlowModule $recordName
-         $recordName configure -load_time [clock seconds] 
+         $recordName configure -load_time [clock seconds]
       }
       $recordName configure -flow.name $suiteName -flow.type module -flow.family $recordName
    } else {
-      DEBUG "parseModuleMasterfile suite_record:$suite_record" 5
+      ::log::log debug "parseModuleMasterfile suite_record:$suite_record"
       set suiteName [$suite_record cget -suite_name]
       set recordName $parent_flow_node
-      DEBUG "parseModuleMasterfile suiteName:$suiteName" 5
+      ::log::log debug "suiteName:$suiteName"
    }
    $recordName configure  -flow.work_unit ${workUnitMode}
-
    getSubmits $recordName $topXmlNode
    # recursively parse the children nodes of the xml tree
    if { [$topXmlNode hasChildNodes] } {
@@ -243,6 +238,6 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
 }
 
 # for testing
-if { [info exists argv] && [llength $argv] == 1 } {
-   readMasterfile [lindex $argv 0]
-}
+#if { [info exists argv] && [llength $argv] == 1 } {
+#   readMasterfile [lindex $argv 0]
+#}

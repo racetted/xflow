@@ -64,7 +64,7 @@ proc ::DrawUtils::init {} {
 }
 
 proc ::DrawUtils::getStatusColor { node_status } {
-   DEBUG "::DrawUtils::getStatusColor ${node_status}" 5
+   ::log::log debug "::DrawUtils::getStatusColor ${node_status}"
    catch { set node_status $::DrawUtils::rippleStatusMap(${node_status}) }
    switch ${node_status} {
       init -
@@ -105,7 +105,7 @@ proc ::DrawUtils::getOutlineStatusColor { node_status } {
 }
 
 proc ::DrawUtils::clearBranch { canvas node { cmd_list "" } } {
-   DEBUG "clearBranch $canvas $node" 5
+   ::log::log debug "clearBranch $canvas $node"
    if { ${cmd_list} != "" } {
       upvar #0 ${cmd_list} evalCmdList
    }
@@ -157,7 +157,7 @@ proc ::DrawUtils::clearBranch { canvas node { cmd_list "" } } {
 }
 
 proc ::DrawUtils::getIndexWidgetName { node canvas } {
-   set newNode [regsub -all "/" ${node} _]
+   set newNode [regsub -all "/" ${node} _]   
    set newNode [regsub -all {[\.]} ${newNode} _]
    set indexListW "${canvas}.[string tolower ${newNode}]"
 }
@@ -215,7 +215,7 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
    set colors [::DrawUtils::getStatusColor init]
    catch { set colors [::DrawUtils::getStatusColor $status] }
 
-   DEBUG "::DrawUtils::drawNodeStatus node=$node canvasTag=$canvasTag canvasTextTag=$canvasTextTag status=$status font=[lindex $colors 0] fill=[lindex $colors 1]" 5
+   ::log::log debug "::DrawUtils::drawNodeStatus node=$node canvasTag=$canvasTag canvasTextTag=$canvasTextTag status=$status font=[lindex $colors 0] fill=[lindex $colors 1]"
 
    # get the list of all canvases where the node appears
    set canvasList [::FlowNodes::getDisplayList $node]
@@ -252,7 +252,7 @@ proc ::DrawUtils::drawNodeText { node new_text {canvas ""} } {
    if { [$node cget -flow.type] == "family" || [$node cget -flow.type] == "module"} {
       set new_text "/$new_text"
    }
-   DEBUG "::DrawUtils::drawNodeText new_text:$new_text " 5
+   ::log::log debug "::DrawUtils::drawNodeText new_text:$new_text "
    foreach canvas $canvasList {
       if { [winfo exists $canvas] && [$canvas type $canvasTextTag] == "text" } {
          $canvas itemconfigure $canvasTextTag -text $new_text
@@ -263,7 +263,7 @@ proc ::DrawUtils::drawNodeText { node new_text {canvas ""} } {
 proc ::DrawUtils::drawFamily { node canvas } {
    array set displayInfoList [$node cget -flow.display_infos]
    set displayInfo $displayInfoList($canvas)
-   DEBUG "drawFamily displayInfo:$displayInfo" 5
+   ::log::log debug "drawFamily displayInfo:$displayInfo"
    if {  [$node cget -flow.type] == "family" } {
       set x1 [expr [lindex $displayInfo 1] - 10]
       set x2 [expr [lindex $displayInfo 5] +10]
@@ -281,7 +281,7 @@ proc ::DrawUtils::drawFamily { node canvas } {
 
 proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder drawshadow shadowColor} {
    variable constants
-   #DEBUG "drawLosange canvas:$canvas text:$text binder:$binder" 5
+   #::log::log debug "drawLosange canvas:$canvas text:$text binder:$binder"
    set newtx1 [expr ${tx1} + 30]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
@@ -329,8 +329,8 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder
 proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
    global FLOW_SCALE
    variable constants
-   DEBUG "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder" 5
-   DEBUG "drawOval textfill:$textfill fill:$fill binder:$binder" 5
+   ::log::log debug "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder"
+   ::log::log debug "drawOval textfill:$textfill fill:$fill binder:$binder"
 
    set suiteRecord [xflow_getActiveSuite]
    set newtx1 [expr ${tx1} + 10]
@@ -503,7 +503,7 @@ proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
 }
 
 proc ::DrawUtils::drawline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColor {tag_name ""} } {
-    DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
+    ::log::log debug "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2"
 
     if { $x1 < $x2 } {
       set x2 [expr $x2 - 2 ]
@@ -540,7 +540,7 @@ proc ::DrawUtils::drawline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColo
 }
 
 proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadowColor {tag_name ""}} {
-    DEBUG "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
+    ::log::log debug "drawline canvas:$canvas x1:$x1 y1:$y1 x2:$x2 y2:$y2"
 
     if { $x1 < $x2 } {
       set x2 [expr $x2 - 3 ]
@@ -577,7 +577,7 @@ proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadow
 }
 
 proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
-    DEBUG "drawX canvas:$canvas x1:$x1 y1:$y1" 5
+    ::log::log debug "drawX canvas:$canvas x1:$x1 y1:$y1"
 
     if { $x1 < $x2 } {
       set x2 [expr $x2 - 3 ]
@@ -608,7 +608,7 @@ proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
 proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
    global FLOW_SCALE
    variable constants
-   DEBUG "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder" 5
+   ::log::log debug "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder"
    set pad 5
    if { ${FLOW_SCALE} != "1" } {
       set text "/   "
@@ -631,7 +631,7 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
    set ny2 [expr [lindex $boxArea 3] + ${pad}]
    set nextY ${ny2}
 
-   DEBUG "drawBoxSansOutline text=$text nx1=$nx1 ny1=$ny1 nx2=$nx2 ny2=$ny2"
+   ::log::log debug "drawBoxSansOutline text=$text nx1=$nx1 ny1=$ny1 nx2=$nx2 ny2=$ny2"
    $canvas create rectangle ${nx1} ${ny1} ${nx2} ${ny2} \
            -fill $fill -tags "flow_element $binder ${binder}.rectangle" 
    $canvas lower ${binder}.rectangle ${binder}.text
@@ -658,7 +658,7 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
 proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
    global FLOW_SCALE
    variable constants
-   DEBUG "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill binder:$binder" 5
+   ::log::log debug "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill binder:$binder"
    if { ${FLOW_SCALE} != "1" && [$binder cget -record_type] != "FlowNpassTask" } {
       set text "   "
       set maxtext ${text}
@@ -676,6 +676,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
 
+   #$canvas itemconfigure ${binder}.text -text $text
    set suiteRecord [xflow_getActiveSuite]
 
    set nx1 [expr [lindex $boxArea 0] - ${padx}]
@@ -748,7 +749,7 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
 }
 
 proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
-   DEBUG "::DrawUtils::pointNode ${suite_record} node:${node}" 5
+   ::log::log debug "::DrawUtils::pointNode ${suite_record} node:${node}"
    set canvasList ${canvas}
    if { ${canvas} == "" } {
       set canvasList [::SuiteNode::getCanvasList ${suite_record}]
@@ -757,7 +758,7 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
       set newcords [${canvasW} coords ${node}]
    
       if { [string length $newcords] == 0 } {
-         DEBUG "::DrawUtils::pointNode can't find node:${node}" 5
+         ::log::log debug "::DrawUtils::pointNode can't find node:${node}"
          return 0
       }
       # the "target"s are the top-left and bottom-right
@@ -808,7 +809,7 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
 # node of a branch
 proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
    global FLOW_SCALE
-   DEBUG "::DrawUtils::getLineDeltaSpace $flow_node delta_value: $delta_value" 5
+   ::log::log debug "::DrawUtils::getLineDeltaSpace $flow_node delta_value: $delta_value"
    set value ${delta_value}
    # I only need to calculate extra space if the current node is not in position 0
    # in it's parent node. If it is in position 0, the extra space has already been calculated.

@@ -2,7 +2,7 @@ package require textutil::string
 
 proc LogReader_readFile { suite_record calling_thread_id } {
    global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODES
-   DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id" 5
+   ::log::log debug "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id"
    set REDRAW_FLOW false
    set LOGREADER_UPDATE_NODES ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
@@ -70,7 +70,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
       set logfile $suitePath/logs/${monitorLog}_nodelog
       set datestamp ${monitorLog}
    }
-   DEBUG "LogReader_readFile calling_thread_id:$calling_thread_id date:[exec date] suite:[$suite_record cget -suite_path] file:[file tail $logfile]" 5
+   ::log::log debug "LogReader_readFile calling_thread_id:$calling_thread_id date:[exec date] suite:[$suite_record cget -suite_path] file:[file tail $logfile]"
 
    if { ${isStartupDone} == "false" } {
       set date1 [exec date "+%s"]
@@ -149,7 +149,7 @@ proc LogReader_cancelAfter { suite_record } {
 
 # this is meant to be running inside a child thread
 proc LogReader_processOverviewLine { calling_thread_id suite_record datestamp line } {  
-   DEBUG "LogReader_processOverviewLine suite_record:$suite_record line:$line" 5
+   ::log::log debug "LogReader_processOverviewLine suite_record:$suite_record line:$line"
 
    set nodeIndex [string first "SEQNODE=" $line]
    set typeIndex [string first "MSGTYPE=" $line $nodeIndex]
@@ -201,7 +201,7 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record datestamp li
               || ${type} == "abort" || ${type} == "end" 
               || ${type} == "wait" || ${type} == "submit" || ${type} == "catchup" } {
             if { ${node} == [${suite_record} cget -root_node] } {
-               DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
+               ::log::log debug "LogReader_processOverviewLine time:$timestamp node=$node type=$type"
                thread::send -async ${calling_thread_id} \
                   "Overview_updateExp [thread::id] ${suite_record} ${datestamp} ${type} ${timestamp}"
             }
@@ -214,7 +214,7 @@ proc LogReader_processLine { calling_thread_id suite_record datestamp line } {
    global MSG_CENTER_THREAD_ID
    set thisThreadId [thread::id]
 
-   DEBUG "LogReader_processLine line:$line" 5
+   ::log::log debug "LogReader_processLine line:$line"
    # node & signal is mandatory to be processed
    # else the line is ignored
    set loopInfoDisplay ""
@@ -253,7 +253,7 @@ proc LogReader_processLine { calling_thread_id suite_record datestamp line } {
       set flowNode [::SuiteNode::getFlowNodeMapping $suite_record $node]
       set type [string range $line $typeStartIndex $typeEndIndex]
       set msg ""
-      DEBUG "LogReader_processLine node:$node flowNode:$flowNode" 5
+      ::log::log debug "LogReader_processLine node:$node flowNode:$flowNode"
       if { $type != "" } {
          if { $loopIndex != -1 } {
             set loopExt [string range $line $loopStartIndex $loopEndIndex]
@@ -282,8 +282,8 @@ proc LogReader_processLine { calling_thread_id suite_record datestamp line } {
             if { [info exists ::DrawUtils::rippleStatusMap(${type})] } {
                set type $::DrawUtils::rippleStatusMap(${type})
 
-               DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
-               DEBUG "LogReader_processLine message=$msg" 5
+               ::log::log debug "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type"
+               ::log::log debug "LogReader_processLine message=$msg"
                if { [info command $flowNode] != "" } {
                   # 1 - first we take care of setting the node status
                   if { [string tolower $type] == "init" } {
@@ -387,7 +387,7 @@ proc LogReader_getAvailableDates { exp_path } {
    set expLogs ""
    if [ catch { set expLogs [exec ksh -c $cmd] } message ] {
    }
-   DEBUG "LogReader_getAvailableDates exp logs: $expLogs" 5
+   ::log::log debug "LogReader_getAvailableDates exp logs: $expLogs"
    return $expLogs
 }
 
