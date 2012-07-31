@@ -1028,37 +1028,36 @@ proc xflow_findNode { suite_record real_node } {
    set extensionPart [::FlowNodes::getExtFromDisplayFormat ${real_node}]
    set flowNode [::SuiteNode::getFlowNodeMapping ${suite_record} ${nodeWithouExt}]
 
-   # how many indexes do we have
-   set numberIndexes [expr [llength [split ${extensionPart} +]] -1 ]
+   # split the list using + as separator
+   set extList [split ${extensionPart} +]
+   set extLen [llength ${extList}]
+   # start at 1 cause the first element of the extList is a dummy empty value
+   set indexCount 1
+   set loopList [${flowNode} cget -flow.loops]
    set refreshNode ""
-   if { ${numberIndexes} > 0 } {
-      set indexCount 0
-      set loopList [${flowNode} cget -flow.loops]
-      # we need to select the indexes for loop members and/or npt nodes
-      while { ${indexCount} <= [expr ${numberIndexes} -1] } {
-         if { ${indexCount} == [expr ${numberIndexes} -1] && [${flowNode} cget -flow.type] == "npass_task" } {
-            # the current node is an npt... the last part must be for the npt index
-            set leafEx [::FlowNodes::getExtAtIndex ${extensionPart} ${indexCount}]
-            ${flowNode} configure -current ${leafEx}
-            set refreshNode ${flowNode}
-         } else {
-            # must be a loop extension
-            set loopNode [lindex ${loopList} ${indexCount}]
-            set loopExt [::FlowNodes::getExtLeftSlice ${extensionPart} ${indexCount}]
-            ${loopNode} configure -current ${loopExt}
-         }
-         if { ${refreshNode} == "" } {
-            set refreshNode ${loopNode}
-         }
-         incr indexCount
+   # loop throught the list of indexes
+   while { ${indexCount} < ${extLen} } {
+      set extValue +[lindex ${extList} ${indexCount}]
+      if { [${flowNode} cget -flow.type] == "npass_task" } {
+         ${flowNode} configure -current ${extValue}
+         set refreshNode ${flowNode}
+      } else {
+         # must be a loop extension
+         set loopNode [lindex ${loopList} [expr ${indexCount} - 1]]
+         ${loopNode} configure -current ${extValue}
       }
+      if { ${refreshNode} == "" } {
+         set refreshNode ${loopNode}
+      }
+      incr indexCount
    }
-   
-   if { ${refreshNode} != "" } {
-      xflow_redrawNodes ${refreshNode} [xflow_getMainFlowCanvas]
+
+   set collapsedParentNode [::FlowNodes::uncollapseBranch ${flowNode} [xflow_getMainFlowCanvas] ]
+   if { ${refreshNode} != "" || ${collapsedParentNode} != "" } {
+      xflow_drawflow [xflow_getMainFlowCanvas]
    }
    update idletasks
-   ::DrawUtils::pointNode ${suite_record} ${flowNode}
+    ::DrawUtils::pointNode ${suite_record} ${flowNode}
 }
 
 # this function is the starting point to draw the experiment flow.
@@ -1158,13 +1157,13 @@ proc xflow_drawNode { canvas node position {first_node false} } {
    foreach { tx1 ty1 } [xflow_addSingleReservIndicator ${canvas} ${node} ${tx1} ${ty1}] {break}
 
    set text [$node cget -flow.name]
-   if { !(($children == "none") ||  ($children == "")) && $isCollapsed == 1} {
-      set text ${text}+
-   }
    set nodeExtension [::FlowNodes::getNodeExtension $node]
    set extDisplay [::FlowNodes::getExtDisplay $node $nodeExtension]
    if { $extDisplay != "" } {
       set text "${text}${extDisplay}"
+   }
+   if { !(($children == "none") ||  ($children == "")) && $isCollapsed == 1} {
+      set text ${text}+
    }
    set dispPref [xflow_getNodeDisplayPrefText $node]
    if { $dispPref != "" } {
