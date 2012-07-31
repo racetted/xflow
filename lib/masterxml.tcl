@@ -201,7 +201,9 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
    # get the top node of the xml tree
    set topXmlNode [$rootNode selectNodes /MODULE]
    set recordName [$topXmlNode getAttribute name]
-   
+   # defaults to 0
+   set workUnitMode [$topXmlNode getAttribute work_unit 0]
+
    set suiteRecord [::SuiteNode::formatSuiteRecord $suite_path]
    if { $parent_flow_node == "" } {
       set suiteName [$topXmlNode getAttribute name]

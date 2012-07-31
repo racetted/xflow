@@ -2177,7 +2177,7 @@ proc xflow_allListingCallback { node canvas caller_menu type } {
    set suitePath [$suiteRecord cget -suite_path]
    set listerPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    set cmd "export SEQ_EXP_HOME=$suitePath; $listerPath -n ${seqNode} -type $type -list > $tmpfile 2>&1"
-   DEBUG "xflow_allListingCallback ksh -c $cmd" 5
+   ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
    catch { eval [exec ksh -c $cmd ] }
 
    ##set fullList [list showAllListings $node $type $canvas $canvas.list]
@@ -2231,14 +2231,15 @@ proc xflow_showAllListingItem { suite_record listw list_type} {
       set selectedValue [$listw get $selectIndex]
       if { [string first "On " $selectedValue] != 0 } {
          set splittedArgs [split $selectedValue]
-         set listingFile [lindex $splittedArgs end]
+     set mach [lindex $splittedArgs end]
+         set listingFile [lindex $splittedArgs end-1]
          set splittedFile [split [file tail $listingFile] .]
 
          set winTitle "${list_type} Listing [file tail ${listingFile}]"
          regsub -all " " ${winTitle} _ tempfile
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
-         set seqCmd "${listingExec} -f $listingFile"
+         set seqCmd "${listingExec} -f $listingFile@$mach"
          Sequencer_runCommand ${suitePath} ${outputfile} ${seqCmd}
          if { ${listingViewer} == "default" } {
             create_text_window ${winTitle} ${outputfile} top .
