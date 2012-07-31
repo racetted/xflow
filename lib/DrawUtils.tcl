@@ -158,7 +158,7 @@ proc ::DrawUtils::clearBranch { canvas node { cmd_list "" } } {
 
 proc ::DrawUtils::getIndexWidgetName { node canvas } {
    set newNode [regsub -all "/" ${node} _]
-   set newNode [regsub -all "." ${newNode} _]
+   set newNode [regsub -all {[\.]} ${newNode} _]
    set indexListW "${canvas}.[string tolower ${newNode}]"
 }
 
