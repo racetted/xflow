@@ -258,7 +258,7 @@ proc ::FlowNodes::searchForNode { _node _search_value _match_case _results_outpu
    set matchCaseFlag "-nocase"
 
    if { ${_match_case} == 1 } { set matchCaseFlag "" }
-   if { [eval string match ${matchCaseFlag} *${_search_value}* [file tail ${_node}]] == 1 } {
+   if { [eval string match ${matchCaseFlag} \"*${_search_value}*\" [file tail ${_node}]] == 1 } {
       lappend myOutput ${_node}
    }
 
