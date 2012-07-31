@@ -3031,6 +3031,20 @@ proc xflow_createWidgets {} {
    xflow_addViewMenu $topFrame
    xflow_addHelpMenu $topFrame
 
+   # exp label frame
+   set expLabelFrame [frame [xflow_getWidgetName exp_label_frame]]
+   set expLabelFont ExpLabelFont
+   if { [lsearch [font names] ExpLabelFont] == -1 } {
+      # create the font if not exists
+      font create ExpLabelFont
+      font configure ${expLabelFont} -size 25 -weight bold
+   }
+
+   set expLabel [label ${expLabelFrame}.exp_label -text [file tail ${SEQ_EXP_HOME}] -font ${expLabelFont}]
+   grid ${expLabel} 
+   #grid ${expLabelFrame} -row 3 -column 0 -sticky w
+   pack ${expLabelFrame} -side left -padx {20 0}
+
    set secondFrame [frame  [xflow_getWidgetName second_frame]]
    set toolbarFrame [xflow_getWidgetName toolbar_frame]
    labelframe ${toolbarFrame} -text Toolbar
@@ -3044,29 +3058,18 @@ proc xflow_createWidgets {} {
    # monitor date
    xflow_addMonitorDateWidget ${monDateFrame}
 
-   # exp label frame
-   set expLabelFrame [frame [xflow_getWidgetName exp_label_frame]]
-   set expLabelFont ExpLabelFont
-   if { [lsearch [font names] ExpLabelFont] == -1 } {
-      # create the font if not exists
-      font create ExpLabelFont
-      font configure ${expLabelFont} -size 25 -weight bold
-   }
-
-   set expLabel [label ${expLabelFrame}.exp_label -text [file tail ${SEQ_EXP_HOME}] -font ${expLabelFont}]
-   grid ${expLabel} 
-
    # find frame
    set findFrame [frame [xflow_getWidgetName find_frame]]
    xflow_createFindWidgets ${findFrame}
    set findCloseB [xflow_getWidgetName find_close_button]
    ${findCloseB} configure -command [list grid remove ${findFrame}]
 
+
    # this displays the widget on the second frame
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
    grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
    grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
-   grid ${expLabelFrame} -row 0 -column 3 -padx { 20 0 }
+   #grid ${expLabelFrame} -row 0 -column 3 -padx { 20 0 }
 
    # flow_frame is the 3nd widget
    set flowFrame [frame [xflow_getWidgetName flow_frame]]
@@ -3088,12 +3091,14 @@ proc xflow_createWidgets {} {
    set sizeGripW [xflow_getWidgetName main_size_grip]
    ttk::sizegrip ${sizeGripW}
    bind ${sizeGripW} <B1-Motion> { 
-      global FLOW_RESIZED
-      ttk::sizegrip::Drag   %W %X %Y
-      set FLOW_RESIZED true
+      catch {
+         global FLOW_RESIZED
+         ttk::sizegrip::Drag   %W %X %Y
+         set FLOW_RESIZED true
+      }
    }
 
-   grid ${sizeGripW} -row 3 -column 1 -sticky se
+   grid ${sizeGripW} -row 4 -column 1 -sticky se
    
    wm geometry . =1200x800
 }
@@ -3254,7 +3259,7 @@ proc xflow_setTitle { top_w exp_path } {
    global env TITLE_AFTER_ID
    if { [winfo exists ${top_w}] } {
       set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
-      set winTitle "Xflow - Exp=${exp_path} User=$env(USER) Host=[exec hostname] Time=${current_time}"
+      set winTitle "[file tail ${exp_path}] - Xflow - Exp=${exp_path} User=$env(USER) Host=[exec hostname] Time=${current_time}"
       wm title [winfo toplevel ${top_w}] ${winTitle}
 
       # refresh title every minute
@@ -3376,6 +3381,8 @@ proc xflow_setWidgetNames {} {
       flow_frame .flow_frame
       main_size_grip .size_grip
 
+      exp_label_frame .top_frame.exp_label_frame
+
       toolbar_frame .second_frame.toolbar
       msgcenter_button .second_frame.toolbar.button_msgcenter
       nodekill_button .second_frame.toolbar.button_nodekill
@@ -3400,7 +3407,6 @@ proc xflow_setWidgetNames {} {
       monitor_date_combo .second_frame.mon_date_frame.entry_combo
       monitor_date_button_frame .second_frame.mon_date_frame.button_frame
       monitor_date_set_button .second_frame.mon_date_frame.button_frame.set_button
-      exp_label_frame .second_frame.exp_label_frame
 
       find_close_button .find_frame.close_button
       find_label .find_frame.entry_label
