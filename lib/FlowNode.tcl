@@ -41,6 +41,7 @@ record define FlowNode {
    parent
    family
    container
+   {work_unit 0}
    {loops {} }
    {statuses {} }
    {latest ""}

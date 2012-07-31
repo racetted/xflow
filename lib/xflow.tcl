@@ -1146,6 +1146,7 @@ proc xflow_drawNode { canvas node position {first_node false} } {
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor  $drawshadow $shadowColor ${lineTagName}
       }
    }
+
    set isCollapsed [::FlowNodes::isCollapsed $node $canvas]
    set children [$node cget -flow.children]
    set normalTxtFill [SharedData_getColor NORMAL_RUN_TEXT]
@@ -1154,6 +1155,8 @@ proc xflow_drawNode { canvas node position {first_node false} } {
    # now draw the node
    set tx1 [expr $linex2 + ${padTx}/${FLOW_SCALE}]
    set ty1 $liney2
+   foreach { tx1 ty1 } [xflow_addSingleReservIndicator ${canvas} ${node} ${tx1} ${ty1}] {break}
+
    set text [$node cget -flow.name]
    if { !(($children == "none") ||  ($children == "")) && $isCollapsed == 1} {
       set text ${text}+
@@ -1169,7 +1172,7 @@ proc xflow_drawNode { canvas node position {first_node false} } {
    }
    set currentExtension [::FlowNodes::getNodeExtension $node]
    set status [FlowNodes::getMemberStatus $node $currentExtension ]
-
+   
    #set helpText "node: [file tail ${node}${currentExtension}] \nstatus: ${status}"
    switch [$node cget -flow.type] {
       "family" {
@@ -1177,7 +1180,11 @@ proc xflow_drawNode { canvas node position {first_node false} } {
          ::FlowNodes::addToFamilyList $node
       }
       "module" {
-	 ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         if { [${node} cget -flow.work_unit] == 0 } {
+            ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         } else {
+	    ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         }
       }
       "task" {
          ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
@@ -1231,6 +1238,26 @@ proc xflow_drawNode { canvas node position {first_node false} } {
    }
 
    DEBUG "xflow_drawNode drawing sub node:$node done" 5
+}
+
+# add a striped circle before the node box to indicate the
+# the start of a single reservation branch
+# returns coords of modified x and y after image creation if exists
+#                    modified x is start_x + width of created img
+#                    y is startY
+# else returns startX and startY
+# 
+proc xflow_addSingleReservIndicator { _canvas _node _startX _startY } {
+   global SingleReservImg
+   if { [${_node} cget -flow.work_unit] == 1 } {
+      if { [info exists SingleReservImg] == 0 } {
+         set SingleReservImg [image create photo -file [SharedData_getMiscData IMAGE_DIR]/round_stripe.png]
+      }
+
+      ${_canvas} create image ${_startX} ${_startY} -image ${SingleReservImg} -tags "flow_element ${_node} ${_node}.work_unit"
+      return [list [expr ${_startX} + [image height $SingleReservImg] + 1] ${_startY}]
+   }
+   return [list ${_startX} ${_startY}]
 }
 
 # This function is called when user click on a box with button 3
@@ -1743,8 +1770,7 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
 	    Utils_raiseError . "Retrieve node output" $message
 	    return 0
 	}
-	set taskBasedir "[lindex $workpath 1]${seqNode}${nodeExt}"
-    Utils_launchShell [lindex $workpath 0] ${expPath} ${taskBasedir} "TASK_BASEDIR=${taskBasedir}"
+    Utils_launchShell [lindex $workpath 0] ${expPath} [lindex $workpath 1] "TASK_BASEDIR=[lindex $workpath 1]"
     }	
 }
 
@@ -2172,7 +2198,12 @@ proc xflow_allListingCallback { node canvas caller_menu type } {
    set resultingFile [open $tmpfile] 
 
    while { [gets $resultingFile line ] >= 0 } {
-         ${listingW}.list insert end $line 
+       if { [string first "On" $line] >= 0 } {
+	   set mach [string trimleft $line "On "]
+	   ${listingW}.list insert end $line
+       } else {
+	   ${listingW}.list insert end "[string trim $line "\n"] $mach"
+       }
    }
 
    catch {[exec rm -f $tmpfile]}
@@ -2194,14 +2225,15 @@ proc xflow_showAllListingItem { suite_record listw list_type} {
       set selectedValue [$listw get $selectIndex]
       if { [string first "On " $selectedValue] != 0 } {
          set splittedArgs [split $selectedValue]
-         set listingFile [lindex $splittedArgs end]
+	 set mach [lindex $splittedArgs end]
+         set listingFile [lindex $splittedArgs end-1]
          set splittedFile [split [file tail $listingFile] .]
 
          set winTitle "${list_type} Listing [file tail ${listingFile}]"
          regsub -all " " ${winTitle} _ tempfile
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
-         set seqCmd "${listingExec} -f $listingFile"
+         set seqCmd "${listingExec} -f $listingFile@$mach"
          Sequencer_runCommand ${suitePath} ${outputfile} ${seqCmd}
          if { ${listingViewer} == "default" } {
             create_text_window ${winTitle} ${outputfile} top .
@@ -2989,6 +3021,7 @@ proc xflow_createWidgets {} {
 
    DEBUG "xflow_createWidgets" 5
    wm iconify .
+   
    set topFrame [frame [xflow_getWidgetName top_frame]]
    xflow_addFileMenu $topFrame
    xflow_addViewMenu $topFrame
