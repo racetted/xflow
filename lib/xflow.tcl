@@ -2393,7 +2393,7 @@ proc xflow_refreshFlow { } {
    global PROGRESS_REPORT_TXT
    set suiteRecord [xflow_getActiveSuite]
 
-   set progressW [ProgressDlg .pd -title "Flow Refresh" -parent .  -textvariable PROGRESS_REPORT_TXT]
+   set progressW [ProgressDlg .pdrefresh -title "Flow Refresh" -parent .  -textvariable PROGRESS_REPORT_TXT]
    set PROGRESS_REPORT_TXT "Refreshing experiment ..."
    # for some reason, I need to call the update for the progress dlg to appear properly
    update idletasks
@@ -2567,8 +2567,13 @@ proc xflow_nodeResourceCallback { {name1 ""} {name2 ""} {op ""} } {
       if { ! [info exists NODE_RESOURCE_DONE] || ${NODE_RESOURCE_DONE} == "false" } {
          set activeSuiteRecord [xflow_getActiveSuite]
          if { ${activeSuiteRecord} != "" } {
-            set progressW [ProgressDlg .pd -title "Node Display Preferrences" -textvariable nodeResourceText]
-            Utils_positionWindow ${progressW}
+            set destroProgessCmd ""
+            if { [wm state .] == "normal" } {
+               set progressW [ProgressDlg .pd -parent . -title "Node Display Preferrences" -textvariable nodeResourceText]
+               # Utils_positionWindow ${progressW}
+               set destroProgessCmd "destroy ${progressW}"
+            }
+
             set nodeResourceText "Loading node resources ..."
             # for some reason, I need to call the update for the progress dlg to appear properly
             update idletasks
@@ -2576,7 +2581,8 @@ proc xflow_nodeResourceCallback { {name1 ""} {name2 ""} {op ""} } {
             set rootNode [${activeSuiteRecord} cget -root_node]
             xflow_getNodeResources ${rootNode} [${activeSuiteRecord} cget -suite_path] 1
             set NODE_RESOURCE_DONE true
-            destroy ${progressW}
+            # catch { destroy ${progressW} }
+            eval ${destroProgessCmd}
             unset nodeResourceText
          }
       }
@@ -3137,7 +3143,6 @@ proc xflow_displayFlow { calling_thread_id } {
 
    set PROGRESS_REPORT_TXT "Getting loop node resources ..."
    xflow_getAllLoopResourcesCallback ${rootNode} ${SEQ_EXP_HOME}
-
    # resource will only be loaded if needed
    xflow_nodeResourceCallback
 

@@ -1192,8 +1192,11 @@ proc Overview_createThread { exp_path } {
       # this function is called from the overview main thread to the exp thread
       # to display the exp flow either on user's request or because of "Auto Launch"
       proc thread_launchFLow { parent_id exp_path} {
-         global this_id 
+         global this_id FLOW_SCALE NODE_DISPLAY_PREF
          ::log::log debug "thread_launchFLow"
+         # retrieve global shared data
+         set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
+         set NODE_DISPLAY_PREF [SharedData_getMiscData NODE_DISPLAY_PREF]
 
          xflow_setMonitoringLatest 1
          ::log::log notice "thread_launchFLow calling xflow_displayFlow ${exp_path}"
@@ -1676,12 +1679,13 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 }
 
 proc Overview_init {} {
-   global env AUTO_LAUNCH
+   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
    global expBoxLength startEndIconSize expBoxOutlineWidth
 
-   #set AUTO_LAUNCH true
    set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
+   set NODE_DISPLAY_PREF [SharedData_getMiscData NODE_DISPLAY_PREF]
+   set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
 
    Utils_logInit
@@ -1835,7 +1839,7 @@ proc Overview_toFront {} {
 }
 
 proc Overview_addPrefMenu { parent } {
-   global AUTO_MSG_DISPLAY AUTO_LAUNCH
+   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
    menubutton $menuButtonW -text Preferences -underline 0 -menu $menuW
@@ -1850,6 +1854,26 @@ proc Overview_addPrefMenu { parent } {
       -onvalue true -offvalue false
    ::tooltip::tooltip $menuW -index 1 "Automatic launch of flow when experiment starts."
    ::tooltip::tooltip $menuW -index 2 "Automatic message window on new alarm."
+
+   # Node Display submenu
+   set displayMenu $menuW.displayMenu
+   $menuW add cascade -label "Node Display" -underline 5 -menu ${displayMenu}
+   menu ${displayMenu} -tearoff 0
+   foreach item "normal catchup cpu machine_queue memory mpi wallclock" {
+      set value ${item}
+      ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF -value ${value} \
+         -command [list Overview_nodeDisplayCallback]
+   }
+
+   # Flow Scale submenu
+   set scaleMenu $menuW.scaleMenu
+   $menuW add cascade -label "Flow Scale" -underline 5 -menu ${scaleMenu}
+   menu ${scaleMenu} -tearoff 0
+   ${scaleMenu} add radiobutton -label "scale-normal" -variable FLOW_SCALE -value 1 \
+      -command [list Overview_flowScaleCallback]
+   ${scaleMenu} add radiobutton -label "scale-2" -variable FLOW_SCALE -value 2 \
+      -command [list Overview_flowScaleCallback]
+
    pack $menuButtonW -side left -padx 2
 }
 
@@ -1900,6 +1924,16 @@ proc Overview_newMessageCallback { has_new_msg } {
          ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor}
       }
    }
+}
+
+proc Overview_nodeDisplayCallback {} {
+   global NODE_DISPLAY_PREF
+   SharedData_setMiscData NODE_DISPLAY_PREF ${NODE_DISPLAY_PREF}
+}
+
+proc Overview_flowScaleCallback {} {
+   global FLOW_SCALE
+   SharedData_setMiscData FLOW_SCALE ${FLOW_SCALE}
 }
 
 proc Overview_createToolbar { toplevel_ } {
