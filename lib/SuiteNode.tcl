@@ -198,35 +198,70 @@ proc ::SuiteNode::getActiveDatestamp { suite } {
    }
 }
 
-# the status_info is an array of where the key is
-# the status name and the info contains "datestamp date time"
-# example "::SuiteNode::getStatusInfo $suite begin" might return
-# "20100707000000 20100929 19:05:13"
-# an empty string is returned if no info
-proc ::SuiteNode::getStatusInfo { suite status } {
-   array set infoList [$suite cget -status_info]
-   set statusInfo ""
-   if { [info exists infoList(${status})] } {
-      set statusInfo $infoList(${status})
+# example ::SuiteNode::setStatusInfo $suite begin "20100707000000 20100929 19:05:13"
+proc out {} {
+   # the status_info is an array of where the key is
+   # the status name and the info contains "datestamp date time"
+   # example "::SuiteNode::getStatusInfo $suite begin" might return
+   # "20100707000000 20100929 19:05:13"
+   # an empty string is returned if no info
+   proc ::SuiteNode::getStatusInfo { suite status } {
+      array set infoList [$suite cget -status_info]
+      set statusInfo ""
+      if { [info exists infoList(${status})] } {
+         set statusInfo $infoList(${status})
+      }
+      return ${statusInfo}
    }
-   return ${statusInfo}
+
+   proc ::SuiteNode::setStatusInfo { suite status status_info } {
+      array set infoList [$suite cget -status_info]
+      set statusInfo ""
+      set infoList(${status}) ${status_info}
+      if { ${status} == "init" } {
+         set infoList(begin) ""
+         set infoList(end) ""
+         set infoList(abort) ""
+      } elseif { ${status} == "begin" } {
+         set infoList(end) ""
+         set infoList(abort) ""
+      }
+      ${suite} configure -status_info [array get infoList]
+      ${suite} configure -last_status ${status}
+   }
 }
 
-# example ::SuiteNode::setStatusInfo $suite begin "20100707000000 20100929 19:05:13"
-proc ::SuiteNode::setStatusInfo { suite status status_info } {
-   array set infoList [$suite cget -status_info]
-   set statusInfo ""
-   set infoList(${status}) ${status_info}
-   if { ${status} == "init" } {
-      set infoList(begin) ""
-      set infoList(end) ""
-      set infoList(abort) ""
-   } elseif { ${status} == "begin" } {
-      set infoList(end) ""
-      set infoList(abort) ""
+proc ::SuiteNode::getDatestamps { suite } {
+   global StatusInfo
+   if { [info globals StatusInfo] == "" } {
+      return ""
    }
-   ${suite} configure -status_info [array get infoList]
-   ${suite} configure -last_status ${status}
+
+   array set datestamps {}
+   if { [dict exists $StatusInfo ${suite} statuses] } {
+      array set datestamps [dict get $StatusInfo ${suite} statuses]
+   }
+   set values [array names datestamps]
+   return [array names datestamps]
+}
+
+proc ::SuiteNode::setStatusInfo { suite datestamp status status_info } {
+   global StatusInfo
+   dict set StatusInfo ${suite} statuses ${datestamp} ${status} ${status_info}
+}
+
+proc ::SuiteNode::getStatusInfo { suite datestamp status } {
+   global StatusInfo
+   set value ""
+   if { [info exists StatusInfo] && [dict exists $StatusInfo ${suite} statuses ${datestamp} ${status}] } {
+      set value [dict get $StatusInfo ${suite} statuses ${datestamp} ${status}]
+   }
+   return $value
+}
+
+proc ::SuiteNode::test {} {
+   global StatusInfo
+   dict values $StatusInfo
 }
 
 proc ::SuiteNode::getReferenceClockValue { suite status } {
@@ -241,14 +276,22 @@ proc ::SuiteNode::getReferenceClockValue { suite status } {
 
 # returns the status date & time as an integer value
 # empty string is returned if no value is found
-proc ::SuiteNode::getStatusClockValue { suite status } {
-   array set infoList [$suite cget -status_info]
+proc ::SuiteNode::getStatusClockValue { suite datestamp status } {
    set value ""
-   if { [info exists infoList(${status})] } {
-      set statusInfo $infoList(${status})
-      set dateTime "[lindex ${statusInfo} 1] [lindex ${statusInfo} 2]"
-      if { [string length ${dateTime}] > 1} {
-         set value [clock scan "${dateTime}"]
+   set statusInfo [::SuiteNode::getStatusInfo ${suite} ${datestamp} ${status}]
+   set dateTime "[lindex ${statusInfo} 0] [lindex ${statusInfo} 1]"
+   if { [string length ${dateTime}] > 1} {
+      set value [clock scan "${dateTime}"]
+   }
+   proc out {} {
+      array set infoList [$suite cget -status_info]
+      set value ""
+      if { [info exists infoList(${status})] } {
+         set statusInfo $infoList(${status})
+         set dateTime "[lindex ${statusInfo} 1] [lindex ${statusInfo} 2]"
+         if { [string length ${dateTime}] > 1} {
+            set value [clock scan "${dateTime}"]
+         }
       }
    }
    return ${value}
@@ -275,31 +318,29 @@ proc ::SuiteNode::getStartRelativeClockValue { ref_start_time ref_end_time } {
 }
 
 
-proc ::SuiteNode::setLastStatusInfo { suite status datestamp date time } {
+proc ::SuiteNode::setLastStatusInfo { suite datestamp status date time } {
    # if the status is beginx and the suite already has a begin value... I don't
    # store the begin time.. this means that it is a ripple effect and I don't want
    # the overview box to be moved to the new time...
    if { ${status} == "beginx" } {
-      if { [::SuiteNode::getStatusInfo ${suite} begin ] == "" } {
-         ::SuiteNode::setStatusInfo ${suite} begin "${datestamp} ${date} ${time}"   
+      if { [::SuiteNode::getStatusInfo ${suite} ${datestamp} begin ] == "" } {
+         ::SuiteNode::setStatusInfo ${suite} ${datestamp} begin "${date} ${time}"
       }
-      ${suite} configure -last_status begin
+      ::SuiteNode::setStatusInfo ${suite} ${datestamp} last begin
+      # ${suite} configure -last_status begin
    } else {
-      ::SuiteNode::setStatusInfo ${suite} ${status} "${datestamp} ${date} ${time}"   
-      ${suite} configure -last_status ${status}
+      ::SuiteNode::setStatusInfo ${suite} ${datestamp} ${status} "${date} ${time}"   
+      ::SuiteNode::setStatusInfo ${suite} ${datestamp} last ${status}
+      # ${suite} configure -last_status ${status}
    }
 }
 
-proc ::SuiteNode::getLastStatus { suite } {
-   set value [${suite} cget -last_status]
-   return  ${value}
-}
-
-proc ::SuiteNode::getLastStatusDateTime { suite } {
-   set lastStatus [${suite} cget -last_status]
-   set statusInfo [::SuiteNode::getStatusInfo ${suite} ${lastStatus}]
-   set value [lrange ${statusInfo} 1 2]
-
+proc ::SuiteNode::getLastStatus { suite datestamp } {
+   #set value [${suite} cget -last_status]
+   set value [::SuiteNode::getStatusInfo ${suite} ${datestamp} last]
+   if { ${value} == "" } {
+      set value init
+   }
    return  ${value}
 }
 
@@ -311,11 +352,12 @@ proc ::SuiteNode::getLastStatusDatestamp { suite } {
    return  ${value}
 }
 
-proc ::SuiteNode::getLastStatusTime { suite } {
+proc ::SuiteNode::getLastStatusTime { suite datestamp } {
 
-   set lastStatus [${suite} cget -last_status]
-   set statusInfo [::SuiteNode::getStatusInfo ${suite} ${lastStatus}]
-   set value [lindex ${statusInfo} 2]
+   #set lastStatus [${suite} cget -last_status]
+   set lastStatus [::SuiteNode::getStatusInfo ${suite} ${datestamp} last]
+   set statusInfo [::SuiteNode::getStatusInfo ${suite} ${datestamp} ${lastStatus}]
+   set value [lindex ${statusInfo} 1]
 
    # if the value is empty, it likely means that we're
    # dealing with an empty new log file so we return the start time
@@ -328,7 +370,12 @@ proc ::SuiteNode::getLastStatusTime { suite } {
    return  ${value}
 }
 
-proc ::SuiteNode::getStartTime { suite } {
+proc ::SuiteNode::getStartTime { suite datestamp } {
+   set statusInfo [::SuiteNode::getStatusInfo ${suite} ${datestamp} begin]
+   set value [lindex ${statusInfo} 1]
+   return ${value}
+
+   proc out {} {
    array set infoList [$suite cget -status_info]
    set value ""
    if { [info exists infoList(begin)] } {
@@ -336,9 +383,15 @@ proc ::SuiteNode::getStartTime { suite } {
       set value [lindex ${statusInfo} 2]
    }
    return ${value}
+   }
 }
 
-proc ::SuiteNode::getEndTime { suite } {
+proc ::SuiteNode::getEndTime { suite datestamp } {
+   set statusInfo [::SuiteNode::getStatusInfo ${suite} ${datestamp} end]
+   set value [lindex ${statusInfo} 1]
+   return ${value}
+
+   proc out {} {
    array set infoList [$suite cget -status_info]
    set value ""
    if { [info exists infoList(end)] } {
@@ -346,6 +399,7 @@ proc ::SuiteNode::getEndTime { suite } {
       set value [lindex ${statusInfo} 2]
    }
    return ${value}
+   }
 }
 
 # not sure what to do with this for now
@@ -355,9 +409,9 @@ proc ::SuiteNode::getEndTime { suite } {
 # so for now they are parked at the start of 
 # my time grid in the overview and must not be time
 # shifted.
-proc ::SuiteNode::isHomeless {suite} {
+proc ::SuiteNode::isHomeless {suite datestamp} {
    set value false
-   if { [::SuiteNode::getLastStatus ${suite}] == "init" &&
+   if { [::SuiteNode::getLastStatus ${suite} ${datestamp}] == "init" &&
         [${suite} cget -ref_start] == "" } {
       set value true
    }

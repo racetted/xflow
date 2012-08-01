@@ -3138,26 +3138,16 @@ proc xflow_displayFlow { calling_thread_id datestamp } {
    # xflow_populateMonitorDate [xflow_getWidgetName monitor_date_frame]
    xflow_populateDatestamp [xflow_getWidgetName exp_date_frame]
 
-   if { ${MONITORING_LATEST} == "1" } {
-      # the thread id associated to an exp path is mainly used by
-      # the xflow_overview... The overview needs it to send signals
-      # to the thread that is used to monitor the active exp log.
-      # NOT set if in exp history mode
-      DEBUG "xflow_displayFlow SharedData_setSuiteData ${SEQ_EXP_HOME} THREAD_ID [thread::id]" 5
-      SharedData_setSuiteData ${SEQ_EXP_HOME} THREAD_ID [thread::id]
-   }
-
-   if { [SharedData_getMiscData OVERVIEW_MODE] == "true" &&
-        ${MONITORING_LATEST} == "0" && ${MONITOR_DATESTAMP} != "" } {
+   if { [SharedData_getMiscData OVERVIEW_MODE] == "true" && [SharedData_getMiscData OVERVIEW_THREAD_ID] != ${calling_thread_id} } {
       # we are in overview mode and exp history viewing mode
       # point the suite to the exp history log file
-      ${activeSuiteRecord} configure -read_offset 0 -active_log ${MONITOR_DATESTAMP}
+      ${activeSuiteRecord} configure -read_offset 0 -active_log ${datestamp}
       # reset every node... overview is reusing thread in history mode
       ::FlowNodes::resetNodeStatus  [${activeSuiteRecord} cget -root_node]
       # read the content of the log file
       xflow_initStartupMode
       set PROGRESS_REPORT_TXT "Processing log file ..."
-      LogReader_readFile ${activeSuiteRecord} ${calling_thread_id}
+      LogReader_readFile ${activeSuiteRecord} ${calling_thread_id} ${datestamp}
       xflow_stopStartupMode
       # then show the flow
       xflow_selectSuiteCallback

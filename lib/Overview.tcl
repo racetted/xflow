@@ -98,27 +98,25 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
-         set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
-         set currentExpCoords [Overview_getExpBoundaries ${canvasW} ${suiteRecord}]
-         set currentX [lindex ${currentExpCoords} 0]
-         set lastStatus [::SuiteNode::getLastStatus ${suiteRecord}]
-         set lastStatusTime [::SuiteNode::getLastStatusTime ${suiteRecord}]
-         if { [expr ${currentX} == ${graphStartX}] && [::SuiteNode::isHomeless ${suiteRecord}] } {
-            # exps that do not have reference timings and are in init state # sits at x origin 0
-            set expAdvanceHour false
-            DEBUG "Overview_GridAdvanceHour not advancing homeless ${exp}" 5
+         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
+      
+         set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
+         foreach datestamp ${datestamps} {
+            set runBoxCoords [Overview_getRunBoxBoundaries  ${canvasW} ${suiteRecord} ${datestamp}]
+            set currentX [lindex ${runBoxCoords} 0]
+            set lastStatus [::SuiteNode::getLastStatus ${suiteRecord} ${datestamp}]
+            set lastStatusTime [::SuiteNode::getLastStatusTime ${suiteRecord} ${datestamp}]
+            #set currentExpCoords [Overview_getExpBoundaries ${canvasW} ${suiteRecord}]
+            #set currentX [lindex ${currentExpCoords} 0]
+            #set lastStatus [::SuiteNode::getLastStatus ${suiteRecord}]
+            #set lastStatusTime [::SuiteNode::getLastStatusTime ${suiteRecord}]
+            if { [expr ${currentX} == ${graphStartX}] && [::SuiteNode::isHomeless ${suiteRecord} ${datestamp}] } {
+               # exps that do not have reference timings and are in init state # sits at x origin 0
+               set expAdvanceHour false
+               DEBUG "Overview_GridAdvanceHour not advancing homeless ${exp}" 5
+            }
+            Overview_updateExpBox ${canvasW} ${suiteRecord} ${datestamp} ${lastStatus} ${lastStatusTime}
          }
-         Overview_updateExpBox ${canvasW} ${suiteRecord} ${lastStatus} ${lastStatusTime}
-
-         #set afterCallback [${suiteRecord} cget -overview_after_id]
-         #if { ${afterCallback} != "" } {
-         #   catch {
-         #      set afterInfo [after info ${afterCallback}]
-         #      set invokeCallback [lindex ${afterInfo} 0]
-         #      DEBUG "Overview_GridAdvanceHour ${exp} invoking callback ${invokeCallback}" 5
-         #      eval ${invokeCallback}
-         #   }
-         #}
       }
    }
 }
@@ -230,37 +228,10 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
 }
 
-#
-# NOT USED FOR NOW
-#
-proc Overview_isOffTimeGrid { suite_record } {
-   set lastStatus [::SuiteNode::getLastStatus ${suite_record} ]
-   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
-   set endDateTime [::SuiteNode::getStatusClockValue ${suite_record} end]
-   set abortDateTime [::SuiteNode::getStatusClockValue ${suite_record} abort]
-   set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set offGrid false
-   if { ${startDateTime} != "" && ${endDateTime} != "" } {
-      # if the suite has a start time & end time that is prior to the first hour displayed in the grid
-      # it is off the grid.
-      if { [expr ${endDateTime} < ${xoriginDateTime}]} {
-         set offGrid true
-      }
-   } elseif { ${startDateTime} != "" && ${abortDateTime} != "" } {
-      # if the suite has a start time & abort time that is prior to the first hour displayed in the grid
-      # it is off the grid.
-      if { [expr ${abortDateTime} < ${xoriginDateTime}]} {
-         set offGrid true
-      }
-   }
-
-   DEBUG "Overview_isOffTimeGrid suite_record:${suite_record} returned value: $offGrid" 5
-   return ${offGrid}
-}
-
 # this function process the exp box logic when the root experiment node
 # is in init state
-proc Overview_processInitStatus { canvas suite_record {status init} } {
+proc Overview_processInitStatus { canvas suite_record datestamp {status init} } {
+   DEBUG "Overview_processInitStatus ${suite_record} ${datestamp} ${status}" 5
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
    set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
@@ -270,30 +241,30 @@ proc Overview_processInitStatus { canvas suite_record {status init} } {
       if { [expr ${relativeStartTime} < ${xoriginDateTime}] &&
             [expr [clock scan ${refEndTime}]  > ${xoriginDateTime}]  } {
          # start time is prior to visible hour but end ref time is visible, move it 0
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime]
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime]
       } elseif { [expr ${relativeStartTime} <= ${xoriginDateTime}] &&
             [expr [clock scan ${refEndTime}] <= ${xoriginDateTime}]  } {
          # start time and end time both prior to origin hour, shit to right end grid
          set shiftDay true
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${refStartTime} ${shiftDay}
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${refStartTime} ${shiftDay}
       } else {
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${refStartTime}
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${refStartTime}
       }
-      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${refEndTime} ${shiftDay}
-      Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${refEndTime} ${shiftDay}
+      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${refEndTime} ${shiftDay}
+      Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${refEndTime} ${shiftDay}
    } else {
       # we do not have exp reference timings,
       # put it at beginning of graph wherever it fits
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime]
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime]
    }
 }
 
 # this function process the exp box logic when the root experiment node
 # is in wait state
-proc Overview_processWaitStatus { canvas suite_record {status wait} } {
-   DEBUG "Overview_processWaitStatus ${suite_record} ${status}" 5
-   set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
-   set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} wait]
+proc Overview_processWaitStatus { canvas suite_record datestamp {status wait} } {
+   DEBUG "Overview_processWaitStatus ${suite_record} ${datestamp} ${status}" 5
+   set statusTime [::SuiteNode::getLastStatusTime ${suite_record} ${datestamp}]
+   set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} ${datestamp} wait]
    set currentTime [Utils_getCurrentTime]
    set refEndTime [${suite_record} cget -ref_end]
    set refEndDateTime [clock scan ${refEndTime}]
@@ -302,36 +273,39 @@ proc Overview_processWaitStatus { canvas suite_record {status wait} } {
 
    if { [expr ${statusDateTime} < ${xoriginDateTime}] } {
       # start time is prior to visible hour, move it 0
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime]
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime]
    } else {
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${statusTime}
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${statusTime}
    }
 
    if { ${refEndTime} != "" } {
       if { [expr ${currentDateTime} > ${refEndDateTime}] } {
          # we are late
-         Overview_setExpLate ${canvas} ${suite_record}
-         Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${currentTime} false true
-         set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+         Overview_setExpLate ${canvas} ${suite_record} ${datestamp}
+         Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${currentTime} false true
+         # set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+         set newcoords [Overview_getRunBoxBoundaries  ${canvas} ${suite_record} ${datestamp}]
          set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${endTime}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${endTime}
       } else {
-         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${currentTime}
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${refEndTime}
+         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${datestamp} ${currentTime}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${refEndTime}
       }
    } else {
-      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${currentTime} false true
-      set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${currentTime} false true
+      # set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+      set newcoords [Overview_getRunBoxBoundaries  ${canvas} ${suite_record} ${datestamp}]
       set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
-      Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${endTime}
+      Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${endTime}
    }
 }
 
 # this function process the exp box logic when the root experiment node
 # is in catchup state
-proc Overview_processCatchupStatus { canvas suite_record {status catchup} } {
-   set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
-   set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} catchup]
+proc Overview_processCatchupStatus { canvas suite_record datestamp {status catchup} } {
+   DEBUG "Overview_processCatchupStatus ${suite_record} ${datestamp} ${status}" 5
+   set statusTime [::SuiteNode::getLastStatusTime ${suite_record} ${datestamp}]
+   set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} ${datestamp} catchup]
    set currentTime [Utils_getCurrentTime]
    set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
@@ -339,24 +313,25 @@ proc Overview_processCatchupStatus { canvas suite_record {status catchup} } {
 
    # I only care if the catchup time is visible
    if { [expr ${statusDateTime} > ${xoriginDateTime}] } {
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${statusTime}
-      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${currentTime} false true
-      set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${statusTime}
+      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${currentTime} false true
+      #set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+      set newcoords [Overview_getRunBoxBoundaries  ${canvas} ${suite_record} ${datestamp}]
       set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
       Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${endTime}
    } elseif { ${refStartTime} != "" } {
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${refStartTime} true
-      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${refEndTime} true
-      Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${refEndTime} true
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${refStartTime} true
+      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${refEndTime} true
+      Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${refEndTime} true
    }
 }
 
 # this function process the exp box logic when the root experiment node
 # is in submit state
-proc Overview_processSubmitStatus { canvas suite_record {status submit} } {
-   DEBUG "Overview_processSubmitStatus ${suite_record} ${status}" 5
-   set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
-   set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} submit]
+proc Overview_processSubmitStatus { canvas suite_record datestamp {status submit} } {
+   DEBUG "Overview_processSubmitStatus ${suite_record} ${datestamp} ${status}" 5
+   set statusTime [::SuiteNode::getLastStatusTime ${suite_record} ${datestamp}]
+   set statusDateTime [::SuiteNode::getStatusClockValue ${suite_record} ${datestamp} submit]
    set currentTime [Utils_getCurrentTime]
    set refEndTime [${suite_record} cget -ref_end]
    set refEndDateTime [clock scan ${refEndTime}]
@@ -365,75 +340,83 @@ proc Overview_processSubmitStatus { canvas suite_record {status submit} } {
 
    if { [expr ${statusDateTime} <= ${xoriginDateTime}] } {
       # submit time is prior to visible hour, move it 0
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime]
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime]
    } else {
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${statusTime}
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${statusTime}
    }
    if { ${refEndTime} != "" } {
       if { [expr ${currentDateTime} > ${refEndDateTime}] } {
          # we are late
-         Overview_setExpLate ${canvas} ${suite_record}
-         Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${currentTime} false true
-         set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+         Overview_setExpLate ${canvas} ${suite_record} ${datestamp}
+         Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${currentTime} false true
+         #set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+         set newcoords [Overview_getRunBoxBoundaries  ${canvas} ${suite_record} ${datestamp}]
          set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${endTime}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${endTime}
       } else {
-         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${currentTime}
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${refEndTime}
+         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${datestamp} ${currentTime}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${refEndTime}
       }
    } else {
-      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${currentTime} false true
-      set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+      Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${currentTime} false true
+      #set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+      set newcoords [Overview_getRunBoxBoundaries  ${canvas} ${suite_record} ${datestamp}]
       set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
-      Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${endTime}
+      Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${endTime}
    }
 
 }
 
 # this function process the exp box logic when the root experiment node
 # is in begin state
-proc Overview_processBeginStatus { canvas suite_record {status begin} } {
-   set startTime [::SuiteNode::getStartTime ${suite_record}]
+proc Overview_processBeginStatus { canvas suite_record datestamp {status begin} } {
+   DEBUG "Overview_processBeginStatus ${suite_record} ${datestamp} ${status}" 5
+   set startTime [::SuiteNode::getStartTime ${suite_record} ${datestamp}]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
    set currentTime [Utils_getCurrentTime]
    set refEndTime [${suite_record} cget -ref_end]
-   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
+   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} ${datestamp} begin]
+   set expPath [${suite_record} cget -suite_path]
+
+   if { ${status} == "beginx" && [${canvas} coords ${expPath}.${datestamp}.start] == "" } {
+      set status begin
+   }
 
    if { ${status} == "begin" } {
       if { [expr ${startDateTime} < ${xoriginDateTime}] } {
          # start time is prior to visible hour, move it 0
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime]
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime]
       } else {
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${startTime}
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${startTime}
       }
    }
-
    # add middle box up to current time
-   Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${currentTime}
+   Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${currentTime}
 
    # add reference
    if { ${refEndTime} != "" } {
       if { [Overview_getXCoordTime ${currentTime}] > [Overview_getXCoordTime ${refEndTime}] } {
          # we are late
-         Overview_setExpLate ${canvas} ${suite_record}
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${currentTime}
+         Overview_setExpLate ${canvas} ${suite_record} ${datestamp}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${currentTime}
       } else {
-         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${currentTime}
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${refEndTime}
+         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${datestamp} ${currentTime}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${refEndTime}
       }
    }
 }
 
 # this function process the exp box logic when the root experiment node
 # is in end state
-proc Overview_processEndStatus { canvas suite_record {status end} } {
+proc Overview_processEndStatus { canvas suite_record datestamp {status end} } {
+   DEBUG "Overview_processEndStatus ${suite_record} ${datestamp} ${status}" 5
 
-   set startTime [::SuiteNode::getStartTime ${suite_record}]
-   set endTime [::SuiteNode::getEndTime ${suite_record}]
-   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
-   set endDateTime [::SuiteNode::getStatusClockValue ${suite_record} end]
+   set startTime [::SuiteNode::getStartTime ${suite_record} ${datestamp}]
+   set endTime [::SuiteNode::getEndTime ${suite_record} ${datestamp}]
+   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} ${datestamp} begin]
+   set endDateTime [::SuiteNode::getStatusClockValue ${suite_record} ${datestamp} end]
 
-   set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
+   set statusTime [::SuiteNode::getLastStatusTime ${suite_record} ${datestamp}]
    set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
@@ -444,40 +427,40 @@ proc Overview_processEndStatus { canvas suite_record {status end} } {
       if { [expr ${startDateTime} < ${xoriginDateTime}] &&
             [expr ${endDateTime} > ${xoriginDateTime} ] } {
          # start time is not visible hour but end time is visible... move it 0
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime]
-         Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime]
+         Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${middleBoxTime} ${shiftDay}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${middleBoxTime} ${shiftDay}
       } elseif { [expr ${startDateTime} <= ${xoriginDateTime}] &&
             [expr ${endDateTime} <= ${xoriginDateTime}]  } {
          # start time and end time both prior to origin hour, shit to right end grid
          set shiftDay true
          if { ${refStartTime} != "" } {
-            Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${refStartTime} ${shiftDay}
+            Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${refStartTime} ${shiftDay}
             set middleBoxTime ${refEndTime}
-            Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
-            Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
+            Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${middleBoxTime} ${shiftDay}
+            Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${middleBoxTime} ${shiftDay}
          } else {
             # put at x origin 
-            Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime] ${shiftDay}
+            Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime] ${shiftDay}
          }
       } else {
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${startTime} ${shiftDay}
-         Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${startTime} ${shiftDay}
+         Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${middleBoxTime} ${shiftDay}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${middleBoxTime} ${shiftDay}
       }
    } else {
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${statusTime}
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${statusTime}
    }
 }
 
 # this function process the exp box logic when the root experiment node
 # is in abort state
-proc Overview_processAbortStatus { canvas suite_record {status abort} } {
+proc Overview_processAbortStatus { canvas suite_record datestamp {status abort} } {
 
-   set startTime [::SuiteNode::getStartTime ${suite_record}]
-   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
+   set startTime [::SuiteNode::getStartTime ${suite_record} ${datestamp}]
+   set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} ${datestamp} begin]
 
-   set statusTime [::SuiteNode::getLastStatusTime ${suite_record}]
+   set statusTime [::SuiteNode::getLastStatusTime ${suite_record} ${datestamp}]
    set refEndTime [${suite_record} cget -ref_end]
    set refEndDateTime [clock scan ${refEndTime}]
    set currentDateTime [clock seconds]
@@ -487,30 +470,31 @@ proc Overview_processAbortStatus { canvas suite_record {status abort} } {
    if { ${startTime} != "" } {
       if { [expr ${startDateTime} < ${xoriginDateTime}] } {
          # start time is prior to visible hour, move it 0
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime]
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime]
       } else {
-         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${startTime}
+         Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${startTime}
       }
    } else {
-      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${statusTime}
+      Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${statusTime}
    }
    # add middle box up to abort time
-   Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${statusTime}
+   Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${datestamp} ${statusTime}
    if { ${refEndTime} != "" } {
       if { [Overview_getXCoordTime ${currentTime}] < [Overview_getXCoordTime ${refEndTime}] } {     
-         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${statusTime}
-         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${refEndTime}
+         Overview_ExpCreateReferenceBox ${canvas} ${suite_record} ${datestamp} ${statusTime}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${refEndTime}
       } else {
-         set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+         #set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+         set newcoords [Overview_getRunBoxBoundaries  ${canvas} ${suite_record} ${datestamp}]
          #set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
-    Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${statusTime}
+         Overview_ExpCreateEndIcon ${canvas} ${suite_record} ${datestamp} ${statusTime}
       }
    }
 }
 
 # sets a visual indication when an exp is running late with respect
 # to reference timings...when the reference end time is passed
-proc Overview_setExpLate { canvas suite_record } {
+proc Overview_setExpLate { canvas suite_record datestamp } {
    set expPath [${suite_record} cget -suite_path]
    ${canvas} itemconfigure ${expPath}.text -fill DarkViolet
 }
@@ -518,12 +502,14 @@ proc Overview_setExpLate { canvas suite_record } {
 # this function is called to display the exp node with the right
 # color status... usually when the exp thread notifies the overview
 # of a new experiment status
-proc Overview_refreshBoxStatus { suite_record {status ""} } {
+proc Overview_refreshBoxStatus { suite_record datestamp {status ""} } {
    set canvas [Overview_getCanvas] 
    if { ${status} == "" } {
-      set status [::SuiteNode::getLastStatus ${suite_record}]
+      set status [::SuiteNode::getLastStatus ${suite_record} ${datestamp}]
    }
-   set tagName [$suite_record cget -suite_path]
+   #set tagName [$suite_record cget -suite_path]
+   set expPath [$suite_record cget -suite_path]
+   set tagName ${expPath}.${datestamp}
    set colors [::DrawUtils::getStatusColor $status]
    set bgColor [::DrawUtils::getBgStatusColor ${status}]
    set fgColor [::DrawUtils::getFgStatusColor ${status}]
@@ -550,9 +536,9 @@ proc Overview_refreshBoxStatus { suite_record {status ""} } {
 #  - The start icon is colored with the status color
 #  If the shift_day argument is true, it forces the status to init... This means that
 #  the timings of the exp are off the left side grid...
-proc Overview_ExpCreateStartIcon { canvas suite_record timevalue {shift_day false} } {
+proc Overview_ExpCreateStartIcon { canvas suite_record datestamp timevalue {shift_day false} } {
    global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
-   DEBUG "Overview_ExpCreateStartIcon $suite_record $timevalue shift_day:$shift_day" 5
+   DEBUG "Overview_ExpCreateStartIcon $suite_record $datestamp $timevalue shift_day:$shift_day" 5
    set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
    #DEBUG "Overview_ExpCreateStartIcon y value [${displayGroup} cget -y]" 5
@@ -565,67 +551,68 @@ proc Overview_ExpCreateStartIcon { canvas suite_record timevalue {shift_day fals
    set startX2 [expr $startX + ${startEndIconSize}]
    set startY2 [expr $startY + ${startEndIconSize}]
 
-   ${canvas} delete ${expPath}.start
-   ${canvas} delete ${expPath}.middle
-   ${canvas} delete ${expPath}.reference
-   ${canvas} delete ${expPath}.end
-   ${canvas} delete ${expPath}.text
+   ${canvas} delete ${expPath}.${datestamp}.start
+   ${canvas} delete ${expPath}.${datestamp}.middle
+   ${canvas} delete ${expPath}.${datestamp}.reference
+   ${canvas} delete ${expPath}.${datestamp}.end
+   ${canvas} delete ${expPath}.${datestamp}.text
 
-   set currentStatus [::SuiteNode::getLastStatus ${suite_record}]
+   set currentStatus [::SuiteNode::getLastStatus ${suite_record} ${datestamp}]
    if { ${shift_day} == "true" } {
       set currentStatus "init"
    }
    set outlineColor [::DrawUtils::getOutlineStatusColor ${currentStatus}]
    set bgColor [::DrawUtils::getBgStatusColor ${currentStatus}]
-   DEBUG "Overview_ExpCreateStartIcon ${expPath}.start at ${startX} ${startY} ${startX2} ${startY2}" 5
+   DEBUG "Overview_ExpCreateStartIcon ${expPath}.${datestamp}.start at ${startX} ${startY} ${startX2} ${startY2}" 5
    # create the left box      
    set startBoxId [$canvas create oval ${startX} ${startY} ${startX2} ${startY2} -width 1.0 \
-      -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.start"]
+      -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.${datestamp} ${expPath}.${datestamp}.start"]
 
    # create the exp label
    set tailName [file tail ${expPath}]
    set expLabel " ${tailName} "
    set labelY [expr ${startY} + (${startEndIconSize}/2)]
    set expLabelId [$canvas create text ${labelX} ${labelY} -font [Overview_getBoxLabelFont] \
-      -text ${expLabel} -fill black -anchor w -tag "${displayGroup} ${expPath} ${expPath}.text"]
+      -text ${expLabel} -fill black -anchor w -tag "${displayGroup} ${expPath} ${expPath}.${datestamp} ${expPath}.${datestamp}.text"]
 }
 
 # this function creates an experiment end icon
 #  - It creates a circle with a starting point that represents the timevalue argument
 #  If the shift_day argument is true, it forces the status to init... This means that
 #  the timings of the exp are off the left side grid...
-proc Overview_ExpCreateEndIcon { canvas suite_record timevalue {shift_day false} } {
-   DEBUG "Overview_ExpCreateEndIcon ${suite_record} ${timevalue} shift_day:$shift_day" 5
+proc Overview_ExpCreateEndIcon { canvas suite_record datestamp timevalue {shift_day false} } {
+   DEBUG "Overview_ExpCreateEndIcon ${suite_record} ${datestamp} ${timevalue} shift_day:$shift_day" 5
    global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
-   set currentCoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+   # set currentCoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+   set currentCoords [Overview_getRunBoxBoundaries  ${canvas} ${suite_record} ${datestamp}]
    set startX [Overview_getXCoordTime ${timevalue} ${shift_day}]
    set startY [expr [lindex ${currentCoords} 1] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
 
-   set currentStatus [::SuiteNode::getLastStatus ${suite_record}]
+   set currentStatus [::SuiteNode::getLastStatus ${suite_record} ${datestamp}]
    if { ${shift_day} == "true" } {
       set currentStatus "init"
    }
    set outlineColor [::DrawUtils::getOutlineStatusColor ${currentStatus}]
    set bgColor [::DrawUtils::getBgStatusColor ${currentStatus}]
 
-   ${canvas} delete ${expPath}.end
+   ${canvas} delete ${expPath}.${datestamp}.end
 
    # we create an end icon only if the middle box or the reference box exist
-   if { [${canvas} coords ${expPath}.middle] != "" || [${canvas} coords ${expPath}.reference] != ""} {
+   if { [${canvas} coords ${expPath}.${datestamp}.middle] != "" || [${canvas} coords ${expPath}.${datestamp}.reference] != ""} {
 
       set startX2 [expr $startX + ${startEndIconSize}]
       set startY2 [expr $startY + ${startEndIconSize}]
       
       # create the left box
       set endBoxId [${canvas} create oval ${startX} ${startY} ${startX2} ${startY2} -width 1 \
-         -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.end"]
+         -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.${datestamp} ${expPath}.${datestamp}.end"]
 
-      if { [${canvas} coords ${expPath}.reference] != "" } {
-         $canvas lower ${expPath}.end ${expPath}.reference
+      if { [${canvas} coords ${expPath}.${datestamp}.reference] != "" } {
+         $canvas lower ${expPath}.${datestamp}.end ${expPath}.${datestamp}.reference
       } else {
-         $canvas lower ${expPath}.end ${expPath}.middle
+         $canvas lower ${expPath}.${datestamp}.end ${expPath}.${datestamp}.middle
       }
    }
 }
@@ -634,27 +621,28 @@ proc Overview_ExpCreateEndIcon { canvas suite_record timevalue {shift_day false}
 # The reference box is only created if reference timings are available for an exp.
 # The reference box is usually shown when the exp has been submitted and
 # the current time is prior to the end reference time.
-proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_reference false} } {
-   DEBUG "Overview_ExpCreateReferenceBox ${suite_record} ${timevalue} late_reference:$late_reference" 5
+proc Overview_ExpCreateReferenceBox { canvas suite_record datestamp timevalue {late_reference false} } {
+   DEBUG "Overview_ExpCreateReferenceBox ${suite_record} ${datestamp} ${timevalue} late_reference:$late_reference" 5
    global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    set expPath [${suite_record} cget -suite_path]
    set displayGroup [${suite_record} cget -overview_group_record]
-   set currentCoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
-   set startCoords [${canvas} coords ${expPath}.start]
+   #set currentCoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+   set currentCoords [Overview_getRunBoxBoundaries  ${canvas} ${suite_record} ${datestamp}]   
+   set startCoords [${canvas} coords ${expPath}.${datestamp}.start]
    DEBUG "Overview_ExpCreateReferenceBox ${expPath} startCoords:${startCoords}" 5
    set referenceTime [${suite_record} cget -ref_end]
    DEBUG "Overview_ExpCreateReferenceBox referenceTime:$referenceTime" 5
    set startX [Overview_getXCoordTime ${timevalue}]
-   set currentStatus [::SuiteNode::getLastStatus ${suite_record}]
+   set currentStatus [::SuiteNode::getLastStatus ${suite_record} ${datestamp}]
    set outlineColor [::DrawUtils::getOutlineStatusColor ${currentStatus}]
 
-   if { [${canvas} coords ${expPath}.middle] == "" } {
+   if { [${canvas} coords ${expPath}.${datestamp}.middle] == "" } {
       set startX [lindex ${startCoords} 2]
    }
    set endX [Overview_getXCoordTime ${referenceTime}]
 
-   if { [${canvas} coords ${expPath}.middle] == "" &&
-         [${canvas} coords ${expPath}.reference] == "" } {
+   if { [${canvas} coords ${expPath}.${datestamp}.middle] == "" &&
+         [${canvas} coords ${expPath}.${datestamp}.reference] == "" } {
       # create the reference from the start icon up to the end reference time
       set startY [expr [lindex ${currentCoords} 1] - ${expEntryHeight}/2 + ${startEndIconSize}/2 ]
       set endY [expr ${startY} + $expEntryHeight/2 + 8 ]
@@ -664,42 +652,43 @@ proc Overview_ExpCreateReferenceBox { canvas suite_record timevalue {late_refere
    }
 
    # create the ref box
-   ${canvas} delete ${expPath}.reference
+   ${canvas} delete ${expPath}.${datestamp}.reference
    if { ${late_reference} == "true" } {
-         ${canvas} itemconfigure ${expPath}.text -fill DarkViolet
+         ${canvas} itemconfigure ${expPath}.${datestamp}.text -fill DarkViolet
    } else {
       set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} -width 1 \
-         -dash { 4 3 } -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.reference"]
+         -dash { 4 3 } -outline ${outlineColor} -tag "${displayGroup} ${expPath} ${expPath}.${datestamp} ${expPath}.${datestamp}.reference"]
 
-      if { [${canvas} coords ${expPath}.middle] != "" } {
-         ${canvas} lower ${expPath}.reference  ${expPath}.middle
+      if { [${canvas} coords ${expPath}.${datestamp}.middle] != "" } {
+         ${canvas} lower ${expPath}.${datestamp}.reference  ${expPath}.${datestamp}.middle
       }
    }
 }
 
 # create a box from the end of the start icon up to the timevalue
 # this middle box is used to show the progression of a running exp
-proc Overview_ExpCreateMiddleBox { canvas suite_record timevalue {shift_day false}  {dummy_box false} } {
-   DEBUG "Overview_ExpCreateMiddleBox ${suite_record} ${timevalue} shift_day:${shift_day}" 5
-   global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
+proc Overview_ExpCreateMiddleBox { canvas suite_record datestamp timevalue {shift_day false}  {dummy_box false} } {
+   DEBUG "Overview_ExpCreateMiddleBox ${suite_record} ${datestamp} ${timevalue} shift_day:${shift_day}" 5
+   global expEntryHeight startEndIconSize expBoxOutlineWidth
    set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
-   set startIconCoords [${canvas} coords ${expPath}.start]
+   set startIconCoords [${canvas} coords ${expPath}.${datestamp}.start]
    DEBUG "Overview_ExpCreateMiddleBox startIconCoords: $startIconCoords"
 
-   $canvas delete ${expPath}.middle
+   $canvas delete ${expPath}.${datestamp}.middle
    # middle box starts at end of start box
    set startX [lindex ${startIconCoords} 2]
    set endX [Overview_getXCoordTime ${timevalue} ${shift_day}]
 
-   set currentStatus [::SuiteNode::getLastStatus ${suite_record}]
+   set currentStatus [::SuiteNode::getLastStatus ${suite_record} ${datestamp}]
+   DEBUG "Overview_ExpCreateMiddleBox currentStatus: $currentStatus"
    if { ${shift_day} == "true" } {
       set currentStatus "init"
    }
    set outlineColor [::DrawUtils::getOutlineStatusColor ${currentStatus}]
 
-   if { ${dummy_box} && [${canvas} coords ${expPath}.text] != "" } {
-      set endX [lindex [${canvas} bbox ${expPath}.text] 2]
+   if { ${dummy_box} && [${canvas} coords ${expPath}.${datestamp}.text] != "" } {
+      set endX [lindex [${canvas} bbox ${expPath}.${datestamp}.text] 2]
    }
    if { [expr ${endX} > ${startX}] } {
       # vertical coords are the same
@@ -707,22 +696,22 @@ proc Overview_ExpCreateMiddleBox { canvas suite_record timevalue {shift_day fals
       set endY [expr ${startY} + $expEntryHeight/2 + 8]
    
       # delete previous one if exists
-      ${canvas} delete ${expPath}.middle
+      ${canvas} delete ${expPath}.${datestamp}.middle
 
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
-         -outline ${outlineColor} -fill white -tag "${displayGroup} ${expPath} ${expPath}.middle"]
+         -outline ${outlineColor} -fill white -tag "${displayGroup} ${expPath} ${expPath}.${datestamp} ${expPath}.${datestamp}.middle"]
 
-      $canvas lower ${expPath}.middle ${expPath}.text
+      $canvas lower ${expPath}.${datestamp}.middle ${expPath}.${datestamp}.text
 
-      $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow $canvas ${expPath} ]
-      $canvas bind ${expPath}.text <Double-Button-1> [list Overview_launchExpFlow $canvas ${expPath} ]
+      $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow $canvas ${expPath} ${datestamp} ]
+      $canvas bind ${expPath}.${datestamp}.text <Double-Button-1> [list Overview_launchExpFlow $canvas ${expPath} ${datestamp}]
    }
 
 }
 
 # if an exp is executing (begin state), this function is called every minute
 # to update the exp status
-proc Overview_updateExpBox { canvas suite_record status { timevalue "" } } {
+proc Overview_updateExpBox { canvas suite_record datestamp status { timevalue "" } } {
    global startEndIconSize
    after cancel [${suite_record} cget -overview_after_id]
    set continueStatus ""
@@ -733,7 +722,7 @@ proc Overview_updateExpBox { canvas suite_record status { timevalue "" } } {
       set timevalue ${currentTime}
    }
 
-   DEBUG "Overview_updateExpBox suite_record:$suite_record status:$status time:$timevalue updating..." 5
+   DEBUG "Overview_updateExpBox suite_record:$suite_record datestamp:$datestamp status:$status time:$timevalue updating..." 5
 
    array set statusUpdateMap {
       init "Overview_processInitStatus"
@@ -757,29 +746,89 @@ proc Overview_updateExpBox { canvas suite_record status { timevalue "" } } {
    DEBUG "Overview_updateExpBox status proc handler: $statusProc" 5
 
    if { ${statusProc} != "" } { 
-      ${statusProc} ${canvas} ${suite_record} ${status}
+      ${statusProc} ${canvas} ${suite_record} ${datestamp} ${status}
 
-      set newcoords [Overview_getExpBoundaries ${canvas} ${suite_record}]
+      set newcoords [Overview_getRunBoxBoundaries ${canvas} ${suite_record} ${datestamp}]
+      
       set newx1 [lindex ${newcoords} 0]
       set newx2 [lindex ${newcoords} 2]
       set newy1 [lindex ${newcoords} 1]
       set newy2 [lindex ${newcoords} 3]
       # resolve any collision with existings exp boxes
-      Overview_resolveLocation ${canvas} ${suite_record} ${newx1} ${newy1} ${newx2} ${newy2}
-      Overview_setExpTooltip ${canvas} ${suite_record}
+      Overview_resolveLocation ${canvas} ${suite_record} ${datestamp} ${newx1} ${newy1} ${newx2} ${newy2}
+      Overview_setExpTooltip ${canvas} ${suite_record} ${datestamp}
    
       set expPath  [${suite_record} cget -suite_path]
-      $canvas bind ${expPath} <Button-3> [ list Overview_boxMenu $canvas ${expPath} %X %Y]
+      $canvas bind ${expPath} <Button-3> [ list Overview_boxMenu $canvas ${expPath} ${datestamp} %X %Y]
    
       if { ${continueStatus} != "" } {
          ${suite_record} configure -overview_after_id \
-            [ after 60000 [list Overview_updateExpBox ${canvas} ${suite_record} ${continueStatus} ] ]
+            [ after 60000 [list Overview_updateExpBox ${canvas} ${suite_record} ${datestamp} ${continueStatus} ] ]
+      }
+   }
+}
+
+# this function places exp run boxes on the same y slot if there is enough space for it
+proc Overview_OptimizeExpBoxes { displayGroup } {
+   DEBUG "Overview_OptimizeExpBoxes..." 5
+
+   set canvasW [Overview_getCanvas]
+
+   set expList [$displayGroup cget -exp_list]
+   foreach exp $expList {
+      # set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
+      set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
+      # get the list of datestamps
+      set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
+
+      foreach expDatestamp ${datestamps} {
+         # set newcoords [Overview_getExpBoundaries ${canvasW} ${suiteRecord}]
+         set newcoords [Overview_getRunBoxBoundaries ${canvasW} ${suiteRecord} ${expDatestamp}]
+         if { ${newcoords} != "" } {
+            # retrieves the y slot start for the group
+            set ySlotStart [DisplayGrp_getNextSlotY ${displayGroup}]
+            # retrieves the y slot based on the current position of the exp box
+            set yCurrentSlot [DisplayGrp_getCurrentSlotY [lindex ${newcoords} 1]]
+            if { ${ySlotStart} != ${yCurrentSlot} } {
+               # need to move the exp box to a new location
+               set deltaY [expr ${yCurrentSlot} - ${ySlotStart}]
+               set done false
+               while { ${done} == "false" } {
+                  DEBUG "Overview_OptimizeExpBoxes $exp ySlotStart:${ySlotStart}" 5
+                  DEBUG "Overview_OptimizeExpBoxes $exp yCurrentSlot:${yCurrentSlot} deltaY:$deltaY" 5
+                  set newx1 [lindex ${newcoords} 0]
+                  set newx2 [lindex ${newcoords} 2]
+                  set newy1 [expr [lindex ${newcoords} 1] - ${deltaY}]
+                  set newy2 [expr [lindex ${newcoords} 3] - ${deltaY}]
+                  set beforeCoords "$newx1 $newy1 $newx2 $newy2"
+                  DEBUG "Overview_OptimizeExpBoxes $exp newcoords:${newcoords} beforeCoords:$beforeCoords" 5
+                  set overlapCoords [Overview_resolveOverlap ${canvasW} ${suiteRecord} ${expDatestamp} ${newx1} ${newy1} ${newx2} ${newy2}]
+                  DEBUG "Overview_OptimizeExpBoxes $exp overlapCoords:${overlapCoords}"
+                  if { [Utils_isListEqual ${overlapCoords} ${beforeCoords}] == "true" } {
+                     set deltay [expr [lindex $overlapCoords 1] - [lindex ${newcoords} 1]]
+                     DEBUG "Overview_OptimizeExpBoxes $exp moving to new location 0 ${deltay}" 5
+                     ${canvasW} move ${exp} 0 ${deltay}
+                     DisplayGrp_setMaxY ${displayGroup} [lindex $overlapCoords 1]
+                     DisplayGrp_processOverlap ${displayGroup}
+                     # DisplayGrp_processEmptyRows ${displayGroup}
+                     set done true
+                  } else {
+                     if { [expr ${ySlotStart} == [${displayGroup} cget -maxy]] } {
+                        set done true
+                     }
+                     set ySlotStart [DisplayGrp_getNextSlotY ${displayGroup} ${ySlotStart}]
+                  }
+                  set deltaY [expr ${yCurrentSlot} - ${ySlotStart}]
+               }
+            }
+         }
+      # end for each datestamp
       }
    }
 }
 
 # this function places exp boxes on the same y slot if there is enough space for it
-proc Overview_OptimizeExpBoxes { displayGroup } {
+proc __________________Overview_OptimizeExpBoxes { displayGroup } {
    global graphX graphStartX expEntryHeight
    DEBUG "Overview_OptimizeExpBoxes..." 5
 
@@ -788,7 +837,8 @@ proc Overview_OptimizeExpBoxes { displayGroup } {
    set expList [$displayGroup cget -exp_list]
    foreach exp $expList {
       set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
-      set newcoords [Overview_getExpBoundaries ${canvasW} ${suiteRecord}]
+      # set newcoords [Overview_getExpBoundaries ${canvasW} ${suiteRecord}]
+      set newcoords [Overview_getRunBoxBoundaries ${canvasW} ${suiteRecord} ${datestamp}]
       if { ${newcoords} != "" } {
          # retrieves the y slot start for the group
          set ySlotStart [DisplayGrp_getNextSlotY ${displayGroup}]
@@ -830,27 +880,29 @@ proc Overview_OptimizeExpBoxes { displayGroup } {
    }
 }
 
-# this function finds the right location for an exp box.
-proc Overview_resolveLocation { canvas suite_record x1 y1 x2 y2 } {
+# this function finds the right location for an exp box datestamp.
+proc Overview_resolveLocation { canvas suite_record datestamp x1 y1 x2 y2 } {
    global expEntryHeight
-   DEBUG "Overview_resolveLocation x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
+   DEBUG "Overview_resolveLocation suite_record:$suite_record datestamp:$datestamp x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
    set expPath [${suite_record} cget -suite_path]
    set currentCoords "${x1} ${y1} ${x2} ${y2}"
-   set overlapCoords [Overview_resolveOverlap ${canvas} ${suite_record} ${x1} ${y1} ${x2} ${y2}]
+   set overlapCoords [Overview_resolveOverlap ${canvas} ${suite_record} ${datestamp} ${x1} ${y1} ${x2} ${y2}]
    DEBUG "Overview_resolveLocation overlapCoords ${overlapCoords}" 5
    set displayGroup [${suite_record} cget -overview_group_record]
    if { [Utils_isListEqual ${currentCoords} ${overlapCoords}] == "false" } {
       set deltax [expr [lindex $overlapCoords 0] - ${x1}]
       set deltay [expr [lindex $overlapCoords 1] - ${y1}]
-      $canvas move ${expPath} ${deltax} ${deltay}
+      $canvas move ${expPath}.${datestamp} ${deltax} ${deltay}
+      DEBUG "Overview_resolveLocation $canvas move ${expPath}.${datestamp} ${deltax} ${deltay}" 5
+      DEBUG "Overview_resolveLocation moving ${expPath}.${datestamp} from $x1 $y1 $x2 $y2 to $overlapCoords" 5
       DisplayGrp_setMaxY ${displayGroup} [lindex $overlapCoords 1]
       DisplayGrp_processOverlap ${displayGroup}
       # the new location is clear within its own group but
       # need to check if the new location overlaps with another display group
-      DEBUG "Overview_resolveLocation moving ${expPath} from $x1 $y1 $x2 $y2 to $overlapCoords" 5
    }
    DisplayGrp_processEmptyRows ${displayGroup}
-   Overview_OptimizeExpBoxes ${displayGroup}
+   # sua testing buggy right now
+   # Overview_OptimizeExpBoxes ${displayGroup}
 }
 
 # this function is used to shift up a row exp boxes within an exp group 
@@ -858,16 +910,22 @@ proc Overview_resolveLocation { canvas suite_record x1 y1 x2 y2 } {
 proc Overview_ShiftExpRow { display_group empty_slot_y } {
    global expEntryHeight
 
+   puts "Overview_ShiftExpRow $display_group $empty_slot_y"
    set expList [${display_group} cget -exp_list]
    set overviewCanvas [Overview_getCanvas]
    foreach exp ${expList} {
-      set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp} ]
-      set expBoxCoords [Overview_getExpBoundaries ${overviewCanvas} ${suiteRecord}]
-      if { [lindex ${expBoxCoords} 1] > ${empty_slot_y} } {
-         # y of exp is greater than empty box, shift it up
-         DEBUG "Overview_ShiftExpRow ${display_group} shifting ${exp} up" 5
-         ${overviewCanvas} move ${exp} 0 -${expEntryHeight}
-      }
+      set suiteRecord [::SuiteNode::formatSuiteRecord ${exp} ]
+      set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
+      foreach expDatestamp ${datestamps} {
+         puts "Overview_ShiftExpRow Overview_getRunBoxBoundaries ${overviewCanvas} ${suiteRecord} ${expDatestamp} [Overview_getRunBoxBoundaries ${overviewCanvas} ${suiteRecord} ${expDatestamp}]"
+
+         foreach {xx1 yy1 xx2 yy2} [Overview_getRunBoxBoundaries ${overviewCanvas} ${suiteRecord} ${expDatestamp}] { break }
+            if { ${yy1} != "" && ${yy1} > ${empty_slot_y} } {
+               # y of exp is greater than empty box, shift it up
+               DEBUG "Overview_ShiftExpRow ${display_group} shifting ${exp}.${expDatestamp} up" 5
+               ${overviewCanvas} move ${exp}.${expDatestamp} 0 -${expEntryHeight}
+            }
+         }
    }
 }
 
@@ -878,44 +936,79 @@ proc Overview_ShiftExpRow { display_group empty_slot_y } {
 # recursively finds another location. The boundaries coordinates are returned
 # as "x1 y1 x2 y2"... It is up to the caller to compare the boundaries and to move
 # the exp box to the new location
-proc Overview_resolveOverlap { canvas suite_record x1 y1 x2 y2 } {
-   DEBUG "Overview_resolveOverlap $suite_record x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
+proc Overview_resolveOverlap { canvas suite_record datestamp x1 y1 x2 y2 } {
+   DEBUG "Overview_resolveOverlap $suite_record datestamp:$datestamp x1:$x1 y1:$y1 x2:$x2 y2:$y2" 5
    global expEntryHeight
    set displayGroup [${suite_record} cget -overview_group_record]
    set expPath [${suite_record} cget -suite_path]
    set expList [${displayGroup} cget -exp_list]
 
+   # first check if the current run box collides with other run boxes of the
+   # the same experiment
+   set datestamps [::SuiteNode::getDatestamps ${suite_record}]
+   DEBUG "Overview_resolveOverlap Overview_resolveOverlap datestamps1:$datestamps" 5
+   foreach expDatestamp ${datestamps} {
+      set isOverlap 0
+      if { ${expDatestamp} != ${datestamp} } {
+         DEBUG "Overview_resolveOverlap ${expDatestamp} != ${datestamp}" 5
+         foreach {xx1 yy1 xx2 yy2} [Overview_getRunBoxBoundaries ${canvas} ${suite_record} ${expDatestamp}] { break }
+         if { [info exists xx1] && "${xx1}" != "" } {
+            set isOverlap [Utils_isOverlap $x1 $y1 $x2 $y2 $xx1 $yy1 $xx2 $yy2]
+         }
+      }
+      if { ${isOverlap} } {
+         # try to display the box in the next row
+         set newy1 [expr ${y1} + ${expEntryHeight}]
+         set newy2 [expr ${y2} + ${expEntryHeight}]
+         DEBUG "Overview_resolveOverlap calling recursive Overview_resolveOverlap expDatestamp:$expDatestamp ${x1} ${newy1} ${x2} ${newy2}" 5
+         set newCoords [Overview_resolveOverlap ${canvas} ${suite_record} ${datestamp} ${x1} ${newy1} ${x2} ${newy2}]
+         DEBUG "Overview_resolveOverlap got new coords Overview_resolveOverlap ${newCoords}" 5
+         return ${newCoords}
+      }
+   }
+
+   # then check if it does not overlap with the rest of the run boxes of the other exps
    foreach exp $expList {
       set isOverlap 0
       if { ${exp} != ${expPath} } {
-         DEBUG "Overview_resolveOverlap testing ${expPath} collision with exp:$exp ???" 5
-         set testedSuiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp} ]
-         set testedExpBox [Overview_getExpBoundaries ${canvas} ${testedSuiteRecord}]
-         if { [llength $testedExpBox] != 0 } {
-            DEBUG "Overview_resolveOverlap exp:$exp testedExpBox:$testedExpBox" 5
-            set xx1 [lindex ${testedExpBox} 0]
-            set yy1 [lindex ${testedExpBox} 1]
-            set xx2 [lindex ${testedExpBox} 2]
-            set yy2 [lindex ${testedExpBox} 3]
-            DEBUG "Overview_resolveOverlap xx1:$xx1 yy1:$yy1 xx2:$xx2 yy2:$yy2" 5
-            set isOverlap [Utils_isOverlap $x1 $y1 $x2 $y2 $xx1 $yy1 $xx2 $yy2]
-            DEBUG "Overview_resolveOverlap FOUND OVERLAP? $isOverlap" 5
+         set testedSuiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
+         set datestamps [::SuiteNode::getDatestamps ${testedSuiteRecord}]
+         DEBUG "Overview_resolveOverlap ${exp} $testedSuiteRecord Overview_resolveOverlap datestamps2:$datestamps" 5
+         foreach expDatestamp ${datestamps} {
+            set isOverlap 0
+            DEBUG "Overview_resolveOverlap testing ${expPath} collision with exp:$exp ???" 5
+            set testedExpBox [Overview_getRunBoxBoundaries ${canvas} ${testedSuiteRecord} ${expDatestamp}]
+            if { [llength $testedExpBox] != 0 } {
+               DEBUG "Overview_resolveOverlap exp:$exp testedExpBox:$testedExpBox" 5
+               foreach {xx1 yy1 xx2 yy2} [Overview_getRunBoxBoundaries ${canvas} ${testedSuiteRecord} ${expDatestamp}] { break }
+               if { [info exists xx1] && "${xx1}" != "" } {
+                  DEBUG "Overview_resolveOverlap xx1:$xx1 yy1:$yy1 xx2:$xx2 yy2:$yy2" 5
+                  set isOverlap [Utils_isOverlap $x1 $y1 $x2 $y2 $xx1 $yy1 $xx2 $yy2]
+               }
+               DEBUG "Overview_resolveOverlap FOUND OVERLAP? $isOverlap" 5
+            }
+            if { ${isOverlap} } {
+               # try to display the box in the next row
+               set newy1 [expr ${y1} + ${expEntryHeight}]
+               set newy2 [expr ${y2} + ${expEntryHeight}]
+               DEBUG "Overview_resolveOverlap calling recursive Overview_resolveOverlap ${x1} ${newy1} ${x2} ${newy2}" 5
+               set newCoords [Overview_resolveOverlap ${canvas} ${suite_record} ${datestamp} ${x1} ${newy1} ${x2} ${newy2}]
+               DEBUG "Overview_resolveOverlap got new coords Overview_resolveOverlap ${newCoords}" 5
+               return ${newCoords}
+            }
          }
       }
-      if { ${isOverlap}  } {
-         DEBUG "Overview_resolveOverlap $expPath we have and overlap" 5
-         break
       }
-   }
-   if { ${isOverlap} } {
-      # try to display the box in the next row
-      set newy1 [expr ${y1} + ${expEntryHeight}]
-      set newy2 [expr ${y2} + ${expEntryHeight}]
-      DEBUG "Overview_resolveOverlap calling recursive Overview_resolveOverlap ${x1} ${newy1} ${x2} ${newy2}" 5
-      set newCoords [Overview_resolveOverlap ${canvas} ${suite_record} ${x1} ${newy1} ${x2} ${newy2}]
-      DEBUG "Overview_resolveOverlap got new coords Overview_resolveOverlap ${newCoords}" 5
-      return ${newCoords}
-   }
+
+      #if { ${isOverlap}  } {
+      #   DEBUG "Overview_resolveOverlap $expPath we have and overlap" 5
+      #   set newy1 [expr ${y1} + ${expEntryHeight}]
+      #   set newy2 [expr ${y2} + ${expEntryHeight}]
+      #   DEBUG "Overview_resolveOverlap calling recursive Overview_resolveOverlap ${x1} ${newy1} ${x2} ${newy2}" 5
+      #   set newCoords [Overview_resolveOverlap ${canvas} ${suite_record} ${datestamp} ${x1} ${newy1} ${x2} ${newy2}]
+      #   DEBUG "Overview_resolveOverlap got new coords Overview_resolveOverlap ${newCoords}" 5
+      #   return ${newCoords}
+      #}
 
    DEBUG "Overview_resolveOverlap returing $x1 $y1 $x2 $y2" 5
 
@@ -923,7 +1016,7 @@ proc Overview_resolveOverlap { canvas suite_record x1 y1 x2 y2 } {
 }
 
 # this function is called to pop-up an exp node menu
-proc Overview_boxMenu { canvas exp_path x y } {
+proc Overview_boxMenu { canvas exp_path datestamp x y } {
    global env
    DEBUG "Overview_boxMenu() exp_path:$exp_path" 5
    set popMenu .popupMenu
@@ -932,8 +1025,8 @@ proc Overview_boxMenu { canvas exp_path x y } {
    }
    menu $popMenu
    $popMenu add command -label "History" \
-      -command [list Overview_historyCallback $canvas $exp_path $popMenu]
-   $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $canvas $exp_path]
+      -command [list Overview_historyCallback $canvas $exp_path ${datestamp} $popMenu]
+   $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $canvas $exp_path ${datestamp}]
    $popMenu add command -label "Shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
    $popMenu add command -label "Support" -command [list ExpOptions_showSupport $exp_path [winfo toplevel ${canvas}]]
    tk_popup $popMenu $x $y
@@ -941,26 +1034,26 @@ proc Overview_boxMenu { canvas exp_path x y } {
 }
 
 # this function is called to show the history of an experiment
-proc Overview_historyCallback { canvas exp_path caller_menu } {
+proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
    DEBUG "Overview_historyCallback exp_path:$exp_path" 5
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
    set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
    set seqNode [SharedData_getSuiteData ${exp_path} ROOT_NODE]
-   set currentDatestamp [::SuiteNode::getLastStatusDatestamp ${suiteRecord}]
-   if { ${currentDatestamp} != "" } {
+   # set currentDatestamp [::SuiteNode::getLastStatusDatestamp ${suiteRecord}]
+   if { ${datestamp} != "" } {
       # retrieve the last 30 days
-      set cmdArgs "-n $seqNode -edate ${currentDatestamp} -history [expr 30*24]"
+      set cmdArgs "-n $seqNode -edate ${datestamp} -history [expr 30*24]"
    } else {
       # retrieve all
       set cmdArgs "-n $seqNode"
    }
 
-   Sequencer_runCommandWithWindow $exp_path ${currentDatestamp} $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
+   Sequencer_runCommandWithWindow $exp_path ${datestamp} $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
 }
 
 # this function is called to launch an exp window
 # It sends the request to the exp thread to care of it.
-proc Overview_launchExpFlow { calling_w exp_path } {
+proc Overview_launchExpFlow { calling_w exp_path datestamp } {
    global env ExpThreadList PROGRESS_REPORT_TXT
    set xflowCmd $env(SEQ_XFLOW_BIN)/xflow
 
@@ -974,12 +1067,13 @@ proc Overview_launchExpFlow { calling_w exp_path } {
       set mainid [thread::id]
       # retrieve the exp thread based on the exp_path
       set formatName [::SuiteNode::formatName ${exp_path}]
-      set threadId [SharedData_getSuiteData ${exp_path} THREAD_ID]
+      #set threadId [SharedData_getSuiteData ${exp_path} THREAD_ID]
+      set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
 
-      set newestDatestamp [LogMonitor_getNewestDatestamp ${exp_path}]
+      # set newestDatestamp [LogMonitor_getNewestDatestamp ${exp_path}]
 
       # send the request to the exp thread
-      thread::send ${threadId} "thread_launchFLow ${mainid} ${exp_path} ${newestDatestamp}"
+      thread::send ${expThreadId} "thread_launchFLow ${mainid} ${exp_path} ${datestamp}"
       destroy ${progressW}
 
    } message ]
@@ -1003,34 +1097,24 @@ proc Overview_launchExpFlow { calling_w exp_path } {
 # exp thread to notify the overview that it is done reading
 # the exp log file... At startup, the overview waits for every exp thread
 # to finish before proceeding...
-proc Overview_childInitDone { suite_path thread_id } {
+proc Overview_childInitDone { exp_path thread_id datestamp } {
    global EXP_THREAD_STARTUP_DONE ALL_CHILD_INIT_DONE STARTUP_PROGRESS_VALUE
    global STARTUP_PROGRESS_TXT
-   DEBUG "Overview_childInitDone suite_path:$suite_path thread: $thread_id" 5
-   set EXP_THREAD_STARTUP_DONE(${suite_path}) 1
-
-   set displayGroups [record show instances DisplayGroup]
-   set childNotDone false
+   DEBUG "Overview_childInitDone exp_path:$exp_path thread: $thread_id" 5
+   # set EXP_THREAD_STARTUP_DONE(${suite_path}) 1
+   catch { unset EXP_THREAD_STARTUP_DONE(${exp_path}_${datestamp}) }
    incr STARTUP_PROGRESS_VALUE
-   set STARTUP_PROGRESS_TXT "${suite_path} loaded."
-   foreach displayGroup $displayGroups {
-      set expList [$displayGroup cget -exp_list]
-      foreach expPath ${expList} {
-         if { ! [info exists EXP_THREAD_STARTUP_DONE(${expPath})] || $EXP_THREAD_STARTUP_DONE(${expPath}) == 0 } {
-            set childNotDone true
-            DEBUG "Overview_childInitDone note done: ${expPath}" 5
-
-            break
-         }
-      }
-      if { ${childNotDone} == true } {
-         break
-      }
-   }
-
-   if { ${childNotDone} == false } {
+   set STARTUP_PROGRESS_TXT "${exp_path} \n datestamp=${datestamp} loaded."
+   if { [array names EXP_THREAD_STARTUP_DONE] != "" } {
+      DEBUG "Overview_childInitDone note done: [array names EXP_THREAD_STARTUP_DONE]" 5
+   } else {
       set ALL_CHILD_INIT_DONE 1
    }
+}
+
+proc Overview_addChildInit { exp_path thread_id datestamp } {
+   global EXP_THREAD_STARTUP_DONE
+   set EXP_THREAD_STARTUP_DONE(${exp_path}_${datestamp}) 0
 }
 
 # this function is called asynchronously by experiment child threads to
@@ -1038,7 +1122,7 @@ proc Overview_childInitDone { suite_path thread_id } {
 # See LogReader.tcl
 proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp } {
    global AUTO_LAUNCH
-   DEBUG "Overview_updateExp $suite_record datestamp:$datestamp status:$status timestamp:$timestamp " 5
+   DEBUG "Overview_updateExp exp_thread_id:$exp_thread_id $suite_record datestamp:$datestamp status:$status timestamp:$timestamp " 5
 
    # start synchronizing this block, get an exclusive lock
    set mutex [thread::mutex create]
@@ -1052,32 +1136,34 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
    set dateValue [Utils_getDateFromDatestamp ${timestamp}]
    set timeValue [Utils_getTimeFromDatestamp ${timestamp}]
    set tagName [$suite_record cget -suite_path]
-   DEBUG "Overview_updateExp setLastStatusInfo $suite_record $status $datestamp $dateValue $timeValue" 5
+   DEBUG "Overview_updateExp setLastStatusInfo $suite_record $datestamp $status $dateValue $timeValue" 5
    # store the info for current update
-   ::SuiteNode::setLastStatusInfo $suite_record $status $datestamp $dateValue $timeValue
+   ::SuiteNode::setLastStatusInfo $suite_record $datestamp $status $dateValue $timeValue
    if { $status == "beginx" } {
       # beginx usually means that a task node that has aborted is restarted... we don't want 
       # the exp box to move everytime a task is restarted so we get the begin value and 
-      set statusInfo [::SuiteNode::getStatusInfo ${suite_record} begin]
-      set timeValue [lindex ${statusInfo} 2]
+      set statusInfo [::SuiteNode::getStatusInfo ${suite_record} ${datestamp} begin]
+      set timeValue [lindex ${statusInfo} 1]
+      DEBUG "Overview_updateExp getStatusInfo $suite_record $datestamp status:begin statusInfo:${statusInfo}" 5
+      DEBUG "Overview_updateExp getStatusInfo $suite_record $datestamp status:beginx statusInfo:[::SuiteNode::getStatusInfo ${suite_record} ${datestamp} beginx]" 5
    }
    if { [winfo exists $canvas] } {
       # change the exp colors
-      Overview_refreshBoxStatus ${suite_record}
+      Overview_refreshBoxStatus ${suite_record} ${datestamp}
 
       set isStartupDone [SharedData_getMiscData STARTUP_DONE]
       if { $status == "begin" } {
-         set isExpStartupDone [SharedData_getMiscData ${exp_thread_id}_STARTUP_DONE]
+         set isExpStartupDone [SharedData_getMiscData ${exp_thread_id}_${datestamp}_STARTUP_DONE]
          # launch the flow if needed... but not when the app is startup up
          if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true" && ${isExpStartupDone} == "true" } {
-            Overview_launchExpFlow $canvas [$suite_record cget -suite_path]
+            Overview_launchExpFlow $canvas [$suite_record cget -suite_path] ${datestamp}
          }
       }
 
-      #if { ${isStartupDone} == "true"  } {
+      if { ${isStartupDone} == "true"  } {
          # check for box overlapping, auto-refresh, etc
-         Overview_updateExpBox ${canvas} ${suite_record} ${status} ${timeValue}
-      #}
+         Overview_updateExpBox ${canvas} ${suite_record} ${datestamp} ${status} ${timeValue}
+      }
 
    } else {
       DEBUG "Overview_updateExp canvas $canvas does not exists!" 5
@@ -1096,6 +1182,8 @@ proc Overview_addExp { display_group canvas exp_path } {
    # creates a dummy suite record
    SuiteInfo ${suiteRecord} -suite_path ${exp_path}
 
+   Overview_getExpTimings ${suiteRecord}
+
    DEBUG "Overview_addExp suiteRecord:$suiteRecord" 5
 
    ############################
@@ -1103,31 +1191,85 @@ proc Overview_addExp { display_group canvas exp_path } {
    ############################
    set mainid [thread::id]
 
-   # create a child thread for the exp
-   set childId [Overview_createThread ${exp_path}]
+   # create startup threads to process log datestamps
+   # get the list of datestamps visible from the left side of the overview for this exp
+   set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [clock format [clock add [clock seconds] -13 hours]]]
+   DEBUG "Overview_addExp suiteRecord:$suiteRecord visibleDatestamps:$visibleDatestamps" 5
 
-   # read the flow xml for the xp
-   # thread::send ${childId} "readMasterfile ${exp_path}/EntryModule/flow.xml ${exp_path} \"\" \"\" "
+   foreach datestamp ${visibleDatestamps} {
+      # create a child thread for the exp
+      set childId [Overview_createThread ${exp_path}]
+
+      set currentDateTime [clock seconds]
+      set currentTime [clock format ${currentDateTime} -format "%H:%M" -gmt 1]
+      set dateValue [clock format ${currentDateTime} -format "%Y%m%d" -gmt 1]
+      # forces the exp node to be init mode
+      # the exp node will be updated later with new entries from the log file
+      ::SuiteNode::setLastStatusInfo ${suiteRecord} ${datestamp} init $dateValue ${currentTime}
+
+      # start reading the exp log file
+      #thread::send -async ${childId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord} ${datestamp}"
+
+      # read log and quit
+      Overview_addChildInit ${exp_path} ${childId} ${datestamp}
+      puts "sua Overview_addExp thread::send -async ${childId} thread_startupLogReader ${mainid} ${exp_path} ${suiteRecord} ${datestamp}"
+      thread::send -async ${childId} "thread_startupLogReader ${mainid} ${exp_path} ${suiteRecord} ${datestamp}"
+
+   }
 
    # retrieve the exp root node
-   ${suiteRecord} configure -root_node [SharedData_getSuiteData ${exp_path} ROOT_NODE] -overview_group_record ${display_group}
-
-   # remove the dummy default tk window
-   thread::send -async ${childId} "wm withdraw ."
-
-   set newestDatestamp [LogMonitor_getNewestDatestamp ${exp_path}]
-   puts "sua ${exp_path} newestDatestamp:$newestDatestamp"
-   # start reading the exp log file
-   thread::send -async ${childId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord} ${newestDatestamp}"
-
-
-   # add the new thread to the list
-   SharedData_setSuiteData ${exp_path} THREAD_ID ${childId}
+   ${suiteRecord} configure -overview_group_record ${display_group}
 
    ############################3
    # thread part ends
    ############################3
 }
+
+# this function is called to add a new experiment to be monitored by the overview
+proc ____________________Overview_addExp { display_group canvas exp_path } {
+   DEBUG "Overview_addExp display_group:$display_group exp_path:$exp_path" 5
+   
+   set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
+   # creates a dummy suite record
+   SuiteInfo ${suiteRecord} -suite_path ${exp_path}
+   ${suiteRecord} configure -overview_group_record ${display_group}
+
+   Overview_getExpTimings ${suiteRecord}
+
+   DEBUG "Overview_addExp suiteRecord:$suiteRecord" 5
+
+   ############################
+   # thread part start
+   ############################ 
+   set mainid [thread::id]
+
+   # get the list of datestamps visible from the left side of the overview for this exp
+   set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [clock format [clock add [clock seconds] -13 hours]]]
+   foreach datestamp ${visibleDatestamps} {
+      # create a child thread for the exp
+      set childId [Overview_createThread ${exp_path}]
+
+      set currentDateTime [clock seconds]
+      set currentTime [clock format ${currentDateTime} -format "%H:%M" -gmt 1]
+      set dateValue [clock format ${currentDateTime} -format "%Y%m%d" -gmt 1]
+      # forces the exp node to be init mode
+      # the exp node will be updated later with new entries from the log file
+      puts "sua ::SuiteNode::setLastStatusInfo ${suiteRecord} ${datestamp} init $dateValue ${currentTime}"
+      ::SuiteNode::setLastStatusInfo ${suiteRecord} ${datestamp} init $dateValue ${currentTime}
+      # Overview_updateExp ${childId} ${suiteRecord} ${datestamp} init ${currentTime}
+
+      # start reading the exp log file
+      thread::send -async ${childId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord} ${datestamp}"
+
+      # add the new thread to the list
+      SharedData_setSuiteData ${exp_path} THREAD_ID ${childId}
+   }
+
+   ############################3
+   # thread part ends
+   ############################3
+}
+
 
 # this function is mainly called from an exp thread to notify the overview of a
 # date stamp changed in the $SEQ_EXP_HOME/ExpDate file. The exp thread will monitor
@@ -1143,8 +1285,8 @@ proc Overview_ExpDateStampChanged { suite_record datestamp } {
       DEBUG "Overview_ExpDateStampChanged init called" 5
       # forces the exp node to be init mode
       # the exp node will be updated later with new entries from the log file
-      ::SuiteNode::setLastStatusInfo $suite_record init ${datestamp} $dateValue ${currentTime}
-      Overview_updateExpBox [Overview_getCanvas] ${suite_record} init ${currentTime}
+      ::SuiteNode::setLastStatusInfo $suite_record ${datestamp} init $dateValue ${currentTime}
+      Overview_updateExpBox [Overview_getCanvas] ${suite_record} ${datestamp} init ${currentTime}
    }
 }
 
@@ -1180,21 +1322,72 @@ proc Overview_createThread { exp_path } {
          global env this_id SEQ_EXP_HOME
          DEBUG "thread_startLogReader parent_id:$parent_id"
 
+         wm withdraw .
+
          set SEQ_EXP_HOME ${exp_path}
          DEBUG "thread_startLogReader SEQ_EXP_HOME=${SEQ_EXP_HOME} datestamp:${datestamp}"
          xflow_readFlowXml
+         # this variable tells the log reader to send status of root nodes to the
+         # overview thread
+         set updateToOverview true
          xflow_initStartupMode
-         LogReader_readFile ${suite_record} ${parent_id} ${datestamp}
+         LogReader_readFile ${suite_record} ${parent_id} ${datestamp} ${updateToOverview}
          xflow_stopStartupMode
+
+         # check if the log reader is still needed
+         # it is not needed if no activity has been detected for 1 hour in the log file
+         set currentStatus [::SuiteNode::getLastStatus ${suite_record} ${datestamp}]
+         set currentStatusTime [::SuiteNode::getLastStatusTime ${suite_record} ${datestamp}]
+         
+      }
+
+      # only use at startup... read and quit thread
+      # this part shall be replaced if we have a faster reader (C or python)
+      proc thread_startupLogReader { parent_id exp_path suite_record datestamp} {
+         global env this_id SEQ_EXP_HOME
+         DEBUG "thread_startupLogReader parent_id:$parent_id thread_id:[thread::id]"
+
+         wm withdraw .
+         SharedData_setExpThreadId ${exp_path} ${datestamp} [thread::id]
+
+         set updateToOverview true
+         set SEQ_EXP_HOME ${exp_path}
+         DEBUG "thread_startupLogReader SEQ_EXP_HOME=${SEQ_EXP_HOME} datestamp:${datestamp} thread_id:[thread::id]"
+         xflow_readFlowXml
+         xflow_initStartupMode
+         LogReader_readFile ${suite_record} ${parent_id} ${datestamp} ${updateToOverview}
+         xflow_stopStartupMode
+
+
+         # if the log has not been modified for the last hour, we drop the thread, stop monitoring it
+         if { [LogMonitor_getDatestampModTime ${exp_path} ${datestamp}] < [clock add [clock seconds] -1 hours] } {
+            DEBUG "thread_startupLogReader SEQ_EXP_HOME=${SEQ_EXP_HOME} datestamp:${datestamp} releasing thread_id:[thread::id]"
+            thread::release
+         }
+      }
+
+      proc thread_init { parent_id exp_path suite_record} {
+         global env this_id SEQ_EXP_HOME
+         DEBUG "thread_init parent_id:$parent_id"
+
+         wm withdraw .
+
+         set SEQ_EXP_HOME ${exp_path}
+         DEBUG "thread_init SEQ_EXP_HOME=${SEQ_EXP_HOME}"
+         xflow_readFlowXml
       }
 
       # this function is called from the overview main thread to the exp thread
       # to display the exp flow either on user's request or because of "Auto Launch"
       proc thread_launchFLow { parent_id exp_path datestamp } {
          global this_id 
-         DEBUG "thread_launchFLow" 5
+         DEBUG "thread_launchFLow exp_path:${exp_path} datestamp:${datestamp}" 5
 
-         xflow_setMonitoringLatest 1
+         # xflow_setMonitoringLatest 1
+         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
+         xflow_initStartupMode
+         LogReader_readFile ${suiteRecord} ${parent_id} ${datestamp}
+         xflow_stopStartupMode
          xflow_displayFlow ${parent_id} ${datestamp}
       }
 
@@ -1276,6 +1469,62 @@ proc Overview_getExpBoundaries { canvas suite_record } {
    return ${boundaries}
 }
 
+proc Overview_getRunBoxBoundaries { canvas suite_record datestamp } {
+   set expPath [${suite_record} cget -suite_path]
+
+   if { [${canvas} coords ${expPath}.${datestamp}] == "" } {
+      DEBUG "Overview_getRunBoxBoundaries no boudaries found for ${expPath}.${datestamp}" 5
+      return ""
+   }
+
+   set boundaries [${canvas} coords ${expPath}.${datestamp}]
+   set x1 [lindex ${boundaries} 0]
+   set y1 [lindex ${boundaries} 1]
+   set x2 [lindex ${boundaries} 2]
+   set y2 [lindex ${boundaries} 3]
+
+   if { [${canvas} coords ${expPath}.${datestamp}.start] != "" } {
+      set boundaries [${canvas} coords ${expPath}.${datestamp}.start]
+      set x1 [lindex ${boundaries} 0]
+      set y1 [lindex ${boundaries} 1]
+      set x2 [lindex ${boundaries} 2]
+      set y2 [lindex ${boundaries} 3]
+   }
+
+   if { [${canvas} coords ${expPath}.${datestamp}.text] != "" } {
+      set boundaries [${canvas} bbox ${expPath}.${datestamp}.text]
+      if { [expr [lindex ${boundaries} 0] < ${x1}] } {
+         set x1 [lindex ${boundaries} 0]
+      }
+      if { [expr [lindex ${boundaries} 2] > ${x2}] } {
+         set x2 [lindex ${boundaries} 2]
+      }
+   }
+
+   if { [${canvas} coords ${expPath}.${datestamp}.middle] != "" } {
+      set boundaries [${canvas} coords ${expPath}.${datestamp}.middle]
+      set y1 [lindex ${boundaries} 1]
+      set x2 [lindex ${boundaries} 2]
+      set y2 [lindex ${boundaries} 3]
+   }
+
+   if { [${canvas} coords ${expPath}.${datestamp}.reference] != "" } {
+      set boundaries [${canvas} coords ${expPath}.${datestamp}.reference]
+      set y1 [lindex ${boundaries} 1]
+      set x2 [lindex ${boundaries} 2]
+      set y2 [lindex ${boundaries} 3]
+   }
+
+   if { [${canvas} coords ${expPath}.${datestamp}.end] != "" } {
+      set boundaries [${canvas} coords ${expPath}.${datestamp}.end]
+      set x2 [lindex ${boundaries} 2]
+   }
+
+   set boundaries "$x1 $y1 $x2 $y2"
+   DEBUG "Overview_getRunBoxBoundaries boudaries ${expPath}.${datestamp} : ${boundaries}" 5
+   return ${boundaries}
+}
+
 # returns the boundaries of a DisplayGroup record
 # that covers the entire rows that are used by the display group
 # the Display Group + every rows used by its exp boxes
@@ -1292,7 +1541,8 @@ proc Overview_getGroupBoundaries { canvas display_group } {
       set y2 [lindex ${boundaries} 3]
 
       foreach exp ${expList} {
-         set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
+         # set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
+         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
          set expBoundaries [Overview_getExpBoundaries ${canvas} ${suiteRecord}]
          set expy1 [lindex ${expBoundaries} 1]
          set expx2 [lindex ${expBoundaries} 2]
@@ -1312,20 +1562,20 @@ proc Overview_getGroupBoundaries { canvas display_group } {
 
 # this function sets the exp box mouse over tooltip information.
 # it is updated everytime the exp node root status changes
-proc Overview_setExpTooltip { canvas suite_record } {
+proc Overview_setExpTooltip { canvas suite_record datestamp } {
    set expName [file tail [${suite_record} cget -suite_path]]
-   set startTime [::SuiteNode::getStartTime ${suite_record}]
-   set endTime [::SuiteNode::getEndTime ${suite_record}]
+   set startTime [::SuiteNode::getStartTime ${suite_record} ${datestamp}]
+   set endTime [::SuiteNode::getEndTime ${suite_record} ${datestamp}]
    set refStartTime [${suite_record} cget -ref_start]
    set refEndTime [${suite_record} cget -ref_end]
-   set currentStatus [::SuiteNode::getLastStatus ${suite_record}]
-   set currentStatusTime [::SuiteNode::getLastStatusTime ${suite_record}]
-   set currentDatestamp [::SuiteNode::getLastStatusDatestamp ${suite_record}]
+   set currentStatus [::SuiteNode::getLastStatus ${suite_record} ${datestamp}]
+   set currentStatusTime [::SuiteNode::getLastStatusTime ${suite_record} ${datestamp}]
+   # set currentDatestamp [::SuiteNode::getLastStatusDatestamp ${suite_record}]
    set tooltipText "name: ${expName}"
-   if { ${currentDatestamp} != "" } {
-      append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue ${currentDatestamp}]"
+   if { ${datestamp} != "" } {
+      append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue ${datestamp}]"
    }
-   set exptag [${suite_record} cget -suite_path]
+   set exptag [${suite_record} cget -suite_path].${datestamp}
    if { [${suite_record} cget -ref_start] != "" } {
       append tooltipText "\nref.begin: ${refStartTime}"
       append tooltipText "\nref.end: ${refEndTime}"
@@ -1460,9 +1710,13 @@ proc Overview_addGroups { canvas } {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
          Overview_addExp $displayGroup $canvas $exp
+         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
          SharedData_setSuiteData ${exp} LAST_CHECKED_TIME ${currentTime}
       }
    }
+
+   # wait for all child to be done with their init
+   vwait ALL_CHILD_INIT_DONE
 
    # here we will display the boxes
    foreach displayGroup $displayGroups {
@@ -1478,6 +1732,62 @@ proc Overview_addGroups { canvas } {
 
       DEBUG "Overview_addGroups displayGroup:$displayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY" 5
       set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
+         -text $displayName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
+
+      # get the font for each level
+      set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
+
+      $canvas itemconfigure displayGroup_${tagName} -font $newFont
+      ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
+
+      # get the exps for each group if exists
+      set expList [$displayGroup cget -exp_list]
+      $displayGroup configure -x [expr $graphStartX + 20]
+      DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
+
+      foreach exp $expList {
+         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
+         set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
+         foreach datestamp ${datestamps} {
+            set currentStatus [::SuiteNode::getLastStatus ${suiteRecord} ${datestamp}]
+            set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord} ${datestamp}]
+            Overview_updateExpBox ${canvas} ${suiteRecord} ${datestamp} ${currentStatus} ${statusTime}
+         }
+         if { ${datestamps} == "" } {
+            # nothing change in the last visible time period, force init
+            Overview_updateExpBox ${canvas} ${suiteRecord} "" init
+         }
+      }
+
+      # $canvas itemconfigure ${tagName} -font TkDefaultFont
+      DEBUG "Overview_addGroups displayGroup:$displayGroup groupEntryCurrentY:$groupEntryCurrentY" 5
+   }
+
+
+
+   destroy ${progressBar}
+}
+
+proc _____________________Overview_initExpBoxes { canvas } {
+   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
+
+   set displayGroups [record show instances DisplayGroup]
+   set groupEntryCurrentY $entryStartY
+   set expEntryCurrentX $entryStartX
+   foreach displayGroup $displayGroups {
+
+      set groupName [$displayGroup cget -name]
+      set displayName [file tail $groupName]
+      set tagName ${displayGroup}
+      #puts "Overview_addGroups groupName:$groupName"
+      set groupLevel [$displayGroup cget -level]
+      set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
+
+      # add indentation for each different level
+      set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
+
+      DEBUG "Overview_initExpBoxes displayGroup:$displayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY" 5
+      set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
          -text $displayName -justify left -anchor w -fill grey20 -tag ${tagName} ]
 
       # get the font for each level
@@ -1491,21 +1801,23 @@ proc Overview_addGroups { canvas } {
       $displayGroup configure -x [expr $graphStartX + 20]
       DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
 
-      DEBUG "Overview_addGroups displayGroup:$displayGroup groupEntryCurrentY:$groupEntryCurrentY" 5
+      DEBUG "Overview_initExpBoxes displayGroup:$displayGroup groupEntryCurrentY:$groupEntryCurrentY" 5
 
       foreach exp $expList {
-         set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
+         # set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
+         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
          Overview_getExpTimings ${suiteRecord}
-         set currentStatus [::SuiteNode::getLastStatus ${suiteRecord}]
-         set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord}]
-         Overview_updateExpBox ${canvas} ${suiteRecord} ${currentStatus} ${statusTime}
+         set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
+         DEBUG "Overview_initExpBoxes suiteRecord:${suiteRecord} exp:$exp datestamps: $datestamps"
+         foreach datestamp ${datestamps} {
+            DEBUG "Overview_initExpBoxes exp:$exp datestamp: $datestamp"
+            DEBUG "Overview_initExpBoxes ::SuiteNode::getDatestamps ${suiteRecord}" 5
+            set currentStatus [::SuiteNode::getLastStatus ${suiteRecord} ${datestamp}]
+            set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord} ${datestamp}]
+            Overview_updateExpBox ${canvas} ${suiteRecord} ${datestamp} ${currentStatus} ${statusTime}
+         }
       }
    }
-
-   # testing
-   # wait for all child to be done with their init
-   vwait ALL_CHILD_INIT_DONE
-   destroy ${progressBar}
 }
 
 # this function is a place holder to add logic to

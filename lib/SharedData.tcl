@@ -41,6 +41,71 @@ proc SharedData_getSuiteData { exp_path key } {
    return ${returnedValue}
 }
 
+proc SharedData_unsetSuiteData { exp_path key } {
+   if { [tsv::exists ${exp_path} ${key}] } {
+      array set values [tsv::array get ${exp_path} ${key}]      
+      unset values(${key})
+      tsv::array set ${exp_path} [array get values]
+   }
+}
+
+proc SharedData_getExpThreadId { _exp_path _datestamp } {
+   set threadId ""
+   catch {
+      set threadId [SharedData_getSuiteData ${_exp_path} ${_datestamp}_thread_id]
+   }
+   return ${threadId}
+}
+
+proc SharedData_removeExpThreadId { _exp_path _datestamp } {
+}
+
+proc SharedData_setExpThreadId { _exp_path _datestamp  _thread_id } {
+   SharedData_setSuiteData ${_exp_path} ${_datestamp}_thread_id ${_thread_id}
+}
+
+proc SharedData_setExpDatestampOffset { exp_path datestamp {offset 0} } {
+   SharedData_setSuiteData ${exp_path} ${datestamp}_offset ${offset}
+}
+
+proc SharedData_getExpDatestampOffset { exp_path datestamp } {
+   set offset 0
+   catch {
+      set offset [SharedData_getSuiteData ${exp_path} ${datestamp}_offset]
+   }
+   return ${offset}
+}
+
+proc out {} {
+proc SharedData_setExpDatestampOffset { exp_path datestamp {offset 0} } {
+   set varname logfiles_${exp_path}
+   array set myarray [tsv::array get ${varname}]
+
+   # update new datestamp data
+   set myarray(${datestamp}) ${offset}
+
+   # save the new data
+   tsv::array set ${varname} [array get myarray]
+}
+
+proc SharedData_getExpDatestamps { exp_path } {
+   set varname logfiles_${exp_path}
+   array set myarray [tsv::array get ${varname}]
+
+   return [array get myarray]
+}
+
+proc SharedData_getExpDatestampOffset { exp_path datestamp } {
+   set varname logfiles_${exp_path}
+   array set myarray [tsv::array get ${varname}]
+   set offset 0
+   catch { 
+      set offset $myarray(${datestamp})
+   }
+   return ${offset}
+}
+}
+
 proc SharedData_setMiscData { key_ value_ } {
    tsv::set misc ${key_} ${value_}
 }

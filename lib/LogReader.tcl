@@ -1,6 +1,6 @@
 package require textutil::string
 
-proc LogReader_readFile { suite_record calling_thread_id datestamp } {
+proc LogReader_readFile { suite_record calling_thread_id datestamp {send_overview false} } {
    global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODES
    DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp}" 5
    set REDRAW_FLOW false
@@ -10,7 +10,7 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp } {
    set thisThreadId [thread::id]
    SharedData_setMiscData ${thisThreadId}_CALLING_THREAD_ID ${calling_thread_id}
 
-   set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_STARTUP_DONE]
+   set isThreadStartupDone [SharedData_getMiscData ${thisThreadId}_${datestamp}_STARTUP_DONE]
    if { ${isThreadStartupDone} == "true" } {
       set isStartupDone true
    }
@@ -26,7 +26,8 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp } {
       flush stdout
       
       if { ${isStartupDone} == "true" } {
-         set logFileOffset [$suite_record cget -read_offset]
+         #set logFileOffset [$suite_record cget -read_offset]
+         set logFileOffset [SharedData_getExpDatestampOffset ${suitePath} ${datestamp}]
          DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} read_offset:$logFileOffset" 5
       } else {
          DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} reset read_offset" 5
@@ -38,7 +39,7 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp } {
       seek $f_logfile $logFileOffset
       
       while {[gets $f_logfile line] >= 0} {
-         if { ${isOverviewMode} == "true" } {
+         if { ${isOverviewMode} == true && ${send_overview} == true } {
             LogReader_processOverviewLine $calling_thread_id $suite_record $datestamp $line
          }
          LogReader_processLine $calling_thread_id $suite_record $datestamp $line
@@ -48,10 +49,12 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp } {
       # the log file for initialization
       if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
             thread::send -async ${calling_thread_id} \
-               "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id}"
+               "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id} ${datestamp}"
       }
 
       $suite_record configure -read_offset [tell $f_logfile]
+      SharedData_setExpDatestampOffset ${suitePath} ${datestamp} [tell $f_logfile]
+
       close $f_logfile
 
    } else {
@@ -66,11 +69,11 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp } {
       # the log file for initialization
       if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
             thread::send -async ${calling_thread_id} \
-               "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id}"
+               "Overview_childInitDone [${suite_record} cget -suite_path] ${calling_thread_id} ${datestamp}"
       }
    }
    if { ${REDRAW_FLOW} == true } {
-      SharedData_setMiscData ${thisThreadId}_STARTUP_DONE true
+      SharedData_setMiscData ${thisThreadId}_${datestamp}_STARTUP_DONE true
       xflow_redrawAllFlow
    } elseif { ${LOGREADER_UPDATE_NODES} != "" } {
       # update highest node that was affected during this read

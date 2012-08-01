@@ -77,7 +77,8 @@ proc DisplayGrp_calcMaxY { display_group } {
    set overviewCanvas [Overview_getCanvas]
    set maxY [${display_group} cget -y]
    foreach exp ${expList} {
-      set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp} ]
+      #set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp} ]
+       set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
       set expBoxCoords [Overview_getExpBoundaries ${overviewCanvas} ${suiteRecord}]
       if { [lindex ${expBoxCoords} 3] > ${maxY} } {
          set maxY  [lindex ${expBoxCoords} 3]

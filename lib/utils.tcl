@@ -176,6 +176,7 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
       set isOverlap 1
    }
 
+   DEBUG "Utils_isOverlap returns ${isOverlap}" 5
    return ${isOverlap}
 }
 
