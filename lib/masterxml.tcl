@@ -128,7 +128,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
    set newParentNode ""
    # defaults to 0
    set workUnitMode 0
-   if { ${xmlNodeName} == "ELEMENT_NODE" } {
+   if { [$current_xml_node nodeType] == "ELEMENT_NODE" } {
       # this line bombs if not element i.e. comments for instance
       set workUnitMode [$current_xml_node getAttribute work_unit 0]
    }
