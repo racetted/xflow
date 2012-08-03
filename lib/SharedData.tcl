@@ -145,6 +145,7 @@ proc SharedData_init {} {
 
    SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData DEBUG_TRACE 0
+   SharedData_setMiscData FLOW_SCALE 1
    SharedData_setMiscData AUTO_LAUNCH true
    SharedData_setMiscData AUTO_MSG_DISPLAY true
    SharedData_setMiscData NODE_DISPLAY_PREF normal

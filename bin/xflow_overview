@@ -19,6 +19,7 @@ eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
   -debug 	"0" 	"1"	"[debug message]" \
   -noautomsg 	"0"     "1"	"[no auto message display]" \
   -suites 	""	""	"[suites list file]" \
+  -logfile ""  ""  "[application log file]" \
   -rc ""	""	"[maestrorc preferrence file]" \
   ++ $arguments`
 
@@ -65,6 +66,11 @@ if [[ "${as}" != "" ]] ; then
    fi
 fi
 
+logfile_opt=""
+[[ ${logfile} != "" ]] && logfile_opt="-logfile ${logfile}"
+[[ "${USER}" = "afsiops" && "${logfile}" = "" ]] && logfile_opt="-logfile /cnfs/ops/production/log/xflow_overview_log.$$"
+[[ "${USER}" = "afsipar" && "${logfile}" = "" ]] && logfile_opt="-logfile /cnfs/ops/production/log/par/xflow_overview_log.$$"
+
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 suites_opt=""
 if [[ "${suites}" != "" ]] ; then
@@ -87,4 +93,4 @@ fi
 
 export NO_STOP_MESSAGE=on
 print "\n$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}"
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt} ${debug_opt} ${rc_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt} ${logfile_opt} ${debug_opt} ${rc_opt}
