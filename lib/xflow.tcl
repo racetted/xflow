@@ -1766,8 +1766,8 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
     if { $nodeExt == "-1" } {
 	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
     } else {
-	::log::log debug "$seqExecWork -n ${seqNode}"
-	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode}"] ':'] } message ] {
+	::log::log debug "$seqExecWork -n ${seqNode} -ext ${nodeExt}"
+	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode} -ext ${nodeExt}"] ':'] } message ] {
 	    Utils_raiseError . "Retrieve node output" $message
 	    return 0
 	}
