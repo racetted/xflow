@@ -4,6 +4,7 @@ package require Tk
 package require tablelist
 package require autoscroll
 package require tooltip
+package require log
 
 global env
 set lib_dir $env(SEQ_XFLOW_BIN)/../lib
@@ -227,7 +228,7 @@ proc MsgCenter_setHeaderStatus { table_w_ status_ } {
 proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_ } {
    global MSG_TABLE MSG_COUNTER MSG_ACTIVE_COUNTER
    incr MSG_COUNTER
-   DEBUG "MsgCenter_newMessage node_:$node_ type_:$type_ msg_:$msg_"
+   ::log::log debug "MsgCenter_newMessage node_:$node_ type_:$type_ msg_:$msg_"
    lappend MSG_TABLE [list ${timestamp_} ${datestamp_} ${type_} ${node_} ${msg_} ${exp_}]
 
    set isMsgActive [MsgCenter_addActiveMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}]
@@ -280,7 +281,7 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
    }
 
    if { ${isMsgActive} == "true" } {
-      DEBUG "MsgCenter_addActiveMessage adding ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
+      ::log::log debug "MsgCenter_addActiveMessage adding ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
       set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
       # add 2 spaces between date and time
       set displayedTimestamp [join [split ${timestamp_} .] "  "]
@@ -304,7 +305,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ } {
    # reprocess all received messages
    while { ${counter} <= ${MSG_COUNTER} } {
       foreach {timestamp datestamp type node msg exp} [lindex ${MSG_TABLE} ${counter}] {break}
-      DEBUG "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp" 5
+      ::log::log debug "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp"
       MsgCenter_addActiveMessage ${datestamp} ${timestamp} ${type} ${node} ${msg} ${exp}
       incr counter
    }
@@ -370,7 +371,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
       incr MSG_ALARM_COUNTER
    }
 
-   DEBUG "MsgCenter_processAlarm MSG_ALARM_COUNTER:${MSG_ALARM_COUNTER} MSG_BELL_TRIGGER:${MSG_BELL_TRIGGER}" 5
+   ::log::log debug "MsgCenter_processAlarm MSG_ALARM_COUNTER:${MSG_ALARM_COUNTER} MSG_BELL_TRIGGER:${MSG_BELL_TRIGGER}"
    # only raise alarm if no other alarm already exists
    if { ${MSG_ALARM_ON} == "true" } {
       if { ${repeat_alarm} == "true" } {
@@ -407,7 +408,7 @@ proc MsgCenter_stopBell { table_w_ } {
 }
 
 proc MsgCenter_close {} {
-   DEBUG "MsgCenter_close..." 5
+   ::log::log debug "MsgCenter_close..."
    wm withdraw [MsgCenter_getToplevel]
 }
 
@@ -439,10 +440,10 @@ proc MsgCenter_show {} {
 proc MsgCenter_getThread {} {
    # start synchronizing this block, get an exclusive lock
 
-   DEBUG "MsgCenter_getThread ..." 5
+   ::log::log debug "MsgCenter_getThread ..."
    set threadID [SharedData_getMsgCenterThreadId]
    if { ${threadID} == "" } {
-      DEBUG "MsgCenter_getThread Creating new thread..." 5
+      ::log::log debug "MsgCenter_getThread Creating new thread..."
       set threadID [thread::create {
          global env this_id
          set lib_dir $env(SEQ_XFLOW_BIN)/../lib
@@ -460,7 +461,7 @@ proc MsgCenter_getThread {} {
 
          # called everytime a new message comes in from experiment threads
          proc MsgCenterThread_newMessage { calling_thread_id datestamp_ timestamp_ type_ node_ exp_ msg_ } {
-            DEBUG "MsgCenterThread_newMessage calling_thread_id:${calling_thread_id} ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}" 5
+            ::log::log debug "MsgCenterThread_newMessage calling_thread_id:${calling_thread_id} ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
             MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
             # if the exp is done reading messages, we send a notification out
             # to warn about new messages available in the msg center
@@ -495,7 +496,7 @@ proc MsgCenter_getThread {} {
       }]
    }
 
-   DEBUG "MsgCenter_getThread returning id: ${threadID}" 5
+   ::log::log debug "MsgCenter_getThread returning id: ${threadID}"
    return ${threadID}
 }
 
@@ -515,12 +516,12 @@ proc MsgCenter_setTitle { top_w } {
 proc MsgCenter_DoubleClickCallback { table_widget } {
    global MsgTableColMap
 
-   DEBUG "MsgCenter_DoubleClickCallback widget:${table_widget}" 5
+   ::log::log debug "MsgCenter_DoubleClickCallback widget:${table_widget}"
    set selectedRow [${table_widget} curselection]
    # retrieve needed information
    set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
    set suitePath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
-   DEBUG "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}" 5
+   ::log::log debug "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}"
 
    if { ${node} == "" || ${suitePath} == "" } {
       return
@@ -567,11 +568,12 @@ proc MsgCenter_init {} {
    global MSG_ALARM_ON MsgCenterMainGridRowMap
    global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
-   global DEBUG_TRACE DEBUG_LEVEL MSG_BELL_TRIGGER MSG_CENTER_USE_BELL
+   global DEBUG_TRACE MSG_BELL_TRIGGER MSG_CENTER_USE_BELL
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
-   set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
+
+   Utils_logInit
 
    # this variable is true when a new message comes in
    # and we need to warn the user about it

@@ -210,12 +210,12 @@ proc SharedData_init {} {
 
    SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData DEBUG_TRACE 0
-   SharedData_setMiscData DEBUG_LEVEL 5
    SharedData_setMiscData AUTO_LAUNCH true
    SharedData_setMiscData AUTO_MSG_DISPLAY true
    SharedData_setMiscData NODE_DISPLAY_PREF normal
    SharedData_setMiscData STARTUP_DONE false 
 
+   SharedData_setMiscData FLOW_SCALE 1
    SharedData_setMiscData OVERVIEW_MODE false
    SharedData_setMiscData DEFAULT_CONSOLE "konsole -e"
    SharedData_setMiscData TEXT_VIEWER default
@@ -227,9 +227,8 @@ proc SharedData_init {} {
 }
 
 proc SharedData_readProperties { {rc_file ""} } {
-   global env DEBUG_TRACE DEBUG_LEVEL
+   global env DEBUG_TRACE
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
-   set DEBUG_LEVEL [SharedData_getMiscData DEBUG_LEVEL]
    set errorMsg ""
    if { ${rc_file} == "" } {
       set fileName $env(HOME)/.maestrorc

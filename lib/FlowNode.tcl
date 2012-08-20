@@ -41,6 +41,7 @@ record define FlowNode {
    parent
    family
    container
+   {work_unit 0}
    {loops {} }
    {statuses {} }
    {latest ""}
@@ -257,7 +258,7 @@ proc ::FlowNodes::searchForNode { _node _search_value _match_case _results_outpu
    set matchCaseFlag "-nocase"
 
    if { ${_match_case} == 1 } { set matchCaseFlag "" }
-   if { [eval string match ${matchCaseFlag} *${_search_value}* [file tail ${_node}]] == 1 } {
+   if { [eval string match ${matchCaseFlag} \"*${_search_value}*\" [file tail ${_node}]] == 1 } {
       lappend myOutput ${_node}
    }
 
@@ -706,7 +707,7 @@ proc ::FlowNodes::getNodeExtension { current_node } {
 # returns 1 if the node requires a display refresh
 # returns 0 if not
 proc ::FlowNodes::isDisplayUpdate { current_node updated_ext } {
-   DEBUG "::FlowNodes::isDisplayUpdate current_node:$current_node updated_ext:$updated_ext" 5
+   ::log::log debug "::FlowNodes::isDisplayUpdate current_node:$current_node updated_ext:$updated_ext"
    set extension ""
    if { [${current_node} cget -flow.type] == "npass_task" } {
       set extension [${current_node} cget -current]
@@ -723,7 +724,7 @@ proc ::FlowNodes::isDisplayUpdate { current_node updated_ext } {
          set extension "${extension}${currentExt}"
       }
    }
-   DEBUG "::FlowNodes::isDisplayUpdate extension:$extension updated_ext:$updated_ext" 5
+   ::log::log debug "::FlowNodes::isDisplayUpdate extension:$extension updated_ext:$updated_ext"
 
    return [string match "${extension}" ${updated_ext}]
 }
@@ -1008,7 +1009,7 @@ proc ::FlowNodes::getNptExtensions { npt_node } {
 }
 
 proc ::FlowNodes::setNptMemberStatus { node member new_status {timestamp ""} } {
-   DEBUG "::FlowNodes::setNptMemberStatus  $node $member $new_status" 5
+   ::log::log debug "::FlowNodes::setNptMemberStatus  $node $member $new_status"
    if { [$node cget -flow.type] != "npass_task" } {
       return
    }
@@ -1206,7 +1207,7 @@ proc ::FlowNodes::isRefreshNeeded { flow_node current_ext } {
          }
       }
    }
-   DEBUG "::FlowNodes::isRefreshNeeded $flow_node ${current_ext} refreshed? ${refreshNeeded}" 5
+   ::log::log debug "::FlowNodes::isRefreshNeeded $flow_node ${current_ext} refreshed? ${refreshNeeded}"
    return ${refreshNeeded}
 }
 
@@ -1223,7 +1224,7 @@ proc ::FlowNodes::isFlowModified { exp_path } {
       set flowModTime [file mtime ${flowFile}]
       if { ${loadTime} != "" && ${flowModTime} > ${loadTime} } {
          set isModified true
-         DEBUG "::FlowNodes::isFlowModified ${flowFile} has been modified" 5
+         ::log::log debug "::FlowNodes::isFlowModified ${flowFile} has been modified"
          break
       }
    }

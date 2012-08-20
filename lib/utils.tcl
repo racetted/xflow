@@ -1,13 +1,3 @@
-proc DEBUG { output {level 2} } {
-   global DEBUG_TRACE DEBUG_LEVEL
-   set debugOn [getGlobalValue "DEBUG_TRACE"]
-   set debugLevel [getGlobalValue "DEBUG_LEVEL"]
-   if { $DEBUG_TRACE == "1" && $DEBUG_LEVEL >= $level} {
-      puts "$output"
-      flush stdout
-   }
-}
-
 proc setGlobalValue { key value } {
    #global GLOBAL_LIST
    #set GLOBAL_LIST($key) $value
@@ -101,7 +91,7 @@ proc Utils_isListEqual { list_a list_b } {
    if { [llength ${list_a}] > 0 && [llength ${list_a}] == [llength ${list_b}] } {
       while { ${done} == "false" } {
          if { [lindex ${list_a} ${counter}] != [lindex ${list_b} ${counter}] } {
-            DEBUG "[lindex ${list_a} ${counter}] != [lindex ${list_b} ${counter}]" 5
+            ::log::log debug "[lindex ${list_a} ${counter}] != [lindex ${list_b} ${counter}]"
             break
          }
          incr counter
@@ -131,18 +121,18 @@ proc Utils_isListOverlap { coord1 coord2 } {
 # b1x1 b1y1 b1x2 b1y2 is the coordinates of the first box
 # b2x1 b2y1 b2x2 b2y2 is the coordinates of the second box
 proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
-   DEBUG "Utils_isOverlap b1x1:$b1x1 b1y1:$b1y1 b1x2:$b1x2 b1y2:$b1y2 b2x1:$b2x1 b2y1:$b2y1 b2x2:$b2x2 b2y2:$b2y2" 5
+   ::log::log debug "Utils_isOverlap b1x1:$b1x1 b1y1:$b1y1 b1x2:$b1x2 b1y2:$b1y2 b2x1:$b2x1 b2y1:$b2y1 b2x2:$b2x2 b2y2:$b2y2"
    set xOverlap 0
    set yOverlap 0
    set isOverlap 0
    if { ([expr ${b1x1} >= ${b2x1}] && [expr ${b1x1} <= ${b2x2}]) ||
       ([expr ${b1x2} >= ${b2x1}] && [expr ${b1x2} <= ${b2x2}]) } {
-      DEBUG "Utils_isOverlap xOverlap 1" 5
+      ::log::log debug "Utils_isOverlap xOverlap 1"
       set xOverlap 1
    }
    if { ([expr ${b1y1} >= ${b2y1}] && [expr ${b1y1} <= ${b2y2}]) ||
       ([expr ${b1y2} >= ${b2y1}] && [expr ${b1y2} <= ${b2y2}]) } {
-      DEBUG "Utils_isOverlap yOverlap 1" 5
+      ::log::log debug "Utils_isOverlap yOverlap 1"
       set yOverlap 1
    }
    if { ${yOverlap} && ! ${xOverlap} } {
@@ -151,7 +141,7 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
       if { [expr ${b1x1} <= ${b2x1}] && [expr ${b1x2} >= ${b2x1}] ||
            [expr ${b2x1} <= ${b1x1}] && [expr ${b2x2} >= ${b1x1}] } {
          set xOverlap 1
-         DEBUG "Utils_isOverlap xOverlap 1 within" 5
+         ::log::log debug "Utils_isOverlap xOverlap 1 within"
       }
    }
    if { ${xOverlap} && ! ${yOverlap} } {
@@ -159,7 +149,7 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
       # we have overlap
       if { [expr ${b1y1} <= ${b2y1}] && [expr ${b1y2} >= ${b2y1}] ||
            [expr ${b2y1} <= ${b1y1}] && [expr ${b2y2} >= ${b1y1}] } {
-         DEBUG "Utils_isOverlap yOverlap 1 within" 5
+         ::log::log debug "Utils_isOverlap yOverlap 1 within"
          set yOverlap 1
       }
    }
@@ -176,7 +166,7 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
       set isOverlap 1
    }
 
-   DEBUG "Utils_isOverlap returns ${isOverlap}" 5
+   ::log::log debug "Utils_isOverlap returns ${isOverlap}"
    return ${isOverlap}
 }
 
@@ -276,8 +266,98 @@ proc Utils_goBrowser { url } {
    exec ${browser} ${url} &
 }
 
+proc Utils_setDebugOn {} {
+   ::log::lvSuppress info 0
+   ::log::lvSuppress debug 0
+}
+
+proc Utils_setDebugOff {} {
+   ::log::lvSuppress info 1
+   ::log::lvSuppress debug 1
+}
+
+# initialize application log file
+# if needed. It uses the shared variable
+# APP_LOG_FILE. The variable is shared among all
+# threads i.e. overview, msg center and exp threads
+#
+# Only levels notice and higher are currently logged.
+# By default debug level is off and even in on mode,
+# it goes to standard out and not log file.
+proc Utils_logInit {} {
+   global APP_LOGFILE env
+   
+   set sharedAppLogFile [SharedData_getMiscData APP_LOG_FILE]
+   set debugOn [SharedData_getMiscData DEBUG_TRACE]
+
+   # sharedAppLogFile is used to log write operations to log file
+   # it does not log info or debug level messages
+
+   # info and debug level goes to standard out, not logged
+   if { ${debugOn} == 1 } {
+      Utils_setDebugOn
+   } else {
+      Utils_setDebugOff
+   }
+
+   if { ${sharedAppLogFile} != "" } {
+      # allow log message level "notice" to be logged
+      # using xflow_logMessage proc
+      set APP_LOGFILE ${sharedAppLogFile}
+      # by default, if log is enabled we log only the following levels
+      ::log::lvSuppress error 0
+      ::log::lvSuppress warning 0
+      ::log::lvSuppress notice 0
+
+      ::log::lvCmd notice Utils_logMessage 
+      ::log::lvCmd warning Utils_logMessage 
+      ::log::lvCmd error Utils_logMessage 
+   }
+}
+
+# short to send the content of a file to the log file
+# mainly used on a submit for instance where the content of the submit
+# output is logged
+proc Utils_logFileContent { _level _filename } {
+   set logMsg ""
+   # log only if level is enabled
+   if { [::log::lvIsSuppressed ${_level}] == 0 } {
+      if { [file exists ${_filename}] } {
+         ::log::log ${_level} "------------------------------------"
+         set fileid [ open ${_filename} r ]
+         flush stdout
+         while {[gets ${fileid} line] >= 0} {
+            lappend logMsg "\n${line}"
+         }
+         catch { close ${fileid} }
+         if { ${logMsg} != "" } {
+            ::log::log ${_level} ${logMsg}
+         }
+         ::log::log ${_level} "------------------------------------"
+      } else {
+         ::log::log warning "Utils_logFileContent(): Cannot open file: $_{filename}"
+      }
+   }
+}
+
+# this is called as callback for each ::log::log notice | warning | error level
+# inserts the message in the log file
+proc Utils_logMessage { _level _message } {
+   global APP_LOGFILE
+   if { [info exists APP_LOGFILE] } {
+      set currentTimeSeconds [clock seconds]
+      set dateString [clock format $currentTimeSeconds -gmt 1]
+      if [ catch {
+         set fileId [open $APP_LOGFILE a 0664]
+         puts $fileId "$dateString:${_message}"
+         catch { close $fileId }
+      } err_message ] {
+         puts "Utils_logMessage ERROR:${err_message}"
+      }
+   }
+}
+
 #setGlobalValue SEQ_BIN [Sequencer_getPath]
 #setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 #setGlobalValue DEBUG_TRACE 1
-#setGlobalValue DEBUG_LEVEL 5
 

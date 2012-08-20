@@ -2,7 +2,7 @@ package require textutil::string
 
 proc LogReader_readFile { suite_record calling_thread_id datestamp {send_overview false} } {
    global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODES
-   DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp}" 5
+   ::log::log debug "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp}"
    set REDRAW_FLOW false
    set LOGREADER_UPDATE_NODES ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
@@ -28,14 +28,15 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp {send_overvie
       if { ${isStartupDone} == "true" } {
          #set logFileOffset [$suite_record cget -read_offset]
          set logFileOffset [SharedData_getExpDatestampOffset ${suitePath} ${datestamp}]
-         DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} read_offset:$logFileOffset" 5
+         ::log::log debug "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} read_offset:$logFileOffset"
       } else {
-         DEBUG "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} reset read_offset" 5
+         ::log::log debug "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} reset read_offset"
          set logFileOffset 0
          ${suite_record} configure -read_offset 0 -exp_log ${logfile}
       }
 
       # position yourself in the file
+      puts "sua seek $f_logfile $logFileOffset"
       seek $f_logfile $logFileOffset
       
       while {[gets $f_logfile line] >= 0} {
@@ -101,7 +102,7 @@ proc LogReader_cancelAfter { suite_record } {
 
 # this is meant to be running inside a child thread
 proc LogReader_processOverviewLine { calling_thread_id suite_record datestamp line } {  
-   DEBUG "LogReader_processOverviewLine suite_record:$suite_record line:$line" 5
+   ::log::log debug "LogReader_processOverviewLine suite_record:$suite_record line:$line"
 
    set nodeIndex [string first "SEQNODE=" $line]
    set typeIndex [string first "MSGTYPE=" $line $nodeIndex]
@@ -151,7 +152,7 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record datestamp li
          }
          if { ${type} != "info" } {
             if { ${node} == [${suite_record} cget -root_node] } {
-               DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
+               ::log::log debug "LogReader_processOverviewLine time:$timestamp node=$node type=$type"
                thread::send -async ${calling_thread_id} \
                   "Overview_updateExp [thread::id] ${suite_record} ${datestamp} ${type} ${timestamp}"
             }
@@ -161,7 +162,7 @@ proc LogReader_processOverviewLine { calling_thread_id suite_record datestamp li
             if { ${type} == "init" || ${type} == "begin" || ${type} == "beginx" 
                || ${type} == "abort" || ${type} == "end" 
                || ${type} == "wait" || ${type} == "submit" || ${type} == "catchup" } {
-               DEBUG "LogReader_processOverviewLine time:$timestamp node=$node type=$type" 5
+               ::log::log debug "LogReader_processOverviewLine time:$timestamp node=$node type=$type"
                thread::send -async ${calling_thread_id} \
                   "Overview_updateExp [thread::id] ${suite_record} ${datestamp} ${type} ${timestamp}"
             }
@@ -175,7 +176,7 @@ proc LogReader_processLine { calling_thread_id suite_record datestamp line } {
    global MSG_CENTER_THREAD_ID
    set thisThreadId [thread::id]
 
-   DEBUG "LogReader_processLine line:$line" 5
+   ::log::log debug "LogReader_processLine line:$line"
    # node & signal is mandatory to be processed
    # else the line is ignored
    set loopInfoDisplay ""
@@ -214,7 +215,7 @@ proc LogReader_processLine { calling_thread_id suite_record datestamp line } {
       set flowNode [::SuiteNode::getFlowNodeMapping $suite_record $node]
       set type [string range $line $typeStartIndex $typeEndIndex]
       set msg ""
-      DEBUG "LogReader_processLine node:$node flowNode:$flowNode" 5
+      ::log::log debug "LogReader_processLine node:$node flowNode:$flowNode"
       if { $type != "" } {
          if { $loopIndex != -1 } {
             set loopExt [string range $line $loopStartIndex $loopEndIndex]
@@ -243,8 +244,8 @@ proc LogReader_processLine { calling_thread_id suite_record datestamp line } {
             if { [info exists ::DrawUtils::rippleStatusMap(${type})] } {
                set type $::DrawUtils::rippleStatusMap(${type})
 
-               DEBUG "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type" 5
-               DEBUG "LogReader_processLine message=$msg" 5
+               ::log::log debug "LogReader_processLine node=$node flowNode:$flowNode loopExt:$loopExt type=$type"
+               ::log::log debug "LogReader_processLine message=$msg"
                if { [info command $flowNode] != "" } {
                   # 1 - first we take care of setting the node status
                   if { [string tolower $type] == "init" } {
@@ -348,7 +349,7 @@ proc LogReader_getAvailableDates { exp_path } {
    set expLogs ""
    if [ catch { set expLogs [exec ksh -c $cmd] } message ] {
    }
-   DEBUG "LogReader_getAvailableDates exp logs: $expLogs" 5
+   ::log::log debug "LogReader_getAvailableDates exp logs: $expLogs"
    return $expLogs
 }
 

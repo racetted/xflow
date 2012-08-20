@@ -31,9 +31,22 @@ proc Sequencer_runCommandWithWindow { suite_path datestamp command title positio
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
    #set cmd "export SEQ_EXP_HOME=$suite_path;$command [join $args] > $tmpfile 2>&1"
-   #DEBUG "Sequencer_runCommand ksh -c $cmd" 5
+   #::log::log debug "Sequencer_runCommand ksh -c $cmd"
    #catch { eval [exec ksh -c $cmd]}
    Sequencer_runCommand ${suite_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
+   create_text_window "$title" ${tmpfile} ${position} .
+   catch {[exec rm -f ${tmpfile}}
+}
+
+proc Sequencer_runCommandLogAndWindow { suite_path datestamp command title position args } {
+   global env
+   regsub -all " " [file tail $command] _ tmpfile
+   set id [clock seconds]
+   set tmpdir $env(TMPDIR)
+   set tmpfile "${tmpdir}/${tmpfile}_${id}"
+   Sequencer_runCommand ${suite_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
+   ::log::log notice "${command} [join ${args}]"
+   Utils_logFileContent notice ${tmpfile}
    create_text_window "$title" ${tmpfile} ${position} .
    catch {[exec rm -f ${tmpfile}}
 }
@@ -44,6 +57,6 @@ proc Sequencer_runCommand { suite_path datestamp out_file command } {
    }
 
    set cmd "export SEQ_EXP_HOME=$suite_path;export SEQ_DATE=${datestamp}; print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
-   DEBUG "Sequencer_runCommand ksh -c $cmd" 5
+   ::log::log debug "Sequencer_runCommand ksh -c $cmd"
    catch { eval [exec ksh -c $cmd]}
 }

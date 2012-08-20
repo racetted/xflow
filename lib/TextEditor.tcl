@@ -42,11 +42,11 @@ proc tw_search {w new_search} {
    }
 
    if { $new_search } {
-      DEBUG "tw_search resetting search offset" 5
+      ::log::log debug "tw_search resetting search offset"
       set TEXTSEARCH_OFFSET($w) 1.0
       set offset $TEXTSEARCH_OFFSET($w)
    } else {
-      DEBUG "tw_search NOT resetting search offset" 5
+      ::log::log debug "tw_search NOT resetting search offset"
       set offset $TEXTSEARCH_OFFSET($w)
    }
 
@@ -90,7 +90,7 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
 
    global TEXTSEARCH_OFFSET SEARCHSTRING LINEWRAP DEFAULT_COLORS FONTS
    global LEFT_ARROW_IMG RIGHT_ARROW_IMG LEFT_ENDARROW_IMG RIGHT_ENDARROW_IMG
-   DEBUG "create_text_window title:$title" 5
+   ::log::log debug "create_text_window title:$title"
    #example: change the title from 'iclogj -h 36 {{e1up168_00_1  }}' to 'iclogj -h 36 e1up168_00_1  '
    regsub -all "\{\{" $title {} title
    regsub -all "\}\}" $title {} title
@@ -188,7 +188,7 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
    } else {
       set endof_file 0
       set filesize [file size $tmpfile]
-      DEBUG "file size of $tmpfile $filesize bytes" 5
+      ::log::log debug "file size of $tmpfile $filesize bytes"
       set maxSize 4000000
       set readChunkSize 400
       if { $filesize > $maxSize } {
@@ -344,7 +344,7 @@ proc getNextPage { w file_id position {num_of_lines all} {up_or_down 1} } {
          set endof_file [eof $file_id]
       }
 
-      DEBUG "getNextPage file offset after read:[tell $file_id]"
+      ::log::log debug "getNextPage file offset after read:[tell $file_id]"
       set currentOffset [tell $file_id]
       if { [winfo exists $w.mbar.upArrow] } {
          if { $disableStart } {
@@ -393,7 +393,7 @@ proc getNextPage { w file_id position {num_of_lines all} {up_or_down 1} } {
 }
 
 proc TextEditor_goKonsole { _binary_path _title _command } {
-   DEBUG "TextEditor_goKonsole ${_binary_path} ${_command}" 5
+   ::log::log debug "TextEditor_goKonsole ${_binary_path} ${_command}"
    #eval exec ${_binary_path} -T \"${_title}\" -e ${_command} &
    eval exec ${_binary_path} ${_command} &
 }
