@@ -988,7 +988,7 @@ proc Overview_launchExpFlow { calling_w exp_path } {
 
       set einfo $::errorInfo
       set ecode $::errorCode
-      destroy ${progressW}
+      catch { destroy ${progressW} }
 
       # report the error with original details
       return -code ${result} \

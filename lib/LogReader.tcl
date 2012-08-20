@@ -48,6 +48,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
             set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
             thread::send -async ${overviewThreadId} \
             "Overview_ExpDateStampChanged ${suite_record} ${logfile}"
+            ::log::log notice "Monitoring new log file=${logfile} for exp=${suitePath}" 
             # send event to own xflow
             thread::send ${thisThreadId} "xflow_datestampChanged ${suite_record}"
          }
