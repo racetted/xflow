@@ -43,9 +43,9 @@ proc SharedData_getSuiteData { exp_path key } {
 
 proc SharedData_unsetSuiteData { exp_path key } {
    if { [tsv::exists ${exp_path} ${key}] } {
-      array set values [tsv::array get ${exp_path} ${key}]      
-      unset values(${key})
-      tsv::array set ${exp_path} [array get values]
+      array set values [tsv::array get ${exp_path}]
+      array unset values ${key}
+      tsv::array reset ${exp_path} [array get values]
    }
 }
 
@@ -58,6 +58,7 @@ proc SharedData_getExpThreadId { _exp_path _datestamp } {
 }
 
 proc SharedData_removeExpThreadId { _exp_path _datestamp } {
+   SharedData_unsetSuiteData ${_exp_path} ${_datestamp}_thread_id
 }
 
 proc SharedData_setExpThreadId { _exp_path _datestamp  _thread_id } {
@@ -210,6 +211,7 @@ proc SharedData_init {} {
 
    SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData DEBUG_TRACE 0
+   SharedData_setMiscData FLOW_SCALE 1
    SharedData_setMiscData AUTO_LAUNCH true
    SharedData_setMiscData AUTO_MSG_DISPLAY true
    SharedData_setMiscData NODE_DISPLAY_PREF normal

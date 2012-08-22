@@ -2,7 +2,7 @@ package require textutil::string
 
 proc LogReader_readFile { suite_record calling_thread_id datestamp {send_overview false} } {
    global MONITOR_THREAD_ID REDRAW_FLOW LOGREADER_UPDATE_NODES
-   ::log::log debug "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp}"
+   ::log::log debug "LogReader_readFile suite_record:$suite_record calling_thread_id:$calling_thread_id datestamp:${datestamp} send_overview:${send_overview}"
    set REDRAW_FLOW false
    set LOGREADER_UPDATE_NODES ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
@@ -18,7 +18,6 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp {send_overvie
    # first cancel any other waiting read for this suite
    LogReader_cancelAfter $suite_record
    set suitePath [$suite_record cget -suite_path]
-   set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
    set logfile $suitePath/logs/${datestamp}_nodelog
 
    if { [file exists $logfile] } {
@@ -36,7 +35,6 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp {send_overvie
       }
 
       # position yourself in the file
-      puts "sua seek $f_logfile $logFileOffset"
       seek $f_logfile $logFileOffset
       
       while {[gets $f_logfile line] >= 0} {
@@ -82,14 +80,14 @@ proc LogReader_readFile { suite_record calling_thread_id datestamp {send_overvie
          xflow_redrawNodes ${updatedNode}
       }
    }
-   LogReader_readAgain $suite_record $calling_thread_id ${datestamp}
+   LogReader_readAgain $suite_record $calling_thread_id ${datestamp} ${send_overview}
 }
 
-proc LogReader_readAgain { suite_record calling_thread_id datestamp } {
+proc LogReader_readAgain { suite_record calling_thread_id datestamp send_overview } {
    global ${suite_record}_READ_LOG_IDS
    
    set READ_INTERVAL [$suite_record cget -read_interval]
-   catch { set ${suite_record}_READ_LOG_IDS [after $READ_INTERVAL [list LogReader_readFile $suite_record  $calling_thread_id ${datestamp}]]}
+   catch { set ${suite_record}_READ_LOG_IDS [after $READ_INTERVAL [list LogReader_readFile $suite_record  $calling_thread_id ${datestamp} ${send_overview}]]}
 }
 
 proc LogReader_cancelAfter { suite_record } {

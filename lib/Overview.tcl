@@ -762,7 +762,7 @@ proc Overview_updateExpBox { canvas suite_record datestamp status { timevalue ""
       Overview_setExpTooltip ${canvas} ${suite_record} ${datestamp}
    
       set expPath  [${suite_record} cget -suite_path]
-      $canvas bind ${expPath} <Button-3> [ list Overview_boxMenu $canvas ${expPath} ${datestamp} %X %Y]
+      $canvas bind ${expPath}.${datestamp} <Button-3> [ list Overview_boxMenu $canvas ${expPath} ${datestamp} %X %Y]
    
       if { ${continueStatus} != "" } {
          ${suite_record} configure -overview_after_id \
@@ -1029,7 +1029,7 @@ proc Overview_resolveOverlap { canvas suite_record datestamp x1 y1 x2 y2 } {
 # this function is called to pop-up an exp node menu
 proc Overview_boxMenu { canvas exp_path datestamp x y } {
    global env
-   ::log::log debug "Overview_boxMenu() exp_path:$exp_path"
+   ::log::log debug "Overview_boxMenu() exp_path:$exp_path datestamp:${datestamp}"
    set popMenu .popupMenu
    if { [winfo exists $popMenu] } {
       destroy $popMenu
@@ -1065,25 +1065,34 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
 # this function is called to launch an exp window
 # It sends the request to the exp thread to care of it.
 proc Overview_launchExpFlow { calling_w exp_path datestamp } {
+   ::log::log debug "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    global env ExpThreadList PROGRESS_REPORT_TXT
    set xflowCmd $env(SEQ_XFLOW_BIN)/xflow
 
    set result [ catch {
       set progressW [ProgressDlg .pd -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT]
-      set PROGRESS_REPORT_TXT "Lauching [file tail ${exp_path}] ..."
+      set PROGRESS_REPORT_TXT "Lauching [file tail ${exp_path}] datestamp=${datestamp} ..."
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
 
       set mainid [thread::id]
       # retrieve the exp thread based on the exp_path
-      set formatName [::SuiteNode::formatName ${exp_path}]
-      #set threadId [SharedData_getSuiteData ${exp_path} THREAD_ID]
+      set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
+
+      if { ${expThreadId} == "" } {
+         set expThreadId [Overview_createThread ${exp_path}]
+
+         # force reread of log file from start
+         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
+
+         thread::send ${expThreadId} "thread_startLogReader ${mainid} ${exp_path} ${suiteRecord} \"${datestamp}\""
+      }
 
       # set newestDatestamp [LogMonitor_getNewestDatestamp ${exp_path}]
 
       # send the request to the exp thread
-      thread::send ${expThreadId} "thread_launchFLow ${mainid} ${exp_path} ${datestamp}"
+      thread::send ${expThreadId} "thread_launchFLow ${mainid} ${exp_path} \"${datestamp}\""
       ::log::log notice "thread_launchFLow ${mainid} ${exp_path}"
       destroy ${progressW}
 
@@ -1229,7 +1238,6 @@ proc Overview_addExp { display_group canvas exp_path } {
       Overview_addChildInit ${exp_path} ${childId} ${datestamp}
       puts "sua Overview_addExp thread::send -async ${childId} thread_startupLogReader ${mainid} ${exp_path} ${suiteRecord} ${datestamp}"
       thread::send -async ${childId} "thread_startupLogReader ${mainid} ${exp_path} ${suiteRecord} ${datestamp}"
-
    }
 
    # retrieve the exp root node
@@ -1337,6 +1345,7 @@ proc Overview_createThread { exp_path } {
          global env this_id SEQ_EXP_HOME
          ::log::log debug "thread_startLogReader parent_id:$parent_id"
 
+         SharedData_setExpThreadId ${exp_path} ${datestamp} [thread::id]
          wm withdraw .
 
          set SEQ_EXP_HOME ${exp_path}
@@ -1348,19 +1357,13 @@ proc Overview_createThread { exp_path } {
          xflow_initStartupMode
          LogReader_readFile ${suite_record} ${parent_id} ${datestamp} ${updateToOverview}
          xflow_stopStartupMode
-
-         # check if the log reader is still needed
-         # it is not needed if no activity has been detected for 1 hour in the log file
-         set currentStatus [::SuiteNode::getLastStatus ${suite_record} ${datestamp}]
-         set currentStatusTime [::SuiteNode::getLastStatusTime ${suite_record} ${datestamp}]
-         
       }
 
       # only use at startup... read and quit thread
       # this part shall be replaced if we have a faster reader (C or python)
       proc thread_startupLogReader { parent_id exp_path suite_record datestamp} {
          global env this_id SEQ_EXP_HOME
-         ::log::log debug "thread_startupLogReader parent_id:$parent_id thread_id:[thread::id]"
+         ::log::log debug "thread_startupLogReader parent_id:$parent_id thread_id:[thread::id] datestamp:${datestamp}"
 
          wm withdraw .
          SharedData_setExpThreadId ${exp_path} ${datestamp} [thread::id]
@@ -1376,6 +1379,7 @@ proc Overview_createThread { exp_path } {
 
          # if the log has not been modified for the last hour, we drop the thread, stop monitoring it
          if { [LogMonitor_getDatestampModTime ${exp_path} ${datestamp}] < [clock add [clock seconds] -1 hours] } {
+            SharedData_removeExpThreadId ${exp_path} ${datestamp}
             ::log::log debug "thread_startupLogReader SEQ_EXP_HOME=${SEQ_EXP_HOME} datestamp:${datestamp} releasing thread_id:[thread::id]"
             thread::release
          }
@@ -1400,10 +1404,11 @@ proc Overview_createThread { exp_path } {
 
          # xflow_setMonitoringLatest 1
          set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
-         xflow_initStartupMode
-         LogReader_readFile ${suiteRecord} ${parent_id} ${datestamp}
-         xflow_stopStartupMode
+         #xflow_initStartupMode
+         #LogReader_readFile ${suiteRecord} ${parent_id} ${datestamp}
+         #xflow_stopStartupMode
          xflow_displayFlow ${parent_id} ${datestamp}
+      }
 
       # this function is called from the overview main thread to the exp thread
       # when overview exits. Allows child exp thread to perform clean-up before
@@ -1418,6 +1423,7 @@ proc Overview_createThread { exp_path } {
       # enter event loop
       thread::wait
    }]
+
    unset env(SEQ_EXP_HOME)
    return ${threadID}
 }
@@ -2010,7 +2016,6 @@ proc Overview_init {} {
    set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
    set NODE_DISPLAY_PREF [SharedData_getMiscData NODE_DISPLAY_PREF]
    set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
-   puts "sua FLOW_SCALE:$FLOW_SCALE"
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
 
    Utils_logInit
@@ -2065,6 +2070,11 @@ proc Overview_quit {} {
       after cancel $TimeAfterId
    }
 
+   foreach childThread [thread::names] {
+      catch { thread::send ${threadId} "thread_quit" }
+   }
+
+   proc out {} {
    set displayGroups [record show instances DisplayGroup]
    # call each exp child thread to see if they have cleanup to do
    foreach displayGroup $displayGroups {
@@ -2077,6 +2087,7 @@ proc Overview_quit {} {
    }
    
    thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_quit"
+   }
 
    # destroy $top
    exit 0
@@ -2397,4 +2408,4 @@ thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
 wm geometry ${topOverview} =1500x600
 wm deiconify ${topOverview}
 
-#LogMonitor_checkNewLogFiles
+LogMonitor_checkNewLogFiles

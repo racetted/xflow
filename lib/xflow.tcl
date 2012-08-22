@@ -936,7 +936,9 @@ proc xflow_initDatestamp { parent_w} {
 
 proc xflow_initDatestampEntry { datestamp } {
    set dateEntry [xflow_getWidgetName exp_date_entry]
+   set hiddenDate [xflow_getWidgetName exp_date_hidden]
    $dateEntry set [Utils_getVisibleDatestampValue ${datestamp}]
+   ${hiddenDate} configure -text [Utils_getVisibleDatestampValue ${datestamp}]
 }
 
 proc xflow_gettDatestampEntry {} {
@@ -949,10 +951,10 @@ proc xflow_getSequencerDatestamp { {parent_w .} } {
 
    #set dateEntry [xflow_getWidgetName exp_date_entry]
    #set datestamp [$dateEntry get]
-   set hiddenDate [xflow_getWidgetName exp_date_hidden]
-   set datestamp [${hiddenDate} cget -text]
-
-   set datestamp [Utils_getRealDatestampValue ${datestamp}]
+   #set hiddenDate [xflow_getWidgetName exp_date_hidden]
+   #set datestamp [${hiddenDate} cget -text]
+   set datestampEntry [xflow_gettDatestampEntry]
+   set datestamp [Utils_getRealDatestampValue ${datestampEntry}]
    return ${datestamp}
 }
 
@@ -975,40 +977,63 @@ proc xflow_retrieveDateStamp { parent_w suite_record } {
 # - Resets flow node status
 # - redraw the flow
 proc xflow_setDateStampCallback { parent_w } {
-   xflow_setDateStamp ${parent_w}
-
    set suiteRecord [xflow_getActiveSuite]
    set suitePath [$suiteRecord cget -suite_path]
+   xflow_setDateStamp ${parent_w} ${suitePath}
+
    set thisThreadId [thread::id]
    set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
-   $suiteRecord configure -read_offset 0
    ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
    set datestamp [xflow_gettDatestampEntry]
    xflow_displayFlow ${callingThreadId} [LogMonitor_getFormattedDatestamp $datestamp]
 }
 
 # - Reads the log file of the exp datestamp
-proc xflow_setDateStamp { parent_w } {
+proc xflow_setDateStamp { parent_w exp_path } {
    ::log::log debug "xflow_setDateStamp parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
-   set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
    set dateEntry [xflow_getWidgetName exp_date_entry]
 
-   Utils_busyCursor $top
-   catch {
-      set datestamp [$dateEntry get]
-      ::log::log debug "xflow_setDateStamp datestamp from date entry: $datestamp"
-      if { [Utils_validateVisibleDatestamp ${datestamp}] == false } {
-         tk_messageBox -title "Datestamp Error" -parent ${parent_w} -type ok -icon error \
-            -message "Invalid datestamp value: ${datestamp}. Format must be yyymmddhh."
-         return
-      }
-
-      set hiddenDate [xflow_getWidgetName exp_date_hidden]
-      ${hiddenDate} configure -text ${datestamp}
+   # Utils_busyCursor $top
+   set datestamp [$dateEntry get]
+   ::log::log debug "xflow_setDateStamp datestamp from date entry: $datestamp"
+   if { [Utils_validateVisibleDatestamp ${datestamp}] == false } {
+      tk_messageBox -title "Datestamp Error" -parent ${parent_w} -type ok -icon error \
+         -message "Invalid datestamp value: ${datestamp}. Format must be yyymmddhh."
+      return
    }
 
-   Utils_normalCursor $top
+
+   # create log file is not exists
+   set seqDatestamp [xflow_getSequencerDatestamp]
+   set logfile ${exp_path}/logs/${seqDatestamp}_nodelog
+   set suiteRecord [xflow_getActiveSuite]
+
+   LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
+   SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
+   $suiteRecord configure -read_offset 0 -exp_log ${logfile}
+
+   ::log::log debug "xflow_setDateStamp suitePath:${exp_path} seqDatestamp:${seqDatestamp}"
+   if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
+      set hiddenDate [xflow_getWidgetName exp_date_hidden]
+      set previousDatestamp [${hiddenDate} cget -text]
+      if { ${previousDatestamp} != "" } {
+         set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
+         SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
+         puts "xflow_setDateStamp SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}" 
+         puts "xflow_setDateStamp after SharedData_getExpThreadId ${exp_path} ${previousRealDatestamp}: [SharedData_getExpThreadId ${exp_path} ${previousRealDatestamp}]" 
+      }
+      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+      SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]
+      puts "xflow_setDateStamp SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]" 
+      SharedData_setMiscData [thread::id]_${seqDatestamp}_STARTUP_DONE true
+      puts "xflow_setDateStamp SharedData_setMiscData [thread::id]_${seqDatestamp}_STARTUP_DONE true"
+      LogReader_readFile ${suiteRecord} ${overviewThreadId} ${seqDatestamp} true
+   }
+
+   ${hiddenDate} configure -text ${datestamp}
+
+   # Utils_normalCursor $top
 }
 
 # this function returns the resource information that needs to be displayed
@@ -1711,8 +1736,8 @@ proc xflow_abortCallback { node canvas caller_menu } {
       Utils_raiseError $canvas "node abort" [getErrorMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "abort [file tail $node] $seqLoopArgs" top \
-      ::log::log notice "${seqExec} -n $seqNode -s abort -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
          -n $seqNode -s abort -f continue $seqLoopArgs
+      ::log::log notice "${seqExec} -n $seqNode -s abort -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
    }
 }
 
@@ -1797,8 +1822,8 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
     if { $nodeExt == "-1" } {
 	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
     } else {
-	::log::log debug "$seqExecWork -n ${seqNode}"
-	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode}"] ':'] } message ] {
+	::log::log debug "$seqExecWork -n ${seqNode} -ext ${nodeExt}"
+	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode} -ext ${nodeExt}"] ':'] } message ] {
 	    Utils_raiseError . "Retrieve node output" $message
 	    return 0
 	}
@@ -1878,6 +1903,7 @@ proc xflow_endCallback { node canvas caller_menu } {
       Utils_raiseError $canvas "node end" [getErrorMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s end -f continue $seqLoopArgs
       ::log::log notice "$seqExec -n $seqNode -s end -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
    }
 
@@ -1895,6 +1921,7 @@ proc xflow_endLoopCallback { node canvas caller_menu } {
       Utils_raiseError $canvas "loop end" [getErrorMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s end -f continue $seqLoopArgs
       ::log::log notice "$seqExec -n $seqNode -s end -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
    }
 }
@@ -2058,6 +2085,7 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
       # Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" top \
       #   -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
       Sequencer_runCommandLogAndWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqLoopArgs" top \
+         -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
    }
 }
 
@@ -2986,13 +3014,13 @@ proc xflow_getActiveSuite {} {
 # In overview mode, this is also called by the overview for exp thread cleanup
 # if required.
 proc xflow_quit {} {
-   global XFLOW_STANDALONE MONITOR_THREAD_ID
+   global XFLOW_STANDALONE MONITOR_THREAD_ID SEQ_EXP_HOME
    global SESSION_TMPDIR TITLE_AFTER_ID XFLOW_FIND_AFTER_ID
 
    ::log::log debug "xflow_quit exiting Xflow thread id:[thread::id]"
    set suiteRecord [xflow_getActiveSuite]
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-
+   set expPath [${suiteRecord} cget -suite_path]
    catch { after cancel ${TITLE_AFTER_ID} }
    catch { after cancel ${XFLOW_FIND_AFTER_ID} }
    if { [info exists SESSION_TMPDIR] } {
@@ -3002,15 +3030,24 @@ proc xflow_quit {} {
    }
    if { ${isOverviewMode} == "true" } {
       # we are in overview mode
-      set childWidgets [winfo children .]
-      foreach childW ${childWidgets} {
-         if { ${childW} != ".#BWidget" } {
-            # I can't destroy the bwidget one, causing problems
-            # to bwidget nodes
-            destroy ${childW}
+      set datestamp [xflow_gettDatestampEntry]
+      set seqDatestamp [xflow_getSequencerDatestamp]
+      puts "xflow_quit datestamp:${datestamp} seqDatestamp:${seqDatestamp}"
+      if { ${datestamp} == "" || [LogMonitor_getDatestampModTime ${expPath} ${seqDatestamp}] < [clock add [clock seconds] -1 hours] } {
+         SharedData_removeExpThreadId ${expPath} ${seqDatestamp}
+         ::log::log debug "xflow_quit releasing thread for exp=${SEQ_EXP_HOME} datestamp:${seqDatestamp} releasing thread_id:[thread::id]"
+         thread::release
+      } else {
+         set childWidgets [winfo children .]
+         foreach childW ${childWidgets} {
+            if { ${childW} != ".#BWidget" } {
+               # I can't destroy the bwidget one, causing problems
+               # to bwidget nodes
+               destroy ${childW}
+            }
          }
+         wm withdraw .
       }
-      wm withdraw .
    } else {
       LogReader_cancelAfter $suiteRecord
       exit
@@ -3204,7 +3241,7 @@ proc xflow_displayFlow { calling_thread_id datestamp } {
          }
          xflow_stopStartupMode
       }
-      #xflow_initDatestampEntry ${datestamp}
+      xflow_initDatestampEntry ${datestamp}
       ::log::log notice "xflow_displayFlow ${suitePath} xflow_selectSuiteCallback() datestamp:${datestamp}"
       xflow_selectSuiteCallback
    }

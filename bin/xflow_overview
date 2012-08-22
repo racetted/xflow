@@ -19,7 +19,9 @@ eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
   -debug 	"0" 	"1"	"[debug message]" \
   -noautomsg 	"0"     "1"	"[no auto message display]" \
   -suites 	""	""	"[suites list file]" \
+  -logfile ""  ""  "[application log file]" \
   -rc ""	""	"[maestrorc preferrence file]" \
+  -user ""	""	"[real user]" \
   ++ $arguments`
 
 if [[ "${SEQ_XFLOW_BIN}" = "" ]] ; then
@@ -44,6 +46,7 @@ print "\nusing DISPLAY=$DISPLAY"
 
 # switch to another user?
 if [[ "${as}" != "" ]] ; then
+   userOverviewFlag="-user ${USER}"
    if [ "${USER}" = "afsfops" -a '("${as}" = "afsipar" || "${as}" = "afsiops")' ] ; then
       print "\nxflow_overview switching ${USER} user to ${as}"
       # for a&p, we need special ssh key setup
@@ -52,18 +55,25 @@ if [[ "${as}" != "" ]] ; then
          echo "xflow_overview Fatal Error: cannot find ssh command key ${sshCommandKey}" 
 	 exit 1
       fi
-      print "\nxflow_overview command\n--- echo ${0} ${arguments} | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST} ---"
-      echo "xflow_overview ${arguments}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
+      print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag} | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST} ---"
+      #echo "xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
+      echo "export SEQ_XFLOW_BIN=~afsisul/tmp/maestro/xflow/bin;${SEQ_XFLOW_BIN}/xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
       exit 0
    else
       if [[ "${USER}" != "${as}" ]] ; then
          print "\nxflow_overview switching ${USER} user to ${as} dollar_0=${0}"
-         print "\nxflow_overview command\n--- echo ${0} ${arguments} | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
-	 echo "xflow_overview ${arguments}" | ssh ${sshX} -T ${as}@${TRUE_HOST}
+         print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
+	 #echo "xflow_overview ${arguments} ${userOverviewFlag}" " | ssh ${sshX} -T ${as}@${TRUE_HOST}
+	 echo "export SEQ_XFLOW_BIN=~afsisul/tmp/maestro/xflow/bin;${SEQ_XFLOW_BIN}/xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST}
 	 exit 0
       fi
    fi
 fi
+
+logfile_opt=""
+[[ ${logfile} != "" ]] && logfile_opt="-logfile ${logfile}"
+[[ "${USER}" = "afsiops" && "${logfile}" = "" ]] && logfile_opt="-logfile /cnfs/ops/production/log/xflow_overview_log.$$"
+[[ "${USER}" = "afsipar" && "${logfile}" = "" ]] && logfile_opt="-logfile /cnfs/ops/production/log/par/xflow_overview_log.$$"
 
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 suites_opt=""
@@ -85,6 +95,11 @@ if [[ "${debug}" = "1" ]] ; then
    debug_opt="-debug"
 fi
 
+user_opt=""
+if [[ "${user}" != "" ]] ; then
+   user_opt="-user ${user}"
+fi
+
 export NO_STOP_MESSAGE=on
 print "\n$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}"
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt} ${debug_opt} ${rc_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt} ${logfile_opt} ${debug_opt} ${rc_opt} ${user_opt}
