@@ -24,13 +24,8 @@ record define SuiteInfo {
    root_node
    ref_start { "" }
    ref_end { "" }
-   type
    {canvas_info {}}
    {node_mapping {}}
-   bg
-   {read_interval 4000}
-   {read_offset 0}
-   {active_log ""}
    {exp_log ""}
    {overview_after_id ""}
    {overview_group_record ""}

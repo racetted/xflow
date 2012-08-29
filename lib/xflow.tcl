@@ -77,9 +77,6 @@ proc xflow_addViewMenu { parent } {
          -onvalue true -offvalue false
    }
 
-   $menuW add checkbutton -label "Monitor Latest Logs" -variable MONITORING_LATEST \
-      -onvalue 1 -offvalue 0 -command [ list xflow_logsMonitorChanged $parent ]
-
    $menuW add checkbutton -label "Show Shadow Status" -variable SHADOW_STATUS \
       -onvalue 1 -offvalue 0 -command [list xflow_redrawAllFlow]
 
@@ -304,9 +301,6 @@ proc xflow_addDatestampWidget { parent_widget } {
    labelframe ${dtFrame} -text "Exp Datestamp (yyyymmddhh)"
    tooltip::tooltip ${dtFrame} "Current Datestamp"
 
-   # entry ${dateEntry} -width 11
-   # set monitorEntryCombo [xflow_getWidgetName monitor_date_combo]
-   # tooltip::tooltip $dateEntry "Enter a value then set the experiment datestamp."
    ttk::combobox ${dateEntryCombo}
 
    set hiddenDate [xflow_getWidgetName exp_date_hidden]
@@ -322,57 +316,14 @@ proc xflow_addDatestampWidget { parent_widget } {
       -command [list xflow_setDateStampCallback ${dtFrame}]]
    tooltip::tooltip ${setButton} "Sets new datestamp value."
 
-   #set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
-   #   -command [list xflow_initDatestamp ${dtFrame}]]
    set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
       -command [list xflow_populateDatestamp ${dtFrame}]]
 
    tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
 
-   #pack $setButton $refreshButton -side left -pady 2 -padx 5
    pack $setButton $refreshButton -side left -pady 2 -padx 2
    pack ${dateEntryCombo} -side left -pady 2 -padx 2
    pack $buttonFrame -pady 2 -side left
-   #pack $dtFrame -side left -pady 2 -padx 2 -fill x -expand 1
-}
-
-# this function creates the widgets that allows
-# the user to view the exp in history mode
-# It retrieves the list of exp dates with $SEQ_EXP_HOME/logs/*_nodelog files
-proc xflow_addMonitorDateWidget { parent_widget } {
-
-   set monitorFrame ${parent_widget}
-   labelframe ${monitorFrame} -text "Monitoring Datestamp (yyyymmddhh)"
-   set monitorEntryCombo [xflow_getWidgetName monitor_date_combo]
-   #bind $monitorFrame <Double-Button-1> [list xflow_viewHideDateButtons . .date .date_hidden 20 ]
-   tooltip::tooltip $monitorFrame "Monitor Exp History Logs"
-
-   ttk::combobox ${monitorEntryCombo}
-
-   set buttonFrame [xflow_getWidgetName monitor_date_button_frame]
-   frame ${buttonFrame}
-   set imageDir [SharedData_getMiscData IMAGE_DIR]
-   image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.gif
-   image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.gif
-
-   set setButton [xflow_getWidgetName monitor_date_set_button]
-   button ${setButton} -relief flat -image ${buttonFrame}.set_image \
-      -command [list xflow_setMonitorDate ${monitorFrame}]
-   tooltip::tooltip $setButton "Sets the datestamp value being displayed in the flow."
-
-   set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
-      -command [list xflow_populateMonitorDate ${monitorFrame}]]
-   tooltip::tooltip $refreshButton "Refresh the datestamp list."
-
-   # by default the monitor widgets are disabled
-   xflow_changeMonitorWidgetState disabled
-
-   pack $setButton $refreshButton -side left -pady 2 -padx 2
-   pack ${monitorEntryCombo} -side left -pady 2 -padx 2 -fill x
-   pack $buttonFrame -pady 2 -side left
-   # pack $monitorFrame -side left -pady 2 -padx 2 -fill x -expand 1
-
-   tooltip::tooltip ${monitorEntryCombo} "Select value of the date being displayed in the flow."
 }
 
 # creates the widget for the find node functionality
@@ -497,12 +448,6 @@ proc xflow_setAutoMsgDisplay {} {
    SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
 }
 
-# generic callback for whoever wants to call the xflow_selectSuiteTab
-# it simply redraws the exp flow
-proc xflow_selectSuiteCallback { } {
-   xflow_selectSuiteTab [xflow_getWidgetName flow_frame] [xflow_getActiveSuite]
-}
-
 # this function adds a background image to an exp flow canvas.
 # The image is created once when the canvas is created; this function is called
 # when the flow is redrawn or the window is resized
@@ -514,65 +459,6 @@ proc xflow_AddCanvasBg { canvas } {
    ${canvas} delete ${imageTagName}
    ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags ${imageTagName}
    ${canvas} lower ${imageTagName}
-}
-
-proc xflow_changeMonitorWidgetState { new_state } {
-   ::log::log debug "xflow_changeMonitorWidgetState called ${new_state}"
-   set monitorFrame [xflow_getWidgetName monitor_date_frame]
-   set monitorEntryCombo [xflow_getWidgetName monitor_date_combo]
-   set setButton [xflow_getWidgetName monitor_date_set_button]
-
-   $setButton configure -state ${new_state}
-   ${monitorEntryCombo} configure -state ${new_state}
-   ${monitorEntryCombo} set latest
-}
-
-# this function is called when the user changes the
-# "Monitoring Latest Logs" configuration,
-# enabling or disabling access to select datestamps in history mode
-proc xflow_logsMonitorChanged { parent_w } {
-   global MONITORING_LATEST
-   ::log::log debug "xflow_logsMonitorChanged called"
-   if { $parent_w == "." } {
-      set parent_w ""
-   }
-
-   set top [winfo toplevel $parent_w]
-   Utils_busyCursor $top
-   catch {
-      if { $MONITORING_LATEST == 0 } {
-         # view history mode, enable monitor widgets
-         xflow_changeMonitorWidgetState normal
-      } else {
-         # view latest log, disable monitor widgets
-         xflow_changeMonitorWidgetState disabled
-
-         # when the user shift back to read latest
-         # we need to reread the latest log file
-         # and redraw the flow
-         set suiteRecord [xflow_getActiveSuite]
-
-         $suiteRecord configure -read_offset 0 -active_log ""
-         ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
-         set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-         # startup mode puts the log reader in update data records only
-         # and does not update the flow on each log entry
-         xflow_initStartupMode
-         if { ${isOverviewMode} == "true" } {
-            set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-            # we need to read the log files using the overview thread so that updates
-            # on the exp root node will be propagated to the overview window
-            LogReader_readFile $suiteRecord ${overviewThreadId}
-         } else {
-            LogReader_readFile $suiteRecord [thread::id]
-         }
-         xflow_stopStartupMode
-         # redraw the flow
-         xflow_selectSuiteCallback
-      }
-   }
-
-   Utils_normalCursor $top
 }
 
 # this function is called when the user click on the arrows to
@@ -590,39 +476,6 @@ proc xflow_viewHideDateButtons { parent currentFrame replacementFrame height } {
       #grid $replacementFrame -row 2 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
       grid $replacementFrame -row 1 -column 1 -columnspan 2 -sticky nsew -padx 2 -pady 2
    }
-}
-
-# NOT USED for now
-proc xflow_addListButtonsWidget { monitorFrame } {
-
-   if { $monitorFrame == "." } {
-      set monitorFrame ""
-   }
-   set imageNodeKill ${monitorFrame}.node_kill_img
-   set imageNodeList ${monitorFrame}.node_list_img
-   set imageNodeAbortList ${monitorFrame}.node_abort_list_img
-   set imageDir [SharedData_getMiscData IMAGE_DIR]
-
-   image create photo ${imageNodeKill} -file ${imageDir}/node_kill.ppm
-   image create photo ${imageNodeList} -file ${imageDir}/node_list.ppm
-   image create photo ${imageNodeAbortList} -file ${imageDir}/node_abort_list.ppm
-
-   set killButton [button $monitorFrame.kill_button -image ${imageNodeKill} -text "Nodekill" \
-      -command [list xflow_nodeKillDisplay $monitorFrame ] ]
-   tooltip::tooltip $killButton "Open job killing dialog"
-   set listerButton [button $monitorFrame.list_button -image ${imageNodeList} -text "Nodelister ( success )" \
-      -command [list nodeListDisplay $monitorFrame success ] ]
-   tooltip::tooltip $listerButton "Open succesfull node listing dialog -- future feature."
-   set abortListerButton [button $monitorFrame.abortlist_button -image ${imageNodeAbortList} -text "Nodelister ( abort )" \
-      -command [list nodeListDisplay $monitorFrame abort ] ]
-   tooltip::tooltip $abortListerButton "Open abort node listing dialog -- future feature."
-
-   $abortListerButton configure -state disabled
-   $listerButton configure -state disabled
-   pack $monitorFrame.kill_button -side left -pady 2 -padx 2
-   pack $monitorFrame.list_button -side left -pady 2 -padx 2
-   pack $monitorFrame.abortlist_button -side left -pady 2 -padx 2
-
 }
 
 # this function creates the widgets for the node kill window
@@ -720,103 +573,20 @@ proc xflow_killNode { list_widget } {
    }
 }
 
-# this function is called to populate the list of
-# available monitor experiment dates in the
-# in the Monitoring Datestamp frame
-proc xflow_populateMonitorDate { monitor_frame } {
-
-   set suite_record [xflow_getActiveSuite]
-   set suitePath [${suite_record} cget -suite_path]
-   set dateList [LogReader_getAvailableDates $suitePath]
-   set monitorEntryCombo [xflow_getWidgetName monitor_date_combo]
-   
-   set values ""
-   foreach date $dateList {
-      set values "$values [Utils_getVisibleDatestampValue ${date}]"
-   }
-   ${monitorEntryCombo} configure -values $values
-}
-
 proc xflow_populateDatestamp { exp_date_frame } {
 
    set suite_record [xflow_getActiveSuite]
    set suitePath [${suite_record} cget -suite_path]
    set dateList [LogReader_getAvailableDates $suitePath]
    set dateEntryCombo [xflow_getWidgetName exp_date_entry]
-   
+  
    set values ""
    foreach date $dateList {
       set values "$values [Utils_getVisibleDatestampValue ${date}]"
    }
-   ${dateEntryCombo} configure -values $values
-
-   #set hiddenDateLabel [xflow_getWidgetName exp_date_hidden]
-   #set dateValue [${hiddenDateLabel} cget -text]
-   #if { ${dateValue} != "" } {
-   #   ${dateEntryCombo} set ${dateValue}
-   #}
-}
-
-# this function is called when the user selects a monitoring datestamp
-# value. It will redisplay the flow reflecting the content of the new datestamp
-# exp log file. Currently, the behavior is different whether the xflow is running
-# in standalone mode or within the xflow_overview. In overview mode, a new exp window
-# is launched so that the latest log window is always visible. In standalone mode, the
-# new flow simply overwrites the existing flow.
-proc xflow_setMonitorDate { parent_w } {
-   global MONITOR_DATESTAMP
-   ::log::log debug "xflow_setMonitorDate called"
-   set top [winfo toplevel $parent_w]
-   Utils_busyCursor $top
-   catch {
-      set suiteRecord [xflow_getActiveSuite]
-      set suitePath [$suiteRecord cget -suite_path]
-      set dateList [LogReader_getAvailableDates $suitePath]
-   
-      set dateEntryCombo [xflow_getWidgetName monitor_date_combo]
-      set dateValue [$dateEntryCombo get]
-   
-      foreach date $dateList {
-         if { [string match [Utils_getRealDatestampValue ${dateValue}] $date] } {
-            set found 1
-            break
-         }
-      }
-      if { $found == 0 } {
-         Utils_raiseError [winfo toplevel $parent_w] "Datestamp" "Selected date does not exists!\nPlease choose another date."
-      } else {
-         # MONITOR_DATESTAMP is also used for listings and history
-         set MONITOR_DATESTAMP [Utils_getRealDatestampValue ${dateValue}]
-         ::log::log debug "xflow_setMonitorDate ${MONITOR_DATESTAMP}"
-         set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-         if { ${isOverviewMode} == "true" } {
-            set monitorThreadId [xflow_getMonitoredThread]
-            # in overview mode, the monitor thread takes care of it
-            ::log::log debug "xflow_setMonitorDate thread::send ${monitorThreadId} xflowThread_monitorNewDate ${suitePath} ${MONITOR_DATESTAMP}"
-            thread::send ${monitorThreadId} "xflowThread_monitorNewDate ${suitePath} ${MONITOR_DATESTAMP}"
-            # reset MONITOR_DATESTAMP, main window should still point to current datestamp in overview mode
-            set MONITOR_DATESTAMP ""
-         } else {
-            # in standalone mode
-            # point the exp to the history log
-            $suiteRecord configure -read_offset 0 -active_log ${MONITOR_DATESTAMP}
-            # make sure all nodes are reset
-            ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
-            #xflow_initStartupMode
-            # read the log file
-            #LogReader_readFile $suiteRecord [thread::id]
-            #xflow_stopStartupMode
-            # update the flow
-            #xflow_redrawAllFlow
-
-            set thisThreadId [thread::id]
-            set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
-            #xflow_displayFlow ${callingThreadId}
-         }
-      }
-   }
-
-   Utils_normalCursor $top
+   set savedDatestamp [xflow_getSavedDatestamp]
+   ${dateEntryCombo} configure -values $values 
+   ${dateEntryCombo} set ${savedDatestamp}
 }
 
 proc xflow_readFlowXml {} {
@@ -828,112 +598,7 @@ proc xflow_readFlowXml {} {
    xflow_setActiveSuite $activeSuiteRecord
 }
 
-# this is used to set a variable that will be used mainly
-# when reading the exp log files.
-# when the variable is set to false (init mode)... log entries will only
-# update the data records and do not update the flow as it would
-# under normal condition... This is mainly used at the initial phase
-# when the log file is read completely i.e. when user switches to history mode
-# or when user changes datestamp...
-proc xflow_initStartupMode {} {
-   SharedData_setMiscData [thread::id]_STARTUP_DONE false
-}
-
-# stop the startup mode... New entries found in the exp log
-# file now update both the data records & the flow
-proc xflow_stopStartupMode {} {
-   SharedData_setMiscData [thread::id]_STARTUP_DONE true
-}
-
-# change the "Monitor Latest Logs" configuration
-proc xflow_setMonitoringLatest { value } {
-   global MONITORING_LATEST MONITOR_DATESTAMP
-   set MONITORING_LATEST ${value}
-
-   if { ${MONITORING_LATEST} == "1" } {
-      set MONITOR_DATESTAMP ""
-   }
-}
-
-# this function sets the monitoring datestamp in
-# the proper widget... Mainly for overview mode when
-# history datestamp is launched in a new exp window
-proc xflow_setMonitorDateWidget {} {
-   set dateEntryCombo [xflow_getWidgetName monitor_date_combo]
-   set dateValue [xflow_getMonitoringDatestamp]
-   $dateEntryCombo set [Utils_getVisibleDatestampValue ${dateValue}]
-}
-
-# currently, this is mainly for overview mode...
-# there is a single thread created for each exp that takes care of
-# displaying flows in history mode so that the currently active datestamp
-# coming from $SEQ_EXP_HOME/ExpDate is always displayed
-proc xflow_getMonitoredThread {} {
-   global MONITOR_THREAD_ID DEBUG_TRACE
-
-   if { ${MONITOR_THREAD_ID} == "" } {
-      # Creates the singleton thread if it does not exists
-      ::log::log debug "xflow_getMonitoredThread Creating new thread..."
-      set MONITOR_THREAD_ID [thread::create {
-         global env
-         set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-         set auto_path [linsert $auto_path 0 $lib_dir ]
-         package require SuiteNode
-         package require Tk
-
-         set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
-
-         # this function is meant to be called in overview mode only.
-         # when user views exp in history mode from the initial exp flow window,
-         # this function is called to create a new window with the history log.
-         # For the moment, a single thread is created to handle the history mode for
-         # a specific exp.
-         proc xflowThread_monitorNewDate { exp_path datestamp } {
-            global XFLOW_STANDALONE MONITORING_LATEST MONITOR_DATESTAMP MONITOR_THREAD_ID SEQ_EXP_HOME 
-            global LOOP_RESOURCES_DONE
-            ::log::log debug "xflowThread_monitorNewDate thread_id:[thread::id] exp_path:$exp_path "
-
-            set SEQ_EXP_HOME ${exp_path}
-            xflow_init
-            set LOOP_RESOURCES_DONE false
-            set XFLOW_STANDALONE 1
-            set MONITORING_LATEST 0
-            set MONITOR_DATESTAMP ${datestamp}
-            set MONITOR_THREAD_ID [thread::id]
-            set thisThreadId [thread::id]
-            ::log::log debug "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} overview_mode?  [SharedData_getMiscData OVERVIEW_MODE]"
-            xflow_readFlowXml
-            #xflow_displayFlow [thread::id]
-            xflow_setMonitorDateWidget
-            ::log::log debug "xflowThread_monitorNewDate thread_id:[thread::id] datestamp:${datestamp} DONE"
-         }
-
-         # enter event loop
-         thread::wait
-      }]
-   }
-
-   ::log::log debug "xflow_getMonitoredThread returning id: ${MONITOR_THREAD_ID}"
-   return ${MONITOR_THREAD_ID}
-}
-
-# this function sets the datestamp field in the "Exp Datestamp" frame to the
-# value given by tictac executable ($SEQ_EXP_DATE/ExpDate)
-# It also sets the global value MONITOR_DATESTAMP that is used to retrieve
-# datestamp based utilities such as node listing and node history
-proc xflow_initDatestamp { parent_w} {
-   global SEQ_EXP_HOME
-   global MONITOR_DATESTAMP MONITORING_LATEST
-   DEBUG "xflow_initDatestamp" 5
-   set dateEntry [xflow_getWidgetName exp_date_entry]
-   set datestamp [LogMonitor_getNewestDatestamp ${SEQ_EXP_HOME}]
-   if { ${datestamp} != "" } {
-      $dateEntry insert 0 [Utils_getVisibleDatestampValue ${datestamp}]
-      xflow_setDateStamp [xflow_getWidgetName exp_date_frame]
-   }
-   DEBUG "xflow_initDatestamp datestamp:$datestamp" 5
-}
-
+# saves initial value of datestamp in datestamp widget
 proc xflow_initDatestampEntry { datestamp } {
    set dateEntry [xflow_getWidgetName exp_date_entry]
    set hiddenDate [xflow_getWidgetName exp_date_hidden]
@@ -941,9 +606,15 @@ proc xflow_initDatestampEntry { datestamp } {
    ${hiddenDate} configure -text [Utils_getVisibleDatestampValue ${datestamp}]
 }
 
-proc xflow_gettDatestampEntry {} {
-   set dateEntry [xflow_getWidgetName exp_date_entry]
-   set datestamp [$dateEntry get]
+proc xflow_getSavedDatestamp {} {
+   # set dateEntry [xflow_getWidgetName exp_date_entry]
+   # set datestamp [$dateEntry get]
+   set datestamp ""
+   set hiddenDateWidget [xflow_getWidgetName exp_date_hidden]
+   if { [winfo exists ${hiddenDateWidget}] } {
+      set datestamp [${hiddenDateWidget} cget -text]
+   }
+
    return ${datestamp}
 }
 
@@ -953,23 +624,12 @@ proc xflow_getSequencerDatestamp { {parent_w .} } {
    #set datestamp [$dateEntry get]
    #set hiddenDate [xflow_getWidgetName exp_date_hidden]
    #set datestamp [${hiddenDate} cget -text]
-   set datestampEntry [xflow_gettDatestampEntry]
-   set datestamp [Utils_getRealDatestampValue ${datestampEntry}]
-   return ${datestamp}
-}
-
-# this function returns the current exp datestamp value as given
-# by the maestro tictac command. The format is '%Y%M%D%H%Min%S' i.e. 20110216000000
-proc xflow_retrieveDateStamp { parent_w suite_record } {
-
-   set dateExec "[SharedData_getMiscData SEQ_BIN]/tictac"
-   set suitePath [${suite_record} cget -suite_path]
-   set cmd "export SEQ_EXP_HOME=$suitePath;$dateExec -f '%Y%M%D%H%Min%S'"
-   set datestamp ""
-   if [ catch { set datestamp [exec ksh -c $cmd] } message ] {
-      Utils_raiseError [winfo toplevel $parent_w] "Datestamp" $message
+   set datestampEntry [xflow_getSavedDatestamp]
+   set datestamp ${datestampEntry}
+   if { ${datestampEntry} != "" } {
+      set datestamp [Utils_getRealDatestampValue ${datestampEntry}]
    }
-   return $datestamp
+   return ${datestamp}
 }
 
 # this function is called when the user sets a new datestamp in the
@@ -978,18 +638,10 @@ proc xflow_retrieveDateStamp { parent_w suite_record } {
 # - redraw the flow
 proc xflow_setDateStampCallback { parent_w } {
    set suiteRecord [xflow_getActiveSuite]
-   set suitePath [$suiteRecord cget -suite_path]
-   xflow_setDateStamp ${parent_w} ${suitePath}
+   set expPath [$suiteRecord cget -suite_path]
 
-   set thisThreadId [thread::id]
-   set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
    ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
-   set datestamp [xflow_gettDatestampEntry]
-   xflow_displayFlow ${callingThreadId} [LogMonitor_getFormattedDatestamp $datestamp]
-}
 
-# - Reads the log file of the exp datestamp
-proc xflow_setDateStamp { parent_w exp_path } {
    ::log::log debug "xflow_setDateStamp parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
    set dateEntry [xflow_getWidgetName exp_date_entry]
@@ -1003,37 +655,38 @@ proc xflow_setDateStamp { parent_w exp_path } {
       return
    }
 
+   set hiddenDate [xflow_getWidgetName exp_date_hidden]
+   ${hiddenDate} configure -text ${datestamp}
 
    # create log file is not exists
    set seqDatestamp [xflow_getSequencerDatestamp]
-   set logfile ${exp_path}/logs/${seqDatestamp}_nodelog
+   set logfile ${expPath}/logs/${seqDatestamp}_nodelog
    set suiteRecord [xflow_getActiveSuite]
 
-   LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
-   SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
-   $suiteRecord configure -read_offset 0 -exp_log ${logfile}
+   LogMonitor_createLogFile ${expPath} ${seqDatestamp}
+   SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
+   $suiteRecord configure -exp_log ${logfile}
 
-   ::log::log debug "xflow_setDateStamp suitePath:${exp_path} seqDatestamp:${seqDatestamp}"
+   ::log::log debug "xflow_setDateStamp expPath:${expPath} seqDatestamp:${seqDatestamp}"
+   set previousDatestamp [${hiddenDate} cget -text]
    if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
-      set hiddenDate [xflow_getWidgetName exp_date_hidden]
-      set previousDatestamp [${hiddenDate} cget -text]
       if { ${previousDatestamp} != "" } {
          set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
-         SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
-         puts "xflow_setDateStamp SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}" 
-         puts "xflow_setDateStamp after SharedData_getExpThreadId ${exp_path} ${previousRealDatestamp}: [SharedData_getExpThreadId ${exp_path} ${previousRealDatestamp}]" 
+         SharedData_removeExpThreadId ${expPath} ${previousRealDatestamp}
       }
       set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]
-      puts "xflow_setDateStamp SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]" 
-      SharedData_setMiscData [thread::id]_${seqDatestamp}_STARTUP_DONE true
-      puts "xflow_setDateStamp SharedData_setMiscData [thread::id]_${seqDatestamp}_STARTUP_DONE true"
-      LogReader_readFile ${suiteRecord} ${overviewThreadId} ${seqDatestamp} true
+      SharedData_setExpThreadId ${expPath} ${seqDatestamp} [thread::id]
+      if { [LogMonitor_isDatestampVisible ${expPath} ${seqDatestamp}] } {
+         LogReader_readFile ${suiteRecord} ${seqDatestamp} all
+      } else {
+         LogReader_readFile ${suiteRecord} ${seqDatestamp} no_overview
+      }
    }
 
-   ${hiddenDate} configure -text ${datestamp}
 
    # Utils_normalCursor $top
+
+   xflow_displayFlow ${seqDatestamp}
 }
 
 # this function returns the resource information that needs to be displayed
@@ -1629,11 +1282,6 @@ proc xflow_historyCallback { node canvas caller_menu {history 48} {full_loop 0} 
          set nodeExt ".${nodeExt}"
       }
 
-      # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
-      #set datestamp [xflow_getMonitoringDatestamp]
-      #if { $datestamp == "" } {
-      #    set datestamp [xflow_retrieveDateStamp $canvas $suiteRecord]
-      #}
       set datestamp [xflow_getSequencerDatestamp]
 
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec \
@@ -1812,11 +1460,6 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
     set suiteRecord [xflow_getActiveSuite]
     set expPath [${suiteRecord} cget -suite_path]
 
-    # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
-    #set datestamp [xflow_getMonitoringDatestamp]
-    #if { $datestamp == "" } {
-	#set datestamp [xflow_retrieveDateStamp $canvas $suiteRecord]
-    #}
    set datestamp [xflow_getSequencerDatestamp]
 
     if { $nodeExt == "-1" } {
@@ -2157,11 +1800,6 @@ proc xflow_tailfCallback { node canvas {full_loop 0} } {
     set suiteRecord [xflow_getActiveSuite]
     set expPath [${suiteRecord} cget -suite_path]
 
-    # set datestamp for history to monitoring date if different from latest, else take datestamp from experiment.
-    #set datestamp [xflow_getMonitoringDatestamp]
-    #if { $datestamp == "" } {
-	#set datestamp [xflow_retrieveDateStamp $canvas $suiteRecord]
-    #}
    set datestamp [xflow_getSequencerDatestamp]
 
     if { $nodeExt == "-1" } {
@@ -2187,7 +1825,6 @@ proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
-   #set datestamp [xflow_getMonitoringDatestamp]
    set datestamp [xflow_getSequencerDatestamp]
 
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -2313,7 +1950,6 @@ proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
    set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
-   #set datestamp [xflow_getMonitoringDatestamp]
    set datestamp [xflow_getSequencerDatestamp]
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -2466,25 +2102,26 @@ proc xflow_refreshFlow { } {
       record delete instance ${suiteRecord}
 
       set thisThreadId [thread::id]
-      set callingThreadId [SharedData_getMiscData ${thisThreadId}_CALLING_THREAD_ID]
+      set datestamp [xflow_getSequencerDatestamp]
       if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
          set PROGRESS_REPORT_TXT "Parsing module's flow.xml ..."
          update idletasks
          xflow_readFlowXml
-         xflow_initStartupMode
-         xflow_displayFlow ${callingThreadId}
-         xflow_stopStartupMode
+         #xflow_initStartupMode
+         xflow_displayFlow ${datestamp}
+         #xflow_stopStartupMode
       } else {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
          set PROGRESS_REPORT_TXT "Parsing module's flow.xml ..."
          update idletasks
          xflow_readFlowXml
-         xflow_initStartupMode
+         # xflow_initStartupMode
          set PROGRESS_REPORT_TXT "Processing log file ..."
          update idletasks
-         LogReader_readFile ${suiteRecord} ${overviewThreadId}
-         xflow_displayFlow ${callingThreadId}
-         xflow_stopStartupMode
+         SharedData_setExpDatestampOffset [${suiteRecord} cget -suite_path] ${datestamp} 0
+         LogReader_readFile ${suiteRecord} ${datestamp} refresh_flow
+         xflow_displayFlow ${datestamp}
+         # xflow_stopStartupMode
       }
 
       destroy ${progressW}
@@ -2625,7 +2262,7 @@ proc xflow_nodeResourceCallback { {name1 ""} {name2 ""} {op ""} } {
          if { ${activeSuiteRecord} != "" } {
             set destroProgessCmd ""
             if { [wm state .] == "normal" } {
-               set progressW [ProgressDlg .pd -parent . -title "Node Display Preferrences" -textvariable nodeResourceText]
+               set progressW [ProgressDlg .node_res_pd -parent . -title "Node Display Preferrences" -textvariable nodeResourceText]
                # Utils_positionWindow ${progressW}
                set destroProgessCmd "destroy ${progressW}"
             }
@@ -2757,26 +2394,6 @@ proc xflow_getLoopResources { node suite_path } {
          ::log::log debug "xflow_getLoopResources invalid loop attribute token name:$name value:$value"
       }
    }
-}
-
-# this is leftover code when the xflow was able to display multiple exps
-# using tabs. This function is still used to refresh the content of an exp flow,
-# however xflow supports only one exp now.
-proc xflow_selectSuiteTab { parent suite_record } {
-
-   ::log::log debug "xflow_selectSuiteTab parent:$parent suite_record:${suite_record}"
-
-   set title "xflow experiment path = [${suite_record} cget -suite_path]"
-   wm title . $title
-
-   xflow_setActiveSuite ${suite_record}
-   #set formattedName [::SuiteNode::formatName [${suite_record} cget -suite_path]]
-   #set drawFrame ${parent}.${formattedName}
-   set drawFrame ${parent}.draw_frame
-   set canvas [xflow_createFlowCanvas $drawFrame]
-   #xflow_initDatestamp [xflow_getWidgetName exp_date_frame] ${suite_record}
-
-   xflow_drawflow $canvas
 }
 
 # not used for now, will be used when we implement global dependency configuration
@@ -3013,43 +2630,60 @@ proc xflow_getActiveSuite {} {
 # function called when user quits the application.
 # In overview mode, this is also called by the overview for exp thread cleanup
 # if required.
-proc xflow_quit {} {
-   global XFLOW_STANDALONE MONITOR_THREAD_ID SEQ_EXP_HOME
+proc xflow_quit { {from_overview false} } {
+   global XFLOW_STANDALONE SEQ_EXP_HOME
    global SESSION_TMPDIR TITLE_AFTER_ID XFLOW_FIND_AFTER_ID
 
    ::log::log debug "xflow_quit exiting Xflow thread id:[thread::id]"
-   set suiteRecord [xflow_getActiveSuite]
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-   set expPath [${suiteRecord} cget -suite_path]
-   catch { after cancel ${TITLE_AFTER_ID} }
-   catch { after cancel ${XFLOW_FIND_AFTER_ID} }
+   set expPath ${SEQ_EXP_HOME}
+
+   # cleanup tmp dir
    if { [info exists SESSION_TMPDIR] } {
       ::log::log debug "xflow_quit deleting tmp dir ${SESSION_TMPDIR}"
       catch { file delete -force ${SESSION_TMPDIR} }
       set SESSION_TMPDIR ""
    }
+
    if { ${isOverviewMode} == "true" } {
       # we are in overview mode
-      set datestamp [xflow_gettDatestampEntry]
+      set datestamp [xflow_getSavedDatestamp]
       set seqDatestamp [xflow_getSequencerDatestamp]
       puts "xflow_quit datestamp:${datestamp} seqDatestamp:${seqDatestamp}"
+
+      # destroy widgets
+      set childWidgets [winfo children .]
+      foreach childW ${childWidgets} {
+         if { ${childW} != ".#BWidget" } {
+            # I can't destroy the bwidget one, causing problems
+            # to bwidget nodes
+            destroy ${childW}
+         }
+      }
+      wm withdraw .
       if { ${datestamp} == "" || [LogMonitor_getDatestampModTime ${expPath} ${seqDatestamp}] < [clock add [clock seconds] -1 hours] } {
-         SharedData_removeExpThreadId ${expPath} ${seqDatestamp}
-         ::log::log debug "xflow_quit releasing thread for exp=${SEQ_EXP_HOME} datestamp:${seqDatestamp} releasing thread_id:[thread::id]"
-         thread::release
-      } else {
-         set childWidgets [winfo children .]
-         foreach childW ${childWidgets} {
-            if { ${childW} != ".#BWidget" } {
-               # I can't destroy the bwidget one, causing problems
-               # to bwidget nodes
-               destroy ${childW}
+         # the exp log file has not been modified for the last hour, clean up and release the thread
+
+         # clean up any after events
+         foreach afterid [after info] {
+            after cancel ${afterid}
+         }
+
+         # destroy records
+         foreach recordName { SuiteInfo FlowNode FlowNpassTask FlowLoop FlowTask FlowModule FlowFamily } {
+            foreach recordInstance [record show instance ${recordName}] {
+               # puts "xflow_quit deleting record:${recordName} instance: ${recordInstance}"
+               record delete instance ${recordInstance}
             }
          }
-         wm withdraw .
+
+         if { ${from_overview} == false } {
+            # notify overview thread to release me
+            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${SEQ_EXP_HOME} \"${seqDatestamp}\""
+         }
       }
    } else {
-      LogReader_cancelAfter $suiteRecord
+      # standalone mode
       exit
    }
 }
@@ -3123,11 +2757,7 @@ proc xflow_createWidgets {} {
 
    # date bar is the 2nd widget
    set expDateFrame [xflow_getWidgetName exp_date_frame]
-   set monDateFrame [xflow_getWidgetName monitor_date_frame]
    xflow_addDatestampWidget ${expDateFrame}
-
-   # monitor date
-   # xflow_addMonitorDateWidget ${monDateFrame}
 
    # find frame
    set findFrame [frame [xflow_getWidgetName find_frame]]
@@ -3139,8 +2769,6 @@ proc xflow_createWidgets {} {
    # this displays the widget on the second frame
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
    grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
-   # grid ${monDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
-   #grid ${expLabelFrame} -row 0 -column 3 -padx { 20 0 }
 
    # flow_frame is the 3nd widget
    set flowFrame [frame [xflow_getWidgetName flow_frame]]
@@ -3180,9 +2808,9 @@ proc xflow_createWidgets {} {
 # 2) in overview mode, this function is called everytime the user wants to view the exp flow with the latest
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
-proc xflow_displayFlow { calling_thread_id datestamp } {
+proc xflow_displayFlow { datestamp } {
    global env XFLOW_STANDALONE SEQ_EXP_HOME PROGRESS_REPORT_TXT
-   global MONITORING_LATEST MONITOR_DATESTAMP FLOW_RESIZED
+   global FLOW_RESIZED
    
    set suitePath ${SEQ_EXP_HOME}
    ::log::log debug "xflow_displayFlow thread id:[thread::id] datestamp:${datestamp}"
@@ -3201,7 +2829,6 @@ proc xflow_displayFlow { calling_thread_id datestamp } {
    if { ! [winfo exists ${topFrame}] } {
       set PROGRESS_REPORT_TXT "Creating widgets..."
       xflow_createWidgets
-      # xflow_initDatestamp [xflow_getWidgetName exp_date_frame]
    }
    ::log::log debug "xflow_displayFlow suitePath ${suitePath}"
    set activeSuiteRecord [xflow_getActiveSuite]
@@ -3212,39 +2839,24 @@ proc xflow_displayFlow { calling_thread_id datestamp } {
    # resource will only be loaded if needed
    xflow_nodeResourceCallback 
 
-   # initial monitor dates
-   # xflow_populateMonitorDate [xflow_getWidgetName monitor_date_frame]
    xflow_populateDatestamp [xflow_getWidgetName exp_date_frame]
 
-   if { [SharedData_getMiscData OVERVIEW_MODE] == "true" && [SharedData_getMiscData OVERVIEW_THREAD_ID] != ${calling_thread_id} } {
-      # we are in overview mode and exp history viewing mode
-      # point the suite to the exp history log file
-      ${activeSuiteRecord} configure -read_offset 0 -active_log ${datestamp}
-      # reset every node... overview is reusing thread in history mode
-      ::FlowNodes::resetNodeStatus  [${activeSuiteRecord} cget -root_node]
-      # read the content of the log file
-      xflow_initStartupMode
+   # normal mode
+   if { ${XFLOW_STANDALONE} == "1" && [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
+      # in overview mode, the log has already been read once before it reached here,
+      # no need to read again... only read for xflow standalone
       set PROGRESS_REPORT_TXT "Processing log file ..."
-      LogReader_readFile ${activeSuiteRecord} ${calling_thread_id} ${datestamp}
-      xflow_stopStartupMode
-      # then show the flow
-      xflow_selectSuiteCallback
-   } else {
-      # normal mode
-      if { ${XFLOW_STANDALONE} == "1" && [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
-         # in overview mode, the log has already been read once before it reached here,
-         # no need to read again... only read for xflow standalone
-         xflow_initStartupMode
-         set PROGRESS_REPORT_TXT "Processing log file ..."
-         if { ${datestamp} != "" } {
-            LogReader_readFile $activeSuiteRecord $calling_thread_id ${datestamp}
-         }
-         xflow_stopStartupMode
+      if { ${datestamp} != "" } {
+         SharedData_setExpDatestampOffset ${suitePath} ${datestamp} 0
+         LogReader_readFile $activeSuiteRecord ${datestamp}
       }
-      xflow_initDatestampEntry ${datestamp}
-      ::log::log notice "xflow_displayFlow ${suitePath} xflow_selectSuiteCallback() datestamp:${datestamp}"
-      xflow_selectSuiteCallback
    }
+   xflow_initDatestampEntry ${datestamp}
+   ::log::log notice "xflow_displayFlow ${suitePath} xflow_selectSuiteCallback() datestamp:${datestamp}"
+
+   set drawFrame [xflow_getWidgetName flow_frame].draw_frame
+   set canvas [xflow_createFlowCanvas $drawFrame]
+   xflow_drawflow $canvas
 
    xflow_setTitle ${topFrame} ${suitePath}
    xflow_toFront .
@@ -3293,11 +2905,6 @@ proc xflow_toFront { toplevel_w } {
       }
    }
    raise ${toplevel_w}
-}
-
-proc xflow_getMonitoringDatestamp {} {
-   global MONITOR_DATESTAMP
-   return $MONITOR_DATESTAMP
 }
 
 proc xflow_getNodeDisplayPref {} {
@@ -3411,9 +3018,8 @@ proc xflow_parseCmdOptions {} {
       xflow_readFlowXml
 
       set newestDatestamp [LogMonitor_getNewestDatestamp ${SEQ_EXP_HOME}]
-      xflow_displayFlow [thread::id] ${newestDatestamp}
+      xflow_displayFlow ${newestDatestamp}
       SharedData_setMiscData STARTUP_DONE true
-      SharedData_setMiscData [thread::id]_STARTUP_DONE true
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
    }
 
@@ -3467,11 +3073,6 @@ proc xflow_setWidgetNames {} {
       exp_date_entry  .second_frame.date_frame.entry
       exp_date_hidden  .second_frame.date_frame.hidden
       exp_date_button_frame .second_frame.date_frame.button_frame
-      monitor_date_frame .second_frame.mon_date_frame
-      monitor_date_combo .second_frame.mon_date_frame.entry_combo
-      monitor_date_combo .second_frame.mon_date_frame.entry_combo
-      monitor_date_button_frame .second_frame.mon_date_frame.button_frame
-      monitor_date_set_button .second_frame.mon_date_frame.button_frame.set_button
 
       find_close_button .find_frame.close_button
       find_label .find_frame.entry_label
@@ -3500,14 +3101,11 @@ proc xflow_setWidgetNames {} {
 proc xflow_init {} {
    global env DEBUG_TRACE
    global NODE_DISPLAY_PREF AUTO_MSG_DISPLAY
-   global SHADOW_STATUS MONITORING_LATEST
-   global MSG_CENTER_THREAD_ID MONITOR_THREAD_ID
+   global SHADOW_STATUS MSG_CENTER_THREAD_ID
    global REFRESH_MODE SESSION_TMPDIR FLOW_SCALE
 
    set REFRESH_MODE false
-   set MONITOR_THREAD_ID ""
    set SHADOW_STATUS 0
-   set MONITORING_LATEST 1
    # initate array containg name for widgets used in the application
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]

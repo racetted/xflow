@@ -12,26 +12,25 @@ proc LogMonitor_checkNewLogFiles {} {
             puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
             set lastCheckedTime [SharedData_getSuiteData ${expPath} LAST_CHECKED_TIME]
             set newLastChecked [clock format [clock seconds]]
-            #set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct ${lastCheckedTime}]
             set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct ${lastCheckedTime} -exec basename \{\} \;]
             foreach modifiedFile ${modifiedFiles} {
+            puts "LogMonitor_checkNewLogFiles processing ${modifiedFile}..."
                set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
                if { [Utils_validateRealDatestamp ${seqDatestamp}] == true } {
                   # look see if we have a thread monitoring this log file, if not create one
                   set expThreadId [SharedData_getExpThreadId ${expPath} ${seqDatestamp}]
                   if { ${expThreadId} == "" } {
                      set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
-                     # creates a dummy suite record
                      catch { SuiteInfo ${suiteRecord} -suite_path ${expPath} }
-                     set expThreadId [Overview_createThread ${expPath}]
+                     puts "LogMonitor_checkNewLogFiles new thread for ${modifiedFile}"
+                     set expThreadId [ThreadPool_getThread ${expPath}]
 
+                     puts "LogMonitor_checkNewLogFiles set log file offset to 0"
                      # force reread of log file from start
                      SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
 
-                     # tell exp log reader to send updates to overview
-                     SharedData_setMiscData ${expThreadId}_${seqDatestamp}_STARTUP_DONE true
-
-                     thread::send ${expThreadId} "thread_startLogReader [thread::id] ${expPath} ${suiteRecord} \"${seqDatestamp}\""
+                     puts "LogMonitor_checkNewLogFiles Overview_startExpLogReader..."
+                     thread::send ${expThreadId} "Overview_startExpLogReader ${expPath} ${suiteRecord} \"${seqDatestamp}\" true"
                   }
                } else {
                   ::log::log notice "Found invalid log file format: ${modifiedFile}"
@@ -59,6 +58,14 @@ proc LogMonitor_getDatestamps { _exp_path _deltaTime } {
       set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*\[0-9\]_nodelog" -newerct ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
    }
    return ${modifiedFiles}
+}
+
+proc LogMonitor_isDatestampVisible { _exp_path _datestamp } {
+   set fileModTime [LogMonitor_getDatestampModTime ${_exp_path} ${_datestamp}]
+   if { ${fileModTime} > [clock add [clock seconds] -13 hours] } {
+      return true
+   }
+   return false
 }
 
 # returns a decimal string giving the modifiction time of the log file
