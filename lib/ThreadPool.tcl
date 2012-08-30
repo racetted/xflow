@@ -22,7 +22,6 @@ proc MyThreadPool_createThread {} {
 
       package require SuiteNode
       package require Tk
-
       wm withdraw .
       thread::wait
    }]

@@ -311,6 +311,7 @@ proc xflow_addDatestampWidget { parent_widget } {
    set imageDir [SharedData_getMiscData IMAGE_DIR]
    image create photo ${buttonFrame}.set_image -file ${imageDir}/ok.gif
    image create photo ${buttonFrame}.refresh_image -file ${imageDir}/refresh.gif
+   image create photo ${buttonFrame}.new_win_image -file ${imageDir}/new_window.png
 
    set setButton [button ${buttonFrame}.set_button -relief flat -image ${buttonFrame}.set_image \
       -command [list xflow_setDateStampCallback ${dtFrame}]]
@@ -318,10 +319,17 @@ proc xflow_addDatestampWidget { parent_widget } {
 
    set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
       -command [list xflow_populateDatestamp ${dtFrame}]]
-
    tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
 
-   pack $setButton $refreshButton -side left -pady 2 -padx 2
+   if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
+      set newWindButton [button ${buttonFrame}.new_win_button -relief flat -image ${buttonFrame}.new_win_image \
+         -command [list xflow_launchFlowNewWindow]]
+      tooltip::tooltip ${newWindButton} "Launch flow in new window."
+      pack $setButton $refreshButton ${newWindButton} -side left -pady 2 -padx 2
+   } else {
+      pack $setButton $refreshButton -side left -pady 2 -padx 2
+   }
+
    pack ${dateEntryCombo} -side left -pady 2 -padx 2
    pack $buttonFrame -pady 2 -side left
 }
@@ -589,6 +597,25 @@ proc xflow_populateDatestamp { exp_date_frame } {
    ${dateEntryCombo} set ${savedDatestamp}
 }
 
+# launches selected datestamp in a new flow window.
+# Only called in xflow overview mode.
+proc xflow_launchFlowNewWindow {} {
+   global SEQ_EXP_HOME
+   set dateEntryCombo [xflow_getWidgetName exp_date_entry]
+   set hiddenDateWidget [xflow_getWidgetName exp_date_hidden]
+   set datestampEntryValue [${dateEntryCombo} get]   
+   set saveDatestamp [${hiddenDateWidget} cget -text]
+   # do nothing if selected value is empty or is already current flow
+   if { ${datestampEntryValue} != "" && ${saveDatestamp} != ${datestampEntryValue} } {
+      set datestamp [Utils_getRealDatestampValue ${datestampEntryValue}]
+      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+      thread::send ${overviewThreadId} "Overview_launchExpFlow ${SEQ_EXP_HOME} ${datestamp}"
+
+      set savedDatestamp [xflow_getSavedDatestamp]
+      ${dateEntryCombo} set ${savedDatestamp}
+   }
+}
+
 proc xflow_readFlowXml {} {
    global SEQ_EXP_HOME
    ::log::log debug "xflow_readFlowXml SEQ_EXP_HOME:${SEQ_EXP_HOME}"
@@ -656,10 +683,9 @@ proc xflow_setDateStampCallback { parent_w } {
    }
 
    set hiddenDate [xflow_getWidgetName exp_date_hidden]
-   ${hiddenDate} configure -text ${datestamp}
 
    # create log file is not exists
-   set seqDatestamp [xflow_getSequencerDatestamp]
+   set seqDatestamp [Utils_getRealDatestampValue ${datestamp}]
    set logfile ${expPath}/logs/${seqDatestamp}_nodelog
    set suiteRecord [xflow_getActiveSuite]
 
@@ -669,6 +695,8 @@ proc xflow_setDateStampCallback { parent_w } {
 
    ::log::log debug "xflow_setDateStamp expPath:${expPath} seqDatestamp:${seqDatestamp}"
    set previousDatestamp [${hiddenDate} cget -text]
+   ${hiddenDate} configure -text ${datestamp}
+
    if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
       if { ${previousDatestamp} != "" } {
          set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]

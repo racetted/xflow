@@ -1095,7 +1095,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
-            thread::send ${expThreadId} "xflow_init"
+            # thread::send ${expThreadId} "xflow_init"
             thread::send ${expThreadId} "Overview_startExpLogReader ${exp_path} ${suiteRecord} \"${datestamp}\""
          }
       }
@@ -1241,7 +1241,7 @@ proc Overview_addExp { display_group canvas exp_path } {
    foreach datestamp ${visibleDatestamps} {
       # create a child thread for the exp
       set childId [ThreadPool_getThread]
-      thread::send ${childId} "xflow_init"
+      # thread::send ${childId} "xflow_init"
 
       set currentDateTime [clock seconds]
       set currentTime [clock format ${currentDateTime} -format "%H:%M" -gmt 1]
@@ -1285,12 +1285,15 @@ proc Overview_ExpDateStampChanged { suite_record datestamp } {
 }
 
 # this function is called from the overview main thread to the exp thread
-# to start the processing of the exp log file
+# to start the processing of the exp log file i.e. it is meant to be run in the exp thread.
 proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup false} } {
    puts "Overview_startExpLogReader exp_path:$exp_path datestamp:$datestamp is_startup:$is_startup"
    global env this_id SEQ_EXP_HOME
    ::log::log debug "Overview_startExpLogReader"
 
+   xflow_init
+
+   tk appname "[file tail ${exp_path}] - ${datestamp}"
    puts "Overview_startExpLogReader wm withdraw ."
    # flush stdout
    # wm withdraw .

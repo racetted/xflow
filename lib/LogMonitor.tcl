@@ -23,7 +23,7 @@ proc LogMonitor_checkNewLogFiles {} {
                      set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
                      catch { SuiteInfo ${suiteRecord} -suite_path ${expPath} }
                      puts "LogMonitor_checkNewLogFiles new thread for ${modifiedFile}"
-                     set expThreadId [ThreadPool_getThread ${expPath}]
+                     set expThreadId [ThreadPool_getThread]
 
                      puts "LogMonitor_checkNewLogFiles set log file offset to 0"
                      # force reread of log file from start
