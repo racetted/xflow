@@ -452,6 +452,9 @@ proc MsgCenter_getThread {} {
          set this_id [thread::id]
          SharedData_setMsgCenterThreadId ${this_id}
          MsgCenter_init
+
+         tk appname "Message Center"
+
          #
          # From here to the 'thread::wait' statement, define the procedure(s)
          # that will be called from your main program
@@ -520,10 +523,12 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
    set selectedRow [${table_widget} curselection]
    # retrieve needed information
    set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
-   set suitePath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
-   ::log::log debug "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}"
+   set expPath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
+   set datestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
+   set realDatestamp [Utils_getRealDatestampValue ${datestamp}]
+   ::log::log debug "MsgCenter_DoubleClickCallback node:${node} expPath:${expPath} ${datestamp}"
 
-   if { ${node} == "" || ${suitePath} == "" } {
+   if { ${node} == "" || ${expPath} == "" } {
       return
    }
 
@@ -531,16 +536,30 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
    set result [ catch {
       # start the suite flow if not started
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-      set suiteThreadId [SharedData_getSuiteData ${suitePath} THREAD_ID]
-      set suiteRecord [::SuiteNode::formatSuiteRecord ${suitePath}]
+      set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
       if { ${isOverviewMode} == "true" } {
-         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-         thread::send ${suiteThreadId} "thread_launchFLow ${overviewThreadId} ${suitePath}"
+         if { ${expThreadId} != "" } {
+            puts "MsgCenter_DoubleClickCallback found expThreadId:${expThreadId}"
+            set expWindowStatus [thread::send ${expThreadId} "wm state ."]
+            if { ${expWindowStatus} != "normal" } {
+               puts "MsgCenter_DoubleClickCallback xflow_displayFlow ${realDatestamp}"
+               thread::send ${expThreadId} "xflow_displayFlow ${realDatestamp}"
+            } else {
+               puts "MsgCenter_DoubleClickCallback xflow_toFront "
+               thread::send ${expThreadId} "xflow_toFront ."
+            }
+         } else {
+            puts "MsgCenter_DoubleClickCallback not found expThreadId"
+            set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+            thread::send ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}"
+            set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
+         }
       }
 
       # ask the suite thread to take care of showing the selected node in it's flow
       set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
-      thread::send ${suiteThreadId} "xflow_findNode ${suiteRecord} ${convertedNode}"
+      set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
+      thread::send ${expThreadId} "xflow_findNode ${suiteRecord} ${convertedNode}"
 
       Utils_normalCursor ${table_widget}
 

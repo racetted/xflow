@@ -29,9 +29,6 @@ record define SuiteInfo {
    {exp_log ""}
    {overview_after_id ""}
    {overview_group_record ""}
-   {status_info {init { "" "" "" }}}
-   {last_status {init} }
-
 }
 
 proc ::SuiteNode::formatName { suite_path } {
@@ -194,38 +191,6 @@ proc ::SuiteNode::getActiveDatestamp { suite } {
 }
 
 # example ::SuiteNode::setStatusInfo $suite begin "20100707000000 20100929 19:05:13"
-proc out {} {
-   # the status_info is an array of where the key is
-   # the status name and the info contains "datestamp date time"
-   # example "::SuiteNode::getStatusInfo $suite begin" might return
-   # "20100707000000 20100929 19:05:13"
-   # an empty string is returned if no info
-   proc ::SuiteNode::getStatusInfo { suite status } {
-      array set infoList [$suite cget -status_info]
-      set statusInfo ""
-      if { [info exists infoList(${status})] } {
-         set statusInfo $infoList(${status})
-      }
-      return ${statusInfo}
-   }
-
-   proc ::SuiteNode::setStatusInfo { suite status status_info } {
-      array set infoList [$suite cget -status_info]
-      set statusInfo ""
-      set infoList(${status}) ${status_info}
-      if { ${status} == "init" } {
-         set infoList(begin) ""
-         set infoList(end) ""
-         set infoList(abort) ""
-      } elseif { ${status} == "begin" } {
-         set infoList(end) ""
-         set infoList(abort) ""
-      }
-      ${suite} configure -status_info [array get infoList]
-      ${suite} configure -last_status ${status}
-   }
-}
-
 proc ::SuiteNode::getDatestamps { suite } {
    global StatusInfo
    if { [info globals StatusInfo] == "" } {
@@ -252,6 +217,20 @@ proc ::SuiteNode::getStatusInfo { suite datestamp status } {
       set value [dict get $StatusInfo ${suite} statuses ${datestamp} ${status}]
    }
    return $value
+}
+
+proc ::SuiteNode::removeStatusDatestamp { suite datestamp } {
+   puts "::SuiteNode::removeStatusDatestamp $suite $datestamp"
+   global StatusInfo
+   if { [info globals StatusInfo] == "" } {
+      puts "::SuiteNode::removeStatusDatestamp returns empty StatusInfo"
+      return ""
+   }
+
+   if { [dict exists $StatusInfo ${suite} statuses ${datestamp}] } {
+      puts "::SuiteNode::removeStatusDatestamp dict unset StatusInfo ${suite} statuses ${datestamp}"
+      dict unset StatusInfo ${suite} statuses ${datestamp}
+   }
 }
 
 proc ::SuiteNode::test {} {

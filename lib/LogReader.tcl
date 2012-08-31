@@ -1,6 +1,6 @@
 package require textutil::string
 
-# read_type is one of all, no_overview, overview_only, msg_only, refresh_flow
+# read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
 proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
    global REDRAW_FLOW LOGREADER_UPDATE_NODES
    ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} read_type:${read_type}"
@@ -15,13 +15,13 @@ proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
    set sendToOverview false
    set sendToFlow false
    set sendToMsgCenter false
-   if { ${isOverviewMode} == true && (${read_type} == "all" || ${read_type} == "overview_only") } {
+   if { ${isOverviewMode} == true && (${read_type} == "all" || ${read_type} == "overview_only" || ${read_type} == "no_flow") } {
       set sendToOverview true
    }
    if { (${read_type} == "all" || ${read_type} == "no_overview" || ${read_type} == "refresh_flow" ) } {
       set sendToFlow true
    }
-   if { (${read_type} == "all" || ${read_type} == "msg_only" || ${read_type} == "no_overview" ) } {
+   if { (${read_type} == "all" || ${read_type} == "msg_only" || ${read_type} == "no_overview" || ${read_type} == "no_flow") } {
       set sendToMsgCenter true
    }
    

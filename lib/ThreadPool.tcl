@@ -4,7 +4,7 @@ proc ThreadPool_init { nof_thread } {
    set count 0
    while { ${done} == false } {
       puts "ThreadPool_init creating thread no: ${count}"
-      set threadId [MyThreadPool_createThread]
+      set threadId [ThreadPool_createThread]
       # puts "ThreadPool_init thread no: ${count} creation done..."
       set PoolId(${threadId}) false
       incr count
@@ -14,7 +14,7 @@ proc ThreadPool_init { nof_thread } {
    }
 }
 
-proc MyThreadPool_createThread {} {
+proc ThreadPool_createThread {} {
    set threadId [thread::create {
       global env
       set lib_dir $env(SEQ_XFLOW_BIN)/../lib

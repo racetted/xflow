@@ -32,8 +32,7 @@ proc LogMonitor_checkNewLogFiles {} {
                      puts "LogMonitor_checkNewLogFiles Overview_startExpLogReader..."
                      thread::send ${expThreadId} "Overview_startExpLogReader ${expPath} ${suiteRecord} \"${seqDatestamp}\" true"
                   }
-               } else {
-                  ::log::log notice "Found invalid log file format: ${modifiedFile}"
+               } else {::log::log notice "Found invalid log file format: ${modifiedFile}"
                   puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
                }
             }
@@ -141,6 +140,15 @@ proc LogMonitor_createLogFile { _exp_path _datestamp } {
       puts "LogMonitor_createLogFile creating $logfile"
       close [open $logfile a]
    }
+}
+
+# the log file is considered inactive if it has not been modified for 
+# the last hour
+proc LogMonitor_isLogFileActive { _exp_path _datestamp } {
+   if { [LogMonitor_getDatestampModTime ${_exp_path} ${_datestamp}] < [clock add [clock seconds] -1 hours] } {
+      return false
+   }
+   return true
 }
 
 #LogMonitor_checkNewLogFiles

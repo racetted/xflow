@@ -2689,7 +2689,11 @@ proc xflow_quit { {from_overview false} } {
          }
       }
       wm withdraw .
-      if { ${datestamp} == "" || [LogMonitor_getDatestampModTime ${expPath} ${seqDatestamp}] < [clock add [clock seconds] -1 hours] } {
+      if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${expPath} ${seqDatestamp}] == false } {
+         if { ${from_overview} == false } {
+            # notify overview thread to release me
+            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${SEQ_EXP_HOME} \"${seqDatestamp}\""
+         }
          # the exp log file has not been modified for the last hour, clean up and release the thread
 
          # clean up any after events
@@ -2705,10 +2709,6 @@ proc xflow_quit { {from_overview false} } {
             }
          }
 
-         if { ${from_overview} == false } {
-            # notify overview thread to release me
-            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${SEQ_EXP_HOME} \"${seqDatestamp}\""
-         }
       }
    } else {
       # standalone mode
