@@ -69,12 +69,39 @@ proc SharedData_setExpDatestampOffset { exp_path datestamp {offset 0} } {
    SharedData_setSuiteData ${exp_path} ${datestamp}_offset ${offset}
 }
 
-proc SharedData_getExpDatestampOffset { exp_path datestamp } {
+proc SharedData_getExpDatestampOffset { _exp_path _datestamp } {
    set offset 0
    catch {
-      set offset [SharedData_getSuiteData ${exp_path} ${datestamp}_offset]
+      set offset [SharedData_getSuiteData ${_exp_path} ${_datestamp}_offset]
    }
    return ${offset}
+}
+
+proc SharedData_setExpDisplayName { _exp_path _displayName } {
+   SharedData_setSuiteData ${_exp_path} displayname ${_displayName}
+}
+
+proc SharedData_getExpDisplayName { _exp_path } {
+   set displayName [SharedData_getSuiteData ${_exp_path} displayname]
+   return ${displayName}
+}
+
+proc SharedData_setExpTimings { _exp_path _timings } {
+   SharedData_setSuiteData ${_exp_path} ref_timings ${_timings}
+}
+
+proc SharedData_getExpTimings { _exp_path } {
+   set timings [SharedData_getSuiteData ${_exp_path} ref_timings]
+   return ${timings}
+}
+
+proc SharedData_setExpSupportInfo { _exp_path _supportInfo } {
+   SharedData_setSuiteData ${_exp_path} supportinfo ${_supportInfo}
+}
+
+proc SharedData_getExpSupportInfo { _exp_path } {
+   set info [SharedData_getSuiteData ${_exp_path} supportinfo]
+   return ${info}
 }
 
 proc out {} {

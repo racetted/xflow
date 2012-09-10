@@ -120,8 +120,19 @@ proc xflow_addHelpMenu { parent } {
 }
 
 proc xflow_showSupportCallback {} {
-   set suiteRecord [xflow_getActiveSuite]
-   ExpOptions_showSupport  [${suiteRecord} cget -suite_path] [xflow_getWidgetName top_frame]
+   global SEQ_EXP_HOME
+   set savedDatestamp [xflow_getSavedDatestamp]
+
+   if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
+      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+      thread::send -async ${overviewThreadId} "Overview_showSupportCallback ${SEQ_EXP_HOME} \"${savedDatestamp}\""
+   } else {
+      set hour ""
+      if { ${savedDatestamp} != "" } {
+         set hour [Utils_getHourFromDatestamp ${savedDatestamp}]
+      }
+      ExpOptions_showSupport  ${SEQ_EXP_HOME} ${hour} [xflow_getWidgetName top_frame]
+   }
 }
 
 # no fancy format here, it's a simple dump of the content
@@ -2688,6 +2699,7 @@ proc xflow_quit { {from_overview false} } {
             destroy ${childW}
          }
       }
+      tk appname ""
       wm withdraw .
       if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${expPath} ${seqDatestamp}] == false } {
          if { ${from_overview} == false } {
@@ -2766,14 +2778,8 @@ proc xflow_createWidgets {} {
 
    # exp label frame
    set expLabelFrame [frame [xflow_getWidgetName exp_label_frame]]
-   set expLabelFont ExpLabelFont
-   if { [lsearch [font names] ExpLabelFont] == -1 } {
-      # create the font if not exists
-      font create ExpLabelFont
-      font configure ${expLabelFont} -size 25 -weight bold
-   }
+   set expLabel [label ${expLabelFrame}.exp_label -font [xflow_getExpLabelFont]]
 
-   set expLabel [label ${expLabelFrame}.exp_label -text [file tail ${SEQ_EXP_HOME}] -font ${expLabelFont}]
    grid ${expLabel} 
    #grid ${expLabelFrame} -row 3 -column 0 -sticky w
    pack ${expLabelFrame} -side left -padx {20 0}
@@ -2830,6 +2836,28 @@ proc xflow_createWidgets {} {
    wm geometry . =1200x800
 }
 
+proc xflow_getExpLabelFont {} {
+   set expLabelFont ExpLabelFont
+   if { [lsearch [font names] ExpLabelFont] == -1 } {
+      # create the font if not exists
+      font create ExpLabelFont
+      font configure ${expLabelFont} -size 25 -weight bold
+   }
+   return ${expLabelFont}
+}
+
+proc xflow_setExpLabel { _displayName _datestamp } {
+   global SEQ_EXP_HOME
+   puts "xflow_setExpLabel _displayName:${_displayName} ${_datestamp}"
+   set expLabelFrame [xflow_getWidgetName exp_label_frame]
+   set displayValue ${_displayName}
+   if { ${_datestamp} != "" } {
+      set hour [Utils_getHourFromDatestamp ${_datestamp}]
+      set displayValue ${_displayName}-${hour}
+   }
+   ${expLabelFrame}.exp_label configure -text ${displayValue}
+}
+
 # this function is called to create an exp flow.
 # 1) in xflow standalone mode, this function is called at startup and when the user views the exp in
 # history mode.
@@ -2840,14 +2868,14 @@ proc xflow_displayFlow { datestamp } {
    global env XFLOW_STANDALONE SEQ_EXP_HOME PROGRESS_REPORT_TXT
    global FLOW_RESIZED
    
-   set suitePath ${SEQ_EXP_HOME}
+   set expPath ${SEQ_EXP_HOME}
    ::log::log debug "xflow_displayFlow thread id:[thread::id] datestamp:${datestamp}"
-   ::log::log notice "xflow_displayFlow thread id:[thread::id] exp_path:${suitePath} datestamp:${datestamp}"
+   ::log::log notice "xflow_displayFlow thread id:[thread::id] exp_path:${expPath} datestamp:${datestamp}"
    set overview_x ""
    foreach {overview_x overview_y} [SharedData_getMiscData OVERVIEW_MAIN_COORDS] { break }
    if { ${overview_x} != "" } {
       xflow_positionFlowWindow . ${overview_x} ${overview_y}
-      ::log::log notice "xflow_positionFlowWindow ${suitePath} . ${overview_x} ${overview_y}"
+      ::log::log notice "xflow_positionFlowWindow ${expPath} . ${overview_x} ${overview_y}"
    }
 
    set FLOW_RESIZED false
@@ -2858,7 +2886,9 @@ proc xflow_displayFlow { datestamp } {
       set PROGRESS_REPORT_TXT "Creating widgets..."
       xflow_createWidgets
    }
-   ::log::log debug "xflow_displayFlow suitePath ${suitePath}"
+   set displayName [ExpOptions_getDisplayName ${expPath}]
+   xflow_setExpLabel ${displayName} ${datestamp}
+   ::log::log debug "xflow_displayFlow expPath ${expPath}"
    set activeSuiteRecord [xflow_getActiveSuite]
    set rootNode [${activeSuiteRecord} cget -root_node]
 
@@ -2875,20 +2905,20 @@ proc xflow_displayFlow { datestamp } {
       # no need to read again... only read for xflow standalone
       set PROGRESS_REPORT_TXT "Processing log file ..."
       if { ${datestamp} != "" } {
-         SharedData_setExpDatestampOffset ${suitePath} ${datestamp} 0
+         SharedData_setExpDatestampOffset ${expPath} ${datestamp} 0
          LogReader_readFile $activeSuiteRecord ${datestamp}
       }
    }
    xflow_initDatestampEntry ${datestamp}
-   ::log::log notice "xflow_displayFlow ${suitePath} xflow_selectSuiteCallback() datestamp:${datestamp}"
+   ::log::log notice "xflow_displayFlow ${expPath} xflow_selectSuiteCallback() datestamp:${datestamp}"
 
    set drawFrame [xflow_getWidgetName flow_frame].draw_frame
    set canvas [xflow_createFlowCanvas $drawFrame]
    xflow_drawflow $canvas
 
-   xflow_setTitle ${topFrame} ${suitePath}
+   xflow_setTitle ${topFrame} ${expPath}
    xflow_toFront .
-   ::log::log notice "xflow_displayFlow ${suitePath} thread id:[thread::id] done datestamp:${datestamp}"
+   ::log::log notice "xflow_displayFlow ${expPath} thread id:[thread::id] done datestamp:${datestamp}"
    # Console_create
 }
 
@@ -3044,6 +3074,8 @@ proc xflow_parseCmdOptions {} {
       xflow_init
       xflow_validateSuite
       xflow_readFlowXml
+      ExpOptions_read ${SEQ_EXP_HOME}
+
 
       set newestDatestamp [LogMonitor_getNewestDatestamp ${SEQ_EXP_HOME}]
       xflow_displayFlow ${newestDatestamp}
