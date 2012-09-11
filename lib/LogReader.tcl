@@ -28,61 +28,47 @@ proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
    # first cancel any other waiting read for this suite
    LogReader_cancelAfter $suite_record
    set expPath [$suite_record cget -suite_path]
-   set logfile ${expPath}/logs/${datestamp}_nodelog
+   if { ${datestamp} != "" } {
+      set logfile ${expPath}/logs/${datestamp}_nodelog
 
-   if { [file exists $logfile] } {
-      set f_logfile [ open $logfile r ]
-      flush stdout
-      
-      if { ${isStartupDone} == "true" } {
-         set logFileOffset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
-         ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} read_offset:$logFileOffset"
+      if { [file exists $logfile] } {
+         set f_logfile [ open $logfile r ]
+         flush stdout
+         
+         if { ${isStartupDone} == "true" } {
+            set logFileOffset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
+            ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} read_offset:$logFileOffset"
+         } else {
+            ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} reset read_offset"
+            set logFileOffset 0
+            ${suite_record} configure -exp_log ${logfile}
+         }
+
+         # position yourself in the file
+         seek $f_logfile $logFileOffset
+
+         while {[gets $f_logfile line] >= 0} {
+            LogReader_processLine ${suite_record} ${expPath} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
+         }
+         SharedData_setExpDatestampOffset ${expPath} ${datestamp} [tell $f_logfile]
+         close $f_logfile
+
       } else {
-         ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} reset read_offset"
-         set logFileOffset 0
-         ${suite_record} configure -exp_log ${logfile}
-      }
-
-      # position yourself in the file
-      seek $f_logfile $logFileOffset
-
-      while {[gets $f_logfile line] >= 0} {
-         LogReader_processLine ${suite_record} ${expPath} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
-         #if { ${sendToOverview} == true } {
-         #   LogReader_processOverviewLine ${overviewThreadId} $suite_record $datestamp $line
-         #}
-         #if { ${sendToFlow} == true || ${sendToMsgCenter} == true} {
-         #   LogReader_processLine $suite_record $datestamp ${sendToFlow} ${sendToMsgCenter} $line
-         #}
-      }
-      
-      # Need to notify the main thread that this child is done reading
-      # the log file for initialization
-      if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
-            puts "LogReader sending Overview_childInitDone ${expPath} ${datestamp}"
-            thread::send -async ${overviewThreadId} \
-               "Overview_childInitDone ${expPath} ${datestamp}"
-     }
-
-      SharedData_setExpDatestampOffset ${expPath} ${datestamp} [tell $f_logfile]
-
-      close $f_logfile
-
-   } else {
-      if { [file writable ${expPath}/logs/] } {
-         puts "LogReader_readFile $logfile file does not exists! Creating it..."
-         catch { close [open $logfile a] }
-      } else {
-         puts "LogReader_readFile $logfile file does not exists!"
-      }
-   
-      # Need to notify the main thread that this child is done reading
-      # the log file for initialization
-      if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
-            thread::send -async ${overviewThreadId} \
-               "Overview_childInitDone ${expPath} ${datestamp}"
+         if { [file writable ${expPath}/logs/] } {
+            puts "LogReader_readFile $logfile file does not exists! Creating it..."
+            catch { close [open $logfile a] }
+         } else {
+            puts "LogReader_readFile $logfile file does not exists!"
+         }
       }
    }
+
+   # Need to notify the main thread that this child is done reading
+   # the log file for initialization
+   if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
+      thread::send -async ${overviewThreadId} "Overview_childInitDone ${expPath} ${datestamp}"
+   }
+
    if { ${REDRAW_FLOW} == true } {
       xflow_redrawAllFlow
    } elseif { ${LOGREADER_UPDATE_NODES} != "" } {

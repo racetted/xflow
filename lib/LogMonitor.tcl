@@ -54,7 +54,7 @@ proc LogMonitor_getDatestamps { _exp_path _deltaTime } {
    set modifiedFiles {}
    if { [file readable ${checkDir}] } {
       #puts "LogMonitor_getDatestamps exec find ${checkDir} -maxdepth 1 -type f -name \"*_nodelog\" -newerct ${_deltaTime} -exec basename \{\} \;"
-      set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*\[0-9\]_nodelog" -newerct ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
+      set modifiedFiles [exec find ${checkDir} -maxdepth 1 -name "*\[0-9\]_nodelog" -newerct ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
    }
    return ${modifiedFiles}
 }

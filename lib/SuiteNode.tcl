@@ -22,8 +22,6 @@ record define SuiteInfo {
    suite_name
    suite_path
    root_node
-   ref_start { "" }
-   ref_end { "" }
    {canvas_info {}}
    {node_mapping {}}
    {exp_log ""}
@@ -238,16 +236,6 @@ proc ::SuiteNode::test {} {
    dict values $StatusInfo
 }
 
-proc ::SuiteNode::getReferenceClockValue { suite status } {
-   if { ${status} == "start" } {
-      set timevalue [${suite} cget -ref_start]
-   } elseif { ${status} == "end" } {
-      set timevalue [${suite} cget -ref_end]
-   }
-   set clockValue [clock scan ${timevalue}]
-   return ${clockValue}
-}
-
 # returns the status date & time as an integer value
 # empty string is returned if no value is found
 proc ::SuiteNode::getStatusClockValue { suite datestamp status } {
@@ -328,19 +316,9 @@ proc ::SuiteNode::getLastStatusDatestamp { suite } {
 
 proc ::SuiteNode::getLastStatusTime { suite datestamp } {
 
-   #set lastStatus [${suite} cget -last_status]
    set lastStatus [::SuiteNode::getStatusInfo ${suite} ${datestamp} last]
    set statusInfo [::SuiteNode::getStatusInfo ${suite} ${datestamp} ${lastStatus}]
    set value [lindex ${statusInfo} 1]
-
-   # if the value is empty, it likely means that we're
-   # dealing with an empty new log file so we return the start time
-   if { ${value} == "" } {
-       if { [lindex ${statusInfo} 0] == "init" &&
-            [${suite} cget -ref_start] != "" } {
-         set value "[${suite} cget -ref_start]"
-       }
-   }
    return  ${value}
 }
 
@@ -348,32 +326,12 @@ proc ::SuiteNode::getStartTime { suite datestamp } {
    set statusInfo [::SuiteNode::getStatusInfo ${suite} ${datestamp} begin]
    set value [lindex ${statusInfo} 1]
    return ${value}
-
-   proc out {} {
-   array set infoList [$suite cget -status_info]
-   set value ""
-   if { [info exists infoList(begin)] } {
-      set statusInfo $infoList(begin)
-      set value [lindex ${statusInfo} 2]
-   }
-   return ${value}
-   }
 }
 
 proc ::SuiteNode::getEndTime { suite datestamp } {
    set statusInfo [::SuiteNode::getStatusInfo ${suite} ${datestamp} end]
    set value [lindex ${statusInfo} 1]
    return ${value}
-
-   proc out {} {
-   array set infoList [$suite cget -status_info]
-   set value ""
-   if { [info exists infoList(end)] } {
-      set statusInfo $infoList(end)
-      set value [lindex ${statusInfo} 2]
-   }
-   return ${value}
-   }
 }
 
 # not sure what to do with this for now
@@ -386,7 +344,7 @@ proc ::SuiteNode::getEndTime { suite datestamp } {
 proc ::SuiteNode::isHomeless {suite datestamp} {
    set value false
    if { [::SuiteNode::getLastStatus ${suite} ${datestamp}] == "init" &&
-        [${suite} cget -ref_start] == "" } {
+        [SharedData_getExpTimings [${suite} cget -suite_path]] == "" } {
       set value true
    }
 

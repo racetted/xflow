@@ -107,7 +107,7 @@ proc ExpOptions_getDisplayName { _exp_path } {
 
 # returns list with start_time and end_time as {start_time end_time}
 # returns empty string if timings cannot be read
-proc ExpOptions_getRefTimings { _exp_path _datestamp } {
+proc ExpOptions_getRefTimings { _exp_path _hour } {
    #set optionsFile ${_exp_path}/ExpOptions.xml
    set foundRefTimings ""
    #if { [file exists ${optionsFile}] } {
@@ -117,9 +117,9 @@ proc ExpOptions_getRefTimings { _exp_path _datestamp } {
    #}
 
    set refTimings [SharedData_getExpTimings ${_exp_path}]
-   set hour [Utils_getHourFromDatestamp ${_datestamp}]
+   # set hour [Utils_getHourFromDatestamp ${_datestamp}]
    
-   set foundIndex [lsearch -exact -index 0 ${refTimings} ${hour}]
+   set foundIndex [lsearch -exact -index 0 ${refTimings} ${_hour}]
    if { ${foundIndex} != -1 } {
       set foundRefTimings [lrange [lindex ${refTimings} ${foundIndex}] 1 2]
    }
