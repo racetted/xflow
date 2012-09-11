@@ -2907,7 +2907,7 @@ proc xflow_getExpLabelFont {} {
    if { [lsearch [font names] ExpLabelFont] == -1 } {
       # create the font if not exists
       font create ExpLabelFont
-      font configure ${expLabelFont} -size 25 -weight bold
+      font configure ${expLabelFont} -size [SharedData_getMiscData XFLOW_EXP_LABEL_SIZE] -weight bold
    }
    return ${expLabelFont}
 }

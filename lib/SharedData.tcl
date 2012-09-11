@@ -245,12 +245,16 @@ proc SharedData_init {} {
    SharedData_setMiscData STARTUP_DONE false 
 
    SharedData_setMiscData FLOW_SCALE 1
+   SharedData_setMiscData XFLOW_EXP_LABEL_SIZE 25
    SharedData_setMiscData OVERVIEW_MODE false
    SharedData_setMiscData DEFAULT_CONSOLE "konsole -e"
    SharedData_setMiscData TEXT_VIEWER default
    SharedData_setMiscData USER_TMP_DIR default
 
    SharedData_setMiscData MENU_RELIEF flat
+   
+   # number of threads created to process xflow instances
+   SharedData_setMiscData MAX_XFLOW_INSTANCE 20
 
    # SharedData_readProperties
 }

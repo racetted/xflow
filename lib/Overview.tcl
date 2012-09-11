@@ -100,13 +100,12 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
-         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
       
-         set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
          # move the default ones if exists (init state, waiting to be submitted, usually right side of current time line
-         if { [::SuiteNode::isHomeless ${suiteRecord} default] == true } {
-            Overview_advanceExpDefaultBox ${canvasW} ${exp}
-         }
+         Overview_advanceExpDefaultBox ${canvasW} ${exp}
+
+         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
+         set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
 
          foreach datestamp ${datestamps} {
             set runBoxCoords [Overview_getRunBoxBoundaries  ${canvasW} ${suiteRecord} ${datestamp}]
@@ -123,13 +122,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                Overview_releaseExpThread ${expThreadId} ${expPath} ${datestamp}
             }
 
-            proc out {} {
-            if { [expr ${currentX} == ${graphStartX}] && [::SuiteNode::isHomeless ${suiteRecord} ${datestamp}] } {
-               # exps that do not have reference timings and are in init state # sits at x origin 0
-               set expAdvanceHour false
-               ::log::log debug "Overview_GridAdvanceHour not advancing homeless ${exp}"
-            }
-            }
             if { ${lastStatus} == "end" && [::SuiteNode::getStatusClockValue ${suiteRecord} ${datestamp} end] < ${xoriginDateTime} } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
@@ -140,8 +132,12 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                Overview_removeExpBox ${canvasW} [${suiteRecord} cget -suite_path] ${datestamp}
 
                # force init status
-               set hour [Utils_getHourFromDatestamp ${datestamp}]
-               set datestamp default_${hour}
+               if { [SharedData_getExpTimings ${expPath}] == "" } {
+                  set datestamp default
+               } else {
+                  set hour [Utils_getHourFromDatestamp ${datestamp}]
+                  set datestamp default_${hour}
+               }
                set lastStatus init
             }
 
@@ -827,8 +823,11 @@ proc Overview_advanceExpDefaultBox { canvas exp_path } {
 
    set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
    set refTimings [SharedData_getExpTimings ${exp_path}]
-   if { [::SuiteNode::isHomeless ${suiteRecord} default] == false && [${canvas} gettags ${exp_path}.default] != "" } {
-      ${canvas} move ${exp_path}.default -${graphHourX} 0
+
+   if { ${refTimings} == "" } {
+      if { [${canvas} gettags ${exp_path}.default] != "" } {
+         Overview_updateExpBox ${canvas} ${suiteRecord} default init
+      }
    } else {
       foreach refTiming ${refTimings} {
          foreach { hour startTime endTime } ${refTiming} {
@@ -839,7 +838,7 @@ proc Overview_advanceExpDefaultBox { canvas exp_path } {
 }
 
 proc Overview_removeExpBox { canvas exp_path datestamp } {
-   puts "Overview_removeExpBox $canvas $exp_path $datestamp"
+   # puts "Overview_removeExpBox $canvas $exp_path $datestamp"
    set expDatestampTag ${exp_path}.${datestamp}
    ${canvas} delete ${expDatestampTag}.text
    ${canvas} delete ${expDatestampTag}.start
@@ -854,7 +853,7 @@ proc Overview_removeExpBox { canvas exp_path datestamp } {
       } else {
          set expDefaultTag ${exp_path}.default
       }
-      puts "Overview_removeExpBox deleting ${expDefaultTag}"
+      # puts "Overview_removeExpBox deleting ${expDefaultTag}"
       ${canvas} delete ${expDefaultTag}.text
       ${canvas} delete ${expDefaultTag}.start
       ${canvas} delete ${expDefaultTag}.middle
@@ -2324,7 +2323,7 @@ proc Overview_main {} {
    wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
 
    # create pool of threads to parse and launch exp flows
-   ThreadPool_init 20
+   ThreadPool_init [SharedData_getMiscData MAX_XFLOW_INSTANCE]
 
    Overview_addGroups ${topCanvas}
    Overview_setCurrentTime ${topCanvas}
