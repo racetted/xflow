@@ -52,11 +52,14 @@ proc Sequencer_runCommandLogAndWindow { suite_path datestamp command title posit
 }
 
 proc Sequencer_runCommand { suite_path datestamp out_file command } {
-   if { [Utils_validateRealDatestamp ${datestamp}] == false } {
-      error "Invalid datestamp"
+   # if { [Utils_validateRealDatestamp ${datestamp}] == false } {
+   #  error "Invalid datestamp"
+   # }
+   if { ${datestamp} != "" } {
+      set cmd "export SEQ_EXP_HOME=$suite_path;export SEQ_DATE=${datestamp}; print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
+   } else {
+      set cmd "export SEQ_EXP_HOME=$suite_path;print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
    }
-
-   set cmd "export SEQ_EXP_HOME=$suite_path;export SEQ_DATE=${datestamp}; print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
    ::log::log debug "Sequencer_runCommand ksh -c $cmd"
    catch { eval [exec ksh -c $cmd]}
 }

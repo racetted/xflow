@@ -1315,17 +1315,20 @@ proc xflow_historyCallback { node canvas caller_menu {history 48} {full_loop 0} 
    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
    ::log::log debug "xflow_historyCallback nodeExt:$nodeExt"
    if { $nodeExt == "-1" } {
-      Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       if { $nodeExt != "" } {
          set nodeExt ".${nodeExt}"
       }
 
       set datestamp [xflow_getSequencerDatestamp]
-
+      set historyRange ""
+      if { ${datestamp} != "" } {
+         set historyRange "-history $history -edate $datestamp "
+      }
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec \
          "Node History [file tail $node]$nodeExt -history $history" bottom \
-         -n $seqNode$nodeExt -history $history -edate $datestamp 
+         -n $seqNode$nodeExt ${historyRange}
    }
 }
 
@@ -1362,13 +1365,17 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
 # current container node. It deletes all sequencer related node status files for
 # the current node and all its child nodes.
 proc xflow_initbranchCallback { node canvas caller_menu } {
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "init branch" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
 
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
-      Utils_raiseError $canvas "initbranch" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "initbranch" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initbranch -f continue $seqLoopArgs
@@ -1382,12 +1389,16 @@ proc xflow_initbranchCallback { node canvas caller_menu } {
 # current task node. It deletes all sequencer related node status files for
 # the current node.
 proc xflow_initnodeCallback { node canvas caller_menu } {
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node init" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
-      Utils_raiseError $canvas "initnode" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "initnode" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initnode [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initnode -f continue $seqLoopArgs
@@ -1400,12 +1411,16 @@ proc xflow_initnodeCallback { node canvas caller_menu } {
 # current loop node. It deletes all sequencer related node status files for
 # the current loop node and all its child iteration nodes.
 proc xflow_initbranchLoopCallback { node canvas caller_menu } {
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "init branch" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
-      Utils_raiseError $canvas "initbranch" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "initbranch" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initbranch -f continue $seqLoopArgs
@@ -1415,12 +1430,16 @@ proc xflow_initbranchLoopCallback { node canvas caller_menu } {
 
 # forces an abort to be sent to maestro sequencer
 proc xflow_abortCallback { node canvas caller_menu } {
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
-      Utils_raiseError $canvas "node abort" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "node abort" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "abort [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s abort -f continue $seqLoopArgs
@@ -1429,6 +1448,10 @@ proc xflow_abortCallback { node canvas caller_menu } {
 }
 
 proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
@@ -1439,12 +1462,12 @@ proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
       ::log::log debug "xflow_abortNpasssTaskCallback indexListValue:$indexListValue"
    }
    if { ${indexListValue} == "latest" } {
-      Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+      Utils_raiseError $canvas "Npass_Task end" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
       set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
    
       if { $seqNpassTaskArgs == "-1" } {
-         Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+         Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
       } else {
          ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
          Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqNpassTaskArgs" top \
@@ -1456,6 +1479,10 @@ proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
 }
 
 proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
@@ -1466,12 +1493,12 @@ proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
       ::log::log debug "xflow_abortNpasssTaskCallback indexListValue:$indexListValue"
    }
    if { ${indexListValue} == "latest" } {
-      Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+      Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
       set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
    
       if { $seqNpassTaskArgs == "-1" } {
-         Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+         Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
       } else {
          ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
          Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
@@ -1493,6 +1520,10 @@ proc xflow_launchShellCallback {} {
 # launch an xterm in ${TASK_BASEDIR} on the execution host
 proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
     ::log::log debug "xflow_launchWorkCallback node$node canvas$canvas"
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "view workdir" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
     set seqExecWork "[SharedData_getMiscData SEQ_UTILS_BIN]/nodework"
     set seqNode [::FlowNodes::getSequencerNode $node]
     set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
@@ -1502,7 +1533,7 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
    set datestamp [xflow_getSequencerDatestamp]
 
     if { $nodeExt == "-1" } {
-	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
+	Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
     } else {
 	::log::log debug "$seqExecWork -n ${seqNode} -ext ${nodeExt}"
 	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode} -ext ${nodeExt}"] ':'] } message ] {
@@ -1575,6 +1606,10 @@ proc xflow_killNodeFromDropdown { node canvas caller_menu } {
 
 # forces and end signal to be sent to the maestro sequencer for the current node.
 proc xflow_endCallback { node canvas caller_menu } {
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
    set suiteRecord [xflow_getActiveSuite]
@@ -1582,7 +1617,7 @@ proc xflow_endCallback { node canvas caller_menu } {
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
-      Utils_raiseError $canvas "node end" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "node end" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s end -f continue $seqLoopArgs
@@ -1593,6 +1628,10 @@ proc xflow_endCallback { node canvas caller_menu } {
 
 # forces and end signal to be sent to the maestro sequencer for the current loop node.
 proc xflow_endLoopCallback { node canvas caller_menu } {
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
 
    set suiteRecord [xflow_getActiveSuite]
@@ -1600,7 +1639,7 @@ proc xflow_endLoopCallback { node canvas caller_menu } {
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
-      Utils_raiseError $canvas "loop end" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "loop end" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s end -f continue $seqLoopArgs
@@ -1720,7 +1759,7 @@ proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
    if { $nodeExt == "-1" } {
-      Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
 
       if { $nodeExt != "" } {
@@ -1751,6 +1790,11 @@ proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
 # - local_ignore should be set to "dep_off" for local dependencies to be ignored.
 proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_on} } {
    global env
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
+
    set ignoreDepFlag ""
    if { ${local_ignore_dep} == "dep_off" } {
       set ignoreDepFlag " -i"
@@ -1762,7 +1806,7 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getLoopArgs $node]
    if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
-      Utils_raiseError $canvas "node submit" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "node submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       # Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" top \
       #   -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
@@ -1774,6 +1818,10 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
 # same as previous but for loop node
 proc xflow_submitLoopCallback { node canvas caller_menu flow {local_ignore_dep dep_on}} {
    set ignoreDepFlag ""
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    if { ${local_ignore_dep} == "dep_off" } {
       set ignoreDepFlag " -i"
    }
@@ -1784,7 +1832,7 @@ proc xflow_submitLoopCallback { node canvas caller_menu flow {local_ignore_dep d
    set seqNode [::FlowNodes::getSequencerNode $node]
    set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
    if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
-      Utils_raiseError $canvas "loop submit" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandLogAndWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs 
@@ -1796,6 +1844,10 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
 
    ::log::log debug "xflow_submitNpassTaskCallback node:$node canvas:$canvas"
    set ignoreDepFlag ""
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    if { ${local_ignore_dep} == "dep_off" } {
       set ignoreDepFlag " -i"
    }
@@ -1813,12 +1865,12 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
       ::log::log debug "xflow_submitNpassTaskCallback indexListValue:$indexListValue"
    }
    if { ${indexListValue} == "latest" } {
-      Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+      Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
       set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
    
       if { $seqNpassTaskArgs == "-1" } {
-         Utils_raiseError $canvas "Npass_Task submit" [getErrorMsg NO_INDEX_SELECT]
+         Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
       } else {
          ::log::log debug "xflow_submitNpassTaskCallback $seqNpassTaskArgs"
          # Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
@@ -1834,6 +1886,10 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
 proc xflow_tailfCallback { node canvas {full_loop 0} } {
     global env
     ::log::log debug "xflow_tailfCallback node$node canvas$canvas"
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "monitor listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
     set seqNode [::FlowNodes::getSequencerNode $node]
     set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
     set suiteRecord [xflow_getActiveSuite]
@@ -1842,7 +1898,7 @@ proc xflow_tailfCallback { node canvas {full_loop 0} } {
    set datestamp [xflow_getSequencerDatestamp]
 
     if { $nodeExt == "-1" } {
-	Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
+	Utils_raiseError $canvas "monitor listing" [xflow_getErroMsg NO_LOOP_SELECT]
     } else {
 	if { $nodeExt != "" } {
 	    set nodeExt ".${nodeExt}"
@@ -1859,6 +1915,10 @@ proc xflow_tailfCallback { node canvas {full_loop 0} } {
 proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    ::log::log debug "xflow_listingCallback node:$node canvas:$canvas"
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    set suiteRecord [xflow_getActiveSuite]
 
@@ -1869,8 +1929,9 @@ proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
+   
    if { $nodeExt == "-1" } {
-      Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       if { $nodeExt != "" } {
          set nodeExt ".${nodeExt}"
@@ -1985,6 +2046,10 @@ proc xflow_showAllListingItem { suite_record listw list_type} {
 proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    ::log::log debug "xflow_abortListingCallback node:$node canvas:$canvas"
+   if { [xflow_getSequencerDatestamp] == "" } {
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
    set abortListingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    set suiteRecord [xflow_getActiveSuite]
    set seqNode [::FlowNodes::getSequencerNode $node]
@@ -1994,7 +2059,7 @@ proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
    if { $nodeExt == "-1" } {
-      Utils_raiseError $canvas "node listing" [getErrorMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       if { $nodeExt != "" } {
          set nodeExt ".${nodeExt}"
@@ -2638,14 +2703,15 @@ proc xflow_addBgImage { _canvas _width _height {force false} } {
    }
  }
 
-proc setErrorMessages {} {
+proc xflow_setErrorMessages {} {
   global ERROR_MSG_LIST
   set ERROR_MSG_LIST(NO_LOOP_SELECT) "Cannot retrieve loop member for parent loop container! Please select a loop index."
   set ERROR_MSG_LIST(INVALID_NPT_SELECT) "Cannot mix latest selection with index selection!"
   set ERROR_MSG_LIST(NO_INDEX_SELECT) "You must provide a valid index value for this node!"
+  set ERROR_MSG_LIST(DATESTAMP_REQUIRED) "Exp datestamp must be set!"
 }
 
-proc getErrorMsg { key } {
+proc xflow_getErroMsg { key } {
   global ERROR_MSG_LIST
    return $ERROR_MSG_LIST($key)
 }
@@ -3189,7 +3255,7 @@ proc xflow_init {} {
       set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
    }
 
-   setErrorMessages
+   xflow_setErrorMessages
 
    xflow_setTkOptions
 
