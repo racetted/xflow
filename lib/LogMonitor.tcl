@@ -2,7 +2,13 @@
 
 # look for new log files created under SEQ_EXP_HOME/logs
 proc LogMonitor_checkNewLogFiles {} {
+   global THREAD_FULL_EVENT
    puts "LogMonitor_checkNewLogFiles"
+   if { ! [info exists THREAD_FULL_EVENT] } {
+      set THREAD_FULL_EVENT false
+   }
+   # check every 5 secs
+   set nextCheckTime 5000
    set displayGroups [record show instances DisplayGroup]
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
@@ -20,17 +26,30 @@ proc LogMonitor_checkNewLogFiles {} {
                   # look see if we have a thread monitoring this log file, if not create one
                   set expThreadId [SharedData_getExpThreadId ${expPath} ${seqDatestamp}]
                   if { ${expThreadId} == "" } {
-                     set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
-                     catch { SuiteInfo ${suiteRecord} -suite_path ${expPath} }
-                     puts "LogMonitor_checkNewLogFiles new thread for ${modifiedFile}"
+                     # if there is already a thread for this datestamp, we don't do anything
                      set expThreadId [ThreadPool_getThread]
+                     if { ${expThreadId} == "" } {
+                        # not able to get a thread from the pool
+                        # reset check time to previous time
+                        set newLastChecked [SharedData_getSuiteData ${expPath} LAST_CHECKED_TIME]
+                        # post the event to warn user if not warned yet
+                        if { ${THREAD_FULL_EVENT} != true } {
+                           puts "LogMonitor_checkNewLogFiles posting THREAD_FULL_EVENT"
+                           set THREAD_FULL_EVENT true
+                           # check in 30 seconds to leave some time for user to shutdown flows
+                           set nextCheckTime 30000
+                        }
+                     } else {
+                        set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
+                        catch { SuiteInfo ${suiteRecord} -suite_path ${expPath} }
 
-                     puts "LogMonitor_checkNewLogFiles set log file offset to 0"
-                     # force reread of log file from start
-                     SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
+                        puts "LogMonitor_checkNewLogFiles set log file offset to 0"
+                        # force reread of log file from start
+                        SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
 
-                     puts "LogMonitor_checkNewLogFiles Overview_startExpLogReader..."
-                     thread::send ${expThreadId} "Overview_startExpLogReader ${expPath} ${suiteRecord} \"${seqDatestamp}\" true"
+                        puts "LogMonitor_checkNewLogFiles Overview_startExpLogReader..."
+                        thread::send ${expThreadId} "Overview_startExpLogReader ${expPath} ${suiteRecord} \"${seqDatestamp}\" true"
+                     }
                   }
                } else {::log::log notice "Found invalid log file format: ${modifiedFile}"
                   puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
@@ -42,7 +61,7 @@ proc LogMonitor_checkNewLogFiles {} {
    }
 
    set LastChecked [clock format [clock seconds]]
-   after 5000 [list LogMonitor_checkNewLogFiles]
+   after ${nextCheckTime} [list LogMonitor_checkNewLogFiles]
 }
 
 # process log *_nodelog files that have been modified within the _deltaTime window.
