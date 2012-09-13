@@ -2448,7 +2448,7 @@ proc Overview_main {} {
    wm deiconify ${topOverview}
 
    # run a periodic monitor to look for new log files to process
-   # LogMonitor_checkNewLogFiles
+   LogMonitor_checkNewLogFiles
 }
 
 Overview_parseCmdOptions
