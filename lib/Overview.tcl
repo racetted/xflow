@@ -121,7 +121,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                ::log::log debug "Overview_GridAdvanceHour releasing exp thread for ${expPath} ${datestamp}"
                Overview_releaseExpThread ${expThreadId} ${expPath} ${datestamp}
             }
-            if { [Overview_isExpBoxObsolete ${canvas} ${expPath} ${datestamp}] == true } {
+            if { [Overview_isExpBoxObsolete ${canvasW} ${expPath} ${datestamp}] == true } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
                # first clean any data kept for the datestamp
@@ -612,14 +612,14 @@ proc Overview_ExpCreateStartIcon { canvas suite_record datestamp timevalue {shif
 
    set tailName [file tail ${expPath}]
    set expLabel " ${tailName} "
-   if { ${datestamp} != "" } {
-      set hour [Utils_getHourFromDatestamp ${datestamp}]
-      if { [SharedData_getExpTimings ${expPath}] != "" } {
-         set expLabel " ${tailName}-${hour} "
-      }
-   }
    if { ${shift_day} == true } {
       set currentStatus init
+   }
+   if { ${datestamp} != "" } {
+      set hour [Utils_getHourFromDatestamp ${datestamp}]
+      if { [SharedData_getExpTimings ${expPath}] != "" || ${currentStatus} != "init"} {
+         set expLabel " ${tailName}-${hour} "
+      }
    }
    set outlineColor [::DrawUtils::getOutlineStatusColor ${currentStatus}]
    set bgColor [::DrawUtils::getBgStatusColor ${currentStatus}]
@@ -788,7 +788,7 @@ proc Overview_getRefTimings { exp_path hour start_or_end } {
          set foundTimings [lindex ${refTimings} 1]
       }
    }
-   puts "Overview_getRefTimings ${exp_path} ${hour} ${start_or_end} value: ${foundTimings}"
+   # puts "Overview_getRefTimings ${exp_path} ${hour} ${start_or_end} value: ${foundTimings}"
    return ${foundTimings}
 }
 
@@ -811,7 +811,7 @@ proc Overview_getExpBoxTag { exp_path datestamp status {full_tag true} } {
    if { ${full_tag} == true } {
       set expBoxTag ${exp_path}.${expBoxTag}
    }
-   puts "Overview_getExpBoxTag $exp_path $datestamp status value:$expBoxTag"
+   #puts "Overview_getExpBoxTag $exp_path $datestamp status value:$expBoxTag"
    return ${expBoxTag}
 }
 
@@ -1276,6 +1276,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
       set extraMsg "datestamp=[Utils_getVisibleDatestampValue ${datestamp}]"
    }
    set result [ catch {
+      set isNewThread false
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
       if { ${expThreadId} == "" } {
          set expThreadId [ThreadPool_getThread]
@@ -1284,20 +1285,20 @@ proc Overview_launchExpFlow { exp_path datestamp } {
                -message "Maximum flow windows reached, please close some windows and re-launch manually."
             return
          }
+         set isNewThread true
       }
 
       set progressW [ProgressDlg .pd -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT -width ${progressWidth} -stop stop]
-      
       # set a timeout to destroy progress bar
       # give it 2 minutes to launch the flow
       set PROGRESS_REPORT_TXT "Launching [file tail ${exp_path}] ${extraMsg}"
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
 
-      puts "Overview_launchExpFlow width:[.pd cget -width]"
       # retrieve the exp thread based on the exp_path
       set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
 
+      if { ${isNewThread} == true } {
 
          # force reread of log file from start
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
@@ -1305,11 +1306,12 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          if { [thread::exists ${expThreadId}] } {
             thread::send ${expThreadId} "Overview_startExpLogReader ${exp_path} ${suiteRecord} \"${datestamp}\""
          }
+      }
 
-      ::log::log debug "thread_launchFLow ${exp_path} \"${datestamp}\""
+      ::log::log debug "Overview_ThreadLaunchFLow ${exp_path} \"${datestamp}\""
       # send the request to the exp thread
-      thread::send ${expThreadId} "thread_launchFLow ${exp_path} \"${datestamp}\""
-      ::log::log notice "thread_launchFLow ${exp_path}"
+      thread::send ${expThreadId} "Overview_ThreadLaunchFLow ${exp_path} \"${datestamp}\""
+      ::log::log notice "Overview_ThreadLaunchFLow ${exp_path}"
       destroy ${progressW}
 
    } message ]
@@ -1328,18 +1330,6 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          ${message}
    }
 }
-
-proc Overview_launchTimeout { exp_path datestamp } {
-   puts "Overview_launchTimeout ${exp_path} ${datestamp}"
-   set progressWidget .pd
-   if { [winfo exists .pd] } {
-      destroy .pd
-      tk_messageBox -title "Launch Exp Flow Error" -parent [Overview_getToplevel] -type ok -icon error \
-         -message "Please relaunch the flow manually for [file tail ${exp_path}] - ${datestamp}"
-      return
-   }
-}
-
 
 # this proc is called before releasing an exp thread to the thread pool
 proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
@@ -1491,7 +1481,6 @@ proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup fa
    xflow_init
 
    tk appname "[file tail ${exp_path}] - ${datestamp}"
-   puts "Overview_startExpLogReader wm withdraw ."
    # flush stdout
    # wm withdraw .
    # if { ${datestamp} != "" } {
@@ -1504,7 +1493,6 @@ proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup fa
    ::log::log debug "Overview_startExpLogReader SEQ_EXP_HOME=${SEQ_EXP_HOME} datestamp:${datestamp}"
    puts "Overview_startExpLogReader xflow_readFlowXml"
    xflow_readFlowXml
-   # ExpOptions_read ${exp_path}
 
    puts "Overview_startExpLogReader LogReader_readFile"
    if { ${is_startup} == true } {
@@ -1528,10 +1516,10 @@ proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup fa
 
 # this function is called from the overview main thread to the exp thread
 # to display the exp flow either on user's request or because of "Auto Launch"
-proc thread_launchFLow { exp_path datestamp } {
+proc Overview_ThreadLaunchFLow { exp_path datestamp } {
    global this_id SEQ_EXP_HOME
    set SEQ_EXP_HOME ${exp_path}
-   ::log::log debug "thread_launchFLow exp_path:${exp_path} datestamp:${datestamp}"
+   ::log::log debug "Overview_ThreadLaunchFLow exp_path:${exp_path} datestamp:${datestamp}"
    xflow_displayFlow ${datestamp}
 }
 
@@ -1680,15 +1668,17 @@ proc Overview_getGroupBoundaries { canvas display_group } {
       foreach exp ${expList} {
          # set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
          set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
-         set expBoundaries [Overview_getExpBoundaries ${canvas} ${suiteRecord}]
-         set expy1 [lindex ${expBoundaries} 1]
-         set expx2 [lindex ${expBoundaries} 2]
-         set expy2 [lindex ${expBoundaries} 3]
-         if { ${expy1} != "" && ${y1} > ${expy1} } {
-            set y1 ${expy1}
-         }
-         if { ${expy2} != "" && ${y2} < ${expy2} } {
-            set y2 ${expy2}
+         if { [record exists instances ${suiteRecord}] } {
+            set expBoundaries [Overview_getExpBoundaries ${canvas} ${suiteRecord}]
+            set expy1 [lindex ${expBoundaries} 1]
+            set expx2 [lindex ${expBoundaries} 2]
+            set expy2 [lindex ${expBoundaries} 3]
+            if { ${expy1} != "" && ${y1} > ${expy1} } {
+               set y1 ${expy1}
+            }
+            if { ${expy2} != "" && ${y2} < ${expy2} } {
+               set y2 ${expy2}
+            }
          }
       }
       set boundaries [list ${startx} $y1 ${endX} $y2]
@@ -1780,7 +1770,8 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
 # at startup when we add the display groups one by one
 proc Overview_getGroupDisplayY { group_display } {
    global entryStartY expEntryHeight
-   set displayGroups [record show instances DisplayGroup]
+   # set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
    set myIndex [lsearch ${displayGroups} ${group_display}]
    if { ${myIndex} == -1 || ${myIndex} == 0 } {
       # not found or first group, return the start y
@@ -1796,6 +1787,53 @@ proc Overview_getGroupDisplayY { group_display } {
    set thisGroupY [DisplayGrp_getNextSlotY ${prevGroup} ${prevGroupY}]
    ::log::log debug "Overview_getGroupDisplayY value: ${thisGroupY}"
    return ${thisGroupY}
+}
+
+proc Overview_addGroup { canvas displayGroup } {
+   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
+   #puts "Overview_addGroup displayGroup:${displayGroup}"
+   set groupName [$displayGroup cget -name]
+   set displayName [file tail $groupName]
+   set tagName ${displayGroup}
+   set groupLevel [$displayGroup cget -level]
+   set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
+
+   #puts "Overview_addGroups groupLevel:$groupLevel  groupEntryCurrentY:$groupEntryCurrentY"
+
+   # add indentation for each different level
+   set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
+
+   #puts "Overview_addGroups displayGroup:$displayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY"
+   set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
+      -text $displayName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
+
+   # get the font for each level
+   set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
+
+   $canvas itemconfigure displayGroup_${tagName} -font $newFont
+   ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
+
+   $displayGroup configure -x [expr $graphStartX + 20]
+   DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
+
+   set xoriginDateTime [Overview_GraphGetXOriginDateTime]
+   # get the exps for each group if exists
+   set expList [$displayGroup cget -exp_list]
+   foreach exp $expList {
+      Overview_addExpDefaultBoxes ${canvas} ${exp}
+      set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
+      set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
+      foreach datestamp ${datestamps} {
+         set currentStatus [::SuiteNode::getLastStatus ${suiteRecord} ${datestamp}]
+         set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord} ${datestamp}]
+         set statusDateTime [::SuiteNode::getStatusClockValue ${suiteRecord} ${datestamp} ${currentStatus}]
+         Overview_updateExpBox ${canvas} ${suiteRecord} ${datestamp} ${currentStatus} ${statusTime}
+      }
+   }
+
+   foreach grp [${displayGroup} cget -grp_list] {
+      Overview_addGroup $canvas ${grp}
+   }
 }
 
 # this function creates the group labels at the left of the graph
@@ -1824,10 +1862,6 @@ proc Overview_addGroups { canvas } {
 
    ${progressBar} configure -foreground blue
 
-   # this step is to create an thread for each experiment/suite and
-   # then have each thread read the suite's log file once and then
-   # then the main thread will continue...
-   # it will give us status box information
    set currentTime [clock format [clock seconds]]
 
    foreach displayGroup $displayGroups {
@@ -1841,59 +1875,10 @@ proc Overview_addGroups { canvas } {
    # wait for all child to be done with their init
    Overview_waitChildInitDone
 
-   # here we will display the boxes
-   foreach displayGroup $displayGroups {
-      set groupName [$displayGroup cget -name]
-      set displayName [file tail $groupName]
-      set tagName ${displayGroup}
-      #puts "Overview_addGroups groupName:$groupName"
-      set groupLevel [$displayGroup cget -level]
-      set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
-
-      # add indentation for each different level
-      set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
-
-      ::log::log debug "Overview_addGroups displayGroup:$displayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY"
-      set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
-         -text $displayName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
-
-      # get the font for each level
-      set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
-
-      $canvas itemconfigure displayGroup_${tagName} -font $newFont
-      ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
-
-      # get the exps for each group if exists
-      set expList [$displayGroup cget -exp_list]
-      $displayGroup configure -x [expr $graphStartX + 20]
-      DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
-
-      set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-      foreach exp $expList {
-         Overview_addExpDefaultBoxes ${canvas} ${exp}
-         set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
-         set datestamps [::SuiteNode::getDatestamps ${suiteRecord}]
-         foreach datestamp ${datestamps} {
-            set currentStatus [::SuiteNode::getLastStatus ${suiteRecord} ${datestamp}]
-            set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord} ${datestamp}]
-            set statusDateTime [::SuiteNode::getStatusClockValue ${suiteRecord} ${datestamp} ${currentStatus}]
-            # if { [expr ${statusDateTime} > ${xoriginDateTime}] } {
-               # puts "Overview_addGroups exp ${exp} datestamp:${datestamp} should be shifted"
-            #   Overview_updateExpBox ${canvas} ${suiteRecord} ${datestamp} ${currentStatus} ${statusTime}
-            # }
-            Overview_updateExpBox ${canvas} ${suiteRecord} ${datestamp} ${currentStatus} ${statusTime}
-         }
-         #if { ${datestamps} == "" } {
-            # nothing change in the last visible time period, force init
-         #   Overview_updateExpBox ${canvas} ${suiteRecord} default init
-         #}
-      }
-
-      # $canvas itemconfigure ${tagName} -font TkDefaultFont
-      ::log::log debug "Overview_addGroups displayGroup:$displayGroup groupEntryCurrentY:$groupEntryCurrentY"
+   set rootGroup [lindex ${displayGroups} 0]
+   if { ${rootGroup} != "" } {
+      Overview_addGroup ${canvas} ${rootGroup}
    }
-
-
 
    destroy ${progressBar}
 }
@@ -2463,7 +2448,7 @@ proc Overview_main {} {
    wm deiconify ${topOverview}
 
    # run a periodic monitor to look for new log files to process
-   LogMonitor_checkNewLogFiles
+   # LogMonitor_checkNewLogFiles
 }
 
 Overview_parseCmdOptions

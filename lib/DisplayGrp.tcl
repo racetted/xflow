@@ -7,9 +7,16 @@ record define DisplayGroup {
    level {0}
    parent ""
    exp_list {}
+   grp_list {}
    x {0}
    y {0}
    {maxy 0}
+}
+
+proc DisplayGrp_insertGroup { display_group child_group } {
+   set grpList [${display_group} cget -grp_list]
+   lappend grpList ${child_group}
+   ${display_group} configure -grp_list ${grpList}
 }
 
 # this function locates the y slot that based on a
