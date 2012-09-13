@@ -218,15 +218,15 @@ proc ::SuiteNode::getStatusInfo { suite datestamp status } {
 }
 
 proc ::SuiteNode::removeStatusDatestamp { suite datestamp } {
-   puts "::SuiteNode::removeStatusDatestamp $suite $datestamp"
+   #puts "::SuiteNode::removeStatusDatestamp $suite $datestamp"
    global StatusInfo
    if { [info globals StatusInfo] == "" } {
-      puts "::SuiteNode::removeStatusDatestamp returns empty StatusInfo"
+      #puts "::SuiteNode::removeStatusDatestamp returns empty StatusInfo"
       return ""
    }
 
    if { [dict exists $StatusInfo ${suite} statuses ${datestamp}] } {
-      puts "::SuiteNode::removeStatusDatestamp dict unset StatusInfo ${suite} statuses ${datestamp}"
+      #puts "::SuiteNode::removeStatusDatestamp dict unset StatusInfo ${suite} statuses ${datestamp}"
       dict unset StatusInfo ${suite} statuses ${datestamp}
    }
 }
@@ -244,17 +244,6 @@ proc ::SuiteNode::getStatusClockValue { suite datestamp status } {
    set dateTime "[lindex ${statusInfo} 0] [lindex ${statusInfo} 1]"
    if { [string length ${dateTime}] > 1} {
       set value [clock scan "${dateTime}"]
-   }
-   proc out {} {
-      array set infoList [$suite cget -status_info]
-      set value ""
-      if { [info exists infoList(${status})] } {
-         set statusInfo $infoList(${status})
-         set dateTime "[lindex ${statusInfo} 1] [lindex ${statusInfo} 2]"
-         if { [string length ${dateTime}] > 1} {
-            set value [clock scan "${dateTime}"]
-         }
-      }
    }
    return ${value}
 }
@@ -289,16 +278,13 @@ proc ::SuiteNode::setLastStatusInfo { suite datestamp status date time } {
          ::SuiteNode::setStatusInfo ${suite} ${datestamp} begin "${date} ${time}"
       }
       ::SuiteNode::setStatusInfo ${suite} ${datestamp} last begin
-      # ${suite} configure -last_status begin
    } else {
       ::SuiteNode::setStatusInfo ${suite} ${datestamp} ${status} "${date} ${time}"   
       ::SuiteNode::setStatusInfo ${suite} ${datestamp} last ${status}
-      # ${suite} configure -last_status ${status}
    }
 }
 
 proc ::SuiteNode::getLastStatus { suite datestamp } {
-   #set value [${suite} cget -last_status]
    set value [::SuiteNode::getStatusInfo ${suite} ${datestamp} last]
    if { ${value} == "" } {
       set value init
