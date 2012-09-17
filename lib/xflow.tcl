@@ -1300,10 +1300,6 @@ proc xflow_newWindowCallback { node canvas caller_menu } {
    xflow_expandAllCallback $displayNode $newCanvas ""
 }
 
-proc xflow_getFlowFrame {} {
-   return
-}
-
 # this function is called to show the history of a node
 # By default, the middle mouse on a node shows the history for the last 48 hours.
 # The "Node History" from the Info menu on the node shows only the current datestamp
@@ -2799,6 +2795,14 @@ proc xflow_quit { {from_overview false} } {
       # standalone mode
       exit
    }
+}
+
+proc xflow_isXflowActive {} {
+   set suiteRecord [xflow_getActiveSuite]
+   if { [record exists instance ${suiteRecord}] == 1 } {
+      return true
+   }
+   return false
 }
 
 # this function is only used in xflow standalone mode

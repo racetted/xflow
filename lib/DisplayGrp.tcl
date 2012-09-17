@@ -13,10 +13,25 @@ record define DisplayGroup {
    {maxy 0}
 }
 
+# adds the group to the DisplayGroup so it can be viewed
+# in the order added in the xflow.suites.xml
 proc DisplayGrp_insertGroup { display_group child_group } {
    set grpList [${display_group} cget -grp_list]
    lappend grpList ${child_group}
    ${display_group} configure -grp_list ${grpList}
+}
+
+# returns the group with the same level. Mainly used
+# to get the first level of groups (i.e. level 0)
+proc DisplayGrp_getGroupLevel { level } {
+   set groups [ExpXmlReader_getGroups]
+   set result {}
+   foreach displayGrp ${groups} {
+      if { [${displayGrp} cget -level] == ${level} } {
+         lappend result ${displayGrp}
+      }
+   }
+   return ${result}
 }
 
 # this function locates the y slot that based on a

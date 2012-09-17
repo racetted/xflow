@@ -3,7 +3,7 @@
 # look for new log files created under SEQ_EXP_HOME/logs
 proc LogMonitor_checkNewLogFiles {} {
    global THREAD_FULL_EVENT
-   puts "LogMonitor_checkNewLogFiles"
+   ::log::log debug "LogMonitor_checkNewLogFiles"
    if { ! [info exists THREAD_FULL_EVENT] } {
       set THREAD_FULL_EVENT false
    }
@@ -15,12 +15,13 @@ proc LogMonitor_checkNewLogFiles {} {
       foreach expPath $expList {
          set checkDir ${expPath}/logs
          if { [file readable ${checkDir}] } {
-            puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
+            # puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
             set lastCheckedTime [SharedData_getSuiteData ${expPath} LAST_CHECKED_TIME]
             set newLastChecked [clock format [clock seconds]]
             set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct ${lastCheckedTime} -exec basename \{\} \;]
             foreach modifiedFile ${modifiedFiles} {
-            puts "LogMonitor_checkNewLogFiles processing ${modifiedFile}..."
+               # puts "LogMonitor_checkNewLogFiles processing ${modifiedFile}..."
+               ::log::log debug  "LogMonitor_checkNewLogFiles processing ${modifiedFile}..."
                set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
                if { [Utils_validateRealDatestamp ${seqDatestamp}] == true } {
                   # look see if we have a thread monitoring this log file, if not create one
@@ -34,7 +35,9 @@ proc LogMonitor_checkNewLogFiles {} {
                         set newLastChecked [SharedData_getSuiteData ${expPath} LAST_CHECKED_TIME]
                         # post the event to warn user if not warned yet
                         if { ${THREAD_FULL_EVENT} != true } {
-                           puts "LogMonitor_checkNewLogFiles posting THREAD_FULL_EVENT"
+                           # puts "LogMonitor_checkNewLogFiles posting THREAD_FULL_EVENT"
+                           ::log::log notice "LogMonitor_checkNewLogFiles(): All threads busy, posting THREAD_FULL_EVENT true"
+                           ::log::log notice "LogMonitor_checkNewLogFiles(): All threads busy, waiting... ${expPath} ${seqDatestamp}"
                            set THREAD_FULL_EVENT true
                            # check in 30 seconds to leave some time for user to shutdown flows
                            set nextCheckTime 30000
@@ -43,16 +46,18 @@ proc LogMonitor_checkNewLogFiles {} {
                         set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
                         catch { SuiteInfo ${suiteRecord} -suite_path ${expPath} }
 
-                        puts "LogMonitor_checkNewLogFiles set log file offset to 0"
+                        #puts "LogMonitor_checkNewLogFiles set log file offset to 0"
                         # force reread of log file from start
                         SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
 
-                        puts "LogMonitor_checkNewLogFiles Overview_startExpLogReader..."
+                        #puts "LogMonitor_checkNewLogFiles Overview_startExpLogReader..."
+                        ::log::log notice "LogMonitor_checkNewLogFiles(): Overview_startExpLogReader ${expPath} ${seqDatestamp}"
                         thread::send ${expThreadId} "Overview_startExpLogReader ${expPath} ${suiteRecord} \"${seqDatestamp}\" true"
                      }
                   }
-               } else {::log::log notice "Found invalid log file format: ${modifiedFile}"
-                  puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
+               } else {
+                  ::log::log notice "LogMonitor_checkNewLogFiles():Found invalid log file format: ${modifiedFile}"
+                  # puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
                }
             }
             SharedData_setSuiteData ${expPath} LAST_CHECKED_TIME ${newLastChecked}
