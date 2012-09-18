@@ -3112,7 +3112,15 @@ proc xflow_createWidgets {} {
 proc xflow_setExpLabel { _displayName } {
    global SEQ_EXP_HOME
    set expLabelFrame [xflow_getWidgetName exp_label_frame]
+   set datestamp [xflow_getMonitoringDatestamp]
+   if { $datestamp == "" } {
+      set datestamp [xflow_retrieveDateStamp ${expLabelFrame} [xflow_getActiveSuite]]
+   }
    set displayValue ${_displayName}
+   if { ${datestamp} != "" } {
+      set hour [Utils_getHourFromDatestamp ${datestamp}]
+      set displayValue ${_displayName}-${hour}
+   }
    ${expLabelFrame}.exp_label configure -text ${displayValue}
 }
 

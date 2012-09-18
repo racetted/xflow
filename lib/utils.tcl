@@ -214,6 +214,10 @@ proc Utils_getRealDatestampValue { date } {
    return ${newValue}
 }
 
+proc Utils_getHourFromDatestamp { _datestamp } {
+   return [string range ${_datestamp} 8 9]
+}
+
 proc Utils_launchShell { mach exp_path init_dir title {cmd ""} } {
     global env
     if { $cmd != "" } {
