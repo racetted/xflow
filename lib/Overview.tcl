@@ -113,6 +113,10 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
          }
          Overview_updateExpBox ${canvasW} ${suiteRecord} ${lastStatus} ${lastStatusTime}
 
+	 # check if we need to resize the grid based on exp data
+         Overview_checkGridLimit
+
+
          #set afterCallback [${suiteRecord} cget -overview_after_id]
          #if { ${afterCallback} != "" } {
          #   catch {
@@ -1047,7 +1051,7 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
 
    set colors [::DrawUtils::getStatusColor $status]
    set bgColor [lindex $colors 1]
-   set canvas .overview_top.canvas
+   set canvas [Overview_getCanvas]
 
    # retrieve the date & time from the given time stamp
    set dateValue [Utils_getDateFromDatestamp ${timestamp}]
@@ -1091,6 +1095,54 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
    # unlock and destroy the lock
    thread::mutex unlock $mutex
    thread::mutex destroy $mutex
+}
+
+# checks whether the time grid is too small to hold all exp boxes,
+# increase the grid if required
+proc Overview_checkGridLimit {} {
+   global expEntryHeight graphy
+   set displayGroups [ExpXmlReader_getGroups]
+   set lastGroup [lindex ${displayGroups} end]
+   if { ${lastGroup} != "" } {
+      #puts "Overview_checkGridLimit last group y:[${lastGroup} cget -y] maxy:[${lastGroup} cget -maxy]"
+      #puts "Overview_checkGridLimit grid maxy: [[Overview_getCanvas] coords grid_max_y]"
+      set canvasW [Overview_getCanvas]
+      # get the max y from the exp boxes
+      set maxExpBoxY [${lastGroup} cget -maxy]
+      # get the max y coord of the grid
+      set maxGridCoords [${canvasW} coords grid_max_y]
+      if { ${maxGridCoords} != "" } {
+         set maxGridY [lindex ${maxGridCoords} 1]
+         if { ${maxGridY} < ${maxExpBoxY} } {
+            # grid is too small, increase it
+            #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
+            # round out the value to the next grid value
+            set graphy [expr ${maxExpBoxY} + [expr ${maxExpBoxY} % ${expEntryHeight}]]
+            # delete the grid
+            ${canvasW} delete grid_item
+            Overview_createGraph ${canvasW}
+            ${canvasW} lower grid_item
+            ${canvasW} lower canvas_bg_image
+            Overview_setCurrentTime ${canvasW}
+            Overview_setCanvasScrollArea ${canvasW}
+         }
+      }
+   }
+}
+
+# sets the scrolll area of the overview grid
+proc Overview_setCanvasScrollArea { canvasW } {
+   global graphX graphStartX
+
+   set x1 0
+   set y1 0
+   set x2 [expr ${graphStartX} + ${graphX} + 60]
+   set footerCoords [${canvasW} coords grid_footer]
+   set y2 [expr [lindex ${footerCoords} 3] + 120]
+
+   # the scroll area is determined by the grid
+   # puts "Overview_setCanvasScrollArea -scrollregion $x1 $y1 $x2 $y2"
+   ${canvasW} configure -scrollregion [list $x1 $y1 $x2 $y2] -yscrollincrement 5 -xscrollincrement 5
 }
 
 # this function is called to add a new experiment to be monitored by the overview
@@ -1519,9 +1571,12 @@ proc Overview_addGroups { canvas } {
       Overview_addGroup ${canvas} ${rootGroup}
    }
 
-   # testing
    # wait for all child to be done with their init
    vwait ALL_CHILD_INIT_DONE
+
+   # check if we need to resize the grid based on exp data
+   Overview_checkGridLimit
+
    destroy ${progressBar}
 }
 
@@ -1572,25 +1627,29 @@ proc Overview_createGraph { canvas } {
    set x2  [expr $graphStartX + $graphX]
    set y1 $graphStartY
    set fillColor grey90
-   while { $y1 < [expr $graphy + $graphStartY] } {
-      $canvas create rectangle $x1 [expr $y1 ] $x2 [expr $y1 + $expEntryHeight ] -fill $fillColor -outline $fillColor
+   set count 0
+   while { ${y1} < [expr $graphy + $graphStartY] } {
+      # use a different color for each rectangle
+      $canvas create rectangle $x1 [expr $y1 ] $x2 [expr $y1 + $expEntryHeight ] -fill $fillColor -outline $fillColor -tag "grid_item"
       set y1 [expr $y1 + $expEntryHeight]
       if { $fillColor == "grey90" } {
          set fillColor grey95
       } else {
          set fillColor grey90
       }
+      incr count
    }
 
    # creates hor lines at bottom & top
-   $canvas create line $graphStartX $graphStartY [expr $graphStartX + $graphX] $graphStartY -arrow last
+   $canvas create line $graphStartX $graphStartY [expr $graphStartX + $graphX] $graphStartY -arrow last -tag "grid_item grid_min_y"
    $canvas create line $graphStartX [expr $graphStartY + $graphy] \
-      [expr $graphStartX + $graphX] [expr $graphStartY + $graphy] -arrow last
+      [expr $graphStartX + $graphX] [expr $graphStartY + $graphy] -arrow last -tags "grid_item grid_footer grid_max_y"
+
    # x axis title
-   $canvas create text [expr ${x2}/2 ] [expr $graphStartY + $graphy + 60] -text "Time (UTC)"
+   $canvas create text [expr ${x2}/2 ] [expr $graphStartY + $graphy + 60] -text "Time (UTC)" -tag "grid_item grid_footer"
    
    # y axe origin
-   $canvas create line $graphStartX [expr $graphStartY - 20] $graphStartX [expr $graphStartY + $graphy] -arrow first
+   $canvas create line $graphStartX [expr $graphStartY - 20] $graphStartX [expr $graphStartY + $graphy] -arrow first -tag "grid_item"
    
    # the grid starts at current_hour - 12 and ends at current_hour + 12
    set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
@@ -1684,12 +1743,12 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
    set x2 $x1
    set y1 [expr ${graphStartY} - 4]
    set y2 [expr ${graphStartY} + 4]
-   $canvas create line $x1 $y1 $x2 $y2 -tag "grid_hour ${tagHour}"
-   $canvas create line $x1 [expr $y1 + $graphy] $x2 [expr $y2 + $graphy ] -tag "grid_hour ${tagHour}"
-   $canvas create line $x1 [expr $y1 + 5] $x2 [expr $y2 + $graphy - 5 ] -dash 2 -fill grey60 -tag  "grid_hour ${tagHour}"
+   $canvas create line $x1 $y1 $x2 $y2 -tag "grid_item grid_hour ${tagHour}"
+   $canvas create line $x1 [expr $y1 + $graphy] $x2 [expr $y2 + $graphy ] -tag "grid_item grid_hour ${tagHour}"
+   $canvas create line $x1 [expr $y1 + 5] $x2 [expr $y2 + $graphy - 5 ] -dash 2 -fill grey60 -tag  "grid_item grid_hour ${tagHour}"
 
-   $canvas create text $x2 [expr $y1 - 20 ] -text $xLabel -tag "grid_hour ${tagHour}"
-   $canvas create text $x2 [expr $y2 + $graphy +20 ] -text $xLabel -tag "grid_hour ${tagHour}"
+   $canvas create text $x2 [expr $y1 - 20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour}"
+   $canvas create text $x2 [expr $y2 + $graphy +20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour} grid_footer"
 
 }
 
@@ -1982,6 +2041,45 @@ proc Overview_createToolbar { toplevel_ } {
    grid ${toolbarW} -row 1 -column 0 -sticky nsew -padx 2
 }
 
+proc Overview_createCanvas { _toplevelW } {
+   set canvasFrame [frame ${_toplevelW}.canvas_frame]
+   set canvasW ${canvasFrame}.canvas
+
+   frame ${canvasFrame}.xframe
+
+   scrollbar ${canvasFrame}.yscroll -command [list ${canvasW} yview ]
+   scrollbar ${canvasFrame}.xscroll -orient horizontal -command [list ${canvasW} xview]
+   set pad 12
+   frame ${canvasFrame}.pad -width $pad -height $pad
+
+   grid ${canvasFrame}.xframe -row 2 -column 0 -columnspan 2 -sticky ewns
+   grid ${canvasFrame}.yscroll -row 0 -column 1 -sticky ns
+
+   grid ${canvasFrame}.pad -row 0 -column 1 -in ${canvasFrame}.xframe -sticky es
+   grid ${canvasFrame}.xscroll -row 0 -column 0 -sticky ew -in ${canvasFrame}.xframe
+
+   grid columnconfigure ${canvasFrame}.xframe 0 -weight 1
+   grid rowconfigure ${canvasFrame}.xframe 1 -weight 1
+
+   # only show the scrollbars if required
+   ::autoscroll::autoscroll ${canvasFrame}.yscroll
+   ::autoscroll::autoscroll ${canvasFrame}.xscroll
+
+   canvas ${canvasFrame}.canvas -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR] \
+      -yscrollcommand [list ${canvasFrame}.yscroll set] -xscrollcommand [list ${canvasFrame}.xscroll set]
+
+   Utils_bindMouseWheel ${canvasW} 5
+
+   grid ${canvasW} -row 0 -column 0 -sticky nsew
+
+   # make the canvas expandable to right & bottom
+   grid columnconfigure ${canvasFrame} 0 -weight 1
+   grid rowconfigure ${canvasFrame} 0 -weight 1
+
+   grid ${canvasFrame} -row 2 -column 0 -sticky nsew
+
+}
+
 proc Overview_addCanvasImage { canvas } {
 
    set boxCoords [${canvas} bbox all]
@@ -2030,7 +2128,7 @@ proc Overview_setTitle { top_w time_value } {
 }
 
 proc Overview_getCanvas {} {
-   return .overview_top.canvas
+   return .overview_top.canvas_frame.canvas
 }
 
 proc Overview_getToplevel {} {
@@ -2052,7 +2150,7 @@ set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
 Overview_init
 set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
 set topOverview .overview_top
-set topCanvas ${topOverview}.canvas
+set topCanvas [Overview_getCanvas]
 toplevel ${topOverview}
 # keep track of coords
 bind ${topOverview} <Configure> {
@@ -2065,18 +2163,23 @@ Overview_readExperiments
 
 Overview_createMenu ${topOverview}
 Overview_createToolbar ${topOverview}
-canvas ${topCanvas} -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR]
+Overview_createCanvas ${topOverview}
+#canvas ${topCanvas} -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR]
 
-grid ${topCanvas} -row 2 -column 0 -sticky nsew -padx 2
+#grid ${topCanvas} -row 2 -column 0 -sticky nsew -padx 2
 grid columnconfigure ${topOverview} 0 -weight 1
 grid rowconfigure ${topOverview} 1 -weight 0
 grid rowconfigure ${topOverview} 2 -weight 1
+
+set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
+grid ${sizeGripWidget} -sticky se
 
 Overview_createGraph ${topCanvas}
 
 wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
 
 Overview_addGroups ${topCanvas}
+Overview_setCanvasScrollArea ${topCanvas}
 Overview_setCurrentTime ${topCanvas}
 Overview_addCanvasImage ${topCanvas}
 Overview_GridAdvanceHour
