@@ -3109,6 +3109,13 @@ proc xflow_createWidgets {} {
    wm geometry . =1200x800
 }
 
+proc xflow_setExpLabel { _displayName } {
+   global SEQ_EXP_HOME
+   set expLabelFrame [xflow_getWidgetName exp_label_frame]
+   set displayValue ${_displayName}
+   ${expLabelFrame}.exp_label configure -text ${displayValue}
+}
+
 # this function is called to create an exp flow.
 # 1) in xflow standalone mode, this function is called at startup and when the user views the exp in
 # history mode.
@@ -3137,6 +3144,9 @@ proc xflow_displayFlow { calling_thread_id } {
       set PROGRESS_REPORT_TXT "Creating widgets..."
       xflow_createWidgets
    }
+   set displayName [ExpOptions_getDisplayName ${suitePath}]
+   xflow_setExpLabel ${displayName}
+
    ::log::log debug "xflow_displayFlow suitePath ${suitePath}"
    set activeSuiteRecord [xflow_getActiveSuite]
    set rootNode [${activeSuiteRecord} cget -root_node]

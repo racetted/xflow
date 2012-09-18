@@ -58,4 +58,20 @@ proc ExpOptions_showSupport { exp_path parent_widget } {
    pack ${tableW} -expand 1 -fill both
 }
 
+proc ExpOptions_getDisplayName { exp_path } {
+   set optionsFile ${exp_path}/ExpOptions.xml
+   set displayName [file tail ${exp_path}]
+   if { [file exists ${optionsFile}] } {
+      set domDoc [ExpXmlOptions_parse ${optionsFile}]
+
+      # get the display name
+      set displayName [ExpXmlOptions_getDisplayName ${domDoc} ${exp_path}]
+
+      # close xml doc
+      ExpXmlOptions_done ${domDoc}
+   }
+   return ${displayName}
+}
+
 # displays the list of maestroe executables with a short description
+

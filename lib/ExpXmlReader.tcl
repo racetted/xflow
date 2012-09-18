@@ -47,6 +47,8 @@ proc ExpXmlReader_readExperiments { xml_file } {
 }
 
 proc ExpXmlReader_readGroup { xml_node parent_name level} {
+   global DISPLAY_GROUPS
+
    set nodeName [$xml_node nodeName]
    if { $nodeName == "Group" } {
       set goupName [$xml_node getAttribute name]
@@ -64,7 +66,11 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
       set groupRecordName [regsub -all "/" ${goupName} _]
       set groupRecordName [regsub -all " " ${groupRecordName} _ ]
       if { ! [record exists instance $groupRecordName] } {
-         DisplayGroup $groupRecordName -name ${goupName} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0
+         set recordId [DisplayGroup $groupRecordName -name ${goupName} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0]
+	 lappend DISPLAY_GROUPS ${recordId}
+         if { ${parent_name} != "" } {
+            DisplayGrp_insertGroup ${parent_name} ${recordId}
+         }
       }
 
       set childs [$xml_node childNodes]
@@ -95,9 +101,18 @@ proc ExpXmlReader_addExp {group_name exp_path} {
    }
 }
 
+proc ExpXmlReader_getGroups {} {
+   global DISPLAY_GROUPS
+   if { [info exists DISPLAY_GROUPS] } {
+      return ${DISPLAY_GROUPS}
+   }
+   return ""
+}
+
 proc ExpXmlReader_getExpList {} {
    set expList ""
-   set displayGroups [record show instances DisplayGroup]
+   #set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
    foreach dispGroup $displayGroups {
       ::log::log debug "ExpXmlReader_getExpList $dispGroup [$dispGroup cget -exp_list]"
       append expList [$dispGroup cget -exp_list]

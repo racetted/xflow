@@ -7,9 +7,31 @@ record define DisplayGroup {
    level {0}
    parent ""
    exp_list {}
+   grp_list {}
    x {0}
    y {0}
    {maxy 0}
+}
+
+# adds the group to the DisplayGroup so it can be viewed
+# in the order added in the xflow.suites.xml
+proc DisplayGrp_insertGroup { display_group child_group } {
+   set grpList [${display_group} cget -grp_list]
+   lappend grpList ${child_group}
+   ${display_group} configure -grp_list ${grpList}
+}
+
+# returns the group with the same level. Mainly used
+# to get the first level of groups (i.e. level 0)
+proc DisplayGrp_getGroupLevel { level } {
+   set groups [ExpXmlReader_getGroups]
+   set result {}
+   foreach displayGrp ${groups} {
+      if { [${displayGrp} cget -level] == ${level} } {
+         lappend result ${displayGrp}
+      }
+   }
+   return ${result}
 }
 
 # this function locates the y slot that based on a
@@ -144,7 +166,9 @@ proc DisplayGrp_processEmptyRows { display_group } {
 proc DisplayGrp_processOverlap { display_group } {
    ::log::log debug "DisplayGrp_processOverlap display_group:$display_group"
    # set groupOwner [${suite_record} cget -overview_group_record]
-   set displayGroups [record show instances DisplayGroup]
+   #set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
+
    set canvas [Overview_getCanvas]
    set groupIndex [lsearch ${displayGroups} ${display_group}]
    if { ${groupIndex} != -1 } {

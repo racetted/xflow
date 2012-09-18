@@ -96,7 +96,8 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    Overview_GraphAddHourLine ${canvasW} 24 ${mostLeftHour}
 
    # shift all the suite boxes in the canvas
-   set displayGroups [record show instances DisplayGroup]
+   #set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
@@ -835,7 +836,7 @@ proc Overview_OptimizeExpBoxes { displayGroup } {
 # this function finds the right location for an exp box.
 proc Overview_resolveLocation { canvas suite_record x1 y1 x2 y2 } {
    global expEntryHeight
-   ::log::log debug "Overview_resolveLocation x1:$x1 y1:$y1 x2:$x2 y2:$y2"
+   ::log::log debug "Overview_resolveLocation suite_record:$suite_record x1:$x1 y1:$y1 x2:$x2 y2:$y2"
    set expPath [${suite_record} cget -suite_path]
    set currentCoords "${x1} ${y1} ${x2} ${y2}"
    set overlapCoords [Overview_resolveOverlap ${canvas} ${suite_record} ${x1} ${y1} ${x2} ${y2}]
@@ -1008,7 +1009,8 @@ proc Overview_childInitDone { suite_path thread_id } {
    ::log::log debug "Overview_childInitDone suite_path:$suite_path thread: $thread_id"
    set EXP_THREAD_STARTUP_DONE(${suite_path}) 1
 
-   set displayGroups [record show instances DisplayGroup]
+   #set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
    set childNotDone false
    incr STARTUP_PROGRESS_VALUE
    set STARTUP_PROGRESS_TXT "${suite_path} loaded."
@@ -1383,7 +1385,9 @@ proc Overview_getExpTimings { suite_record } {
 #        herefore, it assumes that the
 #        display groups are presented in the list given by the DisplayGroup records
 proc Overview_moveGroups { source_group delta_x delta_y } {
-   set displayGroups [record show instances DisplayGroup]
+   # set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
+
    set foundIndex [lsearch $displayGroups ${source_group}]
    if { ${foundIndex} != -1 } {
       # get the list of groups to move
@@ -1411,7 +1415,9 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
 # at startup when we add the display groups one by one
 proc Overview_getGroupDisplayY { group_display } {
    global entryStartY expEntryHeight
-   set displayGroups [record show instances DisplayGroup]
+   #set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
+
    set myIndex [lsearch ${displayGroups} ${group_display}]
    if { ${myIndex} == -1 || ${myIndex} == 0 } {
       # not found or first group, return the start y
@@ -1429,12 +1435,52 @@ proc Overview_getGroupDisplayY { group_display } {
    return ${thisGroupY}
 }
 
+proc Overview_addGroup { canvas displayGroup } {
+   puts "Overview_addGroup displayGroup:${displayGroup}"
+   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
+   set groupName [$displayGroup cget -name]
+   set displayName [file tail $groupName]
+   set tagName ${displayGroup}
+   set groupLevel [$displayGroup cget -level]
+   set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
+
+   set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
+
+   set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
+      -text $displayName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
+
+   # get the font for each level
+   set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
+
+   $canvas itemconfigure displayGroup_${tagName} -font $newFont
+   ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
+
+   $displayGroup configure -x [expr $graphStartX + 20]
+   DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
+
+   set xoriginDateTime [Overview_GraphGetXOriginDateTime]
+   # get the exps for each group if exists
+   set expList [$displayGroup cget -exp_list]
+   foreach exp $expList {
+      set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
+      Overview_getExpTimings ${suiteRecord}
+      set currentStatus [::SuiteNode::getLastStatus ${suiteRecord}]
+      set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord}]
+      Overview_updateExpBox ${canvas} ${suiteRecord} ${currentStatus} ${statusTime}
+   }
+
+   foreach grp [${displayGroup} cget -grp_list] {
+      Overview_addGroup $canvas ${grp}
+   }
+}
+
 # this function creates the group labels at the left of the graph
 # the values of the labels are read from a suites/exp list
 proc Overview_addGroups { canvas } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
    global ALL_CHILD_INIT_DONE STARTUP_PROGRESS_VALUE STARTUP_PROGRESS_TXT
-   set displayGroups [record show instances DisplayGroup]
+   #set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
    set groupEntryCurrentY $entryStartY
    set expEntryCurrentX $entryStartX
    ::log::log debug "Overview_addGroups groupEntryCurrentY:$groupEntryCurrentY"
@@ -1467,41 +1513,10 @@ proc Overview_addGroups { canvas } {
    }
 
    # here we will display the boxes
-   foreach displayGroup $displayGroups {
-      set groupName [$displayGroup cget -name]
-      set displayName [file tail $groupName]
-      set tagName ${displayGroup}
-      #puts "Overview_addGroups groupName:$groupName"
-      set groupLevel [$displayGroup cget -level]
-      set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
-
-      # add indentation for each different level
-      set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
-
-      ::log::log debug "Overview_addGroups displayGroup:$displayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY"
-      set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
-         -text $displayName -justify left -anchor w -fill grey20 -tag ${tagName} ]
-
-      # get the font for each level
-      set newFont [Overview_getLevelFont $canvas ${tagName} $groupLevel]
-
-      $canvas itemconfigure ${tagName} -font $newFont
-      ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
-
-      # get the exps for each group if exists
-      set expList [$displayGroup cget -exp_list]
-      $displayGroup configure -x [expr $graphStartX + 20]
-      DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
-
-      ::log::log debug "Overview_addGroups displayGroup:$displayGroup groupEntryCurrentY:$groupEntryCurrentY"
-
-      foreach exp $expList {
-         set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp}]
-         Overview_getExpTimings ${suiteRecord}
-         set currentStatus [::SuiteNode::getLastStatus ${suiteRecord}]
-         set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord}]
-         Overview_updateExpBox ${canvas} ${suiteRecord} ${currentStatus} ${statusTime}
-      }
+   # get the root groups and display from there
+   set rootGroups [DisplayGrp_getGroupLevel 0]
+   foreach rootGroup ${rootGroups} {
+      Overview_addGroup ${canvas} ${rootGroup}
    }
 
    # testing
