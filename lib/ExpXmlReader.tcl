@@ -95,7 +95,9 @@ proc ExpXmlReader_getGroups {} {
 
 proc ExpXmlReader_getExpList {} {
    set expList ""
-   set displayGroups [record show instances DisplayGroup]
+   # set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
+
    foreach dispGroup $displayGroups {
       ::log::log debug "ExpXmlReader_getExpList $dispGroup [$dispGroup cget -exp_list]"
       append expList [$dispGroup cget -exp_list]

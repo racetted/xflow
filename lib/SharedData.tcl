@@ -77,6 +77,32 @@ proc SharedData_getExpDatestampOffset { _exp_path _datestamp } {
    return ${offset}
 }
 
+proc SharedData_setExpOverviewUpdateAfterId { _exp_path _datestamp _afterid } {
+   SharedData_setSuiteData ${_exp_path} ${_datestamp}_update_afterid ${_afterid}
+}
+
+proc SharedData_getExpOverviewUpdateAfterId { _exp_path _datestamp } {
+   SharedData_getSuiteData ${_exp_path} ${_datestamp}_update_afterid
+}
+
+proc SharedData_setExpGroupDisplay { _exp_path _groupDisplay } {
+   SharedData_setSuiteData ${_exp_path} groupdisplay ${_groupDisplay}
+}
+
+proc SharedData_setExpRootNode { _exp_path _rootNode } {
+   SharedData_setSuiteData ${_exp_path} rootnode ${_rootNode}
+}
+
+proc SharedData_getExpRootNode { _exp_path } {
+   set rootNode [SharedData_getSuiteData ${_exp_path} rootnode]
+   return ${rootNode}
+}
+
+proc SharedData_getExpGroupDisplay { _exp_path } {
+   set groupDisplay [SharedData_getSuiteData ${_exp_path} groupdisplay]
+   return ${groupDisplay}
+}
+
 proc SharedData_setExpDisplayName { _exp_path _displayName } {
    SharedData_setSuiteData ${_exp_path} displayname ${_displayName}
 }

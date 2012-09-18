@@ -11,22 +11,14 @@ namespace eval ::SuiteNode {
       setDisplayRoot getDisplayRoot
 }
 
-# active_log empty means we monitor the current exp datestamp log
-# active_log not empy means the user is in view history mode
-# exp_log is used to hold the exp log last viewed by the log reader
-#              it is used to know if the exp log has switched to a new one.
 # last_status_info  { status datestamp date time } example { begin 20090726000000 20100908 08:12:43 }
 # overview_display_info { startx starty endx endy }
 # canvas_info { next_y root_node max_x max_y }
 record define SuiteInfo {
    suite_name
    suite_path
-   root_node
    {canvas_info {}}
    {node_mapping {}}
-   {exp_log ""}
-   {overview_after_id ""}
-   {overview_group_record ""}
 }
 
 proc ::SuiteNode::formatName { suite_path } {
@@ -179,15 +171,6 @@ proc ::SuiteNode::getFlowNodeMapping { suite real_node } {
    return $flowNode
 }
 
-proc ::SuiteNode::getActiveDatestamp { suite } {
-   if { [${suite} cget -exp_log] != "" } {
-      set logFileName [${suite} cget -exp_log]
-      set startIndex [expr [string last / ${logFileName}] + 1]
-      set endIndex [expr [string last _ ${logFileName}] - 1]
-      return [string range ${logFileName} ${startIndex} ${endIndex}]
-   }
-}
-
 # example ::SuiteNode::setStatusInfo $suite begin "20100707000000 20100929 19:05:13"
 proc ::SuiteNode::getDatestamps { suite } {
    global StatusInfo
@@ -317,22 +300,5 @@ proc ::SuiteNode::getStartTime { suite datestamp } {
 proc ::SuiteNode::getEndTime { suite datestamp } {
    set statusInfo [::SuiteNode::getStatusInfo ${suite} ${datestamp} end]
    set value [lindex ${statusInfo} 1]
-   return ${value}
-}
-
-# not sure what to do with this for now
-# returns true if the suite is in init state,
-# has no reference start time and end time.
-# I must put it somewhere on the canvas...
-# so for now they are parked at the start of 
-# my time grid in the overview and must not be time
-# shifted.
-proc ::SuiteNode::isHomeless {suite datestamp} {
-   set value false
-   if { [::SuiteNode::getLastStatus ${suite} ${datestamp}] == "init" &&
-        [SharedData_getExpTimings [${suite} cget -suite_path]] == "" } {
-      set value true
-   }
-
    return ${value}
 }

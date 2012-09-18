@@ -411,7 +411,8 @@ proc xflow_findCallback { _entry_w _next_or_previous } {
       # new find
       set XFLOW_FIND_TEXT ${findText}
       set XFLOW_FIND_RESULTS {}
-      set rootNode [${activeSuiteRecord} cget -root_node]
+      # set rootNode [${activeSuiteRecord} cget -root_node]
+      set rootNode [SharedData_getExpRootNode [${activeSuiteRecord} cget -suite_path]]
       ::FlowNodes::searchForNode ${rootNode} ${findText} ${FIND_MATCH_CASE} XFLOW_FIND_RESULTS
       if { [llength ${XFLOW_FIND_RESULTS}] != 0 } {
          # found something
@@ -678,7 +679,8 @@ proc xflow_setDateStampCallback { parent_w } {
    set suiteRecord [xflow_getActiveSuite]
    set expPath [$suiteRecord cget -suite_path]
 
-   ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
+   #::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
+   ::FlowNodes::resetNodeStatus [SharedData_getExpRootNode ${expPath}]
 
    ::log::log debug "xflow_setDateStamp parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
@@ -702,7 +704,6 @@ proc xflow_setDateStampCallback { parent_w } {
 
    LogMonitor_createLogFile ${expPath} ${seqDatestamp}
    SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
-   $suiteRecord configure -exp_log ${logfile}
 
    ::log::log debug "xflow_setDateStamp expPath:${expPath} seqDatestamp:${seqDatestamp}"
    set previousDatestamp [${hiddenDate} cget -text]
@@ -2373,7 +2374,8 @@ proc xflow_nodeResourceCallback { {name1 ""} {name2 ""} {op ""} } {
             # for some reason, I need to call the update for the progress dlg to appear properly
             update idletasks
             ::log::log debug "xflow_nodeResourceCallback retrieving resources for [${activeSuiteRecord} cget -suite_path]"
-            set rootNode [${activeSuiteRecord} cget -root_node]
+            # set rootNode [${activeSuiteRecord} cget -root_node]
+            set rootNode [SharedData_getExpRootNode [${activeSuiteRecord} cget -suite_path]]
             xflow_getNodeResources ${rootNode} [${activeSuiteRecord} cget -suite_path] 1
             set NODE_RESOURCE_DONE true
             # catch { destroy ${progressW} }
@@ -2925,7 +2927,7 @@ proc xflow_getExpLabelFont {} {
 
 proc xflow_setExpLabel { _displayName _datestamp } {
    global SEQ_EXP_HOME
-   puts "xflow_setExpLabel _displayName:${_displayName} ${_datestamp}"
+   # puts "xflow_setExpLabel _displayName:${_displayName} ${_datestamp}"
    set expLabelFrame [xflow_getWidgetName exp_label_frame]
    set displayValue ${_displayName}
    if { ${_datestamp} != "" } {
@@ -2967,8 +2969,8 @@ proc xflow_displayFlow { datestamp } {
    xflow_setExpLabel ${displayName} ${datestamp}
    ::log::log debug "xflow_displayFlow expPath ${expPath}"
    set activeSuiteRecord [xflow_getActiveSuite]
-   set rootNode [${activeSuiteRecord} cget -root_node]
-
+   # set rootNode [${activeSuiteRecord} cget -root_node]
+   set rootNode [SharedData_getExpRootNode ${expPath}]
    set PROGRESS_REPORT_TXT "Getting loop node resources ..."
    xflow_getAllLoopResourcesCallback ${rootNode} ${SEQ_EXP_HOME}
    # resource will only be loaded if needed

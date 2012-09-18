@@ -9,7 +9,9 @@ proc LogMonitor_checkNewLogFiles {} {
    }
    # check every 5 secs
    set nextCheckTime 5000
-   set displayGroups [record show instances DisplayGroup]
+   # set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
+
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach expPath $expList {
@@ -20,8 +22,8 @@ proc LogMonitor_checkNewLogFiles {} {
             set newLastChecked [clock format [clock seconds]]
             set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct ${lastCheckedTime} -exec basename \{\} \;]
             foreach modifiedFile ${modifiedFiles} {
-               # puts "LogMonitor_checkNewLogFiles processing ${modifiedFile}..."
-               ::log::log debug  "LogMonitor_checkNewLogFiles processing ${modifiedFile}..."
+               puts "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."
+               ::log::log debug  "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."
                set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
                if { [Utils_validateRealDatestamp ${seqDatestamp}] == true } {
                   # look see if we have a thread monitoring this log file, if not create one

@@ -140,7 +140,6 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
       }
       "MODULE" { 
-         set suiteName [$suite cget -suite_name]
 	      set nodeName [$current_xml_node getAttribute name]
          set newXmlFile [$suite cget -suite_path]/modules/$nodeName/flow.xml
          ::log::log debug "ParseXmlNode:: suite_path: [$suite cget -suite_path]"
@@ -216,8 +215,8 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
          SuiteInfo $suiteRecord
       }
       set recordName "/$suiteName"
-      $suiteRecord configure -suite_name $suiteName -suite_path $suite_path -root_node ${recordName}
-      SharedData_setSuiteData ${suite_path} ROOT_NODE ${recordName}
+      $suiteRecord configure -suite_name $suiteName -suite_path $suite_path
+      SharedData_setExpRootNode ${suite_path} ${recordName}
       # create the top node of our flow tree
       if { ! [record exists instance ${recordName}] } {
          FlowModule $recordName

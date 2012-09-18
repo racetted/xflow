@@ -167,7 +167,8 @@ proc DisplayGrp_processEmptyRows { display_group } {
 proc DisplayGrp_processOverlap { display_group } {
    ::log::log debug "DisplayGrp_processOverlap display_group:$display_group"
    # set groupOwner [${suite_record} cget -overview_group_record]
-   set displayGroups [record show instances DisplayGroup]
+   # set displayGroups [record show instances DisplayGroup]
+   set displayGroups [ExpXmlReader_getGroups]
    set canvas [Overview_getCanvas]
    set groupIndex [lsearch ${displayGroups} ${display_group}]
    if { ${groupIndex} != -1 } {

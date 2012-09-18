@@ -41,7 +41,6 @@ proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
          } else {
             ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} reset read_offset"
             set logFileOffset 0
-            ${suite_record} configure -exp_log ${logfile}
          }
 
          # position yourself in the file
@@ -147,7 +146,7 @@ proc LogReader_processLine { _suite_record _exp_path _datestamp _line _toOvervie
                catch { set type $::DrawUtils::rippleStatusMap(${type}) }
             }
             if { ${type} != "info" } {
-               if { ${node} == [${_suite_record} cget -root_node] } {
+               if { ${node} == [SharedData_getExpRootNode ${_exp_path}] } {
                   ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
                   thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
                      "Overview_updateExp [thread::id] ${_suite_record} ${_datestamp} ${type} ${timestamp}"
