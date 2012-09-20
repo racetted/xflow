@@ -75,3 +75,16 @@ proc ThreadPool_releaseThread { thread_id } {
    set PoolId($thread_id) false
    set THREAD_RELEASE_EVENT true
 }
+
+proc ThreadPool_showThreadStatus {} {
+   global PoolId
+   foreach {threadid busy} [array get PoolId] {
+      puts "ThreadPool_showThreadStatus threadid:$threadid busy:$busy"
+      if { ${busy} == true } {
+         catch {
+            set activeSuite [thread::send ${threadid} xflow_getActiveSuite]
+            puts "threadid:$threadid [${activeSuite} cget -suite_path]"
+         }
+      }
+   }
+}

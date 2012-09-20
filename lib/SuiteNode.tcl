@@ -302,3 +302,21 @@ proc ::SuiteNode::getEndTime { suite datestamp } {
    set value [lindex ${statusInfo} 1]
    return ${value}
 }
+
+proc ::SuiteNode::printAllStatusInfo {} {
+   global StatusInfo
+   set expRecords [dict keys $StatusInfo]
+   foreach expRecord ${expRecords} {
+      puts "--------------------------------------------"
+      puts "exp record: ${expRecord}"
+      puts "exp path: [${expRecord} cget -suite_path]"
+      puts "   status info:"
+      # puts "status info:\n [dict get $StatusInfo ${expRecord} statuses]"
+      set datestamps [::SuiteNode::getDatestamps ${expRecord}]
+      foreach datestamp ${datestamps} {
+         puts "       datestamp: ${datestamp}"
+         puts "          data: [dict get $StatusInfo ${expRecord} statuses ${datestamp}]"
+
+      }
+   }
+}

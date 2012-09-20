@@ -2801,10 +2801,10 @@ proc xflow_quit { {from_overview false} } {
 
 proc xflow_isXflowActive {} {
    set suiteRecord [xflow_getActiveSuite]
-   if { [record exists instance ${suiteRecord}] == 1 } {
-      return true
+   if { [wm state .] == "withdrawn" } {
+      return false
    }
-   return false
+   return true
 }
 
 # this function is only used in xflow standalone mode

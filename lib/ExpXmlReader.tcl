@@ -95,7 +95,6 @@ proc ExpXmlReader_getGroups {} {
 
 proc ExpXmlReader_getExpList {} {
    set expList ""
-   # set displayGroups [record show instances DisplayGroup]
    set displayGroups [ExpXmlReader_getGroups]
 
    foreach dispGroup $displayGroups {

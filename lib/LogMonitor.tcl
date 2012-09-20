@@ -9,7 +9,6 @@ proc LogMonitor_checkNewLogFiles {} {
    }
    # check every 5 secs
    set nextCheckTime 5000
-   # set displayGroups [record show instances DisplayGroup]
    set displayGroups [ExpXmlReader_getGroups]
 
    foreach displayGroup $displayGroups {
@@ -17,12 +16,12 @@ proc LogMonitor_checkNewLogFiles {} {
       foreach expPath $expList {
          set checkDir ${expPath}/logs
          if { [file readable ${checkDir}] } {
-            # puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
+            puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
             set lastCheckedTime [SharedData_getSuiteData ${expPath} LAST_CHECKED_TIME]
             set newLastChecked [clock format [clock seconds]]
+            catch { exec ls ${checkDir} > /dev/null }
             set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct ${lastCheckedTime} -exec basename \{\} \;]
             foreach modifiedFile ${modifiedFiles} {
-               puts "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."
                ::log::log debug  "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."
                set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
                if { [Utils_validateRealDatestamp ${seqDatestamp}] == true } {
@@ -58,7 +57,7 @@ proc LogMonitor_checkNewLogFiles {} {
                      }
                   }
                } else {
-                  ::log::log notice "LogMonitor_checkNewLogFiles():Found invalid log file format: ${modifiedFile}"
+                  ::log::log notice "LogMonitor_checkNewLogFiles():Found invalid log file format: ${expPath} ${modifiedFile}"
                   # puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
                }
             }
