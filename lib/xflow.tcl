@@ -852,6 +852,7 @@ proc xflow_getMonitoredThread {} {
          set auto_path [linsert $auto_path 0 $lib_dir ]
          package require SuiteNode
          package require Tk
+         package require log
 
          set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
 
@@ -3160,8 +3161,10 @@ proc xflow_displayFlow { calling_thread_id } {
    set rootNode [${activeSuiteRecord} cget -root_node]
 
    set PROGRESS_REPORT_TXT "Getting loop node resources ..."
+   ::log::log notice "xflow_displayFlow thread id:[thread::id] ${suitePath} getting loop resources"
    xflow_getAllLoopResourcesCallback ${rootNode} ${SEQ_EXP_HOME}
    # resource will only be loaded if needed
+   ::log::log notice "xflow_displayFlow thread id:[thread::id] ${suitePath} getting node resources"
    xflow_nodeResourceCallback
 
    # initial monitor dates
@@ -3259,6 +3262,9 @@ proc xflow_toFront { toplevel_w } {
 
 proc xflow_getMonitoringDatestamp {} {
    global MONITOR_DATESTAMP
+    if { ! [info exists MONITOR_DATESTAMP] } {
+     set MONITOR_DATESTAMP ""
+    }
    return $MONITOR_DATESTAMP
 }
 
