@@ -3262,9 +3262,9 @@ proc xflow_toFront { toplevel_w } {
 
 proc xflow_getMonitoringDatestamp {} {
    global MONITOR_DATESTAMP
-    if { ! [info exists MONITOR_DATESTAMP] } {
+   if { ! [info exists MONITOR_DATESTAMP] } {
      set MONITOR_DATESTAMP ""
-    }
+   }
    return $MONITOR_DATESTAMP
 }
 

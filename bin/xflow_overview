@@ -62,8 +62,8 @@ if [[ "${as}" != "" ]] ; then
    else
       if [[ "${USER}" != "${as}" ]] ; then
          print "\nxflow_overview switching ${USER} user to ${as} dollar_0=${0}"
-         print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
-	 echo "xflow_overview ${arguments} ${userOverviewFlag}" " | ssh ${sshX} -T ${as}@${TRUE_HOST}
+         print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag} | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
+	 echo "xflow_overview ${arguments} ${userOverviewFlag} " | ssh ${sshX} -T ${as}@${TRUE_HOST}
 	 exit 0
       fi
    fi
