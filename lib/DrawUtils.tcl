@@ -611,7 +611,11 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
    ::log::log debug "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder"
    set pad 5
    if { ${FLOW_SCALE} != "1" } {
-      set text "/   "
+      if { [::FlowNodes::isCollapsed $binder $canvas] == 1 } {
+         set text "/  +"
+      } else {
+         set text "/   "
+      }
       set maxtext ${text}
       set pad 0
    } else {
@@ -660,7 +664,11 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    variable constants
    ::log::log debug "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill binder:$binder"
    if { ${FLOW_SCALE} != "1" && [$binder cget -record_type] != "FlowNpassTask" } {
-      set text "   "
+      if { [::FlowNodes::isCollapsed $binder $canvas] == 1 } {
+         set text "  +"
+      } else {
+         set text "   "
+      }
       set maxtext ${text}
       set padx 5
       set pady 0
