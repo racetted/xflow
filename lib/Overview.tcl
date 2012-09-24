@@ -434,7 +434,7 @@ proc Overview_processBeginStatus { canvas suite_record {status begin} } {
 # this function process the exp box logic when the root experiment node
 # is in end state
 proc Overview_processEndStatus { canvas suite_record {status end} } {
-
+   global MSG_CENTER_THREAD_ID
    set startTime [::SuiteNode::getStartTime ${suite_record}]
    set endTime [::SuiteNode::getEndTime ${suite_record}]
    set startDateTime [::SuiteNode::getStatusClockValue ${suite_record} begin]
@@ -467,6 +467,10 @@ proc Overview_processEndStatus { canvas suite_record {status end} } {
             # put at x origin 
             Overview_ExpCreateStartIcon ${canvas} ${suite_record} [Overview_GraphGetXOriginTime] ${shiftDay}
          }
+	 set lastDatestamp [::SuiteNode::getLastStatusDatestamp ${suite_record}]
+	 if { ${lastDatestamp} != "" } {
+	    Overview_cleanExpDatestamp [${suite_record} cget -suite_path] ${lastDatestamp}
+	 }
       } else {
          Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${startTime} ${shiftDay}
          Overview_ExpCreateMiddleBox ${canvas} ${suite_record} ${middleBoxTime} ${shiftDay}
@@ -474,6 +478,14 @@ proc Overview_processEndStatus { canvas suite_record {status end} } {
       }
    } else {
       Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${statusTime}
+   }
+}
+
+proc Overview_cleanExpDatestamp { exp_path datestamp } {
+   global MSG_CENTER_THREAD_ID
+   if { ${MSG_CENTER_THREAD_ID} != "" } {
+      puts "Overview_cleanExpDatestamp $exp_path $datestamp"
+      catch { thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_removeDatestamp ${exp_path} ${datestamp}" }
    }
 }
 

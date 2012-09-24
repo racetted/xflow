@@ -355,6 +355,28 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
    }
 }
 
+# removes msg from the MSG_TABLE when not used anymore...
+# datestamp is obsolete from xflow_overview
+proc MsgCenter_removeMessages { table_w_ exp datestamp } {
+   global MSG_TABLE MsgTableColMap
+   puts "MsgCenter_removeMessages for exp:${exp} datestamp:${datestamp}"
+   ::log::log notice "MsgCenter_removeMessages for exp:${exp} datestamp:${datestamp}"
+   # get exp messages
+   set foundIndexes [lsearch -exact -all -index $MsgTableColMap(SuiteColNumber) $MSG_TABLE ${exp}]
+   set deleteIndexes {}
+   foreach foundIndex ${foundIndexes} {
+      set msg [lindex ${MSG_TABLE} ${foundIndex}]
+      if { [lindex ${msg} $MsgTableColMap(DatestampColNumber)] == ${datestamp} } { 
+         lappend deleteIndexes ${foundIndex}
+      }
+   }
+   # delete the indexes in reverse order, else it complains about indexes missing
+   set deleteIndexes [lreverse ${deleteIndexes}]
+   foreach deleteIndex ${deleteIndexes} {
+      set MSG_TABLE [lreplace ${MSG_TABLE} ${deleteIndex} ${deleteIndex}]
+   }
+}
+
 proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    global MSG_ALARM_ON MSG_ALARM_ID MSG_BELL_TRIGGER
    global MSG_ALARM_COUNTER MSG_CENTER_USE_BELL
@@ -452,6 +474,7 @@ proc MsgCenter_getThread {} {
          set this_id [thread::id]
          SharedData_setMsgCenterThreadId ${this_id}
          MsgCenter_init
+	 tk appname "MsgCenter"
          #
          # From here to the 'thread::wait' statement, define the procedure(s)
          # that will be called from your main program
@@ -469,6 +492,11 @@ proc MsgCenter_getThread {} {
                MsgCenter_sendNotification
             }
          }
+
+         # called by xflow_overview to cleanup datestamp when not visible anymore
+         proc MsgCenterThread_removeDatestamp { exp_ datestamp_ } {
+	    MsgCenter_removeMessages [MsgCenter_getTableWidget] ${exp_} ${datestamp_}
+	 }
 
          # called by xflow or xflow_overview to show msg center on demand
          proc MsgCenterThread_showWindow {} {
