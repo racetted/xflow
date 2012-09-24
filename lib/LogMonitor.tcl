@@ -18,9 +18,10 @@ proc LogMonitor_checkNewLogFiles {} {
          if { [file readable ${checkDir}] } {
             puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
             set lastCheckedTime [SharedData_getSuiteData ${expPath} LAST_CHECKED_TIME]
-            set newLastChecked [clock format [clock seconds]]
+            #set newLastChecked [clock format [clock seconds]]
+            set newLastChecked [clock seconds]
             catch { exec ls ${checkDir} > /dev/null }
-            set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct ${lastCheckedTime} -exec basename \{\} \;]
+            set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
             foreach modifiedFile ${modifiedFiles} {
                ::log::log debug  "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."
                set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
@@ -50,10 +51,12 @@ proc LogMonitor_checkNewLogFiles {} {
                         #puts "LogMonitor_checkNewLogFiles set log file offset to 0"
                         # force reread of log file from start
                         SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
+                        SharedData_setExpStartupDone ${expPath} ${seqDatestamp} false
 
                         #puts "LogMonitor_checkNewLogFiles Overview_startExpLogReader..."
                         ::log::log notice "LogMonitor_checkNewLogFiles(): Overview_startExpLogReader ${expPath} ${seqDatestamp}"
                         thread::send ${expThreadId} "Overview_startExpLogReader ${expPath} ${suiteRecord} \"${seqDatestamp}\" true"
+                        Overview_refreshExpLastStatus ${expPath} ${seqDatestamp}
                      }
                   }
                } else {
@@ -61,12 +64,14 @@ proc LogMonitor_checkNewLogFiles {} {
                   # puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
                }
             }
-            SharedData_setSuiteData ${expPath} LAST_CHECKED_TIME ${newLastChecked}
+            if { [expr ${newLastChecked} - ${lastCheckedTime}] > 300 } {
+               # to go around nfs latency, I only change the checked time every 5 minutes
+               SharedData_setSuiteData ${expPath} LAST_CHECKED_TIME ${newLastChecked}
+            }
          }
       }
    }
 
-   set LastChecked [clock format [clock seconds]]
    after ${nextCheckTime} [list LogMonitor_checkNewLogFiles]
 }
 

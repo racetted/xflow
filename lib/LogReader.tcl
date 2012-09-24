@@ -50,6 +50,7 @@ proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
             LogReader_processLine ${suite_record} ${expPath} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
          }
          SharedData_setExpDatestampOffset ${expPath} ${datestamp} [tell $f_logfile]
+         SharedData_setExpStartupDone ${expPath} ${datestamp} true
          close $f_logfile
 
       } else {

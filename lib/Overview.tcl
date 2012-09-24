@@ -1348,9 +1348,9 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 
       ::log::log notice "Overview_ThreadLaunchFLow launching progess bar..."
       set progressW .pd
-      if { ! [winfo exists ${progressW}] } {
-         ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT -width ${progressWidth} -stop stop
-      }
+      # if { ! [winfo exists ${progressW}] } {
+      #   ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT -width ${progressWidth} -stop stop
+      # }
       # set a timeout to destroy progress bar
       # give it 2 minutes to launch the flow
       set PROGRESS_REPORT_TXT "Launching [file tail ${exp_path}] ${extraMsg}"
@@ -1436,6 +1436,10 @@ proc Overview_waitChildInitDone {} {
    }
 }
 
+proc Overview_isExpStartupDone { exp_thread_id exp_path datestamp } {
+   set isStartupDone [SharedData_getMiscData STARTUP_DONE]
+}
+
 # this function is called asynchronously by experiment child threads to
 # update the status of an experiment node in the overview panel.
 # See LogReader.tcl
@@ -1446,7 +1450,7 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
    set colors [::DrawUtils::getStatusColor $status]
    set bgColor [lindex $colors 1]
    set canvas [Overview_getCanvas]
-
+   set expPath [${suite_record} cget -suite_path]
    # retrieve the date & time from the given time stamp
    set dateValue [Utils_getDateFromDatestamp ${timestamp}]
    set timeValue [Utils_getTimeFromDatestamp ${timestamp}]
@@ -1472,7 +1476,7 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
       set isStartupDone [SharedData_getMiscData STARTUP_DONE]
       if { $status == "begin" } {
          # launch the flow if needed... but not when the app is startup up
-         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  } {
+         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${expPath} ${datestamp}] == true } {
             ::log::log notice "exp begin detected for [${suite_record} cget -suite_path] datestamp:${datestamp} timestamp:${timestamp}"
             ::log::log notice "exp launching xflow window [${suite_record} cget -suite_path] datestamp:${datestamp}"
             Overview_launchExpFlow [$suite_record cget -suite_path] ${datestamp}
@@ -1481,17 +1485,27 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
          # change the exp colors
          Overview_refreshBoxStatus ${suite_record} ${datestamp}
       }
-
-      if { ${isStartupDone} == "true"  } {
+      if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${expPath} ${datestamp}] == true } {
          # check for box overlapping, auto-refresh, etc
          Overview_updateExpBox ${canvas} ${suite_record} ${datestamp} ${status} ${timeValue}
+      ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
          Overview_checkGridLimit
+      ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
       }
 
    } else {
       ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
    }
 
+}
+
+proc Overview_refreshExpLastStatus { exp_path datestamp } {
+   set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
+   set currentStatus [::SuiteNode::getLastStatus ${suiteRecord} ${datestamp}]
+   set statusTime [::SuiteNode::getLastStatusTime ${suiteRecord} ${datestamp}]
+   if { ${statusTime} != "" } {
+      Overview_updateExpBox [Overview_getCanvas] ${suiteRecord} ${datestamp} ${currentStatus} ${statusTime}
+   }
 }
 
 # checks whether the time grid is too small to hold all exp boxes,
@@ -1564,9 +1578,9 @@ proc Overview_addExp { display_group canvas exp_path } {
 
    if [ catch { ExpOptions_read ${exp_path} } message ] {
       set errMsg "Error Parsing ExpOptions.xml file ${exp_path}:\n$message"
+      puts "${errMsg}"
       tk_messageBox -title "Application Error!" -type ok -icon error \
          -message ${errMsg}
-      puts "${errMsg}"
    }
    
 
@@ -1618,9 +1632,9 @@ proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup fa
 
    if [ catch { xflow_readFlowXml } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
+      puts "${errMsg}"
       tk_messageBox -title "Application Error!" -type ok -icon error \
          -message ${errMsg}
-      puts "${errMsg}"
       exit 1
    }
 
@@ -2052,7 +2066,8 @@ proc Overview_addGroups { canvas } {
 
    ${progressBar} configure -foreground blue
 
-   set currentTime [clock format [clock seconds]]
+   #set currentTime [clock format [clock seconds]]
+   set currentTime [clock seconds]
 
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
@@ -2639,6 +2654,8 @@ proc Overview_setMainCoords { _topOverview } {
 proc Overview_main {} {
    global MSG_CENTER_THREAD_ID
    global DEBUG_TRACE THREAD_FULL_EVENT
+   global TEST_VAR
+   set TEST_VAR true
    Overview_setTkOptions
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
