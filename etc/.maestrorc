@@ -82,3 +82,9 @@ browser = mozilla
 
 # used by xflow_overview to know list of suites/experiments to monitor
 suites_file = /home/binops/afsi/ops/xflow.suites.xml
+
+# display icon on overview toolbar that displays
+# the active aix-backend cluster based on the BACKEND var of $HOME/.suites/overrides.def file
+# true: show icon
+# false: don't show icon
+overview_show_aix_icon = true

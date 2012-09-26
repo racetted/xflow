@@ -2049,7 +2049,16 @@ proc Overview_createToolbar { toplevel_ } {
    button ${colorLegendW} -image ${toolbarW}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}] -relief flat
    tooltip::tooltip ${colorLegendW} "Show color legend."
 
-   grid ${mesgCenterW} ${colorLegendW} ${closeW} -sticky w -padx 2 
+   if { [SharedData_getMiscData OVERVIEW_SHOW_AIX_ICON] == true } { 
+      # show aix icon
+      image create photo ${toolbarW}.back_end_img -file ${imageDir}/backend.png
+      set backEndW [button ${toolbarW}.button_be -image ${toolbarW}.back_end_img -relief flat \
+                     -command [list Utils_getBackEndHost [Overview_getToplevel] ] ]
+      grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${closeW} -sticky w -padx 2 
+   } else {
+      grid ${mesgCenterW} ${colorLegendW} ${closeW} -sticky w -padx 2 
+   }
+
    grid ${toolbarW} -row 1 -column 0 -sticky nsew -padx 2
 }
 
