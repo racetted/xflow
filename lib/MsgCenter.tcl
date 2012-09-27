@@ -136,9 +136,9 @@ proc MsgCenter_createWidgets {} {
 
       set yscrollW .sy
       set xscrollW .sx
-      set rowFgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+      set rowFgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
       set tableBgColor [SharedData_getColor DEFAULT_BG]
-      set headerBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+      set headerBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
       set headerFgColor [SharedData_getColor DEFAULT_HEADER_FG]
       set stripeBgColor [SharedData_getColor MSG_CENTER_STRIPE_BG]
       set normalBgColor [SharedData_getColor MSG_CENTER_NORMAL_BG]
@@ -203,10 +203,10 @@ proc MsgCenter_getToplevel {} {
 # we flash the table headers so this function is called
 # might be called multiple times
 proc MsgCenter_setHeaderStatus { table_w_ status_ } {
-   set alarmBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+   set alarmBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
-   set normalBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
-   set alarmAltBgColor [SharedData_getColor MSG_CENTER_ALT_BG]
+   set normalBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+   set alarmAltBgColor [SharedData_getColor COLOR_MSG_CENTER_ALT]
 
    set currentBgColor [${table_w_} cget -labelbg]
    if { ${status_} == "normal" } {
@@ -384,7 +384,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    set autoMsgDisplay [SharedData_getMiscData AUTO_MSG_DISPLAY]
 
    # flash
-   set alarmBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+   set alarmBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
    set raiseAlarm false
 

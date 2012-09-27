@@ -38,7 +38,7 @@ proc ExpOptions_showSupport { exp_path parent_widget } {
 
    set topW .support_top
    set tableBgColor [SharedData_getColor DEFAULT_BG]
-   set headerBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+   set headerBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set headerFgColor [SharedData_getColor DEFAULT_HEADER_FG]
 
    destroy ${topW}

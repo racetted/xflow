@@ -3000,7 +3000,7 @@ proc xflow_newMessageCallback { has_new_msg } {
    set noNewMsgImage [xflow_getWidgetName msg_center_img]
    set hasNewMsgImage [xflow_getWidgetName msg_center_new_img]
    set normalBgColor [option get ${msgCenterWidget} background Button]
-   set newMsgBgColor  [SharedData_getColor MSG_CENTER_ABORT_BG]
+   set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    if { [winfo exists ${msgCenterWidget}] } {
       set currentImage [${msgCenterWidget} cget -image]
       if { ${has_new_msg} == "true" && ${currentImage} != ${hasNewMsgImage} } {

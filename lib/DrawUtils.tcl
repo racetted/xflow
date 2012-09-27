@@ -75,11 +75,11 @@ proc ::DrawUtils::getStatusColor { node_status } {
       discret -
       wait -
       submit {
-         set key STATUS_${node_status}
+         set key [string toupper COLOR_STATUS_${node_status}]
          set colors [SharedData_getColor ${key}]
       }
       default {
-         set colors [SharedData_getColor STATUS_unknown]
+         set colors [SharedData_getColor COLOR_STATUS_UNKNOWN]
       }
    }
 
