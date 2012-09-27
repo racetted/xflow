@@ -301,9 +301,9 @@ proc MsgCenter_refreshActiveMessages { table_w_ } {
    global MSG_TABLE MSG_COUNTER
    # reset active messages
    MsgCenter_initActiveMessages
-   set counter 1
+   set counter 0
    # reprocess all received messages
-   while { ${counter} <= ${MSG_COUNTER} } {
+   while { ${counter} < ${MSG_COUNTER} } {
       foreach {timestamp datestamp type node msg exp} [lindex ${MSG_TABLE} ${counter}] {break}
       ::log::log debug "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp"
       MsgCenter_addActiveMessage ${datestamp} ${timestamp} ${type} ${node} ${msg} ${exp}
