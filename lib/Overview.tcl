@@ -983,8 +983,12 @@ proc Overview_launchExpFlow { calling_w exp_path } {
    global env ExpThreadList PROGRESS_REPORT_TXT
    set xflowCmd $env(SEQ_XFLOW_BIN)/xflow
 
+   set progressW .pd
    set result [ catch {
-      set progressW [ProgressDlg .pd -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT]
+      if { ! [winfo exists ${progressW}] } {
+         ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT
+      }
+
       set PROGRESS_REPORT_TXT "Lauching [file tail ${exp_path}] ..."
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
@@ -1003,6 +1007,7 @@ proc Overview_launchExpFlow { calling_w exp_path } {
    # any errors, put the cursor back to normal state
    if { ${result} != 0  } {
 
+      ::log::log notice "Overview_launchExpFlow ERROR: ${message}"
       set einfo $::errorInfo
       set ecode $::errorCode
       catch { destroy ${progressW} }
