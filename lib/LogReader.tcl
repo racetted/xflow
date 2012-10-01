@@ -37,6 +37,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
          ${suite_record} configure -exp_log ${logfile}
       }
       if { ${expLog} != ${logfile} } {
+         set isXflowActive true
          # new log detected, advise main thread of this event
          if { "${isOverviewMode}" == "false" } {
             # we are in standalone xflow mode
@@ -51,9 +52,15 @@ proc LogReader_readFile { suite_record calling_thread_id } {
             ::log::log notice "Monitoring new log file=${logfile} for exp=${suitePath}" 
             # send event to own xflow
             thread::send ${thisThreadId} "xflow_datestampChanged ${suite_record}"
+
+            set isXflowActive [ thread::send ${thisThreadId} "xflow_isXflowActive" ]
          }
          ${suite_record} configure -read_offset 0 -exp_log ${logfile}
-         if { ${expLog} != "" } {
+
+         
+         if { ${expLog} != "" && ${isXflowActive} == true } {
+            ::log::log notice "LogReader() ExpDate changed while monitoring exp=${suitePath}"
+            
             # means that the datestamp changed while we are monitoring a existing one
             # set the exp in startup mode
             SharedData_setMiscData ${thisThreadId}_STARTUP_DONE false
@@ -64,6 +71,7 @@ proc LogReader_readFile { suite_record calling_thread_id } {
             set rootNode [${suite_record} cget -root_node]
             ::FlowNodes::resetAllStatus ${rootNode} init 1
          }
+
          puts "LogReader_readFile reading new log file previous:${expLog} new:$logfile"
       }
    } else {

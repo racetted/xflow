@@ -544,11 +544,13 @@ proc xflow_logsMonitorChanged { parent_w } {
          set suiteRecord [xflow_getActiveSuite]
 
          $suiteRecord configure -read_offset 0 -active_log ""
+         puts "::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]"
+
          ::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
          set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
          # startup mode puts the log reader in update data records only
          # and does not update the flow on each log entry
-         xflow_initStartupMode
+          xflow_initStartupMode
          if { ${isOverviewMode} == "true" } {
             set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
             # we need to read the log files using the overview thread so that updates
@@ -2988,6 +2990,15 @@ proc xflow_quit {} {
       LogReader_cancelAfter $suiteRecord
       exit
    }
+}
+
+# returns true if the xflow window is not in withdrawn state
+proc xflow_isXflowActive {} {
+   set suiteRecord [xflow_getActiveSuite]
+   if { [wm state .] == "withdrawn" } {
+      return false
+   }
+   return true
 }
 
 # this function is only used in xflow standalone mode
