@@ -1104,7 +1104,9 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
          # check for box overlapping, auto-refresh, etc
          Overview_updateExpBox ${canvas} ${suite_record} ${status} ${timeValue}
       #}
-
+      if { ${isStartupDone} == "true"  } {
+         Overview_checkGridLimit
+      }
    } else {
       ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
    }
@@ -1130,13 +1132,14 @@ proc Overview_checkGridLimit {} {
       set maxGridCoords [${canvasW} coords grid_max_y]
       if { ${maxGridCoords} != "" } {
          set maxGridY [lindex ${maxGridCoords} 1]
-         if { ${maxGridY} < ${maxExpBoxY} } {
+         if { ${maxGridY} <= ${maxExpBoxY} } {
             # grid is too small, increase it
             #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
             # round out the value to the next grid value
             set graphy [expr ${maxExpBoxY} + [expr ${maxExpBoxY} % ${expEntryHeight}]]
             # delete the grid
             ${canvasW} delete grid_item
+            ${canvasW} delete current_timetext
             Overview_createGraph ${canvasW}
             ${canvasW} lower grid_item
             ${canvasW} lower canvas_bg_image
