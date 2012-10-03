@@ -138,6 +138,23 @@ proc SharedData_getExpSupportInfo { _exp_path } {
    return ${info}
 }
 
+proc SharedData_setExpModules { _exp_path _modules } {
+   SharedData_setSuiteData ${_exp_path} modules ${_modules}
+}
+
+proc SharedData_addExpModule { _exp_path _module } {
+   set modules [SharedData_getSuiteData ${_exp_path} modules]
+   if { [lsearch ${modules} ${_module}] == -1 } {
+      lappend modules ${_module}
+      SharedData_setExpModules ${_exp_path} ${modules}
+   }
+}
+
+proc SharedData_getExpModules { _exp_path } {
+   set modules [SharedData_getSuiteData ${_exp_path} modules]
+   return ${modules}
+}
+
 proc out {} {
 proc SharedData_setExpDatestampOffset { exp_path datestamp {offset 0} } {
    set varname logfiles_${exp_path}
@@ -182,18 +199,18 @@ proc SharedData_getMiscData { key_ } {
 
 proc SharedData_getColor { key_ } {
    set value ""
-   if { [tsv::exists colors ${key_}] } {
-     set value [tsv::set colors ${key_}]
+   if { [tsv::exists misc ${key_}] } {
+     set value [tsv::set misc ${key_}]
    }
    return ${value}
 }
 
 proc SharedData_setColor { key_ color_ } {
-   tsv::set colors ${key_} ${color_}
+   tsv::set misc ${key_} ${color_}
 }
 
 proc SharedData_initColors {} {
-   if { ! [tsv::exists colors CANVAS_COLOR] } {
+   if { ! [tsv::exists misc CANVAS_COLOR] } {
 
       SharedData_setColor FLOW_SUBMIT_ARROW "#787878"
       SharedData_setColor FLOW_SUBMIT_ARROW "#787878"
@@ -213,24 +230,24 @@ proc SharedData_initColors {} {
       SharedData_setColor DEFAULT_ROW_FG "#FFF8DC"
       SharedData_setColor DEFAULT_ROW_BG "#ececec"
 
-      SharedData_setColor MSG_CENTER_ABORT_BG "#8B1012"
+      SharedData_setColor COLOR_MSG_CENTER_MAIN "#8B1012"
       SharedData_setColor MSG_CENTER_NORMAL_FG "black"
-      SharedData_setColor MSG_CENTER_ALT_BG "black"
+      SharedData_setColor COLOR_MSG_CENTER_ALT "black"
       SharedData_setColor MSG_CENTER_ABORT_FG "white"
       SharedData_setColor MSG_CENTER_STRIPE_BG "grey95"
       SharedData_setColor MSG_CENTER_NORMAL_BG "grey90"
 
       # the key is the status
       # first color is fg, second color is bg, 3rd is overview box outline
-      SharedData_setColor STATUS_begin "white #016e11 #016e11"
-      SharedData_setColor STATUS_init "black #ececec black"
-      SharedData_setColor STATUS_submit "white #b8bdc3 #b8bdc3"
-      SharedData_setColor STATUS_abort "white #8B1012 #8B1012"
-      SharedData_setColor STATUS_end "white DodgerBlue3 DodgerBlue3"
-      SharedData_setColor STATUS_catchup "white #913b9c #913b9c"
-      SharedData_setColor STATUS_wait "black #e7ce69 #e7ce69"
-      SharedData_setColor STATUS_discret "white #913b9c #913b9c"
-      SharedData_setColor STATUS_unknown "white black black"
+      SharedData_setColor COLOR_STATUS_BEGIN "white #016e11 #016e11"
+      SharedData_setColor COLOR_STATUS_INIT "black #ececec black"
+      SharedData_setColor COLOR_STATUS_SUBMIT "white #b8bdc3 #b8bdc3"
+      SharedData_setColor COLOR_STATUS_ABORT "white #8B1012 #8B1012"
+      SharedData_setColor COLOR_STATUS_END "white DodgerBlue3 DodgerBlue3"
+      SharedData_setColor COLOR_STATUS_CATCHUP "white #913b9c #913b9c"
+      SharedData_setColor COLOR_STATUS_WAIT "black #e7ce69 #e7ce69"
+      SharedData_setColor COLOR_STATUS_DISCRET "white #913b9c #913b9c"
+      SharedData_setColor COLOR_STATUS_UNKNOWN "white black black"
 
       SharedData_setColor STATUS_SHADOW "white black black"
    }
@@ -270,7 +287,8 @@ proc SharedData_init {} {
    SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
    SharedData_setMiscData MSG_CENTER_USE_BELL true
 
-   SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
+   #SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
+   SharedData_setMiscData FONT_BOLD "-*-*-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData DEBUG_TRACE 0
    SharedData_setMiscData FLOW_SCALE 1
    SharedData_setMiscData AUTO_LAUNCH true

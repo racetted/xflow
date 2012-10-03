@@ -136,9 +136,9 @@ proc MsgCenter_createWidgets {} {
 
       set yscrollW .sy
       set xscrollW .sx
-      set rowFgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+      set rowFgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
       set tableBgColor [SharedData_getColor DEFAULT_BG]
-      set headerBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+      set headerBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
       set headerFgColor [SharedData_getColor DEFAULT_HEADER_FG]
       set stripeBgColor [SharedData_getColor MSG_CENTER_STRIPE_BG]
       set normalBgColor [SharedData_getColor MSG_CENTER_NORMAL_BG]
@@ -203,10 +203,10 @@ proc MsgCenter_getToplevel {} {
 # we flash the table headers so this function is called
 # might be called multiple times
 proc MsgCenter_setHeaderStatus { table_w_ status_ } {
-   set alarmBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+   set alarmBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
-   set normalBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
-   set alarmAltBgColor [SharedData_getColor MSG_CENTER_ALT_BG]
+   set normalBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+   set alarmAltBgColor [SharedData_getColor COLOR_MSG_CENTER_ALT]
 
    set currentBgColor [${table_w_} cget -labelbg]
    if { ${status_} == "normal" } {
@@ -301,9 +301,9 @@ proc MsgCenter_refreshActiveMessages { table_w_ } {
    global MSG_TABLE MSG_COUNTER
    # reset active messages
    MsgCenter_initActiveMessages
-   set counter 1
+   set counter 0
    # reprocess all received messages
-   while { ${counter} <= ${MSG_COUNTER} } {
+   while { ${counter} < ${MSG_COUNTER} } {
       foreach {timestamp datestamp type node msg exp} [lindex ${MSG_TABLE} ${counter}] {break}
       ::log::log debug "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp"
       MsgCenter_addActiveMessage ${datestamp} ${timestamp} ${type} ${node} ${msg} ${exp}
@@ -355,6 +355,27 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
    }
 }
 
+# removes msg from the MSG_TABLE when not used anymore...
+# datestamp is obsolete from xflow_overview
+proc MsgCenter_removeMessages { table_w_ exp datestamp } {
+   global MSG_TABLE MsgTableColMap
+   ::log::log notice "MsgCenter_removeMessages for exp:${exp} datestamp:${datestamp}"
+   # get exp messages
+   set foundIndexes [lsearch -exact -all -index $MsgTableColMap(SuiteColNumber) $MSG_TABLE ${exp}]
+   set deleteIndexes {}
+   foreach foundIndex ${foundIndexes} {
+      set msg [lindex ${MSG_TABLE} ${foundIndex}]
+      if { [lindex ${msg} $MsgTableColMap(DatestampColNumber)] == ${datestamp} } { 
+         lappend deleteIndexes ${foundIndex}
+      }
+   }
+   # delete the indexes in reverse order, else it complains about indexes missing
+   set deleteIndexes [lreverse ${deleteIndexes}]
+   foreach deleteIndex ${deleteIndexes} {
+      set MSG_TABLE [lreplace ${MSG_TABLE} ${deleteIndex} ${deleteIndex}]
+   }
+}
+
 proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    global MSG_ALARM_ON MSG_ALARM_ID MSG_BELL_TRIGGER
    global MSG_ALARM_COUNTER MSG_CENTER_USE_BELL
@@ -362,7 +383,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    set autoMsgDisplay [SharedData_getMiscData AUTO_MSG_DISPLAY]
 
    # flash
-   set alarmBgColor [SharedData_getColor MSG_CENTER_ABORT_BG]
+   set alarmBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
    set raiseAlarm false
 
@@ -472,6 +493,11 @@ proc MsgCenter_getThread {} {
                MsgCenter_sendNotification
             }
          }
+
+         # called by xflow_overview to cleanup datestamp when not visible anymore
+        proc MsgCenterThread_removeDatestamp { exp_ datestamp_ } {
+           MsgCenter_removeMessages [MsgCenter_getTableWidget] ${exp_} ${datestamp_}
+        }
 
          # called by xflow or xflow_overview to show msg center on demand
          proc MsgCenterThread_showWindow {} {

@@ -388,7 +388,9 @@ proc xflow_findCallback { _entry_w _next_or_previous } {
    global XFLOW_FIND_TEXT XFLOW_FIND_RESULTS XFLOW_FIND_INDEX XFLOW_FIND_AFTER_ID
    global FIND_MATCH_CASE NodeHighLightRestoreCmd
    ::log::log debug "xflow_findCallback _entry_w:${_entry_w} _next_or_previous:${_next_or_previous}"
+   set expPath [xflow_getExpHome]
    set findFrame [xflow_getWidgetName find_frame]
+   set datestamp [xflow_getSequencerDatestamp]
    if { [grid info ${findFrame}] == "" } {
       # the find window is close, do nothing
       return
@@ -411,9 +413,8 @@ proc xflow_findCallback { _entry_w _next_or_previous } {
       # new find
       set XFLOW_FIND_TEXT ${findText}
       set XFLOW_FIND_RESULTS {}
-      # set rootNode [${activeSuiteRecord} cget -root_node]
       set rootNode [SharedData_getExpRootNode [${activeSuiteRecord} cget -suite_path]]
-      ::FlowNodes::searchForNode ${rootNode} ${findText} ${FIND_MATCH_CASE} XFLOW_FIND_RESULTS
+      SharedFlowNode_findNodes ${expPath} ${rootNode} ${findText} ${FIND_MATCH_CASE} XFLOW_FIND_RESULTS
       if { [llength ${XFLOW_FIND_RESULTS}] != 0 } {
          # found something
          set XFLOW_FIND_INDEX 0
@@ -439,7 +440,7 @@ proc xflow_findCallback { _entry_w _next_or_previous } {
       set foundNode [lindex ${XFLOW_FIND_RESULTS} ${XFLOW_FIND_INDEX}]
       set mainFlowCanvas [xflow_getMainFlowCanvas]
       # if the node is collapsed, uncollapse it
-      if { [::FlowNodes::uncollapseBranch ${foundNode} ${mainFlowCanvas}] != "" } {
+      if { [SharedFlowNode_uncollapseBranch ${expPath} ${foundNode} ${datestamp} ${mainFlowCanvas}] != "" } {
          xflow_drawflow ${mainFlowCanvas} 0
       }
 
@@ -679,15 +680,13 @@ proc xflow_setDateStampCallback { parent_w } {
    set suiteRecord [xflow_getActiveSuite]
    set expPath [$suiteRecord cget -suite_path]
 
-   #::FlowNodes::resetNodeStatus [$suiteRecord cget -root_node]
-   ::FlowNodes::resetNodeStatus [SharedData_getExpRootNode ${expPath}]
-
    ::log::log debug "xflow_setDateStamp parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
    set dateEntry [xflow_getWidgetName exp_date_entry]
 
    # Utils_busyCursor $top
    set datestamp [$dateEntry get]
+
    ::log::log debug "xflow_setDateStamp datestamp from date entry: $datestamp"
    if { [Utils_validateVisibleDatestamp ${datestamp}] == false } {
       tk_messageBox -title "Datestamp Error" -parent ${parent_w} -type ok -icon error \
@@ -702,6 +701,8 @@ proc xflow_setDateStampCallback { parent_w } {
    set logfile ${expPath}/logs/${seqDatestamp}_nodelog
    set suiteRecord [xflow_getActiveSuite]
 
+   SharedFlowNode_resetNodeStatus ${expPath} [SharedData_getExpRootNode ${expPath}] ${seqDatestamp}
+
    LogMonitor_createLogFile ${expPath} ${seqDatestamp}
    SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
 
@@ -709,6 +710,7 @@ proc xflow_setDateStampCallback { parent_w } {
    set previousDatestamp [${hiddenDate} cget -text]
    ${hiddenDate} configure -text ${datestamp}
 
+   SharedData_setExpThreadId ${expPath} ${seqDatestamp} [thread::id]
    if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
       if { ${previousDatestamp} != "" } {
          set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
@@ -717,7 +719,6 @@ proc xflow_setDateStampCallback { parent_w } {
          SharedData_removeExpThreadId ${expPath} ""
       }
       set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      SharedData_setExpThreadId ${expPath} ${seqDatestamp} [thread::id]
       if { [LogMonitor_isDatestampVisible ${expPath} ${seqDatestamp}] } {
          LogReader_readFile ${suiteRecord} ${seqDatestamp} all
       } else {
@@ -733,7 +734,7 @@ proc xflow_setDateStampCallback { parent_w } {
 
 # this function returns the resource information that needs to be displayed
 # besides the node name. Based on the user preferences View->"Node Display"
-proc xflow_getNodeDisplayPrefText { node } {
+proc xflow_getNodeDisplayPrefText { exp_path node } {
    set text ""
    set displayPref [xflow_getNodeDisplayPref]
    set attrName ${displayPref}
@@ -743,10 +744,10 @@ proc xflow_getNodeDisplayPrefText { node } {
       set attrName "machine"
    }
    if { ${displayPref} != "normal" } {
-      if { [string match "*task" [$node cget -flow.type]] } {
-            set attrValue "[$node cget -${attrName}]"
+      if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node}]] } {
+            set attrValue "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${attrName}]"
             if { ${displayPref} == "machine_queue" } {
-               set queue [$node cget -queue]
+               set queue [SharedFlowNode_getQueue ${exp_path} ${node}]
                if { ${queue} != "null" } {
                   set attrValue "${attrValue}:${queue}"
                }
@@ -773,8 +774,10 @@ proc xflow_getNodeDisplayPrefText { node } {
 # the others can only be loop indexes
 proc xflow_findNode { suite_record real_node } {
    ::log::log debug "xflow_findNode ${suite_record} ${real_node}"
-   set nodeWithouExt [::FlowNodes::getNodeFromDisplayFormat ${real_node}]
-   set extensionPart [::FlowNodes::getExtFromDisplayFormat ${real_node}]
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   set nodeWithouExt [SharedFlowNode_getNodeFromDisplayFormat ${real_node}]
+   set extensionPart [SharedFlowNode_getExtFromDisplayFormat ${real_node}]
    set flowNode [::SuiteNode::getFlowNodeMapping ${suite_record} ${nodeWithouExt}]
 
    # split the list using + as separator
@@ -782,26 +785,25 @@ proc xflow_findNode { suite_record real_node } {
    set extLen [llength ${extList}]
    # start at 1 cause the first element of the extList is a dummy empty value
    set indexCount 1
-   set loopList [${flowNode} cget -flow.loops]
+   set loopList [SharedFlowNode_getLoops ${expPath} ${flowNode}]
    set refreshNode ""
    # loop throught the list of indexes
    while { ${indexCount} < ${extLen} } {
       set extValue +[lindex ${extList} ${indexCount}]
-      if { [${flowNode} cget -flow.type] == "npass_task" } {
-         ${flowNode} configure -current ${extValue}
+      if { [SharedFlowNode_getNodeType ${expPath} ${flowNode}] == "npass_task" } {
+         SharedFlowNode_setCurrentExt ${expPath} ${flowNode} ${extValue}
          set refreshNode ${flowNode}
       } else {
          # must be a loop extension
          set loopNode [lindex ${loopList} [expr ${indexCount} - 1]]
-         ${loopNode} configure -current ${extValue}
+         SharedFlowNode_setCurrentExt ${expPath} ${loopNode} ${extValue}
       }
       if { ${refreshNode} == "" } {
          set refreshNode ${loopNode}
       }
       incr indexCount
    }
-
-   set collapsedParentNode [::FlowNodes::uncollapseBranch ${flowNode} [xflow_getMainFlowCanvas] ]
+   set collapsedParentNode [SharedFlowNode_uncollapseBranch ${expPath} ${flowNode} ${datestamp} [xflow_getMainFlowCanvas] ]
    if { ${refreshNode} != "" || ${collapsedParentNode} != "" } {
       xflow_drawflow [xflow_getMainFlowCanvas]
    }
@@ -820,7 +822,11 @@ proc xflow_findNode { suite_record real_node } {
 proc xflow_drawNode { canvas node position {first_node false} } {
    global REFRESH_MODE FLOW_SCALE
    ::log::log debug "xflow_drawNode drawing sub node:$node position:$position "
-   if { [::FlowNodes::isParentCollapsed ${node} ${canvas}] } {
+   set suiteRecord [xflow_getActiveSuite]
+   set expPath [${suiteRecord} cget -suite_path]
+   set datestamp [xflow_getSequencerDatestamp]
+   set nodeType [SharedFlowNode_getNodeType ${expPath} ${node}]
+   if { [SharedFlowNode_isParentCollapsed ${expPath} ${node} ${datestamp} ${canvas}] } {
       ::log::log debug "xflow_drawNode parent is collapsed, not drawing node:$node"
       return;
    }
@@ -831,24 +837,23 @@ proc xflow_drawNode { canvas node position {first_node false} } {
    set padTx [SharedData_getMiscData CANVAS_PAD_TXT_X]
    set padTy [SharedData_getMiscData CANVAS_PAD_TXT_Y]
    set shadowColor [SharedData_getColor SHADOW_COLOR]
-   set deltaY [::DrawUtils::getLineDeltaSpace ${node}]
+   set deltaY [::DrawUtils::getLineDeltaSpace ${expPath} ${node}]
    set drawshadow on
    if { ${FLOW_SCALE} != "1" } {
       set drawshadow off
    }
 
-   set suiteRecord [xflow_getActiveSuite]
-   ::FlowNodes::initNode $node $canvas
-   set parentNode [${node} cget -flow.parent]
-   if { $parentNode == "" || ${first_node} == "true" } {
+   SharedFlowNode_initNodeDatestampCanvas ${expPath} ${node} ${datestamp} ${canvas}
+   set submitter [SharedFlowNode_getSubmitter ${expPath} ${node}]
+   if { ${submitter} == "" || ${first_node} == "true" } {
       set linex2 [SharedData_getMiscData CANVAS_X_START]
       set liney2 [expr [SharedData_getMiscData CANVAS_Y_START] + ${deltaY}]
       ::log::log debug "xflow_drawNode linex2:$linex2 liney2:$liney2"
    } else {
-      ::FlowNodes::initNode ${parentNode} ${canvas}
+      SharedFlowNode_initNode ${expPath} ${submitter} ${datestamp} ${canvas}
       # use a dashline leading to modules, elsewhere use a solid line
       set lineColor [SharedData_getColor FLOW_SUBMIT_ARROW]
-      switch [$node cget -flow.type] {
+      switch ${nodeType} {
          "module" {
             set drawline "drawdashline"
           }
@@ -858,7 +863,7 @@ proc xflow_drawNode { canvas node position {first_node false} } {
       }
 
       # get the coordinates of the submitter
-      foreach { px1 py1 px2 py2 } [::FlowNodes::getDisplayCoords $parentNode $canvas] { break }
+      foreach { px1 py1 px2 py2 } [SharedFlowNode_getDisplayCoords ${expPath} ${submitter} ${datestamp} $canvas] { break }
 
       # first draw left arrow, the shape depends on the position of the
       # subnode and previous nodes being drawn
@@ -870,18 +875,18 @@ proc xflow_drawNode { canvas node position {first_node false} } {
          set liney1 [expr $py1 + ($py2 - $py1) / 2 + $deltaY]
          set liney2 $liney1
          # nodedeltax mainly for nptask, size of index widgets different than box
-         set linex2 [expr $linex1 + $boxW/2/${FLOW_SCALE} + [::DrawUtils::getNodeDeltaX $parentNode $canvas]]
+         set linex2 [expr $linex1 + $boxW/2/${FLOW_SCALE} + [::DrawUtils::getNodeDeltaX ${expPath} ${submitter} ${datestamp} $canvas]]
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor $drawshadow $shadowColor ${lineTagName}
       } else {
          # draw L-shape arrow
          # first draw vertical line
          if { $REFRESH_MODE == "true" } {
             # drawing at same position
-            set nextY [::FlowNodes::getDisplayY $node $canvas]
+            set nextY [SharedFlowNode_getDisplayY ${expPath} ${node} ${datestamp} ${canvas}]
          } else {
             set nextY [::SuiteNode::getDisplayNextY $suiteRecord $canvas]
          }
-         ::FlowNodes::setDisplayY ${node} $canvas ${nextY}
+         SharedFlowNode_setDisplayY  ${expPath} ${node} ${datestamp} ${canvas} ${nextY}
 
          #set linex1 [expr $px2 + $boxW/4/3]
          set linex1 [expr $px2 + $boxW/2/${FLOW_SCALE}/3]
@@ -895,74 +900,71 @@ proc xflow_drawNode { canvas node position {first_node false} } {
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor  $drawshadow $shadowColor ${lineTagName}
       }
    }
-   set isCollapsed [::FlowNodes::isCollapsed $node $canvas]
-   set children [$node cget -flow.children]
+   set isCollapsed [ SharedFlowNode_isCollapsed ${expPath} ${node} ${datestamp} ${canvas}]
+   set submits [SharedFlowNode_getSubmits ${expPath} ${node}]
    set normalTxtFill [SharedData_getColor NORMAL_RUN_TEXT]
    set normalFill [::DrawUtils::getBgStatusColor init]
    set outline [SharedData_getColor NORMAL_RUN_OUTLINE]
    # now draw the node
    set tx1 [expr $linex2 + ${padTx}/${FLOW_SCALE}]
    set ty1 $liney2
-   foreach { tx1 ty1 } [xflow_addSingleReservIndicator ${canvas} ${node} ${tx1} ${ty1}] {break}
+   foreach { tx1 ty1 } [xflow_addSingleReservIndicator ${expPath} ${node} ${canvas} ${tx1} ${ty1}] {break}
 
-   set text [$node cget -flow.name]
-   set nodeExtension [::FlowNodes::getNodeExtension $node]
-   set extDisplay [::FlowNodes::getExtDisplay $node $nodeExtension]
+   set text [SharedFlowNode_getName ${expPath} ${node}]
+   set nodeExtension [SharedFlowNode_getNodeExtension ${expPath} ${node} ${datestamp}]
+   set extDisplay [SharedFlowNode_getExtDisplay ${expPath} ${node} ${datestamp} $nodeExtension]
    if { $extDisplay != "" } {
       set text "${text}${extDisplay}"
    }
-   if { !(($children == "none") ||  ($children == "")) && $isCollapsed == 1} {
+   if { !((${submits} == "none") ||  (${submits} == "")) && $isCollapsed == 1} {
       set text ${text}+
    }
-   set dispPref [xflow_getNodeDisplayPrefText $node]
+   set dispPref [xflow_getNodeDisplayPrefText ${expPath} ${node}]
    if { $dispPref != "" } {
       set text "${text}\n${dispPref}"
    }
-   set currentExtension [::FlowNodes::getNodeExtension $node]
-   set status [FlowNodes::getMemberStatus $node $currentExtension ]
 
-   #set helpText "node: [file tail ${node}${currentExtension}] \nstatus: ${status}"
-   switch [$node cget -flow.type] {
+   switch ${nodeType} {
       "family" {
-         ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
-         ::FlowNodes::addToFamilyList $node
+         ::DrawUtils::drawBoxSansOutline ${expPath} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         # ::FlowNodes::addToFamilyList $node
       }
       "module" {
-	 ::DrawUtils::drawBoxSansOutline $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+	 ::DrawUtils::drawBoxSansOutline ${expPath} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
       }
       "task" {
-         ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         ::DrawUtils::drawBox ${expPath} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
       }
 
       "npass_task" {
-         ::DrawUtils::drawBox $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         ::DrawUtils::drawBox ${expPath} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
          # bind ${indexListW} <<ComboboxSelected>> [list xflow_indexedNodeSelectionCallback ${node} ${canvas} %W]
-         ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${node} ${canvas} ${indexListW}]
+         ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${expPath} ${node} ${datestamp} ${canvas} ${indexListW}]
       }
       "loop" {
-         set text "${text}\n[::FlowNodes::getLoopInfo $node]"
-         ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
-         set helpText "[::FlowNodes::getLoopTooltip ${node}]"
+         set text "${text}\n[SharedFlowNode_getLoopInfo ${expPath} ${node}]"
+         ::DrawUtils::drawOval ${expPath} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         set helpText "[SharedFlowNode_getLoopTooltip  ${expPath} ${node}]"
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
-         ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${node} ${canvas} ${indexListW}]
+         ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${expPath} ${node} ${datestamp} ${canvas} ${indexListW}]
          ::tooltip::tooltip $canvas -item ${node} ${helpText}
          # reset the text to be used for generic tooltip on scaling mode
          set text "${helpText}"
       }
       "case" {
-         ::DrawUtils::drawLosange $canvas $tx1 $ty1 $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         ::DrawUtils::drawLosange ${expPath} ${datestamp} $canvas $tx1 $ty1 $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
       }
       "outlet" {
-         ::DrawUtils::drawOval $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         ::DrawUtils::drawOval ${expPath} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
       }
       default {
-         error "Invalid node type:[$node cget -flow.type] in proc xflow_drawNode()"
+         error "Invalid node type:${nodeType} in proc xflow_drawNode()"
       }
    }
    if { ${FLOW_SCALE} != "1" } { ::tooltip::tooltip $canvas -item ${node} ${text} }
 
-   ::DrawUtils::drawNodeStatus $node [xflow_getShawdowStatus]
+   ::DrawUtils::drawNodeStatus ${expPath} ${node} ${datestamp} [xflow_getShawdowStatus]
    Utils_bindMouseWheel $canvas 20
    $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed $canvas $node %X %Y]
    $canvas bind $node <Button-2> [ list xflow_historyCallback $node $canvas "" 48] 
@@ -970,12 +972,12 @@ proc xflow_drawNode { canvas node position {first_node false} } {
 
    if { $isCollapsed == 0 } {
       # get the childs to display
-      if { !(($children == "none") ||  ($children == ""))} {
+      if { !((${submits} == "none") ||  (${submits} == ""))} {
          set nodePosition 0
-         foreach child $children {
+         foreach submitName ${submits} {
             #::log::log debug "xflow_drawNode drawing subjob:$subjob"
-            set childNode $node/$child
-            xflow_drawNode $canvas $childNode $nodePosition
+            set submitNode ${node}/${submitName}
+            xflow_drawNode $canvas ${submitNode} $nodePosition
             incr nodePosition
          }
       }
@@ -991,9 +993,9 @@ proc xflow_drawNode { canvas node position {first_node false} } {
 #                    y is startY
 # else returns startX and startY
 # 
-proc xflow_addSingleReservIndicator { _canvas _node _startX _startY } {
+proc xflow_addSingleReservIndicator { _exp_path _node _canvas _startX _startY } {
    global SingleReservImg
-   if { [${_node} cget -flow.work_unit] == 1 } {
+   if { [SharedFlowNode_getWorkUnit ${_exp_path} ${_node}] == 1 } {
       if { [info exists SingleReservImg] == 0 } {
          set SingleReservImg [image create photo -file [SharedData_getMiscData IMAGE_DIR]/round_stripe.png]
       }
@@ -1010,9 +1012,11 @@ proc xflow_nodeMenu { canvas node x y } {
    global ignoreDep 
    ::log::log debug "xflow_nodeMenu() node:$node"
    set suiteRecord [xflow_getActiveSuite]
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
 
    # highlights the selected node
-   ::DrawUtils::highLightNode ${suiteRecord} ${node} ${canvas}
+   ::DrawUtils::highLightNode ${expPath} ${node} ${canvas}
 
    set popMenu .popupMenu
    set infoMenu ${popMenu}.info_menu
@@ -1025,7 +1029,7 @@ proc xflow_nodeMenu { canvas node x y } {
       destroy ${popMenu}
    }
 
-   menu ${popMenu} -title [${node} cget -flow.name]
+   menu ${popMenu} -title [SharedFlowNode_getName ${expPath} ${node}]
 
    # when the menu is destroyed, clears the highlighted node
    bind ${popMenu} <Unmap> {
@@ -1046,14 +1050,15 @@ proc xflow_nodeMenu { canvas node x y } {
    ${popMenu} add cascade -label "Submit" -underline 0 -menu [menu ${submitMenu}]
    ${popMenu} add cascade -label "Misc" -underline 0 -menu [menu ${miscMenu}]
 
-   set children [$node cget -flow.children]
-   set isCollapsed [::FlowNodes::isCollapsed $node $canvas]
-   if { $children != "" && $isCollapsed } {
+   set submits [SharedFlowNode_getSubmits ${expPath} ${node} ]
+   set isCollapsed [SharedFlowNode_isCollapsed ${expPath} ${node} ${datestamp} ${canvas}]
+   if { ${submits} != "" && ${isCollapsed} } {
       ${popMenu} add command -label "Expand All" -command [list xflow_expandAllCallback $node $canvas $popMenu]
    }
-   if { [$node cget -flow.type] == "loop" } {
+   set nodeType [SharedFlowNode_getNodeType ${expPath} ${node}]
+   if { ${nodeType} == "loop" } {
       xflow_addLoopNodeMenu ${popMenu} ${canvas} ${node}
-   } elseif { [$node cget -flow.type] == "npass_task" } {
+   } elseif { ${nodeType} == "npass_task" } {
       xflow_addNptNodeMenu ${popMenu} ${canvas} ${node}
    } else {
 
@@ -1061,8 +1066,8 @@ proc xflow_nodeMenu { canvas node x y } {
       ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback $node $canvas $popMenu]
       ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback $node $canvas $popMenu ]
 
-      set currentExtension [::FlowNodes::getNodeExtension $node]
-      set status [::FlowNodes::getMemberStatus $node $currentExtension]
+      set currentExtension [SharedFlowNode_getNodeExtension ${expPath} ${node} ${datestamp}]
+      set status [SharedFlowNode_getMemberStatus ${expPath} ${node} ${datestamp} ${currentExtension}]
       if { ${status} == "begin" } {
 	  ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback $node $canvas ]
       }
@@ -1076,9 +1081,9 @@ proc xflow_nodeMenu { canvas node x y } {
          -command [list xflow_allListingCallback $node $canvas $popMenu abort] \
          -foreground [::DrawUtils::getBgStatusColor abort]
 
-      ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas $popMenu]
+      # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas $popMenu]
       ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback $node $canvas ]
-      if { [$node cget -flow.type] != "task" } {
+      if { ${nodeType} != "task" } {
          ${submitMenu} add command -label "Submit" -command [list xflow_submitCallback $node $canvas $popMenu continue ]
          ${submitMenu} add cascade -label "NO Dependency" -underline 4 -menu [menu ${submitNoDependMenu}]
          ${submitNoDependMenu} add command -label "Submit" \
@@ -1117,6 +1122,8 @@ proc xflow_nodeMenu { canvas node x y } {
 # creates the popup menu for a loop node
 proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    ::log::log debug "xflow_addLoopNodeMenu() node:$node"
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
 
    set infoMenu ${popmenu_w}.info_menu
    set listingMenu ${popmenu_w}.listing_menu
@@ -1132,8 +1139,8 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback $node $canvas ${popmenu_w} 0]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback $node $canvas ${popmenu_w} ]
 
-   set currentExtension [::FlowNodes::getNodeExtension $node]
-   set status [::FlowNodes::getMemberStatus $node $currentExtension]
+   set currentExtension [SharedFlowNode_getNodeExtension ${expPath} ${node} ${datestamp}]
+   set status [SharedFlowNode_getMemberStatus ${expPath} ${node} ${datestamp} ${currentExtension}]
    if { ${status} == "begin" } {
        ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback $node $canvas ]
    }
@@ -1156,7 +1163,7 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
    ${submitNoDependMenu} add command -label "Member Submit" \
       -command [list xflow_submitCallback $node $canvas ${popmenu_w} continue dep_off]
 
-   ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
+   # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback $node $canvas ]
    ${miscMenu} add command -label "Loop End" -command [list xflow_endLoopCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "Loop Initbranch" -command [list xflow_initbranchLoopCallback $node $canvas ${popmenu_w}]
@@ -1167,6 +1174,9 @@ proc xflow_addLoopNodeMenu { popmenu_w canvas node } {
 
 # creates the popup menu for a npt node
 proc xflow_addNptNodeMenu { popmenu_w canvas node } {
+
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
 
    set infoMenu ${popmenu_w}.info_menu
    set listingMenu ${popmenu_w}.listing_menu
@@ -1182,8 +1192,8 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
    ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback $node $canvas ${popmenu_w} ]
 
-   set currentExtension [::FlowNodes::getNodeExtension $node]
-   set status [::FlowNodes::getMemberStatus $node $currentExtension]
+   set currentExtension [SharedFlowNode_getNodeExtension ${expPath} ${node} ${datestamp}]
+   set status [SharedFlowNode_getMemberStatus ${expPath} ${node} ${datestamp} ${currentExtension}]
    if { ${status} == "begin" } {
        ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback $node $canvas ]
    }
@@ -1206,7 +1216,7 @@ proc xflow_addNptNodeMenu { popmenu_w canvas node } {
    ${submitNoDependMenu} add command -label "Submit & Stop" -underline 9 \
       -command [list xflow_submitNpassTaskCallback $node $canvas ${popmenu_w} stop dep_off ]
 
-   ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
+   # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback $node $canvas ]
    ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "End" -command [list xflow_endNpasssTaskCallback $node $canvas ${popmenu_w}]
@@ -1253,9 +1263,10 @@ proc xflow_getNodeHistoryOptions {} {
    return ${NODE_HIST_OPTIONS}
 }
 
+# DISABLED FOR NOW... do not want to maintain it... don't think it's being used
 # this menu is called when the user request a new partial flow window to be launched
 # starting from a selected node
-proc xflow_newWindowCallback { node canvas caller_menu } {
+proc ___________xflow_newWindowCallback { node canvas caller_menu } {
    ::log::log debug "xflow_newWindowCallback node:$node canvas:$canvas"
    set suiteRecord [xflow_getActiveSuite]
    if { [::FlowNodes::isNodeFromOverview $node] } {
@@ -1307,11 +1318,13 @@ proc xflow_newWindowCallback { node canvas caller_menu } {
 proc xflow_historyCallback { node canvas caller_menu {history 48} {full_loop 0} } {
    ::log::log debug "xflow_historyCallback node:$node canvas:$canvas $full_loop"
 
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
    set suiteRecord [xflow_getActiveSuite]
 
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} ${node}]
+   set nodeExt [SharedFlowNode_getListingNodeExtension ${expPath} ${node} ${datestamp} ${full_loop}]
    ::log::log debug "xflow_historyCallback nodeExt:$nodeExt"
    if { $nodeExt == "-1" } {
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
@@ -1325,7 +1338,7 @@ proc xflow_historyCallback { node canvas caller_menu {history 48} {full_loop 0} 
       if { ${datestamp} != "" } {
          set historyRange "-history $history -edate $datestamp "
       }
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec \
+      Sequencer_runCommandWithWindow ${expPath} [xflow_getSequencerDatestamp] $seqExec \
          "Node History [file tail $node]$nodeExt -history $history" bottom \
          -n $seqNode$nodeExt ${historyRange}
    }
@@ -1336,7 +1349,6 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
    global env
    set seqExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set suiteRecord [xflow_getActiveSuite]
-
    set suiteName [$suiteRecord cget -suite_name]
    set nodeTail [file tail $node]
    set infoWidget [string tolower .${suiteName}_${nodeTail}_nodeInfo]
@@ -1344,19 +1356,20 @@ proc xflow_nodeInfoCallback { node canvas caller_menu } {
    if { [winfo exists $infoWidget] } {
       destroy $infoWidget
    }
-   set seqExpHome [$suiteRecord cget -suite_path]
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   if { [$node cget -flow.type] == "npass_task" } {
-      set seqLoopArgs [::FlowNodes::getNptArgs ${node} ]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} ${node}]
+   if { [SharedFlowNode_getNodeType ${expPath} ${node}] == "npass_task" } {
+      set seqLoopArgs [SharedFlowNode_getNptArgs ${expPath} ${node} ${datestamp}]
       if { ${seqLoopArgs} == "-1" } {
          set seqLoopArgs ""
       }
    } else {
-      set seqLoopArgs [::FlowNodes::getLoopArgs $node]
+      set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${node} ${datestamp}]
    }
 
-   Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${nodeInfoExec} "Node Info ${nodeTail}" top -n $seqNode  ${seqLoopArgs}
+   Sequencer_runCommandWithWindow ${expPath} ${datestamp} ${nodeInfoExec} "Node Info ${nodeTail}" top -n $seqNode  ${seqLoopArgs}
 }
 
 # this command is invoked from the Misc->initbranch menu item
@@ -1370,17 +1383,17 @@ proc xflow_initbranchCallback { node canvas caller_menu } {
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
 
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getLoopArgs $node]
-   if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+   set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${node} ${datestamp}]
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${expPath} ${node}] } {
       Utils_raiseError $canvas "initbranch" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow ${expPath} ${datestamp} $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initbranch -f continue $seqLoopArgs
    }
-   #$node configure -flow.status initialize
-   #::DrawUtils::drawNodeStatus $node
 }
 
 # this command is invoked from the Misc->initnode menu item
@@ -1388,18 +1401,21 @@ proc xflow_initbranchCallback { node canvas caller_menu } {
 # current task node. It deletes all sequencer related node status files for
 # the current node.
 proc xflow_initnodeCallback { node canvas caller_menu } {
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node init" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getLoopArgs $node]
-   if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
+   set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${node} ${datestamp}]
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${expPath} ${node}] } {
       Utils_raiseError $canvas "initnode" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initnode [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow ${expPath} ${datestamp} $seqExec "initnode [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initnode -f continue $seqLoopArgs
       ::log::log notice "${seqExec} -n $seqNode -s initnode -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
    }
@@ -1410,18 +1426,22 @@ proc xflow_initnodeCallback { node canvas caller_menu } {
 # current loop node. It deletes all sequencer related node status files for
 # the current loop node and all its child iteration nodes.
 proc xflow_initbranchLoopCallback { node canvas caller_menu } {
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "init branch" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
+
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
-   if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
+   set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${expPath} ${node} ${datestamp}]
+   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${expPath} ${node}] } {
       Utils_raiseError $canvas "initbranch" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow ${expPath} ${datestamp} $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s initbranch -f continue $seqLoopArgs
       ::log::log notice "${seqExec} -n $seqNode -s initbranch -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
    }
@@ -1429,31 +1449,37 @@ proc xflow_initbranchLoopCallback { node canvas caller_menu } {
 
 # forces an abort to be sent to maestro sequencer
 proc xflow_abortCallback { node canvas caller_menu } {
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getLoopArgs $node]
-   if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
+   set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${node} ${datestamp}]
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${expPath} ${node}] } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "abort [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow ${expPath} ${datestamp} $seqExec "abort [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s abort -f continue $seqLoopArgs
       ::log::log notice "${seqExec} -n $seqNode -s abort -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
    }
 }
 
 proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
    set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
    set indexListValue ""
    if { [winfo exists ${indexListW}] } {
@@ -1463,13 +1489,13 @@ proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
    if { ${indexListValue} == "latest" } {
       Utils_raiseError $canvas "Npass_Task end" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
-      set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
+      set seqNpassTaskArgs [SharedFlowNode_getNptArgs ${expPath} ${node} ${datestamp} ${indexListValue}]
    
       if { $seqNpassTaskArgs == "-1" } {
          Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
       } else {
          ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqNpassTaskArgs" top \
+         Sequencer_runCommandWithWindow ${expPath} ${datestamp} $seqExec "end [file tail $node] $seqNpassTaskArgs" top \
             -n $seqNode -s end $seqNpassTaskArgs
          ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
          ::log::log notice "${seqExec} -n $seqNode -s end $seqNpassTaskArgs (datestamp=[xflow_getSequencerDatestamp])"
@@ -1478,13 +1504,16 @@ proc xflow_endNpasssTaskCallback { node canvas caller_menu } {
 }
 
 proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
    set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
    set indexListValue ""
    if { [winfo exists ${indexListW}] } {
@@ -1494,13 +1523,13 @@ proc xflow_abortNpasssTaskCallback { node canvas caller_menu } {
    if { ${indexListValue} == "latest" } {
       Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
-      set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
+      set seqNpassTaskArgs [SharedFlowNode_getNptArgs ${expPath} ${node} ${datestamp} ${indexListValue}]
    
       if { $seqNpassTaskArgs == "-1" } {
          Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
       } else {
          ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
-         Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
+         Sequencer_runCommandWithWindow ${expPath} ${datestamp} $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
             -n $seqNode -s abort $seqNpassTaskArgs
          ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
          ::log::log notice "${seqExec} -n $seqNode -s abort $seqNpassTaskArgs (datestamp=[xflow_getSequencerDatestamp])"
@@ -1518,30 +1547,28 @@ proc xflow_launchShellCallback {} {
 
 # launch an xterm in ${TASK_BASEDIR} on the execution host
 proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
-    ::log::log debug "xflow_launchWorkCallback node$node canvas$canvas"
-   if { [xflow_getSequencerDatestamp] == "" } {
+   ::log::log debug "xflow_launchWorkCallback node$node canvas$canvas"
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "view workdir" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-    set seqExecWork "[SharedData_getMiscData SEQ_UTILS_BIN]/nodework"
-    set seqNode [::FlowNodes::getSequencerNode $node]
-    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
-    set suiteRecord [xflow_getActiveSuite]
-    set expPath [${suiteRecord} cget -suite_path]
+   set seqExecWork "[SharedData_getMiscData SEQ_UTILS_BIN]/nodework"
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+   set nodeExt [SharedFlowNode_getListingNodeExtension ${expPath} ${node} ${datestamp} ${full_loop}]
 
-   set datestamp [xflow_getSequencerDatestamp]
-
-    if { $nodeExt == "-1" } {
-	Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
-    } else {
-	::log::log debug "$seqExecWork -n ${seqNode} -ext ${nodeExt}"
-	if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${dateStamp}; $seqExecWork -n ${seqNode} -ext ${nodeExt}"] ':'] } message ] {
-	    Utils_raiseError . "Retrieve node output" $message
-	    return 0
-	}
-	set taskBasedir "[lindex $workpath 1]${seqNode}${nodeExt}"
-    Utils_launchShell [lindex $workpath 0] ${expPath} [lindex $workpath 1] "TASK_BASEDIR=[lindex $workpath 1]"
-    }	
+   if { $nodeExt == "-1" } {
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
+   } else {
+      ::log::log debug "$seqExecWork -n ${seqNode} -ext ${nodeExt}"
+      if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${expPath};export SEQ_DATE=${datestamp}; $seqExecWork -n ${seqNode} -ext ${nodeExt}"] ':'] } message ] {
+         Utils_raiseError . "Retrieve node output" $message
+         return 0
+      }
+      set taskBasedir "[lindex $workpath 1]${seqNode}${nodeExt}"
+      Utils_launchShell [lindex $workpath 0] ${expPath} [lindex $workpath 1] "TASK_BASEDIR=[lindex $workpath 1]"
+   }
 }
 
 # this function is invoked from the "Kill Node" menu item.
@@ -1550,16 +1577,17 @@ proc xflow_launchWorkCallback { node canvas {full_loop 0} } {
 proc xflow_killNodeFromDropdown { node canvas caller_menu } {
 
    global env
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
    set shadowColor [SharedData_getColor SHADOW_COLOR]
    set bgColor [SharedData_getColor CANVAS_COLOR]
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
-   set suiteRecord [xflow_getActiveSuite]
-   set suitePath [$suiteRecord cget -suite_path]
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} ${node}]
+
    set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
-   set cmd "export SEQ_EXP_HOME=$suitePath; $killPath -n $seqNode -list > $tmpfile 2>&1"
+   set cmd "export SEQ_EXP_HOME=${expPath}; $killPath -n $seqNode -list > $tmpfile 2>&1"
    ::log::log debug "xflow_killNodeFromDropdown ksh -c $cmd"
    catch { eval [exec ksh -c $cmd ] }
 
@@ -1605,7 +1633,9 @@ proc xflow_killNodeFromDropdown { node canvas caller_menu } {
 
 # forces and end signal to be sent to the maestro sequencer for the current node.
 proc xflow_endCallback { node canvas caller_menu } {
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
@@ -1613,12 +1643,13 @@ proc xflow_endCallback { node canvas caller_menu } {
 
    set suiteRecord [xflow_getActiveSuite]
 
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getLoopArgs $node]
-   if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
+   set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${node} ${datestamp}]
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${expPath} ${node}] } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow ${expPath} ${datestamp} $seqExec "end [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s end -f continue $seqLoopArgs
       ::log::log notice "$seqExec -n $seqNode -s end -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
    }
@@ -1627,7 +1658,9 @@ proc xflow_endCallback { node canvas caller_menu } {
 
 # forces and end signal to be sent to the maestro sequencer for the current loop node.
 proc xflow_endLoopCallback { node canvas caller_menu } {
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
@@ -1635,12 +1668,13 @@ proc xflow_endLoopCallback { node canvas caller_menu } {
 
    set suiteRecord [xflow_getActiveSuite]
 
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
-   if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
+   set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${expPath} ${node} ${datestamp}]
+   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${expPath} ${node}] } {
       Utils_raiseError $canvas "loop end" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "end [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandWithWindow ${expPath} ${datestamp} $seqExec "end [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s end -f continue $seqLoopArgs
       ::log::log notice "$seqExec -n $seqNode -s end -f continue $seqLoopArgs (datestamp=[xflow_getSequencerDatestamp])"
    }
@@ -1649,9 +1683,12 @@ proc xflow_endLoopCallback { node canvas caller_menu } {
 # displays the content of a task node (.tsk)
 proc xflow_sourceCallback { node canvas caller_menu} {
    global SESSION_TMPDIR
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodesource"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
@@ -1660,7 +1697,7 @@ proc xflow_sourceCallback { node canvas caller_menu} {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
+   Sequencer_runCommand ${expPath} ${datestamp} ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1674,9 +1711,11 @@ proc xflow_sourceCallback { node canvas caller_menu} {
 # displays the content of a config file (.cfg) if it is available.
 proc xflow_configCallback { node canvas caller_menu} {
    global SESSION_TMPDIR
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodeconfig"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
 
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -1686,7 +1725,7 @@ proc xflow_configCallback { node canvas caller_menu} {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
+   Sequencer_runCommand ${expPath} ${datestamp} ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1699,9 +1738,11 @@ proc xflow_configCallback { node canvas caller_menu} {
 
 proc xflow_evalConfigCallback { node canvas caller_menu } {
    global SESSION_TMPDIR
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/chaindot.py"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
 
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -1711,7 +1752,7 @@ proc xflow_evalConfigCallback { node canvas caller_menu } {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode} -e [$suiteRecord cget -suite_path] -o ${outputfile}"
-   Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] /dev/null ${seqCmd}
+   Sequencer_runCommand ${expPath} ${datestamp} /dev/null ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1725,9 +1766,12 @@ proc xflow_evalConfigCallback { node canvas caller_menu } {
 # displays the resource file (.def) if it is available
 proc xflow_resourceCallback { node canvas caller_menu } {
    global SESSION_TMPDIR
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/noderesource"
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
@@ -1736,7 +1780,7 @@ proc xflow_resourceCallback { node canvas caller_menu } {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
+   Sequencer_runCommand ${expPath} ${datestamp} ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1750,10 +1794,12 @@ proc xflow_resourceCallback { node canvas caller_menu } {
 # displays the latest batch command file generated by maestro
 proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodebatch"
-   set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
+   set nodeExt [SharedFlowNode_getListingNodeExtension ${expPath} ${node} ${datestamp} ${full_loop}]
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
@@ -1770,7 +1816,7 @@ proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
    
       set seqCmd "${seqExec} -n ${seqNode}${nodeExt}"
-      Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
+      Sequencer_runCommand ${expPath} ${datestamp} ${outputfile} ${seqCmd}
    
       if { ${textViewer} == "default" } {
          create_text_window ${winTitle} ${outputfile} top .
@@ -1789,7 +1835,9 @@ proc xflow_batchCallback { node canvas caller_menu {full_loop 0} } {
 # - local_ignore should be set to "dep_off" for local dependencies to be ignored.
 proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_on} } {
    global env
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
@@ -1800,16 +1848,12 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
    }
 
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-
-   set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getLoopArgs $node]
-   if { $seqLoopArgs == "" && [::FlowNodes::hasLoops $node] } {
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+   set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${node} ${datestamp}]
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${expPath} ${node}] } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      # Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqLoopArgs" top \
-      #   -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
-      Sequencer_runCommandLogAndWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} $seqExec "submit [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
    }
 }
@@ -1817,7 +1861,9 @@ proc xflow_submitCallback { node canvas caller_menu flow {local_ignore_dep dep_o
 # same as previous but for loop node
 proc xflow_submitLoopCallback { node canvas caller_menu flow {local_ignore_dep dep_on}} {
    set ignoreDepFlag ""
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
@@ -1825,15 +1871,12 @@ proc xflow_submitLoopCallback { node canvas caller_menu flow {local_ignore_dep d
       set ignoreDepFlag " -i"
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-
-   set suiteRecord [xflow_getActiveSuite]
-
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set seqLoopArgs [::FlowNodes::getParentLoopArgs $node]
-   if { $seqLoopArgs == "-1" && [::FlowNodes::hasLoops $node] } {
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+   set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${expPath} ${node} ${datestamp}]
+   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${expPath} ${node}] } {
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandLogAndWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} $seqExec "submit [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs 
    }
 }
@@ -1843,19 +1886,18 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
 
    ::log::log debug "xflow_submitNpassTaskCallback node:$node canvas:$canvas"
    set ignoreDepFlag ""
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    if { ${local_ignore_dep} == "dep_off" } {
       set ignoreDepFlag " -i"
    }
-
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
 
-   set suiteRecord [xflow_getActiveSuite]
-
-   set seqNode [::FlowNodes::getSequencerNode $node]
    # retrieve index value from widget
    set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
    set indexListValue ""
@@ -1866,15 +1908,13 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
    if { ${indexListValue} == "latest" } {
       Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
-      set seqNpassTaskArgs [::FlowNodes::getNptArgs ${node} ${indexListValue}]
+      set seqNpassTaskArgs [SharedFlowNode_getNptArgs ${expPath} ${node} ${datestamp} ${indexListValue}]
    
       if { $seqNpassTaskArgs == "-1" } {
          Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
       } else {
          ::log::log debug "xflow_submitNpassTaskCallback $seqNpassTaskArgs"
-         # Sequencer_runCommandWithWindow [$suiteRecord cget -suite_path] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
-         #   -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqNpassTaskArgs
-         Sequencer_runCommandLogAndWindow [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
+         Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
             -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqNpassTaskArgs
 
       }
@@ -1885,28 +1925,26 @@ proc xflow_submitNpassTaskCallback { node canvas caller_menu flow {local_ignore_
 proc xflow_tailfCallback { node canvas {full_loop 0} } {
     global env
     ::log::log debug "xflow_tailfCallback node$node canvas$canvas"
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "monitor listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-    set seqNode [::FlowNodes::getSequencerNode $node]
-    set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
-    set suiteRecord [xflow_getActiveSuite]
-    set expPath [${suiteRecord} cget -suite_path]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+   set nodeExt [SharedFlowNode_getListingNodeExtension ${expPath} ${node} ${datestamp} ${full_loop}]
 
-   set datestamp [xflow_getSequencerDatestamp]
-
-    if { $nodeExt == "-1" } {
-	Utils_raiseError $canvas "monitor listing" [xflow_getErroMsg NO_LOOP_SELECT]
-    } else {
-	if { $nodeExt != "" } {
-	    set nodeExt ".${nodeExt}"
-	}
-	if [ catch { set listPath [exec ksh -c "ls -rt1 ${expPath}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] } message ] {
-	    Utils_raiseError . "Retrieve node output" $message
-	    return 0
-	}
-	Utils_launchShell $env(TRUE_HOST) ${expPath} ${expPath} "Monitoring=${seqNode}${nodeExt}" "tail -f ${listPath}"
+   if { $nodeExt == "-1" } {
+      Utils_raiseError $canvas "monitor listing" [xflow_getErroMsg NO_LOOP_SELECT]
+   } else {
+      if { $nodeExt != "" } {
+         set nodeExt ".${nodeExt}"
+      }
+      if [ catch { set listPath [exec ksh -c "ls -rt1 ${expPath}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] } message ] {
+         Utils_raiseError . "Retrieve node output" $message
+         return 0
+      }
+      Utils_launchShell $env(TRUE_HOST) ${expPath} ${expPath} "Monitoring=${seqNode}${nodeExt}" "tail -f ${listPath}"
     }
 }
 
@@ -1914,16 +1952,15 @@ proc xflow_tailfCallback { node canvas {full_loop 0} } {
 proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    ::log::log debug "xflow_listingCallback node:$node canvas:$canvas"
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
-   set suiteRecord [xflow_getActiveSuite]
-
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
-   set datestamp [xflow_getSequencerDatestamp]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+   set nodeExt [SharedFlowNode_getListingNodeExtension ${expPath} ${node} ${datestamp} ${full_loop}]
 
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -1941,7 +1978,7 @@ proc xflow_listingCallback { node canvas caller_menu {full_loop 0} } {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set seqCmd "${listingExec} -n ${seqNode}${nodeExt} -d ${datestamp}"
-      Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
+      Sequencer_runCommand ${expPath} ${datestamp} ${outputfile} ${seqCmd}
 
       if { ${listingViewer} == "default" } {
          create_text_window ${winTitle} ${outputfile} top .
@@ -1961,12 +1998,12 @@ proc xflow_allListingCallback { node canvas caller_menu type } {
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
+   set expPath [xflow_getExpHome]
    set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   #set nodeExt [::FlowNodes::getListingNodeExtension $node 0]
-   set suitePath [$suiteRecord cget -suite_path]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
    set listerPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
-   set cmd "export SEQ_EXP_HOME=$suitePath; $listerPath -n ${seqNode} -type $type -list > $tmpfile 2>&1"
+   set cmd "export SEQ_EXP_HOME=${expPath}; $listerPath -n ${seqNode} -type $type -list > $tmpfile 2>&1"
    ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
    catch { eval [exec ksh -c $cmd ] }
 
@@ -2045,15 +2082,16 @@ proc xflow_showAllListingItem { suite_record listw list_type} {
 proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    ::log::log debug "xflow_abortListingCallback node:$node canvas:$canvas"
-   if { [xflow_getSequencerDatestamp] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    set abortListingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
-   set suiteRecord [xflow_getActiveSuite]
-   set seqNode [::FlowNodes::getSequencerNode $node]
-   set nodeExt [::FlowNodes::getListingNodeExtension $node $full_loop]
-   set datestamp [xflow_getSequencerDatestamp]
+   set seqNode [SharedFlowNode_getSequencerNode ${expPath} $node]
+
+   set nodeExt [SharedFlowNode_getListingNodeExtension ${expPath} ${node} ${datestamp} ${full_loop}]
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
@@ -2069,7 +2107,7 @@ proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set seqCmd "${abortListingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}"
-      Sequencer_runCommand [$suiteRecord cget -suite_path] [xflow_getSequencerDatestamp] ${outputfile} ${seqCmd}
+      Sequencer_runCommand ${expPath} ${datestamp} ${outputfile} ${seqCmd}
 
       if { ${listingViewer} == "default" } {
          create_text_window ${winTitle} ${outputfile} top .
@@ -2082,7 +2120,7 @@ proc xflow_abortListingCallback { node canvas caller_menu {full_loop 0} } {
 
 # this function is called when the user selects an index from the npt or loop
 # listbox. It redraws the flow starting from the selected widget
-proc xflow_indexedNodeSelectionCallback { node canvas combobox_w} {
+proc xflow_indexedNodeSelectionCallback { exp_path node datestamp canvas combobox_w} {
    ::log::log debug "xflow_indexedNodeSelectionCallback node:$node $combobox_w"
 
    set member [${combobox_w} get]
@@ -2090,21 +2128,24 @@ proc xflow_indexedNodeSelectionCallback { node canvas combobox_w} {
    if { $member != "latest" && [lindex $member 0] != "+" } {
       set member +${member}
    }
-   $node configure -current $member
+   SharedFlowNode_setCurrentExt ${exp_path} ${node} ${datestamp} ${member}
 
    xflow_redrawNodes ${node} ${canvas}
 }
 
 # this function is called to expand a node and all of its child nodes
 proc xflow_expandAllCallback { node canvas caller_menu } {
-   ::FlowNodes::uncollapseAll $node $canvas
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   SharedFlowNode_uncollapseAll ${expPath} ${node} ${datestamp} ${canvas}
    destroy $caller_menu
    xflow_drawflow $canvas
 }
 
+# not used for now
 # this should only be called for flow windows that
 # are spawned using the "new window" callback
-proc xflow_closeSpawnedWindow { suite canvas toplevel_win} {
+proc _____________xflow_closeSpawnedWindow { suite canvas toplevel_win} {
    ::log::log debug "xflow_closeSpawnedWindow suite:$suite canvas:$canvas toplevel_win:$toplevel_win"
    set rootNode [::SuiteNode::getDisplayRoot $suite $canvas]
    # recursively remove the display from all nodes in the canvas
@@ -2116,21 +2157,23 @@ proc xflow_closeSpawnedWindow { suite canvas toplevel_win} {
 }
 
 # callback when user click on a box with button 1 to collapse/expand a node
-proc xflow_changeCollapsed { canvas binder x y } {
+proc xflow_changeCollapsed { canvas node x y } {
    #::log::log debug "xflow_changeCollapsed called canvas:$canvas binder:$binder x:$x y:$y"
-   if { [${binder} cget -flow.children] == "" } {
+   set expPath [xflow_getExpHome]
+   set datestamp [xflow_getSequencerDatestamp]
+   
+   if { [SharedFlowNode_getSubmits ${expPath} ${node}] == "" } {
       ::log::log debug "changeCollapse: node has no children"
       return
    }
 
-   set isCollapsed [::FlowNodes::isCollapsed $binder $canvas]
+   set isCollapsed [SharedFlowNode_isCollapsed ${expPath} ${datestamp} ${node} ${canvas}]
    if { $isCollapsed == 0 } {
-      ::FlowNodes::setCollapsed $binder $canvas 1
+      SharedFlowNode_setCollapsed ${expPath} ${datestamp} ${node} ${canvas} 1
    } else {
-      ::FlowNodes::setCollapsed $binder $canvas 0
+      SharedFlowNode_setCollapsed ${expPath} ${datestamp} ${node} ${canvas} 0
    }
 
-   #::log::log debug "xflow_changeCollapsed: new collapse value:[${binder} cget -flow.display.collapse]"
    xflow_drawflow $canvas 0
 }
 
@@ -2143,9 +2186,11 @@ proc xflow_redrawNodes { node {canvas ""} } {
    set REFRESH_MODE true
    set cmdList ""
    catch {
+      set expPath [xflow_getExpHome]
+      set datestamp [xflow_getSequencerDatestamp]
       if { $canvas == "" } {
          # get the list of all canvases where the node appears
-         set canvasList [::FlowNodes::getDisplayList $node]
+         set canvasList [SharedFlowNode_getDisplayList ${expPath} ${node} ${datestamp}]
       } else {
          set canvasList $canvas
       }
@@ -2153,8 +2198,8 @@ proc xflow_redrawNodes { node {canvas ""} } {
          set cmdList {}
          # instead of removing the nodes one by one, I'm collecting all the cmds
          # and run it at once to avoid less flickering on the gui
-         ::DrawUtils::clearBranch ${canvas} ${node} cmdList
-         set nodePosition [::FlowNodes::getPosition ${node}]
+         ::DrawUtils::clearBranch ${expPath} ${node} ${datestamp} ${canvas} cmdList
+         set nodePosition [SharedFlowNode_getSubmitPosition ${expPath} ${node}]
          eval ${cmdList}
          xflow_drawNode ${canvas} ${node} ${nodePosition}
          xflow_resetScrollRegion ${canvas}
@@ -2201,11 +2246,12 @@ proc xflow_refreshFlow { } {
       # clear all nodes
       set PROGRESS_REPORT_TXT "Deleting node data ..."
       update idletasks
-      ::FlowNodes::clearAllNodes
-      record delete instance ${suiteRecord}
+      set expPath [xflow_getExpHome]
+      set datestamp [xflow_getSequencerDatestamp]
+
+      SharedFlowNode_clearAllNodes ${expPath} ${datestamp}
 
       set thisThreadId [thread::id]
-      set datestamp [xflow_getSequencerDatestamp]
       if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
          set PROGRESS_REPORT_TXT "Parsing module's flow.xml ..."
          update idletasks
@@ -2221,7 +2267,7 @@ proc xflow_refreshFlow { } {
          # xflow_initStartupMode
          set PROGRESS_REPORT_TXT "Processing log file ..."
          update idletasks
-         SharedData_setExpDatestampOffset [${suiteRecord} cget -suite_path] ${datestamp} 0
+         SharedData_setExpDatestampOffset ${expPath} ${datestamp} 0
          LogReader_readFile ${suiteRecord} ${datestamp} refresh_flow
          xflow_displayFlow ${datestamp}
          # xflow_stopStartupMode
@@ -2252,7 +2298,7 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
    global SEQ_EXP_HOME
    ::log::log debug "xflow_drawflow() canvas:$canvas"
 
-   if { [::FlowNodes::isFlowModified ${SEQ_EXP_HOME}] == "true" } {
+   if { [SharedFlowNode_isFlowModified ${SEQ_EXP_HOME}] == "true" } {
       ::log::log debug "xflow_drawflow() xflow_refreshFlow"
       xflow_refreshFlow
       return
@@ -2267,7 +2313,6 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
       ::SuiteNode::resetDisplayData ${suiteRecord} ${canvas}
       set rootNode [::SuiteNode::getDisplayRoot $suiteRecord $canvas]
 
-      set callback xflow_changeCollapsed
       xflow_clearCanvasFlow ${canvas}
       xflow_drawNode $canvas $rootNode 0 true
       xflow_resetScrollRegion ${canvas}
@@ -2280,7 +2325,6 @@ proc xflow_drawflow { canvas {initial_display "1"} } {
 
    }
    ::log::log debug "xflow_drawflow() done"
-
 }
 
 # this function resizes the xflow main window depending on the
@@ -2394,12 +2438,16 @@ proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
    ::log::log debug "xflow_getNodeResources node:$node"
 
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${suite_path} ${node}]
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
 
    # for now we only care about batch resources from tasks
    ::log::log debug "${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :'"
-   set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile} 2> /dev/null "]} message]
+   # set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:$node configure -:' -e 's:=: :' > ${outputFile} 2> /dev/null "]} message]
+
+   # the line below transforms the output of nodeinfo into a call to SharedFlowNode_setGenericAttributef or every attribute
+   # i.e. SharedFlowNode_setGenericAttribute ${suite_path} ${node} attr_name attr_value
+   set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${suite_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:SharedFlowNode_setGenericAttribute ${suite_path} ${node}:' -e 's:=: \":' -e 's/$/\"/'> ${outputFile} 2> /dev/null "]} message]
 
    if { $code != 0 } {
       Utils_raiseError . "Get Node Resource" $message
@@ -2412,12 +2460,10 @@ proc xflow_getNodeResources { node suite_path {is_recursive 0} } {
    catch { close $fileId }
 
    if { $is_recursive } {
-      set childList [$node cget -flow.children]
-      if { $childList != "" } {
-         foreach childName $childList {
-            set childNode $node/$childName
-            xflow_getNodeResources $childNode $suite_path $is_recursive
-         }
+      set submits [SharedFlowNode_getSubmits ${suite_path} ${node}]
+      foreach submitName ${submits} {
+         set submitNode ${node}/${submitName}
+         xflow_getNodeResources ${submitNode} $suite_path $is_recursive
       }
    }
 }
@@ -2435,15 +2481,13 @@ proc xflow_getAllLoopResourcesCallback { node suite_path } {
 
 # retrieve loop attributes recursively
 proc xflow_getAllLoopResources { node suite_path } {
-   if { [$node cget -flow.type] == "loop" } {
+   if { [SharedFlowNode_getNodeType ${suite_path} ${node}] == "loop" } {
       xflow_getLoopResources ${node} ${suite_path}
    } 
-   set childList [$node cget -flow.children]
-   if { $childList != "" } {
-      foreach childName $childList {
-         set childNode $node/$childName
-         xflow_getAllLoopResources $childNode $suite_path
-      }
+   set submits [SharedFlowNode_getSubmits ${suite_path} ${node}]
+   foreach submitName ${submits} {
+      set submitNode ${node}/${submitName}
+      xflow_getAllLoopResources ${submitNode} $suite_path
    }
 }
 
@@ -2453,13 +2497,14 @@ proc xflow_getLoopResources { node suite_path } {
    global env
    ::log::log debug "xflow_getLoopResources node:$node"
 
-   if { [$node cget -flow.type] != "loop" } {
+   if { [SharedFlowNode_getNodeType ${suite_path} ${node}] != "loop" } {
       ::log::log debug "xflow_getLoopResources nothing to be done for non-loop node"
       return
    }
 
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
-   set seqNode [::FlowNodes::getSequencerNode $node]
+   set seqNode [SharedFlowNode_getSequencerNode ${suite_path} ${node}]
+   
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
 
    # retrieve loop attributes by parsing output of nodeinfo node.specific i.e.
@@ -2493,7 +2538,9 @@ proc xflow_getLoopResources { node suite_path } {
    foreach { name value } [array get valueList] {
       if { [info exists attrMap(${name})] } {
          set attrName $attrMap(${name})
-         ${node} configure -${attrName} ${value}
+         # ${node} configure -${attrName} ${value}
+         # puts "SharedFlowNode_setGenericAttribute ${suite_path} ${node} ${attrName} ${value}"
+         SharedFlowNode_setGenericAttribute ${suite_path} ${node} ${attrName} ${value}
       } else {
          ::log::log debug "xflow_getLoopResources invalid loop attribute token name:$name value:$value"
       }
@@ -2817,7 +2864,7 @@ proc xflow_newMessageCallback { has_new_msg } {
    set noNewMsgImage [xflow_getWidgetName msg_center_img]
    set hasNewMsgImage [xflow_getWidgetName msg_center_new_img]
    set normalBgColor [option get ${msgCenterWidget} background Button]
-   set newMsgBgColor  [SharedData_getColor MSG_CENTER_ABORT_BG]
+   set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    if { [winfo exists ${msgCenterWidget}] } {
       set currentImage [${msgCenterWidget} cget -image]
       if { ${has_new_msg} == "true" && ${currentImage} != ${hasNewMsgImage} } {
@@ -2969,7 +3016,6 @@ proc xflow_displayFlow { datestamp } {
    xflow_setExpLabel ${displayName} ${datestamp}
    ::log::log debug "xflow_displayFlow expPath ${expPath}"
    set activeSuiteRecord [xflow_getActiveSuite]
-   # set rootNode [${activeSuiteRecord} cget -root_node]
    set rootNode [SharedData_getExpRootNode ${expPath}]
    set PROGRESS_REPORT_TXT "Getting loop node resources ..."
    xflow_getAllLoopResourcesCallback ${rootNode} ${SEQ_EXP_HOME}
@@ -2985,6 +3031,7 @@ proc xflow_displayFlow { datestamp } {
       set PROGRESS_REPORT_TXT "Processing log file ..."
       if { ${datestamp} != "" } {
          SharedData_setExpDatestampOffset ${expPath} ${datestamp} 0
+         puts "LogReader_readFile $activeSuiteRecord ${datestamp}"
          LogReader_readFile $activeSuiteRecord ${datestamp}
       }
    }
@@ -3078,6 +3125,15 @@ proc xflow_getMainFlowCanvas {} {
    return ${canvasW}
 }
 
+# for now return the SEQ_EXP_HOME
+# however, need allow retrieval of exp_home based
+# on something else once the xflow is integrated in the same
+# thread as the overview
+proc xflow_getExpHome {} {
+   global SEQ_EXP_HOME
+   return ${SEQ_EXP_HOME}
+}
+
 proc out {} {
    proc Console_create {} {
       # create console
@@ -3157,6 +3213,7 @@ proc xflow_parseCmdOptions {} {
 
 
       set newestDatestamp [LogMonitor_getNewestDatestamp ${SEQ_EXP_HOME}]
+      SharedData_setExpThreadId [xflow_getExpHome] ${newestDatestamp} [thread::id]
       xflow_displayFlow ${newestDatestamp}
       SharedData_setMiscData STARTUP_DONE true
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"

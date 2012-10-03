@@ -491,7 +491,6 @@ proc Overview_processEndStatus { canvas suite_record datestamp {status end} } {
          set shiftDay true
          ::log::log debug "Overview_processEndStatus ${suite_record} ${datestamp} ${status} shiftDay true"
          ::SuiteNode::setLastStatusInfo ${suite_record} ${datestamp} init "" ""
-         # Overview_addExpDefaultBox ${canvas} ${expPath} ${datestamp}
          if { ${refStartTime} != "" } {
             Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${refStartTime} ${shiftDay}
             set middleBoxTime ${refEndTime}
@@ -500,6 +499,9 @@ proc Overview_processEndStatus { canvas suite_record datestamp {status end} } {
          } else {
             # put at x origin 
             Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} [Overview_GraphGetXOriginTime] ${shiftDay}
+         }
+         if { ${datestamp} != "" } {
+            Overview_cleanExpDatestamp ${expPath} ${datestamp}
          }
       } else {
          Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${startTime} ${shiftDay}
@@ -523,6 +525,14 @@ proc Overview_processEndStatus { canvas suite_record datestamp {status end} } {
       } else {
          Overview_ExpCreateStartIcon ${canvas} ${suite_record} ${datestamp} ${statusTime}
       }
+   }
+}
+
+proc Overview_cleanExpDatestamp { exp_path datestamp } {
+   global MSG_CENTER_THREAD_ID
+   if { ${MSG_CENTER_THREAD_ID} != "" } {
+      puts "Overview_cleanExpDatestamp $exp_path $datestamp"
+      catch { thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_removeDatestamp ${exp_path} ${datestamp}" }
    }
 }
 
@@ -1348,11 +1358,10 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 
       ::log::log notice "Overview_ThreadLaunchFLow launching progess bar..."
       set progressW .pd
-      # if { ! [winfo exists ${progressW}] } {
-      #   ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT -width ${progressWidth} -stop stop
-      # }
-      # set a timeout to destroy progress bar
-      # give it 2 minutes to launch the flow
+      if { ! [winfo exists ${progressW}] } {
+         ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT -width ${progressWidth} -stop stop
+      }
+
       set PROGRESS_REPORT_TXT "Launching [file tail ${exp_path}] ${extraMsg}"
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
@@ -1382,6 +1391,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 
    # any errors, put the cursor back to normal state
    if { ${result} != 0  } {
+      ::log::log notice "Overview_launchExpFlow ERROR: ${message}"
 
       set einfo $::errorInfo
       set ecode $::errorCode
@@ -1524,7 +1534,7 @@ proc Overview_checkGridLimit {} {
       set maxGridCoords [${canvasW} coords grid_max_y]
       if { ${maxGridCoords} != "" } {
          set maxGridY [lindex ${maxGridCoords} 1]
-         if { ${maxGridY} < ${maxExpBoxY} } {
+         if { ${maxGridY} <= ${maxExpBoxY} } {
             # grid is too small, increase it
             #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
             # round out the value to the next grid value
@@ -1598,7 +1608,7 @@ proc Overview_addExp { display_group canvas exp_path } {
 
          # read log and quit
          Overview_addChildInit ${exp_path} ${datestamp}
-         puts "Overview_addExp thread::send -async ${childId} Overview_startExpLogReader ${exp_path} ${suiteRecord} ${datestamp} true"
+         # puts "Overview_addExp thread::send -async ${childId} Overview_startExpLogReader ${exp_path} ${suiteRecord} ${datestamp} true"
          thread::send -async ${childId} "Overview_startExpLogReader ${exp_path} ${suiteRecord} ${datestamp} true"
       }
    }
@@ -1611,7 +1621,7 @@ proc Overview_addExp { display_group canvas exp_path } {
 # this function is called from the overview main thread to the exp thread
 # to start the processing of the exp log file i.e. it is meant to be run in the exp thread.
 proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup false} } {
-   puts "Overview_startExpLogReader exp_path:$exp_path datestamp:$datestamp is_startup:$is_startup"
+   # puts "Overview_startExpLogReader exp_path:$exp_path datestamp:$datestamp is_startup:$is_startup"
    global env this_id SEQ_EXP_HOME
    ::log::log debug "Overview_startExpLogReader"
 
@@ -1628,7 +1638,7 @@ proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup fa
 
    set SEQ_EXP_HOME ${exp_path}
    ::log::log debug "Overview_startExpLogReader SEQ_EXP_HOME=${SEQ_EXP_HOME} datestamp:${datestamp}"
-   puts "Overview_startExpLogReader xflow_readFlowXml"
+   # puts "Overview_startExpLogReader xflow_readFlowXml"
 
    if [ catch { xflow_readFlowXml } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
@@ -1638,7 +1648,7 @@ proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup fa
       exit 1
    }
 
-   puts "Overview_startExpLogReader LogReader_readFile"
+   # puts "Overview_startExpLogReader LogReader_readFile"
    if { ${is_startup} == true } {
       if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          # inactive log
@@ -2501,7 +2511,7 @@ proc Overview_newMessageCallback { has_new_msg } {
    set noNewMsgImage .overview_top.toolbar.msg_center_img
    set hasNewMsgImage .overview_top.toolbar.msg_center_new_img
    set normalBgColor [option get ${msgCenterWidget} background Button]
-   set newMsgBgColor  [SharedData_getColor MSG_CENTER_ABORT_BG]
+   set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    if { [winfo exists ${msgCenterWidget}] } {
       set currentImage [${msgCenterWidget} cget -image]
       if { ${has_new_msg} == "true" && ${currentImage} != ${hasNewMsgImage} } {
@@ -2549,7 +2559,16 @@ proc Overview_createToolbar { _toplevelW } {
    button ${colorLegendW} -image ${toolbarW}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}] -relief flat
    tooltip::tooltip ${colorLegendW} "Show color legend."
 
-   grid ${mesgCenterW} ${colorLegendW} ${closeW} -sticky w -padx 2 
+   if { [SharedData_getMiscData OVERVIEW_SHOW_AIX_ICON] == true } { 
+      # show aix icon
+      image create photo ${toolbarW}.back_end_img -file ${imageDir}/backend.png
+      set backEndW [button ${toolbarW}.button_be -image ${toolbarW}.back_end_img -relief flat \
+                     -command [list Utils_getBackEndHost [Overview_getToplevel] ] ]
+      grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${closeW} -sticky w -padx 2 
+   } else {
+      grid ${mesgCenterW} ${colorLegendW} ${closeW} -sticky w -padx 2 
+   }
+
    grid ${toolbarW} -row 1 -column 0 -sticky nsew -padx 2
 }
 

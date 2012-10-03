@@ -12,20 +12,20 @@ proc readMasterfile { xml_file suite_path parent_flow_node suite } {
 }
 
 
-proc getSubmits { flow_node xml_node } {
+proc getSubmits { exp_path flow_node xml_node } {
    set submits [$xml_node selectNodes SUBMITS]
-   set flowChildren ""
+   set flowSubmits ""
    foreach submit $submits {
       set flowSubmitName [$submit getAttribute sub_name ""]
-      lappend flowChildren $flowSubmitName
+      lappend flowSubmits $flowSubmitName
    }
    #puts "getSubmits flowChildren:$flowChildren"
-   $flow_node configure -flow.children $flowChildren
+   SharedFlowNode_setGenericAttribute ${exp_path} ${flow_node} submits ${flowSubmits}
 }
 
 # retrieve the dependencies for the node
 # "testsuite/bg_check/primary -6 job complete testsuite n/a"
-proc getDeps { flow_node xml_node } {
+proc getDeps { exp_path flow_node xml_node } {
    set xmlDepNodes [$xml_node selectNodes DEPENDS]
    set depValues {}
    foreach depNode $xmlDepNodes {
@@ -45,7 +45,7 @@ proc getDeps { flow_node xml_node } {
 
    #set depValues { key0 value0 key1 value1 key2 value2 }
    #puts "getSubmits flowChildren:$flowChildren"
-   $flow_node configure -flow.deps $depValues
+   SharedFlowNode_setGenericAttribute ${exp_path} ${flow_node} deps ${depValues}
 }
 
 proc createNodeFromXml { suite parent_flow_node xml_node } {
@@ -60,42 +60,41 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
 
    set xmlNodeName [$xml_node nodeName]
    set nodeName [$xml_node getAttribute name ""]
+   set expPath [$suite cget -suite_path] 
    # I need to get the node that has a submit to this node. It is not
    # necessarily the xml parent node that is effectively the flow parent
    # node
    ::log::log debug "createNodeFromXml() parent_flow_node:$parent_flow_node nodeName:$nodeName"
-   set actualFlowParent [::FlowNodes::searchSubmitNode $parent_flow_node $nodeName]
+   set actualFlowParent [SharedFlowNode_searchSubmitNode ${expPath} $parent_flow_node $nodeName]
    set newFlowDirname $actualFlowParent/$nodeName
    set flowCreateCmd [lindex [string map $FlowNodeTypeMap $xmlNodeName] 0]
    set flowType [lindex [string map $FlowNodeTypeMap $xmlNodeName] 1]
    #puts "createNodeFromXml() newFlowDirname:$newFlowDirname"
-   if { ! [record exists instance $newFlowDirname] } {
-      $flowCreateCmd $newFlowDirname
-   }
-   $newFlowDirname configure -flow.name $nodeName -flow.type $flowType -flow.parent $actualFlowParent
+   SharedFlowNode_createNode ${expPath} ${newFlowDirname} ${actualFlowParent} ${flowType}
    if { ${xmlNodeName} == "MODULE" } {
-      $newFlowDirname configure -load_time [clock seconds]
+      # $newFlowDirname configure -load_time [clock seconds]
+      SharedFlowNode_setGenericAttribute ${expPath} ${newFlowDirname} load_time [clock seconds]
    }
 
    # I'm storing the closest container of the node
-   set parentContainer "[$actualFlowParent cget -flow.container]"
-   set parentName "[$actualFlowParent cget -flow.name]"
-   ::log::log debug "createNodeFromXml() parentContainer:$parentContainer parentName:$parentName type:$flowType parentType:[$actualFlowParent cget -flow.type]"
-   set parentType [$actualFlowParent cget -flow.type]
+   set parentContainer "[SharedFlowNode_getGenericAttribute ${expPath} ${actualFlowParent} container]"
+   set parentName "[SharedFlowNode_getGenericAttribute ${expPath} ${actualFlowParent} name]"
+   set parentType [SharedFlowNode_getGenericAttribute ${expPath} ${actualFlowParent} type]
+   ::log::log debug "createNodeFromXml() parentContainer:$parentContainer parentName:$parentName type:$flowType parentType:${parentType}"
    if { [string match "*task" ${parentType} ] } {
-      $newFlowDirname configure -flow.container "$parentContainer"
+      SharedFlowNode_setGenericAttribute ${expPath} ${newFlowDirname} container "$parentContainer"
    } else {
       if { ${parentContainer} == "" } {
-         $newFlowDirname configure -flow.container "/${parentName}"
+         SharedFlowNode_setGenericAttribute ${expPath} ${newFlowDirname} container "/${parentName}"
       } else {
-         $newFlowDirname configure -flow.container "${parentContainer}/${parentName}"
+         SharedFlowNode_setGenericAttribute ${expPath} ${newFlowDirname} container "${parentContainer}/${parentName}"
       }
    }
 
    # if one of my parent node in the flow is of type task, I also need to store a mapping
    # of the real node to the flow node. A real node is the value that is required by the
    # sequencer API.
-   if { [::FlowNodes::searchForTask $actualFlowParent] != "" } {
+   if { [SharedFlowNode_searchForTask ${expPath} $actualFlowParent] != "" } {
       if { [string match "*task" ${parentType} ] } {
          ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$nodeName $newFlowDirname
       } else {
@@ -104,12 +103,11 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    }
    
    # I'm storing the list of parent loops if there are any
-   ::FlowNodes::searchParentLoops $newFlowDirname $newFlowDirname
+   SharedFlowNode_searchSubmitLoops ${expPath} $newFlowDirname $newFlowDirname
 
-   #puts "createNodeFromXml parent:$actualFlowParent container name: [$newFlowDirname cget -flow.container]"
    set newParentNode $newFlowDirname
-   getSubmits $newFlowDirname $xml_node
-   getDeps $newFlowDirname $xml_node
+   getSubmits ${expPath} $newFlowDirname $xml_node
+   getDeps ${expPath} $newFlowDirname $xml_node
    return $newParentNode
 }
 
@@ -122,6 +120,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
 
    global env
    set xmlNodeName [$current_xml_node nodeName]
+   set expPath [${suite} cget -suite_path]
    ::log::log debug "parseXmlNode: suite:$suite parent_flow_node=$parent_flow_node xmlNodeName=$xmlNodeName"
    set parseChild 1
    set parentFlowNode $parent_flow_node
@@ -145,7 +144,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          ::log::log debug "ParseXmlNode:: suite_path: [$suite cget -suite_path]"
          ::log::log debug "ParseXmlNode:: newXmlFile = $newXmlFile"
          set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
-         readMasterfile $newXmlFile [$suite cget -suite_path] $newParentNode $suite
+         readMasterfile $newXmlFile ${expPath} $newParentNode $suite
          set parseChild 0
       }
       "LOOP" {
@@ -158,13 +157,14 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
          if { $setValue != "" } {
             set type loopset
          }
-         $newParentNode configure -loop_type $type -start $start -step $step -end $end \
-                     -set $setValue
+         #$newParentNode configure -loop_type $type -start $start -step $step -end $end \
+         #            -set $setValue
+         SharedFlowNode_setLoopData ${expPath} ${newParentNode} ${type} ${start} ${step} ${end} ${setValue}
       }
       "CASE" {
-         set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
-         set evalScript [$current_xml_node getAttribute exec_script]
-         $newParentNode configure -eval_exec $evalScript
+         # set newParentNode [createNodeFromXml $suite $parent_flow_node $current_xml_node]
+         # set evalScript [$current_xml_node getAttribute exec_script]
+         # $newParentNode configure -eval_exec $evalScript
       }
       "DEPENDS_ON" -
       "SUBMITS" -
@@ -180,7 +180,7 @@ proc parseXmlNode { suite parent_flow_node current_xml_node } {
    }
    if { $newParentNode != "" } {
       set parentFlowNode $newParentNode
-      ${newParentNode} configure -flow.work_unit ${workUnitMode}
+      SharedFlowNode_setGenericAttribute ${expPath} ${newParentNode} work_unit ${workUnitMode}
    }
    # do I need to go down further?
    if { ${parseChild} == 1 } {
@@ -218,19 +218,19 @@ proc parseModuleMasterfile { xml_data suite_path parent_flow_node suite_record }
       $suiteRecord configure -suite_name $suiteName -suite_path $suite_path
       SharedData_setExpRootNode ${suite_path} ${recordName}
       # create the top node of our flow tree
-      if { ! [record exists instance ${recordName}] } {
-         FlowModule $recordName
-         $recordName configure -load_time [clock seconds]
+      if { ! [SharedFlowNode_isNodeExist ${suite_path} ${recordName}] } {
+         SharedFlowNode_createNode ${suite_path} $recordName "" module
+         # $recordName configure -load_time [clock seconds]
+         SharedFlowNode_setGenericAttribute ${suite_path} ${recordName} load_time [clock seconds]
       }
-      $recordName configure -flow.name $suiteName -flow.type module -flow.family $recordName
    } else {
       ::log::log debug "parseModuleMasterfile suite_record:$suite_record"
       set suiteName [$suite_record cget -suite_name]
       set recordName $parent_flow_node
       ::log::log debug "suiteName:$suiteName"
    }
-   $recordName configure  -flow.work_unit ${workUnitMode}
-   getSubmits $recordName $topXmlNode
+   SharedFlowNode_setGenericAttribute ${suite_path} ${recordName} work_unit ${workUnitMode}
+   getSubmits ${suite_path} $recordName $topXmlNode
    # recursively parse the children nodes of the xml tree
    if { [$topXmlNode hasChildNodes] } {
       set xmlChildren [$topXmlNode childNodes]
