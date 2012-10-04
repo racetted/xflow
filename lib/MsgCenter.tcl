@@ -564,28 +564,40 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
       if { ${isOverviewMode} == "true" } {
-         if { ${expThreadId} != "" } {
-            puts "MsgCenter_DoubleClickCallback found expThreadId:${expThreadId}"
-            set expWindowStatus [thread::send ${expThreadId} "wm state ."]
-            if { ${expWindowStatus} != "normal" } {
-               puts "MsgCenter_DoubleClickCallback xflow_displayFlow ${realDatestamp}"
-               thread::send ${expThreadId} "xflow_displayFlow ${realDatestamp}"
-            } else {
-               puts "MsgCenter_DoubleClickCallback xflow_toFront "
-               thread::send ${expThreadId} "xflow_toFront ."
-            }
-         } else {
-            puts "MsgCenter_DoubleClickCallback not found expThreadId"
-            set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-            thread::send ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}"
-            set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
-         }
-      }
+         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+         thread::send ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}"
 
-      # ask the suite thread to take care of showing the selected node in it's flow
-      set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
-      set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
-      thread::send ${expThreadId} "xflow_findNode ${suiteRecord} ${convertedNode}"
+         # ask the suite thread to take care of showing the selected node in it's flow
+         set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
+         thread::send ${overviewThreadId} "xflow_findNode ${expPath} ${convertedNode}"
+
+         proc out {} {
+            set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
+
+            if { ${expThreadId} != "" } {
+               puts "MsgCenter_DoubleClickCallback found expThreadId:${expThreadId}"
+               set expWindowStatus [thread::send ${expThreadId} "wm state ."]
+               if { ${expWindowStatus} != "normal" } {
+                  puts "MsgCenter_DoubleClickCallback xflow_displayFlow ${expPath}  ${realDatestamp}"
+                  thread::send ${expThreadId} "xflow_displayFlow ${expPath}  ${realDatestamp}"
+               } else {
+                  puts "MsgCenter_DoubleClickCallback xflow_toFront "
+                  thread::send ${expThreadId} "xflow_toFront ."
+               }
+            } else {
+               puts "MsgCenter_DoubleClickCallback not found expThreadId"
+               set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+               thread::send ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}"
+               set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
+            }
+         }
+      } else {
+
+         # ask the suite thread to take care of showing the selected node in it's flow
+         set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
+         # set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
+         thread::send ${expThreadId} "xflow_findNode ${expPath} ${convertedNode}"
+      }
 
       Utils_normalCursor ${table_widget}
 

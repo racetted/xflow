@@ -1,7 +1,7 @@
 #!/data/bowmore/afsisul/apps/bin/tclsh8.5
 package require struct::record
 package require tdom
-package require FlowNodes
+# package require FlowNodes
 
 proc readMasterfile { xml_file suite_path parent_flow_node suite } {
    if [ catch { set xmlSrc [exec cat $xml_file] } ] {
@@ -96,9 +96,11 @@ proc createNodeFromXml { suite parent_flow_node xml_node } {
    # sequencer API.
    if { [SharedFlowNode_searchForTask ${expPath} $actualFlowParent] != "" } {
       if { [string match "*task" ${parentType} ] } {
-         ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$nodeName $newFlowDirname
+         #::SuiteNode::addFlowNodeMapping $suite $parentContainer/$nodeName $newFlowDirname
+         SharedData_addExpNodeMapping ${expPath} $parentContainer/$nodeName $newFlowDirname
       } else {
-         ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$parentName/$nodeName $newFlowDirname
+         # ::SuiteNode::addFlowNodeMapping $suite $parentContainer/$parentName/$nodeName $newFlowDirname
+         SharedData_addExpNodeMapping ${expPath} $parentContainer/$parentName/$nodeName $newFlowDirname
       }
    }
    

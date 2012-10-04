@@ -9,7 +9,4 @@
 # full path name of this file's directory.
 
 package ifneeded DrawUtils 1.0 [list source [file join $dir DrawUtils.tcl]]
-
-# manually added
-package ifneeded FlowNodes 1.0 [list source [file join $dir FlowNode.tcl]]
 package ifneeded SuiteNode 1.0 [list source [file join $dir SuiteNode.tcl]]

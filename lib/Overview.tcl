@@ -5,6 +5,7 @@ package require cmdline
 package require Thread
 namespace import ::tooltip::tooltip
 namespace import ::struct::record::record
+package require keynav
 package require log
 
 global env
@@ -12,10 +13,10 @@ if { ! [info exists env(SEQ_XFLOW_BIN) ] } {
    puts "Environment variable SEQ_XFLOW_BIN must be defined!"
    exit
 }
-puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
+# puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
 
 set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-puts "lib_dir=$lib_dir"
+puts "sua lib_dir=$lib_dir"
 set auto_path [linsert $auto_path 0 $lib_dir ]
 
 package require SuiteNode
@@ -118,7 +119,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
             # is the exp thread still needed?
             set expThreadId [SharedData_getExpThreadId ${expPath} ${datestamp}]
             if { ${expThreadId} != "" && [LogMonitor_isLogFileActive ${expPath} ${datestamp}] == false } {
-               if { [thread::send ${expThreadId} xflow_isXflowActive] == false } {
+               if { [thread::send ${expThreadId} xflow_isXflowActive ${expPath}] == false } {
                   # the exp thread that followed this log is not needed anymore, release it    
                   ::log::log debug "Overview_GridAdvanceHour releasing exp thread for ${expPath} ${datestamp}"
                   Overview_releaseExpThread ${expThreadId} ${expPath} ${datestamp}
@@ -638,7 +639,7 @@ proc Overview_ExpCreateStartIcon { canvas suite_record datestamp timevalue {shif
    set tailName [file tail ${expPath}]
    set expLabel " ${tailName} "
    set outlineColor [::DrawUtils::getOutlineStatusColor ${currentStatus}]
-   puts "Overview_ExpCreateStartIcon outlineColor:$outlineColor currentStatus:$currentStatus"
+   # puts "Overview_ExpCreateStartIcon outlineColor:$outlineColor currentStatus:$currentStatus"
    if { ${shift_day} == true || [string match "defaut*" ${datestamp}] } {
       set currentStatus init
       set expBoxTag [Overview_getExpBoxTag ${expPath} ${datestamp} default]
@@ -981,7 +982,7 @@ proc Overview_advanceExpDefaultBox { canvas exp_path } {
 
 proc Overview_removeExpBox { canvas exp_path datestamp status } {
 
-   puts "Overview_removeExpBox $canvas $exp_path datestamp:$datestamp status:$status"
+   # puts "Overview_removeExpBox $canvas $exp_path datestamp:$datestamp status:$status"
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${status}]
    ${canvas} delete ${expBoxTag}.text
    ${canvas} delete ${expBoxTag}.start
@@ -1336,7 +1337,8 @@ proc Overview_launchExpFlow { exp_path datestamp } {
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    global env ExpThreadList PROGRESS_REPORT_TXT
 
-   # set progressWidth 
+   xflow_init ${exp_path}
+
    set progressWidth 25
    set extraMsg ""
    if { ${datestamp} != "" } {
@@ -1344,6 +1346,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
       set extraMsg "datestamp=[Utils_getVisibleDatestampValue ${datestamp}]"
    }
    set result [ catch {
+
       set isNewThread false
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
       if { ${expThreadId} == "" } {
@@ -1375,16 +1378,19 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
-             ::log::log notice "Overview_launchExpFlow new exp thread calling Overview_startExpLogReader..."
-            thread::send ${expThreadId} "Overview_startExpLogReader ${exp_path} ${suiteRecord} \"${datestamp}\""
+             ::log::log notice "Overview_launchExpFlow new exp thread calling LogReader_startExpLogReader..."
+            thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\""
          }
       }
 
       ::log::log debug "Overview_ThreadLaunchFLow ${exp_path} \"${datestamp}\""
       ::log::log notice "Overview_launchExpFlow sending Overview_ThreadLaunchFLow"
       # send the request to the exp thread
-      thread::send ${expThreadId} "Overview_ThreadLaunchFLow ${exp_path} \"${datestamp}\""
+      # thread::send ${expThreadId} "Overview_ThreadLaunchFLow ${exp_path} \"${datestamp}\""
+      Overview_ThreadLaunchFLow ${exp_path} "${datestamp}"
       ::log::log notice "Overview_launchExpFlow Overview_ThreadLaunchFLow ${exp_path} done"
+
+
       destroy ${progressW}
 
    } message ]
@@ -1409,7 +1415,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
    puts "Overview_releaseExpThread exp_thread_id:${exp_thread_id} exp_path:${exp_path} datestamp:${datestamp}"
    SharedData_removeExpThreadId ${exp_path} ${datestamp}
-   thread::send -async ${exp_thread_id} "xflow_quit true"
+   # thread::send -async ${exp_thread_id} "xflow_quit true"
    ThreadPool_releaseThread ${exp_thread_id}
 }
 
@@ -1453,14 +1459,13 @@ proc Overview_isExpStartupDone { exp_thread_id exp_path datestamp } {
 # this function is called asynchronously by experiment child threads to
 # update the status of an experiment node in the overview panel.
 # See LogReader.tcl
-proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp } {
+proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
    global AUTO_LAUNCH
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id $suite_record datestamp:$datestamp status:$status timestamp:$timestamp "
-
+   set suite_record [::SuiteNode::formatSuiteRecord ${exp_path}]
    set colors [::DrawUtils::getStatusColor $status]
    set bgColor [lindex $colors 1]
    set canvas [Overview_getCanvas]
-   set expPath [${suite_record} cget -suite_path]
    # retrieve the date & time from the given time stamp
    set dateValue [Utils_getDateFromDatestamp ${timestamp}]
    set timeValue [Utils_getTimeFromDatestamp ${timestamp}]
@@ -1486,7 +1491,7 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
       set isStartupDone [SharedData_getMiscData STARTUP_DONE]
       if { $status == "begin" } {
          # launch the flow if needed... but not when the app is startup up
-         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${expPath} ${datestamp}] == true } {
+         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
             ::log::log notice "exp begin detected for [${suite_record} cget -suite_path] datestamp:${datestamp} timestamp:${timestamp}"
             ::log::log notice "exp launching xflow window [${suite_record} cget -suite_path] datestamp:${datestamp}"
             Overview_launchExpFlow [$suite_record cget -suite_path] ${datestamp}
@@ -1495,7 +1500,7 @@ proc Overview_updateExp { exp_thread_id suite_record datestamp status timestamp 
          # change the exp colors
          Overview_refreshBoxStatus ${suite_record} ${datestamp}
       }
-      if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${expPath} ${datestamp}] == true } {
+      if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
          # check for box overlapping, auto-refresh, etc
          Overview_updateExpBox ${canvas} ${suite_record} ${datestamp} ${status} ${timeValue}
       ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
@@ -1573,7 +1578,6 @@ proc Overview_addExp { display_group canvas exp_path } {
    set suiteRecord [::SuiteNode::formatSuiteRecord ${exp_path}]
    # creates a dummy suite record
    SuiteInfo ${suiteRecord} -suite_path ${exp_path}
-
    ::log::log debug "Overview_addExp suiteRecord:$suiteRecord"
 
    ############################
@@ -1609,7 +1613,7 @@ proc Overview_addExp { display_group canvas exp_path } {
          # read log and quit
          Overview_addChildInit ${exp_path} ${datestamp}
          # puts "Overview_addExp thread::send -async ${childId} Overview_startExpLogReader ${exp_path} ${suiteRecord} ${datestamp} true"
-         thread::send -async ${childId} "Overview_startExpLogReader ${exp_path} ${suiteRecord} ${datestamp} true"
+         thread::send -async ${childId} "LogReader_startExpLogReader ${exp_path} ${datestamp} true"
       }
    }
 
@@ -1622,25 +1626,19 @@ proc Overview_addExp { display_group canvas exp_path } {
 # to start the processing of the exp log file i.e. it is meant to be run in the exp thread.
 proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup false} } {
    # puts "Overview_startExpLogReader exp_path:$exp_path datestamp:$datestamp is_startup:$is_startup"
-   global env this_id SEQ_EXP_HOME
+   global env this_id
    ::log::log debug "Overview_startExpLogReader"
 
-   xflow_init
+   xflow_initThread
 
-   tk appname "[file tail ${exp_path}] - ${datestamp}"
-   # flush stdout
-   # wm withdraw .
-   # if { ${datestamp} != "" } {
-   #   puts "Overview_startExpLogReader SharedData_setExpThreadId"
-   #   SharedData_setExpThreadId ${exp_path} ${datestamp} [thread::id]
-   #}
+   # tk appname "[file tail ${exp_path}] - ${datestamp}"
+
    SharedData_setExpThreadId ${exp_path} "${datestamp}" [thread::id]
 
-   set SEQ_EXP_HOME ${exp_path}
-   ::log::log debug "Overview_startExpLogReader SEQ_EXP_HOME=${SEQ_EXP_HOME} datestamp:${datestamp}"
+   ::log::log debug "Overview_startExpLogReader exp_path=${exp_path} datestamp:${datestamp}"
    # puts "Overview_startExpLogReader xflow_readFlowXml"
 
-   if [ catch { xflow_readFlowXml } message ] {
+   if [ catch { xflow_readFlowXml ${exp_path} } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
       puts "${errMsg}"
       tk_messageBox -title "Application Error!" -type ok -icon error \
@@ -1655,7 +1653,7 @@ proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup fa
          # only send to overview and msg center, don't send to flow
          LogReader_readFile ${suite_record} ${datestamp} no_flow
          # release exp thread
-         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${SEQ_EXP_HOME} ${datestamp}"
+         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${exp_path} ${datestamp}"
       } else {
          # active log, we read the log files, send updates to overview, to msg center and to flow thread as well
          LogReader_readFile ${suite_record} ${datestamp} all
@@ -1671,10 +1669,9 @@ proc Overview_startExpLogReader { exp_path suite_record datestamp {is_startup fa
 # this function is called from the overview main thread to the exp thread
 # to display the exp flow either on user's request or because of "Auto Launch"
 proc Overview_ThreadLaunchFLow { exp_path datestamp } {
-   global this_id SEQ_EXP_HOME
-   set SEQ_EXP_HOME ${exp_path}
+   global this_id
    ::log::log debug "Overview_ThreadLaunchFLow exp_path:${exp_path} datestamp:${datestamp}"
-   xflow_displayFlow ${datestamp}
+   xflow_displayFlow ${exp_path} ${datestamp}
 }
 
 
@@ -2309,6 +2306,8 @@ proc Overview_init {} {
    set startEndIconSize 10
 
    set expBoxOutlineWidth 1.5
+
+   keynav::enableMnemonics .
 
 }
 

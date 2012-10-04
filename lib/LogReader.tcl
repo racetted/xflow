@@ -1,10 +1,56 @@
 package require textutil::string
+package require log
+
+proc LogReader_startExpLogReader { exp_path datestamp {is_startup false} } {
+   # puts "LogReader_startExpLogReader exp_path:$exp_path datestamp:$datestamp is_startup:$is_startup"
+   global env this_id
+   ::log::log debug "LogReader_startExpLogReader"
+
+   global env DEBUG_TRACE
+   global MSG_CENTER_THREAD_ID
+
+   set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
+   set MSG_CENTER_THREAD_ID [SharedData_getMsgCenterThreadId]
+   # SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
+
+   SharedData_setExpThreadId ${exp_path} "${datestamp}" [thread::id]
+
+   ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp}"
+   # puts "LogReader_startExpLogReader xflow_readFlowXml"
+
+   if [ catch { 
+      readMasterfile ${exp_path}/EntryModule/flow.xml ${exp_path} "" ""
+   } message ] {
+      set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
+      puts "${errMsg}"
+      # tk_messageBox -title "Application Error!" -type ok -icon error \
+      #   -message ${errMsg}
+   }
+
+   # puts "LogReader_startExpLogReader LogReader_readFile"
+   if { ${is_startup} == true } {
+      if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+         # inactive log
+         # only send to overview and msg center, don't send to flow
+         LogReader_readFile ${exp_path} ${datestamp} no_flow
+         # release exp thread
+         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${exp_path} ${datestamp}"
+      } else {
+         # active log, we read the log files, send updates to overview, to msg center and to flow thread as well
+         LogReader_readFile ${exp_path} ${datestamp} all
+      }
+   } else {
+      # this is usually called when the user launches a flow from the overview,
+      # at that point we don't care about sending updates to overview or msg center cause it's already done
+      # just launch the flow
+      LogReader_readFile ${exp_path} ${datestamp} refresh_flow
+   }
+}
 
 # read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
-proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
-   global REDRAW_FLOW LOGREADER_UPDATE_NODES
-   ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} read_type:${read_type}"
-   set REDRAW_FLOW false
+proc LogReader_readFile { exp_path datestamp {read_type no_overview} } {
+   global LOGREADER_UPDATE_NODES REDRAW_NODES_EVENT
+   ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
    set LOGREADER_UPDATE_NODES ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
@@ -26,20 +72,19 @@ proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
    }
    
    # first cancel any other waiting read for this suite
-   LogReader_cancelAfter $suite_record
-   set expPath [$suite_record cget -suite_path]
+   LogReader_cancelAfter ${exp_path}
    if { ${datestamp} != "" } {
-      set logfile ${expPath}/logs/${datestamp}_nodelog
+      set logfile ${exp_path}/logs/${datestamp}_nodelog
 
       if { [file exists $logfile] } {
          set f_logfile [ open $logfile r ]
          flush stdout
          
          if { ${isStartupDone} == "true" } {
-            set logFileOffset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
-            ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} read_offset:$logFileOffset"
+            set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
+            ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
          } else {
-            ::log::log debug "LogReader_readFile suite_record:$suite_record datestamp:${datestamp} reset read_offset"
+            ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} reset read_offset"
             set logFileOffset 0
          }
 
@@ -47,14 +92,14 @@ proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
          seek $f_logfile $logFileOffset
 
          while {[gets $f_logfile line] >= 0} {
-            LogReader_processLine ${suite_record} ${expPath} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
+            LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
          }
-         SharedData_setExpDatestampOffset ${expPath} ${datestamp} [tell $f_logfile]
-         SharedData_setExpStartupDone ${expPath} ${datestamp} true
+         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} [tell $f_logfile]
+         SharedData_setExpStartupDone ${exp_path} ${datestamp} true
          close $f_logfile
 
       } else {
-         if { [file writable ${expPath}/logs/] } {
+         if { [file writable ${exp_path}/logs/] } {
             puts "LogReader_readFile $logfile file does not exists! Creating it..."
             catch { close [open $logfile a] }
          } else {
@@ -66,39 +111,40 @@ proc LogReader_readFile { suite_record datestamp {read_type no_overview} } {
    # Need to notify the main thread that this child is done reading
    # the log file for initialization
    if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
-      thread::send -async ${overviewThreadId} "Overview_childInitDone ${expPath} ${datestamp}"
+      thread::send -async ${overviewThreadId} "Overview_childInitDone ${exp_path} ${datestamp}"
    }
 
-   if { ${REDRAW_FLOW} == true } {
-      xflow_redrawAllFlow
-   } elseif { ${LOGREADER_UPDATE_NODES} != "" } {
+   if { ${LOGREADER_UPDATE_NODES} != "" } {
+      # let gui knows that he needs to redraw using the LOGREADER_UPDATE_NODES
+      set REDRAW_NODES_EVENT true
+
       # update highest node that was affected during this read
-      foreach updatedNode  ${LOGREADER_UPDATE_NODES} {
-         xflow_redrawNodes ${updatedNode}
-      }
+      # foreach updatedNode  ${LOGREADER_UPDATE_NODES} {
+      #   xflow_redrawNodes ${updatedNode}
+      # }
    }
    # special case for flow refresh
    if { ${read_type} == "refresh_flow" } {
       set read_type "all"
    }
-   LogReader_readAgain $suite_record ${datestamp} ${read_type}
+   LogReader_readAgain ${exp_path} ${datestamp} ${read_type}
 }
 
-proc LogReader_readAgain { suite_record datestamp read_type } {
-   global ${suite_record}_READ_LOG_IDS
+proc LogReader_readAgain { exp_path datestamp read_type } {
+   global ${exp_path}_READ_LOG_IDS
    
-   catch { set ${suite_record}_READ_LOG_IDS [after 4000 [list LogReader_readFile $suite_record ${datestamp} ${read_type}]]}
+   catch { set ${exp_path}_READ_LOG_IDS [after 4000 [list LogReader_readFile ${exp_path} ${datestamp} ${read_type}]]}
 }
 
-proc LogReader_cancelAfter { suite_record } {
-   global ${suite_record}_READ_LOG_IDS
-   if { [info exists ${suite_record}_READ_LOG_IDS] } {
-      after cancel [set ${suite_record}_READ_LOG_IDS]
+proc LogReader_cancelAfter { exp_path } {
+   global ${exp_path}_READ_LOG_IDS
+   if { [info exists ${exp_path}_READ_LOG_IDS] } {
+      after cancel [set ${exp_path}_READ_LOG_IDS]
    }
 
 }
 
-proc LogReader_processLine { _suite_record _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter } {
+proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter } {
    global MSG_CENTER_THREAD_ID
 
    set nodeIndex 28
@@ -150,14 +196,14 @@ proc LogReader_processLine { _suite_record _exp_path _datestamp _line _toOvervie
                if { ${node} == [SharedData_getExpRootNode ${_exp_path}] } {
                   ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
                   thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
-                     "Overview_updateExp [thread::id] ${_suite_record} ${_datestamp} ${type} ${timestamp}"
+                     "Overview_updateExp [thread::id] ${_exp_path} ${_datestamp} ${type} ${timestamp}"
                }
             }
          }
       }
 
       if { ${_ToFlow} == true } {
-         LogReader_processFlowLine ${_suite_record} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp}
+         LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp}
       }
 
       if { ${_toMsgCenter} == true } {
@@ -175,42 +221,42 @@ proc LogReader_processLine { _suite_record _exp_path _datestamp _line _toOvervie
    }
 }
 
-proc LogReader_processFlowLine { _suite_record _node _datestamp _type _loopExt _timestamp} {
+proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp} {
 
    # node & signal is mandatory to be processed
    # else the line is ignored
    set loopInfoDisplay ""
    set extDisplay ""
-   set expPath [${_suite_record} cget -suite_path]
    # abortx, endx, beginx type are used for signals we send to the parent containers nodes
    # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
    # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
    set finalCmd ""
    if { ${_node} != "" } {
-      set flowNode [::SuiteNode::getFlowNodeMapping ${_suite_record} ${_node}]
+      # set flowNode [::SuiteNode::getFlowNodeMapping ${_suite_record} ${_node}]
+      set flowNode [SharedData_getExpNodeMapping ${_exp_path} ${_node}]
 
       if { [info exists ::DrawUtils::rippleStatusMap(${_type})] } {
          set type $::DrawUtils::rippleStatusMap(${_type})
 
          ::log::log debug "LogReader_processFlowLine node=${_node} flowNode:$flowNode loopExt:${_loopExt} type=${_type}"
-         set nodeType [SharedFlowNode_getNodeType ${expPath} ${flowNode}]
+         set nodeType [SharedFlowNode_getNodeType ${_exp_path} ${flowNode}]
          # puts "LogReader_processFlowLine nodeType:${nodeType} node=${_node} flowNode:$flowNode loopExt:${_loopExt} type=${_type}"
             # 1 - first we take care of setting the node status
             if { [string tolower ${_type}] == "init" } {
                if { ${nodeType} == "loop" } {
                   if { ${_loopExt} != "" } {
-                     SharedFlowNode_setMemberStatus ${expPath} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp} 1
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp} 1
                   } else {
                      # we got an update on the whole loop
-                     SharedFlowNode_resetAllStatus ${expPath} ${flowNode} ${_datestamp} 1
+                     SharedFlowNode_resetAllStatus ${_exp_path} ${flowNode} ${_datestamp} 1
                   }
                } else { 
                   # current node is not loop
-                  if { [SharedFlowNode_getLoops ${expPath} ${flowNode}] != "" } {
+                  if { [SharedFlowNode_getLoops ${_exp_path} ${flowNode}] != "" } {
                      # part of parent loop container
-                     SharedFlowNode_setMemberStatus ${expPath} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp} 1
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp} 1
                   } else {
-                     SharedFlowNode_resetNodeStatus ${expPath} ${flowNode} ${_datestamp}
+                     SharedFlowNode_resetNodeStatus ${_exp_path} ${flowNode} ${_datestamp}
                   }
                }
             } else {
@@ -218,21 +264,21 @@ proc LogReader_processFlowLine { _suite_record _node _datestamp _type _loopExt _
                if { ${nodeType} == "loop" || ${nodeType} == "npass_task" } {
                   if { ${_loopExt} != "" } {
                      # we got an update on a loop iteration
-                     SharedFlowNode_setMemberStatus ${expPath} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp} 0
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp} 0
                   } else {
                      # we got an update on the whole loop
-                     SharedFlowNode_setMemberStatus ${expPath} ${flowNode} ${_datestamp} all ${_type} ${_timestamp}
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} all ${_type} ${_timestamp}
                   }
                } else { 
                   # current node is not loop
-                  # puts  "SharedFlowNode_setMemberStatus ${expPath} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp}"
-                  SharedFlowNode_setMemberStatus ${expPath} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp}
+                  # puts  "SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp}"
+                  SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp}
                }
             }
 
             # 2 - then we refresh the display... redisplay the node text?
             if { [SharedData_getMiscData STARTUP_DONE] == "true" &&
-               [SharedFlowNode_isRefreshNeeded ${expPath} ${flowNode} ${_datestamp} ${_loopExt}] == "true" } {
+               [SharedFlowNode_isRefreshNeeded ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt}] == "true" } {
                #xflow_redrawNodes ${flowNode}
                LogReader_updateNodes ${flowNode}
             }

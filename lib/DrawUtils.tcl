@@ -1,6 +1,6 @@
 package provide DrawUtils 1.0
 package require Tk
-package require FlowNodes
+#package require FlowNodes
 #package require Tix
 package require tile
 package require BWidget 1.9
@@ -258,12 +258,10 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
        $canvas lower ${binder}.shadow ${binder}.losange
    }
 
-   set suiteRecord [xflow_getActiveSuite]
-
    set maximX ${sx2}
    set maximY ${sy3}
    set nextY  [expr $sy4 + 10]
-   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
+   SharedData_setExpDisplayData ${exp_path} $canvas ${nextY} ${maximX} ${maximY}
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
 }
 
@@ -274,7 +272,6 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
    ::log::log debug "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder"
    ::log::log debug "drawOval textfill:$textfill fill:$fill binder:$binder"
 
-   set suiteRecord [xflow_getActiveSuite]
    set newtx1 [expr ${tx1} + 10]
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
@@ -305,11 +302,11 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
       $canvas create oval ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
             -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
       $canvas lower ${binder}.shadow ${binder}.oval
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${sx2} ${sy2}
       set maxX ${sx2}
       set maxY ${sy2}
    } else {
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${nx2} ${ny2}
       set maxX ${nx2}
       set maxY ${ny2}
    }
@@ -352,7 +349,7 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
       } else {
          set nextY [expr $barY + [winfo height ${indexListW}]]
       }
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maxX} ${maxY}
+      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${maxX} ${maxY}
    }
 }
 
@@ -566,8 +563,6 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
            -fill $fill -tags "flow_element $binder ${binder}.rectangle" 
    $canvas lower ${binder}.rectangle ${binder}.text
 
-   set suiteRecord [xflow_getActiveSuite]
-
    if { $drawshadow == "on" } {
       # draw a shadow
       set sx1 [expr $nx1 + ${pad}]
@@ -577,9 +572,9 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
       $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
             -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
       $canvas lower ${binder}.shadow ${binder}.rectangle
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${sx2} ${sy2}
    } else {
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${nx2} ${ny2}
    }
 
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
@@ -606,8 +601,6 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
 
-   set suiteRecord [xflow_getActiveSuite]
-
    set nx1 [expr [lindex $boxArea 0] - ${padx}]
    set ny1 [expr [lindex $boxArea 1] - ${pady}]
    set nx2 [expr [lindex $boxArea 2] + ${padx}]
@@ -626,13 +619,13 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
        $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
                -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.rectangle
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${sx2} ${sy2}
       set maxX ${sx2}
       set maxY ${sy2}
    } else {
       set maxX ${nx2}
       set maxY ${ny2}
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${nx2} ${ny2}
    }
 
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
@@ -672,15 +665,16 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
       } else {
          set nextY [expr $barY + [winfo height ${indexListW}]]
       }
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maxX} ${maxY}
+      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${maxX} ${maxY}
    }
 }
 
-proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
-   ::log::log debug "::DrawUtils::pointNode ${suite_record} node:${node}"
+proc ::DrawUtils::pointNode { exp_path node {canvas ""} } {
+   ::log::log debug "::DrawUtils::pointNode ${exp_path} node:${node}"
    set canvasList ${canvas}
    if { ${canvas} == "" } {
-      set canvasList [::SuiteNode::getCanvasList ${suite_record}]
+      #set canvasList [::SuiteNode::getCanvasList ${exp_path}]
+      set canvasList [SharedData_getExpCanvasList ${exp_path}]
    }
    foreach canvasW ${canvasList} {
       set newcords [${canvasW} coords ${node}]
@@ -821,7 +815,7 @@ proc ::DrawUtils::highLightNode { exp_path node canvas_w } {
 
 # highlights a node that is selected with the find functionality
 # by drawing a yellow rectangle around the node
-proc ::DrawUtils::highLightFindNode { _suite_record _node _canvas_w } {
+proc ::DrawUtils::highLightFindNode { _exp_path _node _canvas_w } {
    global NodeHighLightRestoreCmd 
    variable nodeTypeMap
 

@@ -23,12 +23,18 @@ proc ThreadPool_init { nof_thread } {
 proc ThreadPool_createThread {} {
    set threadId [thread::create {
       global env
-      set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-      set auto_path [linsert $auto_path 0 $lib_dir ]
+      # set lib_dir $env(SEQ_XFLOW_BIN)/../lib
+      # set auto_path [linsert $auto_path 0 $lib_dir ]
+      source $env(SEQ_XFLOW_BIN)/../lib/masterxml.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/SuiteNode.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/LogReader.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/LogMonitor.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/SharedData.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/SharedFlowNode.tcl
 
       package require SuiteNode
-      package require Tk
-      wm withdraw .
+      # package require Tk
+      # wm withdraw .
       thread::wait
    }]
    return ${threadId}
@@ -82,8 +88,8 @@ proc ThreadPool_showThreadStatus {} {
       puts "ThreadPool_showThreadStatus threadid:$threadid busy:$busy"
       if { ${busy} == true } {
          catch {
-            set activeSuite [thread::send ${threadid} xflow_getActiveSuite]
-            puts "threadid:$threadid [${activeSuite} cget -suite_path]"
+            # set activeSuite [thread::send ${threadid} xflow_getActiveSuite]
+            puts "threadid:$threadid"
          }
       }
    }

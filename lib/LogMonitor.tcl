@@ -1,5 +1,6 @@
 #!/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
 
+
 # look for new log files created under SEQ_EXP_HOME/logs
 proc LogMonitor_checkNewLogFiles {} {
    global THREAD_FULL_EVENT
@@ -53,10 +54,10 @@ proc LogMonitor_checkNewLogFiles {} {
                         SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
                         SharedData_setExpStartupDone ${expPath} ${seqDatestamp} false
 
-                        #puts "LogMonitor_checkNewLogFiles Overview_startExpLogReader..."
-                        ::log::log notice "LogMonitor_checkNewLogFiles(): Overview_startExpLogReader ${expPath} ${seqDatestamp}"
-                        thread::send ${expThreadId} "Overview_startExpLogReader ${expPath} ${suiteRecord} \"${seqDatestamp}\" true"
-                        Overview_refreshExpLastStatus ${expPath} ${seqDatestamp}
+                        #puts "LogMonitor_checkNewLogFiles LogMonitor_startExpLogReader..."
+                        ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
+                        thread::send ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" true"
+                        thread::send [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_refreshExpLastStatus ${expPath} ${seqDatestamp}"
                      }
                   }
                } else {

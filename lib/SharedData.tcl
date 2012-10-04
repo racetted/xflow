@@ -155,6 +155,134 @@ proc SharedData_getExpModules { _exp_path } {
    return ${modules}
 }
 
+proc SharedData_addExpNodeMapping { _exp_path _real_node _flow_node } {
+   array set nodeMappings [SharedData_getSuiteData ${_exp_path} node_mappings]
+   set nodeMappings(${_real_node}) ${_flow_node}
+   SharedData_setSuiteData ${_exp_path} node_mappings [array get nodeMappings]
+}
+
+proc SharedData_getExpNodeMapping { _exp_path real_node } {
+   set flowNode ${real_node}
+   array set nodeMapping [SharedData_getSuiteData ${_exp_path} node_mappings]
+   if { [info exists nodeMapping(${real_node})] } {
+      set flowNode $nodeMapping(${real_node})
+   }
+   return ${flowNode}
+}
+
+proc SharedData_resetExpDisplayData { _exp_path _canvas {_force false} } {
+   array set canvasList {}
+   if { [SharedData_getSuiteData ${_exp_path} canvases] == "" || ${_force} == true } {
+      # init
+      set canvasList(${_canvas}) [list 40 "/[file tail ${_exp_path}]" 40 40]
+      SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+   }
+}
+
+proc SharedData_setExpDisplayData { _exp_path _canvas next_y max_x max_y } {
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   if { ! [info exists canvasList(${_canvas})] } {
+      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   }
+
+   set canvasInfo $canvasList(${_canvas})
+
+   if { [expr ${next_y} > [lindex $canvasInfo 0]] } {
+      set canvasInfo [lreplace $canvasInfo 0 0 $next_y]
+   }
+
+   if { [expr ${max_x} > [lindex $canvasInfo 2]] } {
+      set canvasInfo [lreplace $canvasInfo 2 2 $max_x]
+   }
+
+   if { [expr ${max_y} > [lindex $canvasInfo 3]] } {
+      set canvasInfo [lreplace $canvasInfo 3 3 $max_y]
+   }
+
+   set canvasList(${_canvas}) ${canvasInfo}
+   SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+}
+
+proc SharedData_setExpDisplayNextY { _exp_path _canvas _value } {
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   if { ! [info exists canvasList(${_canvas})] } {
+      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   }
+   set canvasInfo $canvasList(${_canvas})
+   set canvasList($canvas) [lreplace $canvasInfo 0 0 $value]
+   SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+}
+
+proc SharedData_setExpDisplayRoot { _exp_path _canvas _value } {
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   if { ! [info exists canvasList(${_canvas})] } {
+      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   }
+   set canvasInfo $canvasList(${_canvas})
+   set canvasList($canvas) [lreplace $canvasInfo 1 1 $value]
+   SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+}
+
+proc SharedData_getExpDisplayNextY { _exp_path _canvas } {
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   if { ! [info exists canvasList(${_canvas})] } {
+      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   }
+   set canvasInfo $canvasList(${_canvas})
+   return [lindex ${canvasInfo} 0]
+}
+
+proc SharedData_getExpDisplayMaximumX { _exp_path _canvas } {
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   if { ! [info exists canvasList(${_canvas})] } {
+      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   }
+   set canvasInfo $canvasList(${_canvas})
+   return [lindex $canvasInfo 2]
+}
+
+proc SharedData_getExpDisplayMaximumY { _exp_path _canvas } {
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   if { ! [info exists canvasList(${_canvas})] } {
+      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   }
+   set canvasInfo $canvasList(${_canvas})
+   return [lindex $canvasInfo 3]
+}
+
+proc SharedData_getExpDisplayRoot { _exp_path _canvas } {
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   if { ! [info exists canvasList(${_canvas})] } {
+      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   }
+   set canvasInfo $canvasList(${_canvas})
+   return [lindex $canvasInfo 1]
+}
+
+proc SharedData_getExpCanvasList { _exp_path } {
+   set resultList {}
+
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   foreach {canvas info} [array get canvasList] {
+      lappend resultList $canvas
+   }
+
+   return ${resultList}
+}
+
+proc SharedData_removeExpDisplayData { _exp_path _canvas } {
+   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array unset canvasList ${_canvas}
+   SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+}
+
 proc out {} {
 proc SharedData_setExpDatestampOffset { exp_path datestamp {offset 0} } {
    set varname logfiles_${exp_path}

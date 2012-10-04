@@ -1,7 +1,7 @@
 package require Tk
 package require tooltip
 
-proc Catchup_createMainWidgets { _topLevelW _parentW } {
+proc Catchup_createMainWidgets { _exp_path _topLevelW _parentW } {
    if { [winfo exists ${_topLevelW}] } {
       destroy ${_topLevelW}
    }
@@ -17,8 +17,8 @@ proc Catchup_createMainWidgets { _topLevelW _parentW } {
    set comboW [ttk::combobox ${_topLevelW}.catchup_combo -state readonly -values ${catchupValues} ]
    set buttonFrame [frame ${_topLevelW}.button_Frame]
    set closeButton [button ${buttonFrame}.close_button -text Close -command [list destroy ${_topLevelW}]]
-   set applyButton [button ${buttonFrame}.apply_button -text Apply -command [list Catchup_applyCallback ${comboW}]]
-   set refreshButton [button ${buttonFrame}.refresh_button -text Refresh -command [list Catchup_refreshCallback ${comboW}]]
+   set applyButton [button ${buttonFrame}.apply_button -text Apply -command [list Catchup_applyCallback ${_exp_path} ${comboW}]]
+   set refreshButton [button ${buttonFrame}.refresh_button -text Refresh -command [list Catchup_refreshCallback ${_exp_path} ${comboW}]]
 
    grid ${catchupLabelW} ${comboW} -padx { 5 2 } -pady 10
    grid ${refreshButton} ${applyButton} ${closeButton} -padx { 2 2 } -pady 5 -sticky e
@@ -26,7 +26,7 @@ proc Catchup_createMainWidgets { _topLevelW _parentW } {
    grid ${buttonFrame} -column 1 -padx 5 -sticky e
 
    # set initial value
-   Catchup_refreshCallback  ${comboW}
+   Catchup_refreshCallback ${_exp_path} ${comboW}
 
    tooltip::tooltip ${refreshButton} "Retrieve saved catchup value."
    tooltip::tooltip ${applyButton} "Apply selected catchup value."
@@ -35,13 +35,13 @@ proc Catchup_createMainWidgets { _topLevelW _parentW } {
    wm resizable ${_topLevelW} 0 0
 }
 
-proc Catchup_refreshCallback { _catchupComboBox } {
-   set catchupIntValue [Catchup_retrieve]
+proc Catchup_refreshCallback { _exp_path _catchupComboBox } {
+   set catchupIntValue [Catchup_retrieve ${_exp_path}]
    ${_catchupComboBox} set [Catchup_getVerboseValue ${catchupIntValue}]
 }
 
 # called when user click on apply
-proc Catchup_applyCallback { _catchupComboBox } {
+proc Catchup_applyCallback { _exp_path _catchupComboBox } {
    # get value from combo box
    set catchupValue [${_catchupComboBox} get]
 
@@ -55,7 +55,7 @@ proc Catchup_applyCallback { _catchupComboBox } {
       set catchupIntValue [Catchup_getIntValue ${catchupValue}]
 
       # save
-      Catchup_save ${catchupIntValue}
+      Catchup_save ${_exp_path} ${catchupIntValue}
 
       # post-save message
       tk_messageBox -parent ${topW} -type ok -title "Catchup Confirmation" -message "Catchup value saved."
@@ -64,21 +64,18 @@ proc Catchup_applyCallback { _catchupComboBox } {
 
 # returns the catchup value stored in the experiment,
 # as given by the "expcatchup -g" command
-proc Catchup_retrieve {} {
-   global SEQ_EXP_HOME
-   
+proc Catchup_retrieve { _exp_path } {   
    set catchupExec "[SharedData_getMiscData SEQ_BIN]/expcatchup"
-   set cmd "export SEQ_EXP_HOME=${SEQ_EXP_HOME};${catchupExec} -g"
+   set cmd "export SEQ_EXP_HOME=${_exp_path};${catchupExec} -g"
    set catchupValue ""
    set catchupValue [exec ksh -c $cmd]
    return ${catchupValue}
 }
 
-proc Catchup_save { _catchupIntValue } {
-   global SEQ_EXP_HOME
+proc Catchup_save { _exp_path _catchupIntValue } {
    
    set catchupExec "[SharedData_getMiscData SEQ_BIN]/expcatchup"
-   set cmd "export SEQ_EXP_HOME=${SEQ_EXP_HOME};${catchupExec} -s ${_catchupIntValue}"
+   set cmd "export SEQ_EXP_HOME=${_exp_path};${catchupExec} -s ${_catchupIntValue}"
    set catchupValue ""
    ::log::log notice ${cmd}
    set catchupValue [exec ksh -c $cmd]
