@@ -240,10 +240,20 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    }
 }
 
+proc MsgCenter_getFieldFromLastMessage { field_index } {
+   global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
+   set value ""
+   catch {
+      set messageEntry [lindex ${MSG_ACTIVE_TABLE} [expr ${MSG_ACTIVE_COUNTER} - 1]]
+      set value [lindex ${messageEntry} ${field_index}]
+   }
+   return ${value}
+}
+
 # see if we need to send notification to xflow or xflow-overview
 # for new messages
 proc MsgCenter_sendNotification {} {
-   global MSG_ACTIVE_COUNTER
+   global MSG_ACTIVE_COUNTER MsgTableColMap
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 0] } {
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
@@ -252,7 +262,10 @@ proc MsgCenter_sendNotification {} {
          thread::send ${overviewThreadId} "Overview_newMessageCallback true"
       } else {
          set xflowThreadId [SharedData_getMiscData XFLOW_THREAD_ID]
-         thread::send ${xflowThreadId} "xflow_newMessageCallback true"
+         set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
+         set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
+         # puts "MsgCenter_sendNotification exp=$exp datestamp=${datestamp}"
+         thread::send ${xflowThreadId} "xflow_newMessageCallback ${exp} ${datestamp} true"
       }
    }
 }
@@ -282,7 +295,7 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
 
    if { ${isMsgActive} == "true" } {
       ::log::log debug "MsgCenter_addActiveMessage adding ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
-      set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
+      set displayedNodeText [SharedFlowNode_convertToDisplayFormat ${node_}]
       # add 2 spaces between date and time
       set displayedTimestamp [join [split ${timestamp_} .] "  "]
       # show only first 10 digits of datestamp
@@ -335,7 +348,10 @@ proc MsgCenter_ackMessages { table_w_ } {
       thread::send ${overviewThreadId} "Overview_newMessageCallback false"
    } else {
       set xflowThreadId [SharedData_getMiscData XFLOW_THREAD_ID]
-      thread::send ${xflowThreadId} "xflow_newMessageCallback false"
+      set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
+      set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
+      # puts "MsgCenter_sendNotification exp=$exp datestamp=${datestamp}"
+      thread::send ${xflowThreadId} "xflow_newMessageCallback ${exp} ${datestamp} false"
    }
 }
 
@@ -451,7 +467,7 @@ proc MsgCenter_show {} {
 # thread procedures
 # The MsgCenter Thread act as a singleton
 # for new messages coming from all the
-# monitored suites.
+# monitored exps.
 # It is either called from xflow standalone thread (one experiment)
 # or from xflow_overview (multiple experiments).
 # 
@@ -568,34 +584,12 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
          thread::send ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}"
 
          # ask the suite thread to take care of showing the selected node in it's flow
-         set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
-         thread::send ${overviewThreadId} "xflow_findNode ${expPath} ${convertedNode}"
-
-         proc out {} {
-            set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
-
-            if { ${expThreadId} != "" } {
-               puts "MsgCenter_DoubleClickCallback found expThreadId:${expThreadId}"
-               set expWindowStatus [thread::send ${expThreadId} "wm state ."]
-               if { ${expWindowStatus} != "normal" } {
-                  puts "MsgCenter_DoubleClickCallback xflow_displayFlow ${expPath}  ${realDatestamp}"
-                  thread::send ${expThreadId} "xflow_displayFlow ${expPath}  ${realDatestamp}"
-               } else {
-                  puts "MsgCenter_DoubleClickCallback xflow_toFront "
-                  thread::send ${expThreadId} "xflow_toFront ."
-               }
-            } else {
-               puts "MsgCenter_DoubleClickCallback not found expThreadId"
-               set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-               thread::send ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}"
-               set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
-            }
-         }
+         set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
+         thread::send ${overviewThreadId} "xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}"
       } else {
 
          # ask the suite thread to take care of showing the selected node in it's flow
-         set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
-         # set suiteRecord [::SuiteNode::formatSuiteRecord ${expPath}]
+         set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
          thread::send ${expThreadId} "xflow_findNode ${expPath} ${convertedNode}"
       }
 

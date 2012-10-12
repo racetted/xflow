@@ -1,26 +1,13 @@
 package require Thread
 
-# first element in the suites/exp_path is the suite's root_node
-# second element in the suites/exp_path is the suite's thread id
-proc SharedData_setRootNode { exp_path root_node } {
-   set values {}
-   if { [tsv::exists suites ${exp_path}] } {
-      set values [tsv::set suites ${exp_path}]
-   }
-   set values [lreplace ${values} 0 0 ${root_node}]
-   tsv::set suites ${exp_path} ${values}
-}
+# This is a generic to store data for a specific experiment in
+# a shared memory structure... This data can be retrieved from
+# all threads within the application i.e. overview thread, msg center and experiment threads
+#
 
-proc SharedData_getRootNode { exp_path } {
-   set returnedValue ""
-   if { [tsv::exists suites ${exp_path}] } {
-      set values [tsv::set suites ${exp_path}]
-      set returnedValue [lindex ${values} 0]
-   }
-   return ${returnedValue}
-}
-
-proc SharedData_setSuiteData { exp_path key value } {
+# exp_path is the full path of the experiment i.e. SEQ_EXP_HOME
+# key is the key for the specific value
+proc SharedData_setExpData { exp_path key value } {
    if { [tsv::names ${exp_path}] == "" } {
       # does not exists... create it
       set initValues [list ${key} ${value}]
@@ -32,7 +19,8 @@ proc SharedData_setSuiteData { exp_path key value } {
    }
 }
 
-proc SharedData_getSuiteData { exp_path key } {
+# retrieve experiment data based on the exp_path and the key
+proc SharedData_getExpData { exp_path key } {
    set returnedValue ""
    if { [tsv::exists ${exp_path} ${key}] } {
       array set values [tsv::array get ${exp_path} ${key}]      
@@ -41,7 +29,8 @@ proc SharedData_getSuiteData { exp_path key } {
    return ${returnedValue}
 }
 
-proc SharedData_unsetSuiteData { exp_path key } {
+# removes experiment data based on the exp_path and the key
+proc SharedData_unsetExpData { exp_path key } {
    if { [tsv::exists ${exp_path} ${key}] } {
       array set values [tsv::array get ${exp_path}]
       array unset values ${key}
@@ -49,141 +38,169 @@ proc SharedData_unsetSuiteData { exp_path key } {
    }
 }
 
+# retrieves the experiment thread id
+# There is usually a thread associated with an experiment and a datestamp in the
+# following cases:
+# 1) The flow is currently viewed by the user
+# 2) The flow is currently active (log file modified within the last hour)
+# 3) The flow is being read at application startup
 proc SharedData_getExpThreadId { _exp_path _datestamp } {
    set threadId ""
    catch {
-      set threadId [SharedData_getSuiteData ${_exp_path} ${_datestamp}_thread_id]
+      set threadId [SharedData_getExpData ${_exp_path} ${_datestamp}_thread_id]
    }
    return ${threadId}
 }
 
+# removes the thread id associated with the experiment datestamp
 proc SharedData_removeExpThreadId { _exp_path _datestamp } {
-   SharedData_unsetSuiteData ${_exp_path} ${_datestamp}_thread_id
+   SharedData_unsetExpData ${_exp_path} ${_datestamp}_thread_id
 }
 
+# sets the thread id associated with the experiment datestamp
 proc SharedData_setExpThreadId { _exp_path _datestamp  _thread_id } {
-   SharedData_setSuiteData ${_exp_path} ${_datestamp}_thread_id ${_thread_id}
+   SharedData_setExpData ${_exp_path} ${_datestamp}_thread_id ${_thread_id}
 }
 
+# sets the log file offset associated with the experiment datestamp
+# the offset is used by the LogReader to know where to read the log file between
+# reads.
 proc SharedData_setExpDatestampOffset { exp_path datestamp {offset 0} } {
-   SharedData_setSuiteData ${exp_path} ${datestamp}_offset ${offset}
+   SharedData_setExpData ${exp_path} ${datestamp}_offset ${offset}
 }
 
+# retrieves the log file offset associated with the experiment datestamp
 proc SharedData_getExpDatestampOffset { _exp_path _datestamp } {
    set offset 0
    catch {
-      set offset [SharedData_getSuiteData ${_exp_path} ${_datestamp}_offset]
+      set offset [SharedData_getExpData ${_exp_path} ${_datestamp}_offset]
    }
    return ${offset}
 }
 
+proc SharedData_removeExpDatestampOffset { exp_path datestamp {offset 0} } {
+   SharedData_unsetExpData ${exp_path} ${datestamp}_offset
+}
+
 proc SharedData_setExpOverviewUpdateAfterId { _exp_path _datestamp _afterid } {
-   SharedData_setSuiteData ${_exp_path} ${_datestamp}_update_afterid ${_afterid}
+   SharedData_setExpData ${_exp_path} ${_datestamp}_update_afterid ${_afterid}
 }
 
 proc SharedData_getExpOverviewUpdateAfterId { _exp_path _datestamp } {
-   SharedData_getSuiteData ${_exp_path} ${_datestamp}_update_afterid
+   SharedData_getExpData ${_exp_path} ${_datestamp}_update_afterid
 }
 
 proc SharedData_setExpGroupDisplay { _exp_path _groupDisplay } {
-   SharedData_setSuiteData ${_exp_path} groupdisplay ${_groupDisplay}
+   SharedData_setExpData ${_exp_path} groupdisplay ${_groupDisplay}
 }
 
-proc SharedData_setExpRootNode { _exp_path _rootNode } {
-   SharedData_setSuiteData ${_exp_path} rootnode ${_rootNode}
+proc SharedData_setExpRootNode { _exp_path _datestamp _rootNode } {
+   SharedData_setExpData ${_exp_path} ${_datestamp}_rootnode ${_rootNode}
 }
 
-proc SharedData_getExpRootNode { _exp_path } {
-   set rootNode [SharedData_getSuiteData ${_exp_path} rootnode]
+proc SharedData_getExpRootNode { _exp_path _datestamp } {
+   set rootNode [SharedData_getExpData ${_exp_path} ${_datestamp}_rootnode]
    return ${rootNode}
 }
 
 proc SharedData_setExpStartupDone { _exp_path _datestamp _startupDone } {
-   SharedData_setSuiteData ${_exp_path} ${_datestamp}_startup ${_startupDone}
+   SharedData_setExpData ${_exp_path} ${_datestamp}_startup ${_startupDone}
 }
 
 proc SharedData_getExpStartupDone { _exp_path _datestamp } {
-   SharedData_getSuiteData ${_exp_path} ${_datestamp}_startup
+   SharedData_getExpData ${_exp_path} ${_datestamp}_startup
 }
 
 proc SharedData_getExpGroupDisplay { _exp_path } {
-   set groupDisplay [SharedData_getSuiteData ${_exp_path} groupdisplay]
+   set groupDisplay [SharedData_getExpData ${_exp_path} groupdisplay]
    return ${groupDisplay}
 }
 
 proc SharedData_setExpDisplayName { _exp_path _displayName } {
-   SharedData_setSuiteData ${_exp_path} displayname ${_displayName}
+   SharedData_setExpData ${_exp_path} displayname ${_displayName}
 }
 
 proc SharedData_getExpDisplayName { _exp_path } {
-   set displayName [SharedData_getSuiteData ${_exp_path} displayname]
+   set displayName [SharedData_getExpData ${_exp_path} displayname]
    return ${displayName}
 }
 
 proc SharedData_setExpTimings { _exp_path _timings } {
-   SharedData_setSuiteData ${_exp_path} ref_timings ${_timings}
+   SharedData_setExpData ${_exp_path} ref_timings ${_timings}
 }
 
 proc SharedData_getExpTimings { _exp_path } {
-   set timings [SharedData_getSuiteData ${_exp_path} ref_timings]
+   set timings [SharedData_getExpData ${_exp_path} ref_timings]
    return ${timings}
 }
 
 proc SharedData_setExpSupportInfo { _exp_path _supportInfo } {
-   SharedData_setSuiteData ${_exp_path} supportinfo ${_supportInfo}
+   SharedData_setExpData ${_exp_path} supportinfo ${_supportInfo}
 }
 
 proc SharedData_getExpSupportInfo { _exp_path } {
-   set info [SharedData_getSuiteData ${_exp_path} supportinfo]
+   set info [SharedData_getExpData ${_exp_path} supportinfo]
    return ${info}
 }
 
-proc SharedData_setExpModules { _exp_path _modules } {
-   SharedData_setSuiteData ${_exp_path} modules ${_modules}
+proc SharedData_setExpModules { _exp_path _datestamp _modules } {
+   SharedData_setExpData ${_exp_path} ${_datestamp}_modules ${_modules}
 }
 
-proc SharedData_addExpModule { _exp_path _module } {
-   set modules [SharedData_getSuiteData ${_exp_path} modules]
+proc SharedData_addExpModule { _exp_path _datestamp _module } {
+   set modules [SharedData_getExpData ${_exp_path} ${_datestamp} modules]
    if { [lsearch ${modules} ${_module}] == -1 } {
       lappend modules ${_module}
-      SharedData_setExpModules ${_exp_path} ${modules}
+      SharedData_setExpModules ${_exp_path} ${_datestamp} ${modules}
    }
 }
 
-proc SharedData_getExpModules { _exp_path } {
-   set modules [SharedData_getSuiteData ${_exp_path} modules]
+proc SharedData_getExpModules { _exp_path _datestamp } {
+   set modules [SharedData_getExpData ${_exp_path} ${_datestamp}_modules]
    return ${modules}
 }
 
-proc SharedData_addExpNodeMapping { _exp_path _real_node _flow_node } {
-   array set nodeMappings [SharedData_getSuiteData ${_exp_path} node_mappings]
-   set nodeMappings(${_real_node}) ${_flow_node}
-   SharedData_setSuiteData ${_exp_path} node_mappings [array get nodeMappings]
+proc SharedData_setExpUpdatedNodes { _exp_path _datestamp _nodeList } {
+   SharedData_setExpData ${_exp_path} ${_datestamp}_updated_nodes ${_nodeList}
 }
 
-proc SharedData_getExpNodeMapping { _exp_path real_node } {
-   set flowNode ${real_node}
-   array set nodeMapping [SharedData_getSuiteData ${_exp_path} node_mappings]
-   if { [info exists nodeMapping(${real_node})] } {
-      set flowNode $nodeMapping(${real_node})
+proc SharedData_getExpUpdatedNodes { _exp_path _datestamp} {
+   set nodeList [SharedData_getExpData ${_exp_path} ${_datestamp}_updated_nodes]
+   return ${nodeList}
+}
+
+proc SharedData_addExpNodeMapping { _exp_path _datestamp _real_node _flow_node } {
+   # puts "SharedData_addExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node;${_real_node} flow_node:${_flow_node}"
+   array set nodeMappings [SharedData_getExpData ${_exp_path} ${_datestamp}_node_mappings]
+   set nodeMappings(${_real_node}) ${_flow_node}
+   SharedData_setExpData ${_exp_path} ${_datestamp}_node_mappings [array get nodeMappings]
+}
+
+proc SharedData_getExpNodeMapping { _exp_path _datestamp _real_node } {
+   # puts "SharedData_getExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node;${_real_node}"
+   set flowNode ${_real_node}
+   array set nodeMapping [SharedData_getExpData ${_exp_path} ${_datestamp}_node_mappings]
+   if { [info exists nodeMapping(${_real_node})] } {
+      set flowNode $nodeMapping(${_real_node})
    }
+   # puts "SharedData_getExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node;${_real_node} flowNode:${flowNode}"
    return ${flowNode}
 }
 
 proc SharedData_resetExpDisplayData { _exp_path _canvas {_force false} } {
    array set canvasList {}
-   if { [SharedData_getSuiteData ${_exp_path} canvases] == "" || ${_force} == true } {
+   if { [SharedData_getExpData ${_exp_path} canvases] == "" || ${_force} == true } {
       # init
       set canvasList(${_canvas}) [list 40 "/[file tail ${_exp_path}]" 40 40]
-      SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+      SharedData_setExpData ${_exp_path} canvases [array get canvasList]
    }
 }
 
 proc SharedData_setExpDisplayData { _exp_path _canvas next_y max_x max_y } {
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
       SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
-      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+      array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
 
    set canvasInfo $canvasList(${_canvas})
@@ -201,66 +218,66 @@ proc SharedData_setExpDisplayData { _exp_path _canvas next_y max_x max_y } {
    }
 
    set canvasList(${_canvas}) ${canvasInfo}
-   SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+   SharedData_setExpData ${_exp_path} canvases [array get canvasList]
 }
 
 proc SharedData_setExpDisplayNextY { _exp_path _canvas _value } {
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
       SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
-      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+      array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
    set canvasList($canvas) [lreplace $canvasInfo 0 0 $value]
-   SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+   SharedData_setExpData ${_exp_path} canvases [array get canvasList]
 }
 
 proc SharedData_setExpDisplayRoot { _exp_path _canvas _value } {
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
       SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
-      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+      array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
    set canvasList($canvas) [lreplace $canvasInfo 1 1 $value]
-   SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+   SharedData_setExpData ${_exp_path} canvases [array get canvasList]
 }
 
 proc SharedData_getExpDisplayNextY { _exp_path _canvas } {
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
       SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
-      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+      array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
    return [lindex ${canvasInfo} 0]
 }
 
 proc SharedData_getExpDisplayMaximumX { _exp_path _canvas } {
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
       SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
-      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+      array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
    return [lindex $canvasInfo 2]
 }
 
 proc SharedData_getExpDisplayMaximumY { _exp_path _canvas } {
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
       SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
-      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+      array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
    return [lindex $canvasInfo 3]
 }
 
 proc SharedData_getExpDisplayRoot { _exp_path _canvas } {
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
       SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
-      array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+      array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
    return [lindex $canvasInfo 1]
@@ -269,7 +286,7 @@ proc SharedData_getExpDisplayRoot { _exp_path _canvas } {
 proc SharedData_getExpCanvasList { _exp_path } {
    set resultList {}
 
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    foreach {canvas info} [array get canvasList] {
       lappend resultList $canvas
    }
@@ -278,39 +295,101 @@ proc SharedData_getExpCanvasList { _exp_path } {
 }
 
 proc SharedData_removeExpDisplayData { _exp_path _canvas } {
-   array set canvasList [SharedData_getSuiteData ${_exp_path} canvases]
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    array unset canvasList ${_canvas}
-   SharedData_setSuiteData ${_exp_path} canvases [array get canvasList]
+   SharedData_setExpData ${_exp_path} canvases [array get canvasList]
 }
 
-proc out {} {
-proc SharedData_setExpDatestampOffset { exp_path datestamp {offset 0} } {
-   set varname logfiles_${exp_path}
-   array set myarray [tsv::array get ${varname}]
-
-   # update new datestamp data
-   set myarray(${datestamp}) ${offset}
-
-   # save the new data
-   tsv::array set ${varname} [array get myarray]
-}
-
-proc SharedData_getExpDatestamps { exp_path } {
-   set varname logfiles_${exp_path}
-   array set myarray [tsv::array get ${varname}]
-
-   return [array get myarray]
-}
-
-proc SharedData_getExpDatestampOffset { exp_path datestamp } {
-   set varname logfiles_${exp_path}
-   array set myarray [tsv::array get ${varname}]
-   set offset 0
-   catch { 
-      set offset $myarray(${datestamp})
+proc SharedData_setStatusInfo { _exp_path _datestamp _status _status_info  } {
+   global datestamps_${_exp_path}
+   # puts "in SharedData_setStatusInfo $_exp_path $_datestamp status:$_status statusinfo:$_status_info"
+   if { ![info exists datestamps_${_exp_path}] } {
+      array set datestamps_${_exp_path} {}
    }
-   return ${offset}
+   # array set datestamps [SharedData_getExpData ${_exp_path} datestamps]
+   
+   if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
+      set statusList [set datestamps_${_exp_path}(${_datestamp})]
+      set index [lsearch ${statusList} ${_status}]
+      #puts "SharedData_setStatusInfo index:$index"
+      if { ${_status} == "last" } {
+         if { ${index} == -1 } {
+            lappend statusList ${_status} "${_status_info}"
+         } else {
+            set valueIndex [incr index]
+            set statusList [lreplace ${statusList} ${valueIndex} ${valueIndex} ${_status_info}]
+         }
+      } else {
+         if { ${index} != -1 } {
+            set valueIndex [incr index]
+            set statusList [lreplace ${statusList} ${valueIndex}  ${valueIndex}  ${_status_info}]
+         } else {
+            set statusList [linsert ${statusList} 0 ${_status} "${_status_info}"]
+         }
+      }
+   } else {
+      set statusList [list ${_status} "${_status_info}"]
+   }
+   set datestamps_${_exp_path}(${_datestamp}) ${statusList}
+   # SharedData_setExpData ${_exp_path} datestamps "[array get datestamps]"
+
 }
+
+proc SharedData_getStatusInfo { _exp_path _datestamp _status } {
+   global datestamps_${_exp_path}
+   set value ""
+   # array set datestamps [SharedData_getExpData ${_exp_path} datestamps]
+   if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
+      set statusList [set datestamps_${_exp_path}(${_datestamp})]
+      # set statusList $datestamps(${_datestamp})
+      set index [lsearch ${statusList} ${_status}]
+      if { ${index} != -1 } {
+         set valueIndex [incr index]
+         set value [lindex ${statusList} ${valueIndex}]
+      }
+   }
+
+   return ${value}
+}
+
+proc SharedData_removeStatusDatestamp { _exp_path _datestamp _canvas } {
+   global datestamps_${_exp_path}
+   # puts "SharedData_removeStatusDatestamp exp_path:$_exp_path datestamp:$_datestamp"
+   if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
+      array unset datestamps_${_exp_path} ${_datestamp}
+   }
+   SharedData_removeExpDisplayData ${_exp_path} ${_canvas}
+   foreach key { offset update_afterid rootnode startup modules updated_nodes node_mappings} {
+      SharedData_unsetExpData ${_exp_path} ${_datestamp}_${key}
+   }
+   SharedFlowNode_removeDatestamp ${_exp_path} ${_datestamp}
+}
+
+proc SharedData_getDatestamps { _exp_path } {
+   global datestamps_${_exp_path}
+   set datestampList [array names datestamps_${_exp_path}]
+   return ${datestampList}
+}
+
+proc SharedData_printNodeMapping { _exp_path } {
+   array set nodeMapping [SharedData_getExpData ${_exp_path} node_mappings]
+   foreach { real_node flow_node } [array get nodeMapping] {
+      puts "real_node:${real_node} flow_node:${flow_node}"
+   }
+}
+
+proc SharedData_printData { _exp_path {_datestamp ""} } {
+   global datestamps_${_exp_path}
+   puts "-------------------------------------------"
+   puts "${_exp_path}"
+   puts "-------------------------------------------"
+   #array set datestamps [SharedData_getExpData ${_exp_path} datestamps]
+   set datestamps [SharedData_getDatestamps ${_exp_path}]
+   foreach datestamp ${datestamps} {
+      # set statusList $datestamps(${datestamp})
+      set statusList [set datestamps_${_exp_path}(${_datestamp})]
+      puts "datestamp:${datestamp} statuses:${statusList}"
+   }
 }
 
 proc SharedData_setMiscData { key_ value_ } {
@@ -392,6 +471,30 @@ proc SharedData_getMsgCenterThreadId {} {
 
 proc SharedData_setMsgCenterThreadId { thread_id } {
    tsv::set threads MSG_CENTER ${thread_id}
+}
+
+proc SharedData_getRippleStatusMap { status } {
+   global RIPPLE_STATUS_MAP
+   if { ! [info exists RIPPLE_STATUS_MAP] } {
+      array set RIPPLE_STATUS_MAP {
+         abortx abort
+         abort  abort
+         end    end
+         endx   end
+         begin  begin
+         beginx begin
+         init   init
+         submit submit
+         wait   wait
+         catchup catchup
+         discret discret
+      }
+   }
+
+   set foundStatus ""
+   if { [info exists RIPPLE_STATUS_MAP(${status})] } {
+      set foundStatus $RIPPLE_STATUS_MAP(${status})
+   }
 }
 
 proc SharedData_init {} {

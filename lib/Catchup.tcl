@@ -11,7 +11,7 @@ proc Catchup_createMainWidgets { _exp_path _topLevelW _parentW } {
 
    # Utils_positionWindow ${_topLevelW}
 
-   wm title ${_topLevelW} "Maestro Catchup Settings"
+   wm title ${_topLevelW} "Maestro Catchup Settings Exp=[file tail ${_exp_path}]"
    set catchupValues { Stop 1 2 3 4 5 6 7 Normal Discretionary }
    set catchupLabelW [label ${_topLevelW}.catchup_label -text "Catchup Values:"]
    set comboW [ttk::combobox ${_topLevelW}.catchup_combo -state readonly -values ${catchupValues} ]

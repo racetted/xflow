@@ -23,7 +23,6 @@ proc ::DrawUtils::init {} {
    variable nodeTypeMap
    variable hostColorMap
    variable constants
-   variable rippleStatusMap
 
    array set nodeTypeMap {
       family rectangle
@@ -44,20 +43,6 @@ proc ::DrawUtils::init {} {
       unknown "black"
    }
 
-   array set rippleStatusMap {
-      abortx abort
-      abort  abort
-      end    end
-      endx   end
-      begin  begin
-      beginx begin
-      init   init
-      submit submit
-      wait   wait
-      catchup catchup
-      discret discret
-   }
-
    array set constants {
       border_width "3"
    }
@@ -65,7 +50,7 @@ proc ::DrawUtils::init {} {
 
 proc ::DrawUtils::getStatusColor { node_status } {
    ::log::log debug "::DrawUtils::getStatusColor ${node_status}"
-   catch { set node_status $::DrawUtils::rippleStatusMap(${node_status}) }
+   catch { set node_status [SharedData_getRippleStatusMap ${node_status}] }
    switch ${node_status} {
       init -
       begin -
@@ -125,7 +110,7 @@ proc ::DrawUtils::clearBranch { exp_path node datestamp canvas { cmd_list "" } }
    set newx2 [lindex ${allBoxInfo} 2]
    set newy2 [expr [lindex ${displayInfo} 3] + 5]
 
-   set submits [SharedFlowNode_getSubmits ${exp_path} ${node}]
+   set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}]
 
    # delete submit arrows
    set lineTagName ${node}.submit_tag
@@ -160,7 +145,7 @@ proc ::DrawUtils::clearCanvas { canvas } {
 proc ::DrawUtils::drawNodeStatus { exp_path node datestamp {shadow_status 0} } {
    variable nodeStatusColorMap
    variable nodeTypeMap
-   set type [SharedFlowNode_getNodeType ${exp_path} ${node}]
+   set type [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension} ]
 
@@ -267,7 +252,8 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
 
 
 proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
-   global FLOW_SCALE
+   global FLOW_SCALE_${exp_path}_${datestamp}
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    variable constants
    ::log::log debug "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder"
    ::log::log debug "drawOval textfill:$textfill fill:$fill binder:$binder"
@@ -282,9 +268,9 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
 
    set ovalSize [SharedData_getMiscData LOOP_OVAL_SIZE]
    set nx1 [expr [lindex $boxArea 0] - ${ovalSize}]
-   set ny1 [expr [lindex $boxArea 1] - ${ovalSize}/${FLOW_SCALE}]
+   set ny1 [expr [lindex $boxArea 1] - ${ovalSize}/${flowScale}]
    set nx2 [expr [lindex $boxArea 2] + ${ovalSize}]
-   set ny2 [expr [lindex $boxArea 3] + ${ovalSize}/${FLOW_SCALE}]
+   set ny2 [expr [lindex $boxArea 3] + ${ovalSize}/${flowScale}]
    set nextY ${ny2}
    
    $canvas create oval ${nx1} ${ny1} ${nx2} ${ny2}  \
@@ -314,7 +300,7 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 
    # this part adds a combo box to hold the index values of a loop node
-   if {  [SharedFlowNode_getNodeType ${exp_path} ${binder}] == "loop" } {
+   if {  [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "loop" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
          ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
@@ -364,11 +350,12 @@ proc ::DrawUtils::setIndexWidgetStatuses { exp_path node datestamp index_widget 
    variable nodeStatusColorMap
    variable nodeTypeMap
 
-   set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node}]
+   puts "::DrawUtils::setIndexWidgetStatuses exp_path:${exp_path} node:${node} datestamp:${datestamp} index_widget:${index_widget}"
+   set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
    if { ${nodeType} == "npass_task" } {
       set extensions [SharedFlowNode_getNptExtensions ${exp_path} ${node} ${datestamp}]
    } else {
-      set extensions [SharedFlowNode_getLoopExtensions ${exp_path} ${node}]
+      set extensions [SharedFlowNode_getLoopExtensions ${exp_path} ${node} ${datestamp}]
    }
    set extensions [linsert ${extensions} 0 latest]
 
@@ -384,7 +371,7 @@ proc ::DrawUtils::setIndexWidgetStatuses { exp_path node datestamp index_widget 
    set maxItemLength [string length latest]
 
    set index 0
-   set parentExt [SharedFlowNode_getParentLoopExt ${exp_path} ${node}]
+   set parentExt [SharedFlowNode_getParentLoopExt ${exp_path} ${node} ${datestamp}]
    # we through each extension and set the extension status color
    # in the listbox widget
    foreach ext ${extensions} {
@@ -535,11 +522,12 @@ proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
 }
 
 proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
-   global FLOW_SCALE
+   global FLOW_SCALE_${exp_path}_${datestamp}
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    variable constants
    ::log::log debug "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder"
    set pad 5
-   if { ${FLOW_SCALE} != "1" } {
+   if { ${flowScale} != "1" } {
       set text "/   "
       set maxtext ${text}
       set pad 0
@@ -581,10 +569,11 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
 }
 
 proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
-   global FLOW_SCALE
+   global FLOW_SCALE_${exp_path}_${datestamp}
    variable constants
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    ::log::log debug "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill binder:$binder"
-   if { ${FLOW_SCALE} != "1" && [SharedFlowNode_getNodeType ${exp_path} ${binder}]  != "npass_task" } {
+   if { ${flowScale} != "1" && [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}]  != "npass_task" } {
       set text "   "
       set maxtext ${text}
       set padx 5
@@ -630,11 +619,11 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
 
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 
-   if { [SharedFlowNode_getNodeType ${exp_path} ${binder}] == "npass_task" } {
+   if { [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "npass_task" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
          ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
-            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp}${indexListW}]
+            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
          ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
          ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
       }
@@ -670,10 +659,9 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
 }
 
 proc ::DrawUtils::pointNode { exp_path node {canvas ""} } {
-   ::log::log debug "::DrawUtils::pointNode ${exp_path} node:${node}"
+   ::log::log debug "::DrawUtils::pointNode exp_path:${exp_path} node:${node}"
    set canvasList ${canvas}
    if { ${canvas} == "" } {
-      #set canvasList [::SuiteNode::getCanvasList ${exp_path}]
       set canvasList [SharedData_getExpCanvasList ${exp_path}]
    }
    foreach canvasW ${canvasList} {
@@ -729,27 +717,28 @@ proc ::DrawUtils::pointNode { exp_path node {canvas ""} } {
 # to the current node that might require more space than
 # usual ones Example loop. Used mainly to know where to draw the first
 # node of a branch
-proc ::DrawUtils::getLineDeltaSpace { exp_path node {delta_value 0} } {
-   global FLOW_SCALE
+proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp {delta_value 0} } {
+   global FLOW_SCALE_${exp_path}_${datestamp}
    ::log::log debug "::DrawUtils::getLineDeltaSpace ${exp_path} ${node} delta_value: $delta_value"
    set value ${delta_value}
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    # I only need to calculate extra space if the current node is not in position 0
    # in it's parent node. If it is in position 0, the extra space has already been calculated.
 
-   if { [SharedFlowNode_getSubmitPosition ${exp_path} ${node}] != 0 } {
+   if { [SharedFlowNode_getSubmitPosition ${exp_path} ${node} ${datestamp}] != 0 } {
       set done 0
       while { ! ${done} } {
-         set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node}]
+         set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
          # for now only loops needs be treated
          if { ${nodeType} == "loop" } {
             if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
                set value [SharedData_getMiscData LOOP_OVAL_SIZE]
             }
          } elseif { ${nodeType} == "npass_task" } {
-            if { [expr ${value} < 5] && ${FLOW_SCALE} != "1" } { set value 5 }
+            if { [expr ${value} < 5] && ${flowScale} != "1" } { set value 5 }
          }
 
-         set submits [SharedFlowNode_getSubmits ${exp_path} ${node}]
+         set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}]
          # i'm only interested in the first position of the child list, the others will be calculated
          # when we move down the tree
          set submitName [lindex ${submits} 0]
@@ -768,7 +757,7 @@ proc ::DrawUtils::getLineDeltaSpace { exp_path node {delta_value 0} } {
 proc ::DrawUtils::getNodeDeltaX { exp_path node datestamp canvas } {
    set deltax 0
    # puts "::DrawUtils::getNodeDeltaX SharedFlowNode_getNodeType ${exp_path} ${node}"
-   if { [SharedFlowNode_getNodeType ${exp_path} ${node}] == "npass_task" } {
+   if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
       foreach { px1 py1 px2 py2 } [SharedFlowNode_getDisplayCoords ${exp_path} ${node} ${datestamp} ${canvas}] {break}
       foreach { nx1 ny1 nx2 ny2 } [${canvas} bbox ${node}.index_widget] { break }
@@ -779,7 +768,7 @@ proc ::DrawUtils::getNodeDeltaX { exp_path node datestamp canvas } {
    return ${deltax}
 }
 
-proc  ::DrawUtils::delPointNode {canvas } {
+proc  ::DrawUtils::delPointNode { canvas } {
 
     if { [winfo exists $canvas] } {
         $canvas delete ${canvas}searchlines
@@ -798,11 +787,11 @@ proc ::DrawUtils::getStatusImage { status } {
    return ${statusImage}
 }
 
-proc ::DrawUtils::highLightNode { exp_path node canvas_w } {
-   global NodeHighLightRestoreCmd 
+proc ::DrawUtils::highLightNode { exp_path node datestamp canvas_w } {
+   global NodeHighLightRestoreCmd_${exp_path}_${datestamp}
    variable nodeTypeMap
 
-   set type [SharedFlowNode_getNodeType ${exp_path} ${node}] 
+   set type [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] 
    set imageType $nodeTypeMap($type)
    set canvasTag $node.$imageType
 
@@ -810,13 +799,13 @@ proc ::DrawUtils::highLightNode { exp_path node canvas_w } {
    set currentWidth [${canvas_w} itemcget ${canvasTag} -width ]
    set currentOutline [${canvas_w} itemcget ${canvasTag} -outline]
    ${canvas_w} itemconfigure ${canvasTag} -width 2 -outline ${selectColor}
-   set NodeHighLightRestoreCmd "${canvas_w} itemconfigure ${canvasTag} -width ${currentWidth} -outline ${currentOutline}"
+   set NodeHighLightRestoreCmd_${exp_path}_${datestamp} "${canvas_w} itemconfigure ${canvasTag} -width ${currentWidth} -outline ${currentOutline}"
 }
 
 # highlights a node that is selected with the find functionality
 # by drawing a yellow rectangle around the node
-proc ::DrawUtils::highLightFindNode { _exp_path _node _canvas_w } {
-   global NodeHighLightRestoreCmd 
+proc ::DrawUtils::highLightFindNode { _exp_path _datestamp _node _canvas_w } {
+   global NodeHighLightRestoreCmd_${_exp_path}_${_datestamp}
    variable nodeTypeMap
 
    set nodeShadowTag ${_node}.shadow
@@ -835,7 +824,7 @@ proc ::DrawUtils::highLightFindNode { _exp_path _node _canvas_w } {
    ${_canvas_w} lower ${selectTag} ${_node}
 
    # sets the command to restore the node to its previous state
-   set NodeHighLightRestoreCmd "${_canvas_w} delete ${selectTag};"
+   set NodeHighLightRestoreCmd_${_exp_path}_${_datestamp} "${_canvas_w} delete ${selectTag};"
    return ${selectTag}
 }
 

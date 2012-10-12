@@ -99,9 +99,7 @@ proc DisplayGrp_calcMaxY { display_group } {
    set overviewCanvas [Overview_getCanvas]
    set maxY [${display_group} cget -y]
    foreach exp ${expList} {
-      #set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp} ]
-       set suiteRecord [::SuiteNode::formatSuiteRecord ${exp}]
-      set expBoxCoords [Overview_getExpBoundaries ${overviewCanvas} ${suiteRecord}]
+      set expBoxCoords [Overview_getExpBoundaries ${overviewCanvas} ${exp}]
       if { [lindex ${expBoxCoords} 3] > ${maxY} } {
          set maxY  [lindex ${expBoxCoords} 3]
       }
@@ -115,7 +113,7 @@ proc DisplayGrp_calcMaxY { display_group } {
 }
 
 # this function will shift groups and exps up a notch if it detects empty rows
-# it is useful after an exp has been moved up so the exp or suite record 
+# it is useful after an exp has been moved up so the exp
 # can be used as input
 proc DisplayGrp_processEmptyRows { display_group } {
    global expEntryHeight graphStartX graphHourX

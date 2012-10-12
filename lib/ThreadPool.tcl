@@ -23,18 +23,14 @@ proc ThreadPool_init { nof_thread } {
 proc ThreadPool_createThread {} {
    set threadId [thread::create {
       global env
-      # set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-      # set auto_path [linsert $auto_path 0 $lib_dir ]
-      source $env(SEQ_XFLOW_BIN)/../lib/masterxml.tcl
-      source $env(SEQ_XFLOW_BIN)/../lib/SuiteNode.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/utils.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/FlowXml.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/LogReader.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/LogMonitor.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/SharedData.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/SharedFlowNode.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/OverviewUtils.tcl
 
-      package require SuiteNode
-      # package require Tk
-      # wm withdraw .
       thread::wait
    }]
    return ${threadId}
@@ -45,29 +41,25 @@ proc ThreadPool_createThread {} {
 # the client as the option of waiting until a thread is available
 # or not..in such case an empty string is returned
 proc ThreadPool_getThread { {wait false} } {
-   global PoolId THREAD_RELEASE_EVENT
-   # puts "ThreadPool_getThread thread(ids)"
+   global PoolId
    set foundId ""
    set done false
    while { ${done} == false } {
       # find the next available thread
-      foreach {threadid busy} [array get PoolId] {
-         # puts "ThreadPool_getThread threadid:$threadid busy:$busy"
+      foreach {threadId busy} [array get PoolId] {
          if { ${busy} == false } {
-            set PoolId($threadid) true
-            set foundId ${threadid}
+            set PoolId(${threadId}) true
+            set foundId ${threadId}
             break
          }
       }
-      if { ${foundId} == "" } { ::log::log debug "ThreadPool_getThread(): all threads are busy" }
-      if { ${foundId} == "" && ${wait} == true } {
-         ::log::log debug "ThreadPool_getThread(): waiting for available thread"
-         # wait for another thread to be released
-         vwait THREAD_RELEASE_EVENT
-         ::log::log debug "ThreadPool_getThread(): got new thread"
-      } else {
-         set done true
+      if { ${foundId} == "" } { 
+         ::log::log notice "ThreadPool_getThread(): all threads are busy.. creating new one"
+         set threadId [ThreadPool_createThread]
+         set PoolId(${threadId}) true
+         set foundId ${threadId}
       }
+      set done true
    }
 
    return ${foundId}
@@ -78,8 +70,14 @@ proc ThreadPool_getThread { {wait false} } {
 # for a thread release
 proc ThreadPool_releaseThread { thread_id } {
    global PoolId THREAD_RELEASE_EVENT
-   set PoolId($thread_id) false
-   set THREAD_RELEASE_EVENT true
+   set maxThreads [SharedData_getMiscData MAX_XFLOW_INSTANCE]
+   if { [array size PoolId] > ${maxThreads} } {
+      array unset PoolId $thread_id
+      thread::release ${thread_id}
+   } else {
+      set PoolId($thread_id) false
+      set THREAD_RELEASE_EVENT true
+   }
 }
 
 proc ThreadPool_showThreadStatus {} {
