@@ -1441,7 +1441,6 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
       if { $status == "begin" } {
          # launch the flow if needed... but not when the app is startup up
          if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
-            puts "sua Overview_launchExpFlow ${exp_path} ${datestamp}"
             ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
             ::log::log notice "exp launching xflow window ${exp_path} datestamp:${datestamp}"
             Overview_launchExpFlow ${exp_path} ${datestamp}
@@ -1524,9 +1523,6 @@ proc Overview_setCanvasScrollArea { canvasW } {
 proc Overview_addExp { display_group canvas exp_path } {
    ::log::log debug "Overview_addExp display_group:$display_group exp_path:$exp_path"
    
-   ############################
-   # thread part start
-   ############################
    set mainid [thread::id]
 
    # create startup threads to process log datestamps
@@ -1539,8 +1535,8 @@ proc Overview_addExp { display_group canvas exp_path } {
       puts "${errMsg}"
       tk_messageBox -title "Application Error!" -type ok -icon error \
          -message ${errMsg}
+      return
    }
-   
 
    foreach datestamp ${visibleDatestamps} {
       if { [Utils_validateRealDatestamp ${datestamp}] == true } {
