@@ -40,10 +40,8 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
       if { $parent_name != "" } {
          set groupName ${parent_name}/${groupName}
          set newLevel [expr $level + 1]
-         ::log::log debug "ExpXmlReader_readGroup groupName:$groupName newLevel:$newLevel"
-      } else {
-         ::log::log debug "ExpXmlReader_readGroup groupName:$groupName newLevel:$newLevel"
       }
+      ::log::log debug "ExpXmlReader_readGroup groupName:$groupName newLevel:$newLevel"
 
       # replace / and spaces with _
       set groupRecordName [regsub -all "/" ${groupName} _]

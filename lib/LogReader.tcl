@@ -2,24 +2,21 @@ package require textutil::string
 package require log
 
 proc LogReader_startExpLogReader { exp_path datestamp {is_startup false} } {
-   # puts "LogReader_startExpLogReader exp_path:$exp_path datestamp:$datestamp is_startup:$is_startup"
    global env this_id
    ::log::log debug "LogReader_startExpLogReader"
 
    global env
    global MSG_CENTER_THREAD_ID
 
-   #set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    Utils_logInit
    set MSG_CENTER_THREAD_ID [SharedData_getMsgCenterThreadId]
 
    SharedData_setExpThreadId ${exp_path} "${datestamp}" [thread::id]
 
    ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp}"
-   # puts "LogReader_startExpLogReader xflow_readFlowXml"
-
    if [ catch { 
       FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
+      ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} DONE."
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
       ::log::log debug "ERROR: LogReader_startExpLogReader Parsing flow.xml file ${exp_path}:\n$message"
@@ -31,11 +28,9 @@ proc LogReader_startExpLogReader { exp_path datestamp {is_startup false} } {
    # puts "LogReader_startExpLogReader LogReader_readFile"
    if { ${is_startup} == true } {
       if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-        #puts "LogReader_startExpLogReader exp_path:$exp_path datestamp:$datestamp log inactive"
          # inactive log
          # only send to overview and msg center, don't send to flow
          LogReader_readFile ${exp_path} ${datestamp} no_flow
-         # puts "LogReader_startExpLogReader exp_path:$exp_path datestamp:$datestamp Overview_releaseExpThread..."
          # release exp thread
          thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${exp_path} ${datestamp}"
          return
@@ -47,7 +42,6 @@ proc LogReader_startExpLogReader { exp_path datestamp {is_startup false} } {
       # this is usually called when the user launches a flow from the overview,
       # at that point we don't care about sending updates to overview or msg center cause it's already done
       # just launch the flow
-      #   puts "LogReader_startExpLogReader exp_path:$exp_path datestamp:$datestamp refresh_flow..."
       LogReader_readFile ${exp_path} ${datestamp} refresh_flow true
    }
 }
@@ -57,7 +51,6 @@ proc LogReader_startExpLogReader { exp_path datestamp {is_startup false} } {
 proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read false} } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
-   # puts "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
@@ -115,7 +108,6 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
    }
 
    if { ${first_read} == false && [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] != "" } {
-      #puts "LogReader_readFile found [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}]"
       # the gui runs in the overview thread... so set the update nodes list in shared memory
       SharedData_setExpUpdatedNodes ${exp_path} ${datestamp} [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}]
       # let gui knows that he needs to redraw the flow
@@ -176,7 +168,6 @@ proc LogReader_cancelAfter { exp_path datestamp } {
 
 proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter {first_read false} } {
    global MSG_CENTER_THREAD_ID
-   # puts "LogReader_processLine $_exp_path $_datestamp $_line _toOverview:$_toOverview _ToFlow:$_ToFlow _toMsgCenter:$_toMsgCenter"
    set nodeIndex 28
    set typeIndex [string first "MSGTYPE=" ${_line} $nodeIndex]
    if { $typeIndex == -1 } {
@@ -252,8 +243,6 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
 }
 
 proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp {_firstRead false}} {
-      # puts "LogReader_processFlowLine $_exp_path $_datestamp type:$_type _loopExt:$_loopExt _timestamp:$_timestamp"
-
    # node & signal is mandatory to be processed
    # else the line is ignored
    set loopInfoDisplay ""
@@ -264,7 +253,6 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
    set finalCmd ""
    if { ${_node} != "" } {
       set flowNode [SharedData_getExpNodeMapping ${_exp_path} ${_datestamp} ${_node}]
-      # puts "LogReader_processFlowLine flowNode:$flowNode"
 
       set statusType [SharedData_getRippleStatusMap ${_type}]
       if { ${statusType} != "" } {
@@ -274,7 +262,6 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
             puts "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} message: ${message}"
             ::log::log notice "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} message: ${message}"
          }
-         # puts "LogReader_processFlowLine nodeType:${nodeType} node=${_node} flowNode:$flowNode loopExt:${_loopExt} type=${_type}"
             # 1 - first we take care of setting the node status
             if { [string tolower ${_type}] == "init" } {
                if { ${nodeType} == "loop" } {
@@ -305,7 +292,6 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
                   }
                } else { 
                   # current node is not loop
-                  # puts  "SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${_type} ${_timestamp}"
                   SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_timestamp}
                }
             }
@@ -325,7 +311,6 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
 # With this approach, multiple aborts will only be redrawn once at the higher
 # level..
 proc LogReader_updateNodes { exp_path datestamp node } {
-   # puts "LogReader_updateNodes exp_path:$exp_path datestamp:${datestamp} node:${node}"
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} 
 
    if { ! [info exists LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] } {
@@ -364,7 +349,6 @@ proc LogReader_updateNodes { exp_path datestamp node } {
          }
       }
    }
-   # puts "LogReader_updateNodes exp_path:$exp_path datestamp:${datestamp} node:${node} DONE [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}]" 
 
 }
 
@@ -374,7 +358,7 @@ proc LogReader_getAvailableDates { exp_path } {
    set expLogs ""
    if [ catch { set expLogs [exec ksh -c $cmd] } message ] {
    }
-   ::log::log debug "LogReader_getAvailableDates exp logs: $expLogs"
+   ::log::log debug "LogReader_getAvailableDates exp:${exp_path} logs: $expLogs"
    return $expLogs
 }
 

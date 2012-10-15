@@ -634,7 +634,6 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
    # Utils_busyCursor $top
    set newDatestamp [$dateEntry get]
 
-   # ::log::log debug "xflow_setDateStamp datestamp from date entry: $datestamp"
    if { [Utils_validateVisibleDatestamp ${newDatestamp}] == false } {
       tk_messageBox -title "Datestamp Error" -parent ${parent_w} -type ok -icon error \
          -message "Invalid datestamp value: ${newDatestamp}. Format must be yyymmddhh."
@@ -770,7 +769,6 @@ proc xflow_findNode { exp_path datestamp real_node } {
 proc xflow_drawNode { exp_path datestamp canvas node position {first_node false} } {
    global FLOW_SCALE_${exp_path}_${datestamp}
    ::log::log debug "xflow_drawNode drawing sub node:$node position:$position "
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
    if { [SharedFlowNode_isParentCollapsed ${exp_path} ${node} ${datestamp} ${canvas}] } {
       ::log::log debug "xflow_drawNode parent is collapsed, not drawing node:$node"
@@ -920,7 +918,6 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       if { !((${submits} == "none") ||  (${submits} == ""))} {
          set nodePosition 0
          foreach submitName ${submits} {
-            #::log::log debug "xflow_drawNode drawing subjob:$subjob"
             set submitNode ${node}/${submitName}
             xflow_drawNode ${exp_path} ${datestamp} $canvas ${submitNode} $nodePosition
             incr nodePosition
@@ -1992,8 +1989,6 @@ proc xflow_expandAllCallback { exp_path datestamp node canvas caller_menu } {
 
 # callback when user click on a box with button 1 to collapse/expand a node
 proc xflow_changeCollapsed { exp_path datestamp canvas node x y } {
-   #::log::log debug "xflow_changeCollapsed called canvas:$canvas binder:$binder x:$x y:$y"
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    
    if { [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}] == "" } {
       ::log::log debug "changeCollapse: node has no children"
@@ -2572,7 +2567,7 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
             thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${exp_path} \"${datestamp}\""
          }
          # clean up any after events
-         thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} ${datestamp}"
+         thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
       }
    } else {
       # standalone mode
@@ -2664,7 +2659,7 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
          wm geometry ${toplevelW} +${topx}+${topy}
       }
    }
-   wm protocol ${toplevelW} WM_DELETE_WINDOW "xflow_quit ${exp_path} ${datestamp}"
+   wm protocol ${toplevelW} WM_DELETE_WINDOW "xflow_quit ${exp_path} \"${datestamp}\""
    wm iconify ${toplevelW}
 
    set topFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp} top_frame]]

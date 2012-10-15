@@ -208,7 +208,6 @@ proc ::DrawUtils::drawFamily { node canvas } {
 
 proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill outline fill binder drawshadow shadowColor} {
    variable constants
-   #::log::log debug "drawLosange canvas:$canvas text:$text binder:$binder"
    set newtx1 [expr ${tx1} + 30]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
       -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
