@@ -124,7 +124,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
                # first clean any data kept for the datestamp
-               SharedData_removeStatusDatestamp ${exp} ${datestamp} ${${canvasW}}
+               SharedData_removeStatusDatestamp ${exp} ${datestamp} ${canvasW}
 
                # delete current box
                Overview_removeExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus}
