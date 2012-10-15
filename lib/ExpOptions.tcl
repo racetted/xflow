@@ -105,6 +105,12 @@ proc ExpOptions_getDisplayName { _exp_path } {
    return ${displayName}
 }
 
+proc ExpOptions_getShortName { _exp_path } {
+   set shortName [ExpXmlOptions_getShortName ${_exp_path}]
+
+   return ${shortName}
+}
+
 # returns list with start_time and end_time as {start_time end_time}
 # returns empty string if timings cannot be read
 proc ExpOptions_getRefTimings { _exp_path _hour } {
@@ -135,6 +141,9 @@ proc ExpOptions_read { _exp_path } {
       # get the display name
       set displayName [ExpXmlOptions_getDisplayName ${domDoc} ${_exp_path}]
 
+      # get the short name
+      set shortName [ExpXmlOptions_getShortName ${domDoc} ${_exp_path}]
+
       # get reference timings
       set refTimings [ExpXmlOptions_getRefTimings ${domDoc}]
 
@@ -147,6 +156,7 @@ proc ExpOptions_read { _exp_path } {
       # store data
       SharedData_setExpDisplayName ${_exp_path} ${displayName}
       SharedData_setExpTimings ${_exp_path} ${refTimings}
+      SharedData_setExpShortName ${_exp_path} ${shortName}
       SharedData_setExpSupportInfo ${_exp_path} ${supportData}
    } else {
       SharedData_setExpDisplayName ${_exp_path} [file tail ${_exp_path}]

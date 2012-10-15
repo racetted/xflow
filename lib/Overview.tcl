@@ -221,7 +221,6 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
       set sleepTime 60000
    }
    set currentTimeCoordx [Overview_getXCoordTime ${current_time}]
-   #::log::log debug "setCurrentTime current_time:${current_time} currentTimeCoordx:$currentTimeCoordx"
    set x1 ${currentTimeCoordx}
    set x2 ${currentTimeCoordx}
    set y1 [expr $graphStartY - 4]
@@ -607,8 +606,9 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    # delete previous box
    Overview_removeExpBox ${canvas} ${exp_path} ${datestamp} ${currentStatus}
 
-   set tailName [file tail ${exp_path}]
-   set expLabel " ${tailName} "
+   # set tailName [file tail ${exp_path}]
+   set shortName [SharedData_getExpShortName ${exp_path}]
+   set expLabel " ${shortName} "
    set outlineColor [::DrawUtils::getOutlineStatusColor ${currentStatus}]
    # puts "Overview_ExpCreateStartIcon outlineColor:$outlineColor currentStatus:$currentStatus"
    if { ${shift_day} == true || [string match "defaut*" ${datestamp}] } {
@@ -616,13 +616,13 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
       set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
       if { [SharedData_getExpTimings ${exp_path}] != "" } {
          set hour [Utils_getHourFromDatestamp ${datestamp}]
-         set expLabel " ${tailName}-${hour} "
+         set expLabel " ${shortName}-${hour} "
       }
    } else {
       set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
       if { [SharedData_getExpTimings ${exp_path}] != "" || ${currentStatus} != "init"} {
          set hour [Utils_getHourFromDatestamp ${datestamp}]
-         set expLabel " ${tailName}-${hour} "
+         set expLabel " ${shortName}-${hour} "
       }
    }
    set bgColor [::DrawUtils::getBgStatusColor ${currentStatus}]
@@ -2223,8 +2223,6 @@ proc Overview_parseCmdOptions {} {
             SharedData_setMiscData DEBUG_TRACE 1
          } 
 
-         # ::log::log debug "Overview_parseCmdOptions AUTO_MSG_DISPLAY: ${AUTO_MSG_DISPLAY}"
-         # ::log::log debug "Overview_parseCmdOptions SUITES_FILE: [SharedData_getMiscData SUITES_FILE]"
          if { ! ($params(rc) == "") } {
             puts "Overview_parseCmdOptions using maestrorc file: $params(rc)"
          }

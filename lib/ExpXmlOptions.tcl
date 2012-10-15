@@ -138,5 +138,23 @@ proc ExpXmlOptions_getDisplayName { _dom_doc _exp_path } {
    return ${defaultDisplayName}
 }
 
+proc ExpXmlOptions_getShortName { _dom_doc _exp_path } {
+   set root [${_dom_doc} documentElement root]
+
+   set defaultShortName [file tail ${_exp_path}]
+
+   # retrieve the Exp elements
+   # if exp_name is set, we filter it
+   # if not set get all exps from the document
+   set query "/ExpOptions"
+
+   set rootNode [${root} selectNodes ${query}]
+   if { ${rootNode} != "" && [llength ${rootNode}] == 1 } {
+      set defaultShortName [${rootNode} getAttribute shortName ${defaultShortName}]
+   }
+
+   return ${defaultShortName}
+}
+
 #global env
 #ExpXmlOptions_read $env(SEQ_EXP_HOME)/ExpOptions.xml

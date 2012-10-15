@@ -143,6 +143,15 @@ proc SharedData_getExpSupportInfo { _exp_path } {
    return ${info}
 }
 
+proc SharedData_setExpShortName { _exp_path _shortName } {
+   SharedData_setExpData ${_exp_path} shortname ${_shortName}
+}
+
+proc SharedData_getExpShortName { _exp_path } {
+   set info [SharedData_getExpData ${_exp_path} shortname]
+   return ${info}
+}
+
 proc SharedData_setExpModules { _exp_path _datestamp _modules } {
    SharedData_setExpData ${_exp_path} ${_datestamp}_modules ${_modules}
 }
