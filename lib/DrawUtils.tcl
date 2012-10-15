@@ -637,7 +637,7 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
             ${indexListW} configure -values {latest} -width 7
          } else {
             set indexValue [SharedFlowNode_getIndexValue ${currentExt}]
-            ${indexListW} configure -values  ${indexValue} -width [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+            ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
          }
          ${indexListW} setvalue first
       }

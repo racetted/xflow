@@ -885,7 +885,6 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       "npass_task" {
          ::DrawUtils::drawBox ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
-         # bind ${indexListW} <<ComboboxSelected>> [list xflow_indexedNodeSelectionCallback ${node} ${canvas} %W]
          ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${exp_path} ${node} ${datestamp} ${canvas} ${indexListW}]
       }
       "loop" {
@@ -1969,7 +1968,7 @@ proc xflow_abortListingCallback { exp_path datestamp node canvas caller_menu {fu
 # this function is called when the user selects an index from the npt or loop
 # listbox. It redraws the flow starting from the selected widget
 proc xflow_indexedNodeSelectionCallback { exp_path node datestamp canvas combobox_w} {
-   ::log::log debug "xflow_indexedNodeSelectionCallback ${exp_path} node:${node} datetamp:${canvas} $combobox_w"
+   ::log::log debug "xflow_indexedNodeSelectionCallback ${exp_path} node:${node} datestamp:${datestamp} canvas:${canvas} $combobox_w"
 
    set member [${combobox_w} get]
 
