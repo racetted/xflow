@@ -205,6 +205,18 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
          set msg [string range ${_line} $msgStartIndex end]
       }
 
+      if { ${_toMsgCenter} == true } {
+         if { ${type} == "abort" || ${type} == "info" || ${type} == "event" } {
+            if { ${node} == "" } {
+               set msgNode NONE
+            } else {
+               set msgNode ${node}
+            }
+            thread::send -async ${MSG_CENTER_THREAD_ID} \
+               "MsgCenterThread_newMessage [thread::id] \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} \"${msg}\""
+         }
+      }
+
       if { ${_toOverview} == true } {
          if { ! ($node == "" || $type == "") } {
             # abortx, endx, beginx type are used for signals we send to the parent containers nodes
@@ -226,19 +238,6 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
       if { ${_ToFlow} == true } {
          LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} ${first_read}
       }
-
-      if { ${_toMsgCenter} == true } {
-         if { ${type} == "abort" || ${type} == "info" || ${type} == "event" } {
-            if { ${node} == "" } {
-               set msgNode NONE
-            } else {
-               set msgNode ${node}
-            }
-            thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenterThread_newMessage [thread::id] \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} \"${msg}\""
-         }
-      }
-
    }
 }
 
