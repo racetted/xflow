@@ -69,14 +69,13 @@ proc ThreadPool_getThread { {wait false} } {
 # A release thread event is issued to notify potential clients waiting
 # for a thread release
 proc ThreadPool_releaseThread { thread_id } {
-   global PoolId THREAD_RELEASE_EVENT
+   global PoolId
    set maxThreads [SharedData_getMiscData MAX_XFLOW_INSTANCE]
    if { [array size PoolId] > ${maxThreads} } {
       array unset PoolId $thread_id
       thread::release ${thread_id}
    } else {
       set PoolId($thread_id) false
-      set THREAD_RELEASE_EVENT true
    }
 }
 

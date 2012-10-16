@@ -349,7 +349,6 @@ proc ::DrawUtils::setIndexWidgetStatuses { exp_path node datestamp index_widget 
    variable nodeStatusColorMap
    variable nodeTypeMap
 
-   puts "::DrawUtils::setIndexWidgetStatuses exp_path:${exp_path} node:${node} datestamp:${datestamp} index_widget:${index_widget}"
    set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
    if { ${nodeType} == "npass_task" } {
       set extensions [SharedFlowNode_getNptExtensions ${exp_path} ${node} ${datestamp}]

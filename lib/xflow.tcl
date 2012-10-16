@@ -2562,12 +2562,12 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       catch { after cancel [set TITLE_AFTER_ID_${exp_path}_${datestamp}]}
 
       if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+         thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
+
          if { ${from_overview} == false } {
             # notify overview thread to release me
-            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${exp_path} \"${datestamp}\""
+            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread ${expThreadId} ${exp_path} \"${datestamp}\""
          }
-         # clean up any after events
-         thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
       }
    } else {
       # standalone mode

@@ -14,20 +14,6 @@ proc ExpOptions_showSupport { _exp_path _hour _parent_widget } {
    set expName [file tail ${_exp_path}]
    set supportData {}
    set parentCode ""
-   #if { ! [file exists ${optionsFile}] } {
-   #   set msg "Support info file not found: ${exp_path}/ExpOptions.xml"
-   #   set title "Experiment Support Info"
-   #   tk_messageBox -title ${title} -parent ${parent_widget} -type ok -icon info -message ${msg}
-   #   return
-   #}
-
-   # retrieve data from xml file
-   #if { [file exists ${optionsFile}] } {
-   #   set domDoc [ExpXmlOptions_parse ${optionsFile}]
-   #   set supportData [ExpXmlOptions_getSupport ${domDoc} ${exp_path}]
-   #   ExpXmlOptions_done ${domDoc}
-   #}
-   
    set supportData [SharedData_getExpSupportInfo ${_exp_path}]
    set topW .support_top
 
@@ -93,20 +79,13 @@ proc ExpOptions_showSupport { _exp_path _hour _parent_widget } {
 }
 
 proc ExpOptions_getDisplayName { _exp_path } {
-   #set displayName [file tail ${_exp_path}]
-   #set optionsFile ${_exp_path}/ExpOptions.xml
-   #if { [file exists ${optionsFile}] } {
-   #   set domDoc [ExpXmlOptions_parse ${optionsFile}]
-   #   set displayName [ExpXmlOptions_getDisplayName ${domDoc} ${_exp_path}]
-   #   ExpXmlOptions_done ${domDoc}
-   #}
    set displayName [SharedData_getExpDisplayName ${_exp_path}]
 
    return ${displayName}
 }
 
 proc ExpOptions_getShortName { _exp_path } {
-   set shortName [ExpXmlOptions_getShortName ${_exp_path}]
+   set shortName [SharedData_getShortName ${_exp_path}]
 
    return ${shortName}
 }
@@ -116,12 +95,6 @@ proc ExpOptions_getShortName { _exp_path } {
 proc ExpOptions_getRefTimings { _exp_path _hour } {
    #set optionsFile ${_exp_path}/ExpOptions.xml
    set foundRefTimings ""
-   #if { [file exists ${optionsFile}] } {
-   #   set domDoc [ExpXmlOptions_parse ${optionsFile}]
-   #   set refTimings [ExpXmlOptions_getRefTimings ${domDoc} [Utils_getHourFromDatestamp ${_datestamp}]]
-   #   ExpXmlOptions_done ${domDoc}
-   #}
-
    set refTimings [SharedData_getExpTimings ${_exp_path}]
    # set hour [Utils_getHourFromDatestamp ${_datestamp}]
    
@@ -148,7 +121,7 @@ proc ExpOptions_read { _exp_path } {
       set refTimings [ExpXmlOptions_getRefTimings ${domDoc}]
 
       # get support info
-      set supportData [ExpXmlOptions_getSupport ${domDoc} ${_exp_path}]
+      set supportData [ExpXmlOptions_getSupport ${domDoc} ${_exp_path} ${shortName}]
 
       # close xml doc
       ExpXmlOptions_done ${domDoc}

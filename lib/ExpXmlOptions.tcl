@@ -26,12 +26,16 @@ proc ExpXmlOptions_done { _dom_doc } {
    ${_dom_doc} delete
 }
 
-proc ExpXmlOptions_getSupport { _dom_doc _exp_path { _exp_hour "" } } {
+proc ExpXmlOptions_getSupport { _dom_doc _exp_path _exp_name { _exp_hour "" } } {
 
    # return data
    set results {}
 
-   set expName [file tail ${_exp_path}]
+   if { ${_exp_name} != "" } {
+      set expName ${_exp_name}
+   } else {
+      set expName [file tail ${_exp_path}]
+   }
 
    # point to the root element
    set root [${_dom_doc} documentElement root]
