@@ -114,7 +114,6 @@ proc xflow_addHelpMenu { exp_path datestamp parent } {
 }
 
 proc xflow_showSupportCallback { exp_path datestamp } {
-   # set savedDatestamp [xflow_getSavedDatestamp ${exp_path} ${datestamp}]
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
       set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
@@ -571,7 +570,6 @@ proc xflow_populateDatestamp { exp_path datestamp date_frame } {
    foreach date $dateList {
       set values "$values [Utils_getVisibleDatestampValue ${date}]"
    }
-   # set savedDatestamp [xflow_getSavedDatestamp ${exp_path} ${datestamp}]
    ${dateEntryCombo} configure -values $values 
    ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp}]
 }
@@ -585,9 +583,6 @@ proc xflow_launchFlowNewWindow { exp_path datestamp } {
    set datestampRealValue [Utils_getRealDatestampValue ${datestampEntryValue}]
    # do nothing if selected value is empty or is already current flow
    if { ${datestampEntryValue} != "" && ${datestampRealValue} != ${datestamp} } {
-      # set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      # tell overview to launch the new datestamp flow
-      # thread::send ${overviewThreadId} "Overview_launchExpFlow ${exp_path} ${datestampRealValue}"
       Overview_launchExpFlow ${exp_path} ${datestampRealValue}
       # reset to existing value in current flow
       ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp}]
@@ -598,7 +593,6 @@ proc xflow_launchFlowNewWindow { exp_path datestamp } {
 proc xflow_readFlowXml { exp_path datestamp } {
    ::log::log debug "xflow_readFlowXml exp_path:${exp_path}"
    FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
-  # SharedData_setExpFlowParsed ${exp_path} true
 }
 
 # saves initial value of datestamp in datestamp widget
@@ -607,18 +601,6 @@ proc xflow_initDatestampEntry { exp_path datestamp } {
    set hiddenDate [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_hidden]
    $dateEntry set [Utils_getVisibleDatestampValue ${datestamp}]
    ${hiddenDate} configure -text [Utils_getVisibleDatestampValue ${datestamp}]
-}
-
-proc xflow_getSavedDatestamp { exp_path datestamp} {
-   # set dateEntry [xflow_getWidgetName exp_date_entry]
-   # set datestamp [$dateEntry get]
-   set datestamp ""
-   set hiddenDateWidget [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_hidden]
-   if { [winfo exists ${hiddenDateWidget}] } {
-      set saveDatestamp [${hiddenDateWidget} cget -text]
-   }
-
-   return ${saveDatestamp}
 }
 
 # this function is called when the user sets a new datestamp in the
@@ -631,7 +613,6 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
    set top [winfo toplevel $parent_w]
    set dateEntry [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
 
-   # Utils_busyCursor $top
    set newDatestamp [$dateEntry get]
 
    if { [Utils_validateVisibleDatestamp ${newDatestamp}] == false } {
@@ -640,6 +621,7 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
       return
    }
 
+   Utils_busyCursor $top
    # create log file is not exists
    set seqDatestamp [Utils_getRealDatestampValue ${newDatestamp}]
    set logfile ${exp_path}/logs/${seqDatestamp}_nodelog
@@ -657,15 +639,16 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
 
       ${hiddenDate} configure -text ${newDatestamp}
 
+      if { ${previousDatestamp} != "" } {
+         set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
+         SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
+      }
+
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
-         if { ${previousDatestamp} != "" } {
-            set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
-            SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
-         } else {
-            SharedData_removeExpThreadId ${exp_path} ""
-         }
          set expThreadId [ThreadPool_getThread]
          thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${seqDatestamp}\" no_overview"
+      } else {
+         LogReader_startExpLogReader ${exp_path} ${seqDatestamp} no_overview
       }
 
       set currentTop [xflow_getToplevel ${exp_path} ${datestamp}]
@@ -677,6 +660,7 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
       xflow_displayFlow ${exp_path} ${seqDatestamp}
       xflow_closeExpDatestamp ${exp_path} ${datestamp}
    }
+   Utils_normalCursor $top
 }
 
 # this function returns the resource information that needs to be displayed
