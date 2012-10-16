@@ -1004,7 +1004,7 @@ proc SharedFlowNode_getLoopArgs { exp_path node datestamp } {
          } else {
             # remove the + sign before extension
             set current [string range ${currentExt} 1 end]
-            set nodeName [SharedFlowNode_getName ${exp_path} ${loopNode}]
+            set nodeName [SharedFlowNode_getName ${exp_path} ${loopNode} ${datestamp}]
             if { $count == 0 } {
                set args "-l ${nodeName}=${currentExt}"
             } else {

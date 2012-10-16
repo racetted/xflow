@@ -1327,8 +1327,8 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
-             ::log::log notice "Overview_launchExpFlow new exp thread calling LogReader_startExpLogReader..."
-            thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\""
+             ::log::log notice "Overview_launchExpFlow new exp thread calling LogReader_startExpLogReader... ${exp_path} \"${datestamp}\" refresh_flow"
+            thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow"
          }
       }
 
@@ -1464,10 +1464,10 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
 }
 
 proc Overview_refreshExpLastStatus { exp_path datestamp } {
-   set currentStatus [OverviewUtils_getLastStatus ${exp} ${datestamp}]
-   set statusTime [OverviewUtils_getLastStatusTime ${exp} ${datestamp}]
+   set currentStatus [OverviewUtils_getLastStatus ${exp_path} ${datestamp}]
+   set statusTime [OverviewUtils_getLastStatusTime ${exp_path} ${datestamp}]
    if { ${statusTime} != "" } {
-      Overview_updateExpBox [Overview_getCanvas] ${exp} ${datestamp} ${currentStatus} ${statusTime}
+      Overview_updateExpBox [Overview_getCanvas] ${exp_path} ${datestamp} ${currentStatus} ${statusTime}
    }
 }
 
@@ -1552,7 +1552,9 @@ proc Overview_addExp { display_group canvas exp_path } {
 
          # read log and quit
          Overview_addChildInit ${exp_path} ${datestamp}
-         thread::send -async ${childId} "LogReader_startExpLogReader ${exp_path} ${datestamp} true"
+
+         # thread::send -async ${childId} "LogReader_startExpLogReader ${exp_path} ${datestamp} true"
+         thread::send -async ${childId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
       }
    }
 

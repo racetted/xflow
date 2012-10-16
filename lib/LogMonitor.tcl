@@ -35,7 +35,10 @@ proc LogMonitor_checkNewLogFiles {} {
 
                      #puts "LogMonitor_checkNewLogFiles LogMonitor_startExpLogReader..."
                      ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
-                     thread::send ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" false"
+                     # puts "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
+                     thread::send ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all"
+                     ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader done."
+                     # puts "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader done."
                      # Overview_refreshExpLastStatus ${expPath} ${seqDatestamp}
                   }
                } else {

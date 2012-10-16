@@ -1,11 +1,8 @@
 package require textutil::string
 package require log
 
-proc LogReader_startExpLogReader { exp_path datestamp {is_startup false} } {
-   global env this_id
-   ::log::log debug "LogReader_startExpLogReader"
-
-   global env
+# read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
+proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup false} } {
    global MSG_CENTER_THREAD_ID
 
    Utils_logInit
@@ -13,10 +10,11 @@ proc LogReader_startExpLogReader { exp_path datestamp {is_startup false} } {
 
    SharedData_setExpThreadId ${exp_path} "${datestamp}" [thread::id]
 
-   ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp}"
+   ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type}"
+   puts "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type}"
    if [ catch { 
       FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
-      ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} DONE."
+      ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
       ::log::log debug "ERROR: LogReader_startExpLogReader Parsing flow.xml file ${exp_path}:\n$message"
@@ -25,24 +23,17 @@ proc LogReader_startExpLogReader { exp_path datestamp {is_startup false} } {
       }
    }
 
-   # puts "LogReader_startExpLogReader LogReader_readFile"
-   if { ${is_startup} == true } {
+   # first do a full first pass read of the log file
+   LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
+
+   # then if the log file is not active, release the exp thread
+   if { ${is_startup} == true && [SharedData_getMiscData OVERVIEW_MODE] == true} {
       if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          # inactive log
-         # only send to overview and msg center, don't send to flow
-         LogReader_readFile ${exp_path} ${datestamp} no_flow
          # release exp thread
          thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${exp_path} ${datestamp}"
          return
-      } else {
-         # active log, we read the log files, send updates to overview, to msg center and to flow thread as well
-         LogReader_readFile ${exp_path} ${datestamp} all true
       }
-   } else {
-      # this is usually called when the user launches a flow from the overview,
-      # at that point we don't care about sending updates to overview or msg center cause it's already done
-      # just launch the flow
-      LogReader_readFile ${exp_path} ${datestamp} refresh_flow true
    }
 }
 
@@ -128,16 +119,16 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
    }
 
    # special case for flow refresh
-   if { ${read_type} == "refresh_flow" } {
-      set read_type "all"
-   }
+   # if { ${read_type} == "refresh_flow" } {
+   #   set read_type "all"
+   # }
 
    if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
       # this is there so that the exp thread that is done reading at startup waits for other exps to finish before
       # reading the log again
       LogReader_waitForStartupDone ${exp_path} ${datestamp} ${read_type}
    } else {
-      LogReader_readAgain ${exp_path} ${datestamp} ${read_type}
+      LogReader_readAgain ${exp_path} ${datestamp} all
    }
 
 }

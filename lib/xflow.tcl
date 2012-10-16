@@ -644,40 +644,39 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
    set seqDatestamp [Utils_getRealDatestampValue ${newDatestamp}]
    set logfile ${exp_path}/logs/${seqDatestamp}_nodelog
 
-   SharedFlowNode_resetNodeStatus ${exp_path} [SharedData_getExpRootNode ${exp_path} ${datestamp}] ${seqDatestamp}
-
-   LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
-   SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
-
-   ::log::log debug "xflow_setDateStamp exp_path:${exp_path} seqDatestamp:${seqDatestamp}"
    set hiddenDate [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_hidden]
    set previousDatestamp [${hiddenDate} cget -text]
-   ${hiddenDate} configure -text ${newDatestamp}
 
-   SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]
-   if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
-      if { ${previousDatestamp} != "" } {
-         set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
-         SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
-      } else {
-         SharedData_removeExpThreadId ${exp_path} ""
+   if { ${previousDatestamp} != ${newDatestamp} } {
+      # SharedFlowNode_resetNodeStatus ${exp_path} [SharedData_getExpRootNode ${exp_path} ${datestamp}] ${seqDatestamp}
+
+      LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
+      SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
+
+      ::log::log debug "xflow_setDateStamp exp_path:${exp_path} seqDatestamp:${seqDatestamp}"
+
+      ${hiddenDate} configure -text ${newDatestamp}
+
+      if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
+         if { ${previousDatestamp} != "" } {
+            set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
+            SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
+         } else {
+            SharedData_removeExpThreadId ${exp_path} ""
+         }
+         set expThreadId [ThreadPool_getThread]
+         thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${seqDatestamp}\" no_overview"
       }
-      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      if { [LogMonitor_isDatestampVisible ${exp_path} ${seqDatestamp}] } {
-         LogReader_readFile ${exp_path} ${seqDatestamp} all
-      } else {
-         LogReader_readFile ${exp_path} ${seqDatestamp} no_overview
-      }
+
+      set currentTop [xflow_getToplevel ${exp_path} ${datestamp}]
+      set newTop [xflow_getToplevel ${exp_path} ${seqDatestamp}]
+      set currentx [winfo x ${currentTop}]
+      set currenty [winfo y ${currentTop}]
+
+      xflow_createWidgets ${exp_path} ${seqDatestamp} ${currentx} ${currenty}
+      xflow_displayFlow ${exp_path} ${seqDatestamp}
+      xflow_closeExpDatestamp ${exp_path} ${datestamp}
    }
-
-   set currentTop [xflow_getToplevel ${exp_path} ${datestamp}]
-   set newTop [xflow_getToplevel ${exp_path} ${seqDatestamp}]
-   set currentx [winfo x ${currentTop}]
-   set currenty [winfo y ${currentTop}]
-
-   xflow_createWidgets ${exp_path} ${seqDatestamp} ${currentx} ${currenty}
-   xflow_displayFlow ${exp_path} ${seqDatestamp}
-   xflow_closeExpDatestamp ${exp_path} ${datestamp}
 }
 
 # this function returns the resource information that needs to be displayed
@@ -2759,18 +2758,10 @@ proc xflow_displayFlow { exp_path datestamp } {
    ::log::log debug "xflow_displayFlow thread id:[thread::id] datestamp:${datestamp}"
    ::log::log notice "xflow_displayFlow thread id:[thread::id] exp_path:${exp_path} datestamp:${datestamp}"
    set topLevel [xflow_getToplevel ${exp_path} ${datestamp}]
-   set overview_x ""
-   foreach {overview_x overview_y} [SharedData_getMiscData OVERVIEW_MAIN_COORDS] { break }
-   if { ${overview_x} != "" && [winfo exists ${topLevel}] } {
-      xflow_positionFlowWindow ${topLevel} ${overview_x} ${overview_y}
-      ::log::log notice "xflow_positionFlowWindow ${exp_path} . ${overview_x} ${overview_y}"
-   }
 
-   # set FLOW_RESIZED false
    xflow_setFlowResized ${exp_path} ${datestamp} false
 
    set topFrame [xflow_getWidgetName ${exp_path} ${datestamp} top_frame]
-   # xflow_createTmpDir  ${exp_path} ${datestamp}
 
    if { ${XFLOW_STANDALONE} == "1" } {
       wm withdraw .
@@ -2779,7 +2770,14 @@ proc xflow_displayFlow { exp_path datestamp } {
    if { ! [winfo exists ${topFrame}] } {
       set PROGRESS_REPORT_TXT "Creating widgets..."
       xflow_createWidgets ${exp_path} ${datestamp}
+      set overview_x ""
+      foreach {overview_x overview_y} [SharedData_getMiscData OVERVIEW_MAIN_COORDS] { break }
+      if { ${overview_x} != "" } {
+         xflow_positionFlowWindow ${topLevel} ${overview_x} ${overview_y}
+         ::log::log notice "xflow_positionFlowWindow ${exp_path} . ${overview_x} ${overview_y}"
+      }
    }
+
    xflow_setDatestampVars ${exp_path} ${datestamp}
    set displayName [ExpOptions_getDisplayName ${exp_path}]
    xflow_setExpLabel ${exp_path} ${displayName} ${datestamp}
