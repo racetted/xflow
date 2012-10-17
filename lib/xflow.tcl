@@ -2520,7 +2520,7 @@ proc xflow_getErroMsg { key } {
 }
 
 proc xflow_closeExpDatestamp { exp_path datestamp } {
-   puts "xflow_closeExpDatestamp ${exp_path} ${datestamp}"
+   # puts "xflow_closeExpDatestamp ${exp_path} ${datestamp}"
    set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
    destroy ${toplevelW}
 }
@@ -2758,7 +2758,7 @@ proc xflow_displayFlow { exp_path datestamp } {
       foreach {overview_x overview_y} [SharedData_getMiscData OVERVIEW_MAIN_COORDS] { break }
       if { ${overview_x} != "" } {
          xflow_positionFlowWindow ${topLevel} ${overview_x} ${overview_y}
-         ::log::log notice "xflow_positionFlowWindow ${exp_path} . ${overview_x} ${overview_y}"
+         ::log::log notice "xflow_displayFlow() xflow_positionFlowWindow ${exp_path} ${topLevel} ${overview_x} ${overview_y}"
       }
    }
 
@@ -2798,35 +2798,28 @@ proc xflow_displayFlow { exp_path datestamp } {
 }
 
 # Position the flow windows relative to the main overview window.
-# Only done the first time the flow is launched...Next time reuses the same 
-# positioning.
 # _toplevel is the toplevel of the current flow
 # _overview_x is the x coord of the upper left corner of the overview window
 # _overview_y is the y coord of the upper left corner of the overview window
 proc xflow_positionFlowWindow { _toplevel _overview_x _overview_y} {
-   global XFLOW_INIT_POSITION
    ::log::log debug "xflow_positionFlowWindow _overview_x:$_overview_x _overview_y:$_overview_y"
-   #puts "xflow_positionFlowWindow _overview_x:$_overview_x _overview_y:$_overview_y"
    # the XFLOW_POS_COUNTER is shared among all exp threads
-   if { ! [info exists XFLOW_INIT_POSITION] } {
-      if { [SharedData_getMiscData XFLOW_POS_COUNTER] != "" } {
-         set counter [SharedData_getMiscData XFLOW_POS_COUNTER]
-         incr counter
-         if { ${counter} == 20 } {
-            set counter 1
-         }
-      } else {
+   if { [SharedData_getMiscData XFLOW_POS_COUNTER] != "" } {
+      set counter [SharedData_getMiscData XFLOW_POS_COUNTER]
+      incr counter
+      if { ${counter} == 20 } {
          set counter 1
       }
-      set XFLOW_INIT_POSITION 1
-      SharedData_setMiscData XFLOW_POS_COUNTER ${counter}
-      # I'm using the overview main window x and y and the XFLOW_POS_COUNTER to
-      # position a window relative to the main window
-      set newx [expr ${_overview_x} + ${counter} * 40]
-      set newy [expr ${_overview_y} + 200 + ${counter} * 40]
-      wm geometry ${_toplevel} +${newx}+${newy}
-      #puts "xflow_positionFlowWindow wm geometry ${_toplevel} +${newx}+${newy}"
+   } else {
+      set counter 1
    }
+   SharedData_setMiscData XFLOW_POS_COUNTER ${counter}
+   # I'm using the overview main window x and y and the XFLOW_POS_COUNTER to
+   # position a window relative to the main window
+   set newx [expr ${_overview_x} + ${counter} * 40]
+   set newy [expr ${_overview_y} + 200 + ${counter} * 40]
+   wm geometry ${_toplevel} +${newx}+${newy}
+   #puts "xflow_positionFlowWindow wm geometry ${_toplevel} +${newx}+${newy}"
 }
 
 proc xflow_toFront { toplevel_w } {
