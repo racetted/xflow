@@ -196,10 +196,18 @@ proc SharedData_getExpNodeMapping { _exp_path _datestamp _real_node } {
    return ${flowNode}
 }
 
-proc SharedData_resetExpDisplayData { _exp_path _canvas {_force false} } {
-   array set canvasList {}
-   if { [SharedData_getExpData ${_exp_path} canvases] == "" || ${_force} == true } {
-      # init
+proc SharedData_resetExpDisplayData { _exp_path _canvas } {
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
+
+   if { [info exists canvasList(${_canvas})] } {
+      set canvasList(${_canvas}) [list 40 "/[file tail ${_exp_path}]" 40 40]
+      SharedData_setExpData ${_exp_path} canvases [array get canvasList]
+   }
+}
+
+proc SharedData_initExpDisplayData { _exp_path _canvas } {
+   array set canvasList [SharedData_getExpData ${_exp_path} canvases]
+   if { ! [info exists canvasList(${_canvas})] } {
       set canvasList(${_canvas}) [list 40 "/[file tail ${_exp_path}]" 40 40]
       SharedData_setExpData ${_exp_path} canvases [array get canvasList]
    }
@@ -208,7 +216,7 @@ proc SharedData_resetExpDisplayData { _exp_path _canvas {_force false} } {
 proc SharedData_setExpDisplayData { _exp_path _canvas next_y max_x max_y } {
    array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
-      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      SharedData_initExpDisplayData ${_exp_path} ${_canvas}
       array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
 
@@ -233,7 +241,7 @@ proc SharedData_setExpDisplayData { _exp_path _canvas next_y max_x max_y } {
 proc SharedData_setExpDisplayNextY { _exp_path _canvas _value } {
    array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
-      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      SharedData_initExpDisplayData ${_exp_path} ${_canvas}
       array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
@@ -244,7 +252,7 @@ proc SharedData_setExpDisplayNextY { _exp_path _canvas _value } {
 proc SharedData_setExpDisplayRoot { _exp_path _canvas _value } {
    array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
-      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      SharedData_initExpDisplayData ${_exp_path} ${_canvas}
       array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
@@ -255,7 +263,7 @@ proc SharedData_setExpDisplayRoot { _exp_path _canvas _value } {
 proc SharedData_getExpDisplayNextY { _exp_path _canvas } {
    array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
-      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      SharedData_initExpDisplayData ${_exp_path} ${_canvas}
       array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
@@ -265,7 +273,7 @@ proc SharedData_getExpDisplayNextY { _exp_path _canvas } {
 proc SharedData_getExpDisplayMaximumX { _exp_path _canvas } {
    array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
-      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      SharedData_initExpDisplayData ${_exp_path} ${_canvas}
       array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
@@ -275,7 +283,7 @@ proc SharedData_getExpDisplayMaximumX { _exp_path _canvas } {
 proc SharedData_getExpDisplayMaximumY { _exp_path _canvas } {
    array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
-      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      SharedData_initExpDisplayData ${_exp_path} ${_canvas}
       array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
@@ -285,7 +293,7 @@ proc SharedData_getExpDisplayMaximumY { _exp_path _canvas } {
 proc SharedData_getExpDisplayRoot { _exp_path _canvas } {
    array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    if { ! [info exists canvasList(${_canvas})] } {
-      SharedData_resetExpDisplayData ${_exp_path} ${_canvas}
+      SharedData_initExpDisplayData ${_exp_path} ${_canvas}
       array set canvasList [SharedData_getExpData ${_exp_path} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
@@ -363,7 +371,6 @@ proc SharedData_getStatusInfo { _exp_path _datestamp _status } {
 
 proc SharedData_removeStatusDatestamp { _exp_path _datestamp _canvas } {
    global datestamps_${_exp_path}
-   # puts "SharedData_removeStatusDatestamp exp_path:$_exp_path datestamp:$_datestamp"
    if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
       array unset datestamps_${_exp_path} ${_datestamp}
    }
@@ -380,8 +387,8 @@ proc SharedData_getDatestamps { _exp_path } {
    return ${datestampList}
 }
 
-proc SharedData_printNodeMapping { _exp_path } {
-   array set nodeMapping [SharedData_getExpData ${_exp_path} node_mappings]
+proc SharedData_printNodeMapping { _exp_path _datestamp } {
+   array set nodeMapping [SharedData_getExpData ${_exp_path} ${_datestamp}_node_mappings]
    foreach { real_node flow_node } [array get nodeMapping] {
       puts "real_node:${real_node} flow_node:${flow_node}"
    }

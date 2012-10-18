@@ -124,6 +124,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
                # first clean any data kept for the datestamp
+               ::log::log notice "Overview_GridAdvanceHour SharedData_removeStatusDatestamp exp_path:{exp} datestamp:${datestamp}"
                SharedData_removeStatusDatestamp ${exp} ${datestamp} ${canvasW}
 
                # delete current box
@@ -1278,10 +1279,9 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
 # this function is called to launch an exp window
 # It sends the request to the exp thread to care of it.
 proc Overview_launchExpFlow { exp_path datestamp } {
-   global EXP_LAUNCH_AFTER_ID
    ::log::log debug "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
-   global env ExpThreadList PROGRESS_REPORT_TXT
+   global PROGRESS_REPORT_TXT
 
    xflow_init ${exp_path}
 
@@ -1304,6 +1304,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
             return
          }
          set isNewThread true
+         SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
       } else {
          puts "Overview_launchExpFlow got existing thread..."
       }
@@ -1318,8 +1319,6 @@ proc Overview_launchExpFlow { exp_path datestamp } {
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
 
-      # retrieve the exp thread based on the exp_path
-
       if { ${isNewThread} == true } {
 
          puts "Overview_launchExpFlow force datestamp offset to 0"
@@ -1332,13 +1331,9 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          }
       }
 
-      ::log::log debug "Overview_launchExpFlow ${exp_path} \"${datestamp}\""
-      ::log::log notice "Overview_launchExpFlow sending Overview_ThreadLaunchFLow"
-      # send the request to the exp thread
-      # thread::send ${expThreadId} "Overview_ThreadLaunchFLow ${exp_path} \"${datestamp}\""
-      Overview_ThreadLaunchFLow ${exp_path} "${datestamp}"
-      ::log::log notice "Overview_launchExpFlow Overview_ThreadLaunchFLow ${exp_path} done"
-
+      ::log::log debug "Overview_launchExpFlow calling xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp}"
+      xflow_displayFlow ${exp_path} ${datestamp}
+      ::log::log notice "Overview_launchExpFlow xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp} done"
 
       destroy ${progressW}
 
@@ -1362,7 +1357,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 
 # this proc is called before releasing an exp thread to the thread pool
 proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
-   puts "Overview_releaseExpThread exp_thread_id:${exp_thread_id} exp_path:${exp_path} datestamp:${datestamp}"
+   ::log::log notice "Overview_releaseExpThread exp_thread_id:${exp_thread_id} exp_path:${exp_path} datestamp:${datestamp}"
    xflow_quit ${exp_path} ${datestamp} true
    SharedData_removeExpThreadId ${exp_path} ${datestamp}
    ThreadPool_releaseThread ${exp_thread_id}
@@ -1541,7 +1536,8 @@ proc Overview_addExp { display_group canvas exp_path } {
    foreach datestamp ${visibleDatestamps} {
       if { [Utils_validateRealDatestamp ${datestamp}] == true } {
          # create a child thread for the exp
-         set childId [ThreadPool_getThread true]
+         set childId [ThreadPool_getThread]
+         SharedData_setExpThreadId ${exp_path} "${datestamp}" ${childId}
 
          set currentDateTime [clock seconds]
          set currentTime [clock format ${currentDateTime} -format "%H:%M" -gmt 1]
@@ -1553,7 +1549,6 @@ proc Overview_addExp { display_group canvas exp_path } {
          # read log and quit
          Overview_addChildInit ${exp_path} ${datestamp}
 
-         # thread::send -async ${childId} "LogReader_startExpLogReader ${exp_path} ${datestamp} true"
          thread::send -async ${childId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
       }
    }
@@ -1561,15 +1556,6 @@ proc Overview_addExp { display_group canvas exp_path } {
    # retrieve the exp root node
    SharedData_setExpGroupDisplay ${exp_path} ${display_group}
 }
-
-# this function is called from the overview main thread to the exp thread
-# to display the exp flow either on user's request or because of "Auto Launch"
-proc Overview_ThreadLaunchFLow { exp_path datestamp } {
-   global this_id
-   ::log::log debug "Overview_ThreadLaunchFLow exp_path:${exp_path} datestamp:${datestamp}"
-   xflow_displayFlow ${exp_path} ${datestamp}
-}
-
 
 # this function returns a list of 4 coords x1 y1 x2 y2
 # that are the boundaries of an exp box in the display.
@@ -1772,7 +1758,7 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
          append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
       default {
-         append tooltipText "\n${currentStatus}: ${currentStatusTime}"
+         # append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
    }
 

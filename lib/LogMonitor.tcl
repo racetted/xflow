@@ -30,6 +30,7 @@ proc LogMonitor_checkNewLogFiles {} {
                      set expThreadId [ThreadPool_getThread]
                      #puts "LogMonitor_checkNewLogFiles set log file offset to 0"
                      # force reread of log file from start
+                     SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
                      SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
                      SharedData_setExpStartupDone ${expPath} ${seqDatestamp} false
 
@@ -42,7 +43,7 @@ proc LogMonitor_checkNewLogFiles {} {
                      # Overview_refreshExpLastStatus ${expPath} ${seqDatestamp}
                   }
                } else {
-                  ::log::log notice "LogMonitor_checkNewLogFiles():Found invalid log file format: ${expPath} ${modifiedFile}"
+                  ::log::log notice "ERROR: LogMonitor_checkNewLogFiles():Found invalid log file format: ${expPath} ${modifiedFile}"
                   # puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
                }
             }

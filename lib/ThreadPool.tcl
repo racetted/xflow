@@ -40,7 +40,7 @@ proc ThreadPool_createThread {} {
 # If all threads are busy,
 # the client as the option of waiting until a thread is available
 # or not..in such case an empty string is returned
-proc ThreadPool_getThread { {wait false} } {
+proc ThreadPool_getThread {} {
    global PoolId
    set foundId ""
    set done false

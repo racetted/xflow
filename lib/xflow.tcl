@@ -889,7 +889,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       }
    }
    if { ${flowScale} != "1" } { ::tooltip::tooltip $canvas -item ${node} ${text} }
-
+   puts "calling ::DrawUtils::drawNodeStatus ${exp_path} ${node} ${datestamp} [xflow_getShawdowStatus]"
    ::DrawUtils::drawNodeStatus ${exp_path} ${node} ${datestamp} [xflow_getShawdowStatus]
    Utils_bindMouseWheel $canvas 20
    $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed ${exp_path} ${datestamp} $canvas $node %X %Y]
@@ -1255,7 +1255,7 @@ proc xflow_initbranchCallback { exp_path datestamp node canvas caller_menu } {
 
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
-   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "initbranch" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
@@ -1277,7 +1277,7 @@ proc xflow_initnodeCallback { exp_path datestamp node canvas caller_menu } {
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
-   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "initnode" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "initnode [file tail $node] $seqLoopArgs" top \
@@ -1301,7 +1301,7 @@ proc xflow_initbranchLoopCallback { exp_path datestamp node canvas caller_menu }
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${exp_path} ${node} ${datestamp}]
-   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "initbranch" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "initbranch [file tail $node] $seqLoopArgs" top \
@@ -1321,7 +1321,7 @@ proc xflow_abortCallback { exp_path datestamp node canvas caller_menu } {
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
-   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "abort [file tail $node] $seqLoopArgs" top \
@@ -1495,7 +1495,7 @@ proc xflow_endCallback { exp_path datestamp node canvas caller_menu } {
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
-   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "end [file tail $node] $seqLoopArgs" top \
@@ -1516,7 +1516,7 @@ proc xflow_endLoopCallback { exp_path datestamp node canvas caller_menu } {
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${exp_path} ${node} ${datestamp}]
-   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "loop end" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "end [file tail $node] $seqLoopArgs" top \
@@ -1684,7 +1684,7 @@ proc xflow_submitCallback { exp_path datestamp node canvas caller_menu flow {loc
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
-   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "submit [file tail $node] $seqLoopArgs" top \
@@ -1706,7 +1706,7 @@ proc xflow_submitLoopCallback { exp_path datestamp node canvas caller_menu flow 
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${exp_path} ${node} ${datestamp}]
-   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} $seqExec "submit [file tail $node] $seqLoopArgs" top \
@@ -2104,7 +2104,7 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display "1"} } {
    if { [winfo exists ${canvas}] } {
       ::log::log debug "xflow_drawflow() found existing canvas:$canvas"
       # reset the default spacing for drawing flow
-      SharedData_resetExpDisplayData ${exp_path} ${canvas} true
+      SharedData_resetExpDisplayData ${exp_path} ${canvas}
       set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
 
       xflow_clearCanvasFlow ${canvas}
@@ -2791,7 +2791,7 @@ proc xflow_displayFlow { exp_path datestamp } {
    set canvas [xflow_createFlowCanvas ${exp_path} ${datestamp} $drawFrame]
    xflow_drawflow ${exp_path} ${datestamp} $canvas
 
-   xflow_setTitle ${topFrame} ${datestamp} ${exp_path}
+   xflow_setTitle ${topFrame} ${exp_path} ${datestamp}
    xflow_toFront [winfo toplevel  ${topFrame}]
    ::log::log notice "xflow_displayFlow ${exp_path} thread id:[thread::id] done datestamp:${datestamp}"
    # Console_create
