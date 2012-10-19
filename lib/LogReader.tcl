@@ -75,6 +75,9 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
          
          if { ${isStartupDone} == "true" } {
             set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
+            if { ${logFileOffset} == "" } {
+               ::log::log notice "ERROR: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
+            }
             ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
          } else {
             ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} reset read_offset"
@@ -311,25 +314,25 @@ proc LogReader_updateNodes { exp_path datestamp node } {
    } else {
       # if one is the parent of another, keep the parent
       # this should take care of one redraw only for aborts where the messages comes in a bunch
-
+      set updatedNodeList [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}]
       # if the node is already in the updated list nothing to do
-      if { [lsearch  -exact [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] ${node}] == -1 } {
+      if { [lsearch  -exact ${updatedNodeList} ${node}] == -1 } {
          # exact node is not in list... search for parent nodes
          # check if the current node is parent of updated nodes
-         set childNodes [lsearch  -all [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] ${node}*]
+         set childNodes [lsearch  -all ${updatedNodeList} ${node}*]
          if {  ${childNodes} != "" } {
             # current is parent of updated ones, delete updated ones and add current one
             set childNodes [lreverse ${childNodes}]
             foreach childIndex ${childNodes} {
-               set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  [lreplace [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] ${childIndex} ${childIndex}]
+               set updatedNodeList  [lreplace ${updatedNodeList} ${childIndex} ${childIndex}]
             }
-            lappend LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ${node}
+            lappend updatedNodeList ${node}
          } else {
             # current is not parent of udpated ones, 
             # then check if updated ones are already parent of current one
             # break as soon as we find one
             set found false
-            foreach updatedNode [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] {
+            foreach updatedNode ${updatedNodeList} {
                if { [string first ${updatedNode} ${node}] != -1 } {
                   set found true
                   break
@@ -337,10 +340,12 @@ proc LogReader_updateNodes { exp_path datestamp node } {
             }
             if { ${found} == "false" } {
                # the node is new, add it
-               lappend LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ${node}
+               # lappend LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} ${node}
+               lappend updatedNodeList ${node}
             }
          }
       }
+      set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} ${updatedNodeList}
    }
 
 }

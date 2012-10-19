@@ -115,16 +115,11 @@ proc xflow_addHelpMenu { exp_path datestamp parent } {
 
 proc xflow_showSupportCallback { exp_path datestamp } {
 
-   if { [SharedData_getMiscData OVERVIEW_MODE] == "true" } {
-      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      thread::send -async ${overviewThreadId} "Overview_showSupportCallback ${exp_path} \"${datestamp}\""
-   } else {
-      set hour ""
-      if { ${datestamp} != "" } {
-         set hour [Utils_getHourFromDatestamp ${datestamp}]
-      }
-      ExpOptions_showSupport ${exp_path} ${hour} [xflow_getWidgetName ${exp_path} ${datestamp} top_frame]
+   set hour ""
+   if { ${datestamp} != "" } {
+      set hour [Utils_getHourFromDatestamp ${datestamp}]
    }
+   ExpOptions_showSupport ${exp_path} ${hour} [xflow_getWidgetName ${exp_path} ${datestamp} top_frame]
 }
 
 # no fancy format here, it's a simple dump of the content
@@ -889,7 +884,6 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       }
    }
    if { ${flowScale} != "1" } { ::tooltip::tooltip $canvas -item ${node} ${text} }
-   puts "calling ::DrawUtils::drawNodeStatus ${exp_path} ${node} ${datestamp} [xflow_getShawdowStatus]"
    ::DrawUtils::drawNodeStatus ${exp_path} ${node} ${datestamp} [xflow_getShawdowStatus]
    Utils_bindMouseWheel $canvas 20
    $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed ${exp_path} ${datestamp} $canvas $node %X %Y]
@@ -2037,8 +2031,8 @@ proc xflow_redrawAllFlow { exp_path datestamp } {
 proc xflow_refreshFlow { exp_path datestamp } {
    global PROGRESS_REPORT_TXT
 
-   set progressW [ProgressDlg .pdrefresh -title "Flow Refresh" -parent [xflow_getToplevel ${exp_path} ${datestamp}]  -textvariable PROGRESS_REPORT_TXT]
    set PROGRESS_REPORT_TXT "Refreshing experiment ..."
+   set progressW [ProgressDlg .pdrefresh -title "Flow Refresh" -parent [xflow_getToplevel ${exp_path} ${datestamp}]  -textvariable PROGRESS_REPORT_TXT]
    # for some reason, I need to call the update for the progress dlg to appear properly
    update idletasks
 
@@ -2047,30 +2041,18 @@ proc xflow_refreshFlow { exp_path datestamp } {
       global NODE_RESOURCE_DONE_${exp_path}_${datestamp} LOOP_RESOURCES_DONE_${exp_path}_${datestamp}
       set LOOP_RESOURCES_DONE_${exp_path}_${datestamp} false
       set NODE_RESOURCE_DONE_${exp_path}_${datestamp} false
-      # clear all nodes
-      set PROGRESS_REPORT_TXT "Deleting node data ..."
-      update idletasks
 
       SharedFlowNode_clearAllNodes ${exp_path} ${datestamp}
 
-      set thisThreadId [thread::id]
+      SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
       if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
-         set PROGRESS_REPORT_TXT "Parsing module's flow.xml ..."
-         update idletasks
-         xflow_readFlowXml ${exp_path} ${datestamp}
-         xflow_displayFlow ${exp_path} ${datestamp}
+         LogReader_startExpLogReader ${exp_path} ${datestamp} no_overview
       } else {
-         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-         set PROGRESS_REPORT_TXT "Parsing module's flow.xml ..."
-         update idletasks
-         xflow_readFlowXml ${exp_path} ${datestamp}
-         set PROGRESS_REPORT_TXT "Processing log file ..."
-         update idletasks
-         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
-         LogReader_readFile ${exp_path} ${datestamp} refresh_flow
-         xflow_displayFlow ${exp_path} ${datestamp}
+         set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
+         thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview"
       }
 
+      xflow_displayFlow ${exp_path} ${datestamp}
       destroy ${progressW}
 
    } message ]
@@ -2533,7 +2515,6 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
    global SESSION_TMPDIR TITLE_AFTER_ID_${exp_path}_${datestamp} XFLOW_FIND_AFTER_ID_${exp_path}_${datestamp}
 
    ::log::log debug "xflow_quit exiting Xflow thread id:[thread::id]"
-   puts "xflow_quit exp_path:$exp_path datestamp:$datestamp"
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
 
    if { ${isOverviewMode} == "true" } {
@@ -2560,6 +2541,10 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
 
 proc xflow_isXflowActive { exp_path datestamp } {
    set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
+   if { [winfo exists ${toplevelW}] == "0" } {
+      return false
+   }
+
    if { [wm state ${toplevelW}] == "withdrawn" } {
       return false
    }
@@ -2594,9 +2579,11 @@ proc xflow_redrawNodesEvent { exp_path datestamp } {
    if { ${updatedNodes} != "" } {
       # update highest node that was affected during this read
       foreach updatedNode ${updatedNodes} {
-         xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNodes}
+         puts "xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}"
+         xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}
       }
    }
+   update idletasks
    SharedData_setExpUpdatedNodes ${exp_path} ${datestamp} ""
 }
 
@@ -2775,6 +2762,7 @@ proc xflow_displayFlow { exp_path datestamp } {
    xflow_populateDatestamp ${exp_path} ${datestamp} [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_frame]
 
    # normal mode
+   proc out {} {
    if { ${XFLOW_STANDALONE} == "1" && [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
       # in overview mode, the log has already been read once before it reached here,
       # no need to read again... only read for xflow standalone
@@ -2783,6 +2771,7 @@ proc xflow_displayFlow { exp_path datestamp } {
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
          LogReader_readFile ${exp_path} ${datestamp}
       }
+   }
    }
    xflow_initDatestampEntry ${exp_path} ${datestamp}
    ::log::log notice "xflow_displayFlow ${exp_path} xflow_initDatestampEntry done"
@@ -2943,12 +2932,13 @@ proc xflow_parseCmdOptions {} {
       # xflow_readFlowXml ${expPath}
       ExpOptions_read ${expPath}
 
-
       set newestDatestamp [LogMonitor_getNewestDatestamp ${expPath}]
       SharedData_setExpThreadId ${expPath} ${newestDatestamp} [thread::id]
-      xflow_readFlowXml ${expPath} ${newestDatestamp}
-      xflow_displayFlow ${expPath} ${newestDatestamp}
+      # xflow_readFlowXml ${expPath} ${newestDatestamp}
+      # xflow_displayFlow ${expPath} ${newestDatestamp}
+      LogReader_startExpLogReader ${expPath} ${newestDatestamp} all true
       SharedData_setMiscData STARTUP_DONE true
+      xflow_displayFlow ${expPath} ${newestDatestamp}
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
    }
 
