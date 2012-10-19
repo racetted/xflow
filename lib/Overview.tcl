@@ -114,7 +114,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
             # is the exp thread still needed?
             set expThreadId [SharedData_getExpThreadId ${exp} ${datestamp}]
             if { ${expThreadId} != "" && [LogMonitor_isLogFileActive ${exp} ${datestamp}] == false } {
-               if { [thread::send ${expThreadId} xflow_isXflowActive ${exp} ${datestamp}] == false } {
+               if { [xflow_isXflowActive ${exp} ${datestamp}] == false } {
                   # the exp thread that followed this log is not needed anymore, release it    
                   ::log::log debug "Overview_GridAdvanceHour releasing exp thread for ${exp} ${datestamp}"
                   Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
@@ -124,8 +124,10 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
                # first clean any data kept for the datestamp
-               ::log::log notice "Overview_GridAdvanceHour SharedData_removeStatusDatestamp exp_path:{exp} datestamp:${datestamp}"
-               SharedData_removeStatusDatestamp ${exp} ${datestamp} ${canvasW}
+               if { [xflow_isXflowActive ${exp} ${datestamp}] == false } {
+                  ::log::log notice "Overview_GridAdvanceHour SharedData_removeStatusDatestamp exp_path:${exp} datestamp:${datestamp}"
+                  SharedData_removeStatusDatestamp ${exp} ${datestamp} ${canvasW}
+               }
 
                # delete current box
                Overview_removeExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus}
@@ -1251,7 +1253,8 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
       -command [list Overview_historyCallback $canvas $exp_path ${datestamp} $popMenu]
    $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $exp_path ${datestamp}]
    $popMenu add command -label "Shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
-   $popMenu add command -label "Support" -command [list Overview_showSupportCallback $exp_path ${datestamp} [winfo toplevel ${canvas}]]
+   # $popMenu add command -label "Support" -command [list Overview_showSupportCallback $exp_path ${datestamp} [winfo toplevel ${canvas}]]
+   $popMenu add command -label "Support" -command [list ExpOptions_showSupportCallback ${exp_path} ${datestamp} [Overview_getToplevel]]
    tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
 }
@@ -1359,6 +1362,12 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
    ::log::log notice "Overview_releaseExpThread exp_thread_id:${exp_thread_id} exp_path:${exp_path} datestamp:${datestamp}"
    xflow_quit ${exp_path} ${datestamp} true
+   if { [Overview_isExpBoxObsolete [Overview_getCanvas] ${exp_path} ${datestamp}] == true } {
+      if { [xflow_isXflowActive ${exp_path} ${datestamp}] == false } {
+         ::log::log notice "Overview_releaseExpThread() SharedData_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp}"
+         SharedData_removeStatusDatestamp ${exp_path} ${datestamp} [Overview_getCanvas]
+      }
+   }
    SharedData_removeExpThreadId ${exp_path} ${datestamp}
    ThreadPool_releaseThread ${exp_thread_id}
 }
