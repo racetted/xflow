@@ -1265,14 +1265,15 @@ proc Overview_showSupportCallback { exp_path datestamp {caller_w .} } {
 
 # this function is called to show the history of an experiment
 proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
-   ::log::log debug "Overview_historyCallback exp_path:$exp_path"
+   ::log::log debug "Overview_historyCallback exp_path:$exp_path datestamp:${datestamp}"
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
-   set seqNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
    if { ${datestamp} != "" } {
       # retrieve the last 30 days
+      set seqNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
       set cmdArgs "-n $seqNode -edate ${datestamp} -history [expr 30*24]"
    } else {
       # retrieve all
+      set seqNode [Overview_getExpRootNodeInfo ${exp_path}]
       set cmdArgs "-n $seqNode"
    }
 
@@ -2497,6 +2498,17 @@ proc Overview_getToplevel {} {
 
 proc Overview_setMainCoords { _topOverview } {
    SharedData_setMiscData OVERVIEW_MAIN_COORDS "[winfo x ${_topOverview}] [winfo y ${_topOverview}]"
+}
+
+proc Overview_getExpRootNodeInfo { exp_path } {
+   set rootNode ""
+   if [ catch { set rootNode [Sequencer_getExpRootNodeInfo ${exp_path}] } message ] {
+      set errMsg "Error calling nodeinfo:\n$message"
+      tk_messageBox -title "Application Error!" -type ok -icon error \
+         -message ${errMsg}
+      return ""
+   }
+   return ${rootNode}
 }
 
 proc Overview_main {} {

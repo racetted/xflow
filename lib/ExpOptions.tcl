@@ -1,6 +1,15 @@
 #package require Tktable
 package require tablelist
 
+proc ExpOptions_showSupportCallback { _exp_path _datestamp parent_widget } {
+
+   set hour ""
+   if { ${_datestamp} != "" } {
+      set hour [Utils_getHourFromDatestamp ${_datestamp}]
+   }
+   ExpOptions_showSupport ${_exp_path} ${hour} ${parent_widget}
+}
+
 # show support info from xml file
 #
 # for now the xml is quite small so I don't

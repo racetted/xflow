@@ -555,6 +555,9 @@ proc SharedData_init {} {
    # number of threads created to process xflow instances
    SharedData_setMiscData MAX_XFLOW_INSTANCE 20
 
+   SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
+   SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
+
    # SharedData_readProperties
 }
 

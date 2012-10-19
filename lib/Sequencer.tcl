@@ -24,6 +24,14 @@ proc Sequencer_getUtilsPath {} {
    return [file dirname $utilsPath]
 }
 
+proc Sequencer_getExpRootNodeInfo { exp_path } {
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+
+   set cmd "export SEQ_EXP_HOME=$exp_path; ${seqExec} -f root | cut -d \"=\" -f2"
+   set rootNode [exec ksh -c ${cmd}]
+   return ${rootNode}
+}
+
 proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command title position args } {
    global env
    regsub -all " " [file tail $command] _ tmpfile
