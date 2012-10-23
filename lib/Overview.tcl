@@ -632,12 +632,12 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    ::log::log debug "Overview_ExpCreateStartIcon ${expBoxTag}.start at ${startX} ${startY} ${startX2} ${startY2} outlineColor:${outlineColor} bgColor:${bgColor}"
    # create the left box      
    set startBoxId [$canvas create oval ${startX} ${startY} ${startX2} ${startY2} -width 1.0 \
-      -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.start"]
+      -fill ${bgColor} -outline ${outlineColor} -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.start"]
 
    # create the exp label
    set labelY [expr ${startY} + (${startEndIconSize}/2)]
    set expLabelId [$canvas create text ${labelX} ${labelY} -font [Overview_getBoxLabelFont] \
-      -text ${expLabel} -fill black -anchor w -tag "${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.text"]
+      -text ${expLabel} -fill black -anchor w -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.text"]
 }
 
 # this function creates an experiment end icon
@@ -674,7 +674,7 @@ proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day 
       
       # create the left box
       set endBoxId [${canvas} create oval ${startX} ${startY} ${startX2} ${startY2} -width 1 \
-         -fill ${bgColor} -outline ${outlineColor} -tag "${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.end"]
+         -fill ${bgColor} -outline ${outlineColor} -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.end"]
 
       if { [${canvas} coords ${expBoxTag}.reference] != "" } {
          $canvas lower ${expBoxTag}.end ${expBoxTag}.reference
@@ -724,7 +724,7 @@ proc Overview_ExpCreateReferenceBox { canvas exp_path datestamp timevalue {late_
          ${canvas} itemconfigure ${expBoxTag}.text -fill DarkViolet
    } else {
       set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} -width 1 \
-         -dash { 4 3 } -outline ${outlineColor} -tag "${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.reference"]
+         -dash { 4 3 } -outline ${outlineColor} -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.reference"]
 
       if { [${canvas} coords ${expBoxTag}.middle] != "" } {
          ${canvas} lower ${expBoxTag}.reference  ${expBoxTag}.middle
@@ -767,7 +767,7 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
       set endY [expr ${startY} + $expEntryHeight/2 + 8]
    
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
-         -outline ${outlineColor} -fill white -tag "${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
+         -outline ${outlineColor} -fill white -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
 
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
 
@@ -1330,7 +1330,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
-             ::log::log notice "Overview_launchExpFlow new exp thread calling LogReader_startExpLogReader... ${exp_path} \"${datestamp}\" refresh_flow"
+             ::log::log notice "Overview_launchExpFlow new exp thread calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
             thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow"
          }
       }
@@ -1370,7 +1370,7 @@ proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
       }
    }
    SharedData_removeExpThreadId ${exp_path} ${datestamp}
-   ThreadPool_releaseThread ${exp_thread_id}
+   ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
 }
 
 # At application startup, this function is called by each
@@ -1584,43 +1584,6 @@ proc Overview_getExpBoundaries { canvas exp_path } {
    set y1 [lindex ${boundaries} 1]
    set x2 [lindex ${boundaries} 2]
    set y2 [lindex ${boundaries} 3]
-
-   if { [${canvas} coords ${exp_path}.start] != "" } {
-      set boundaries [${canvas} coords ${exp_path}.start]
-      set x1 [lindex ${boundaries} 0]
-      set y1 [lindex ${boundaries} 1]
-      set x2 [lindex ${boundaries} 2]
-      set y2 [lindex ${boundaries} 3]
-   }
-
-   if { [${canvas} coords ${exp_path}.text] != "" } {
-      set boundaries [${canvas} bbox ${exp_path}.text]
-      if { [expr [lindex ${boundaries} 0] < ${x1}] } {
-         set x1 [lindex ${boundaries} 0]
-      }
-      if { [expr [lindex ${boundaries} 2] > ${x2}] } {
-         set x2 [lindex ${boundaries} 2]
-      }
-   }
-
-   if { [${canvas} coords ${exp_path}.middle] != "" } {
-      set boundaries [${canvas} coords ${exp_path}.middle]
-      set y1 [lindex ${boundaries} 1]
-      set x2 [lindex ${boundaries} 2]
-      set y2 [lindex ${boundaries} 3]
-   }
-
-   if { [${canvas} coords ${exp_path}.reference] != "" } {
-      set boundaries [${canvas} coords ${exp_path}.reference]
-      set y1 [lindex ${boundaries} 1]
-      set x2 [lindex ${boundaries} 2]
-      set y2 [lindex ${boundaries} 3]
-   }
-
-   if { [${canvas} coords ${exp_path}.end] != "" } {
-      set boundaries [${canvas} coords ${exp_path}.end]
-      set x2 [lindex ${boundaries} 2]
-   }
 
    set boundaries "$x1 $y1 $x2 $y2"
    ::log::log debug "Overview_getExpBoundaries boudaries ${exp_path} : ${boundaries}"
@@ -2519,6 +2482,11 @@ proc Overview_main {} {
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    ::DrawUtils::init
    Overview_init
+   set appLogFile [SharedData_getMiscData APP_LOG_FILE]
+   if { ${appLogFile} != "" } {
+      FileLogger_createThread ${appLogFile}
+   }
+
    set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
    set topOverview [Overview_getToplevel]
    set topCanvas [Overview_getCanvas]
