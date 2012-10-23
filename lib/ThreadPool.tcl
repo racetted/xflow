@@ -10,7 +10,7 @@ proc ThreadPool_init { nof_thread } {
    set count 0
    ::log::log notice "ThreadPool_init(): creating ${nof_thread} threads..."
    while { ${done} == false } {
-      set threadId [ThreadPool_createThread]
+      set threadId [ThreadPool_createThread true]
       # puts "ThreadPool_init thread no: ${count} creation done..."
       set PoolId(${threadId}) false
       incr count
@@ -20,10 +20,14 @@ proc ThreadPool_init { nof_thread } {
    }
 }
 
-proc ThreadPool_createThread {} {
+proc ThreadPool_createThread { {is_init false} } {
+   if { ${is_init} == false } {
+      ::log::log notice "ThreadPool_createThread(): creating new thread"
+   }
    set threadId [thread::create {
       global env
       source $env(SEQ_XFLOW_BIN)/../lib/utils.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/FileLogger.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/FlowXml.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/LogReader.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/LogMonitor.tcl
@@ -68,11 +72,12 @@ proc ThreadPool_getThread {} {
 # release the thread and make it available again in the pool
 # A release thread event is issued to notify potential clients waiting
 # for a thread release
-proc ThreadPool_releaseThread { thread_id } {
+proc ThreadPool_releaseThread { thread_id args } {
    global PoolId
    set maxThreads [SharedData_getMiscData MAX_XFLOW_INSTANCE]
    if { [array size PoolId] > ${maxThreads} } {
-      array unset PoolId $thread_id
+      array unset PoolId ${thread_id}
+      ::log::log notice "ThreadPool_releaseThread(): nof threads over maximum: ${maxThreads}... releasing thread: ${thread_id} ${args}"
       thread::release ${thread_id}
    } else {
       set PoolId($thread_id) false

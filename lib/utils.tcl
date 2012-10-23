@@ -314,9 +314,12 @@ proc Utils_logInit {} {
       ::log::lvSuppress warning 0
       ::log::lvSuppress notice 0
 
-      ::log::lvCmd notice Utils_logMessage 
-      ::log::lvCmd warning Utils_logMessage 
-      ::log::lvCmd error Utils_logMessage 
+      # ::log::lvCmd notice Utils_logMessage 
+      # ::log::lvCmd warning Utils_logMessage 
+      # ::log::lvCmd error Utils_logMessage 
+      ::log::lvCmd notice FileLogger_log 
+      ::log::lvCmd warning FileLogger_log 
+      ::log::lvCmd error FileLogger_log 
    }
 }
 
@@ -349,6 +352,7 @@ proc Utils_logFileContent { _level _filename } {
 # inserts the message in the log file
 proc Utils_logMessage { _level _message } {
    global APP_LOGFILE
+
    if { [info exists APP_LOGFILE] } {
       set currentTimeSeconds [clock seconds]
       set dateString [clock format $currentTimeSeconds -gmt 1]
