@@ -1,4 +1,3 @@
-#package require Tktable
 package require tablelist
 
 proc ExpOptions_showSupportCallback { _exp_path _datestamp parent_widget } {

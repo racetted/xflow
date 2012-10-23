@@ -1,11 +1,6 @@
 package provide DrawUtils 1.0
 package require Tk
-#package require FlowNodes
-#package require Tix
-package require tile
 package require BWidget 1.9
-
-#namespace delete ::DrawUtils
 
 namespace eval ::DrawUtils {
 
