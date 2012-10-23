@@ -18,16 +18,6 @@ package require log
 namespace import ::struct::record::*
 
 global env
-# if { ! [info exists env(SEQ_XFLOW_BIN) ] } {
-#   puts "SEQ_XFLOW_BIN must be defined!"
-#   exit
-# }
-
-# set lib_dir $env(SEQ_XFLOW_BIN)/../lib
-# puts "lib_dir=$lib_dir"
-# set auto_path [linsert $auto_path 0 $lib_dir ]
-
-#::ttk::setTheme classic
 proc xflow_setTkOptions {} {
    option add *activeBackground [SharedData_getColor ACTIVE_BG]
    option add *selectBackground [SharedData_getColor SELECT_BG]
@@ -106,7 +96,7 @@ proc xflow_addHelpMenu { exp_path datestamp parent } {
       -relief [SharedData_getMiscData MENU_RELIEF]
    menu $menuW -tearoff 0
 
-   $menuW add command -label "Experiment Support" -underline 11 -command [list xflow_showSupportCallback ${exp_path} ${datestamp}]
+   $menuW add command -label "Experiment Support" -underline 11 -command [list ExpOptions_showSupportCallback ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}]]
    $menuW add command -label "Maestro Commands" -underline 8 -command "xflow_maestroCmds ${parent}"
    $menuW add command -label "About" -underline 0 -command "About_show ${parent}"
 
@@ -235,8 +225,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
       set overviewW [xflow_getWidgetName ${exp_path} ${datestamp} overview_button]
       image create photo ${parent}.overview -file ${imageDir}/calendar_clock.gif
       button ${overviewW} -relief flat -image ${parent}.overview -command {
-         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-         thread::send -async ${overviewThreadId} "Overview_toFront"
+         Overview_toFront
       }
       ::tooltip::tooltip ${overviewW} "Show overview window."
       ::tooltip::tooltip ${closeW} "Close window."
@@ -2511,21 +2500,22 @@ proc xflow_closeExpDatestamp { exp_path datestamp } {
 # In overview mode, this is also called by the overview for exp thread cleanup
 # if required.
 proc xflow_quit { exp_path datestamp {from_overview false} } {
-   global XFLOW_STANDALONE
+   global XFLOW_STANDALONE NODE_DISPLAY_PREF_${exp_path}_${datestamp}
    global SESSION_TMPDIR TITLE_AFTER_ID_${exp_path}_${datestamp} XFLOW_FIND_AFTER_ID_${exp_path}_${datestamp}
 
    ::log::log debug "xflow_quit exiting Xflow thread id:[thread::id]"
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
 
    if { ${isOverviewMode} == "true" } {
-      set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
       # we are in overview mode
       set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
       destroy ${toplevelW}
+      catch { trace remove variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} ${datestamp}" }
       catch { after cancel [set XFLOW_FIND_AFTER_ID_${exp_path}_${datestamp}] }
       catch { after cancel [set TITLE_AFTER_ID_${exp_path}_${datestamp}]}
 
       if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+         set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
          thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
 
          if { ${from_overview} == false } {
@@ -2575,26 +2565,30 @@ proc xflow_newMessageCallback { exp_path visible_datestamp has_new_msg } {
 }
 
 proc xflow_redrawNodesEvent { exp_path datestamp } {
-   set updatedNodes [SharedData_getExpUpdatedNodes ${exp_path} ${datestamp}]
-   if { ${updatedNodes} != "" } {
-      # update highest node that was affected during this read
-      foreach updatedNode ${updatedNodes} {
-         puts "xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}"
-         xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}
+   puts "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
+   if { [xflow_isXflowActive ${exp_path} ${datestamp}] == true } {
+      set updatedNodes [SharedData_getExpUpdatedNodes ${exp_path} ${datestamp}]
+      if { ${updatedNodes} != "" } {
+         # update highest node that was affected during this read
+         foreach updatedNode ${updatedNodes} {
+            puts "xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}"
+            xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}
+         }
       }
    }
-   update idletasks
+   # update idletasks
    SharedData_setExpUpdatedNodes ${exp_path} ${datestamp} ""
 }
 
+# set global variables relative to exp_path and datestamp
 proc xflow_setDatestampVars { exp_path datestamp } {
    global NODE_DISPLAY_PREF NODE_DISPLAY_PREF_${exp_path}_${datestamp}
-   global FLOW_SCALE FLOW_SCALE_${exp_path}_${datestamp}
+   global FLOW_SCALE_${exp_path}_${datestamp}
 
    xflow_setRefreshMode ${exp_path} ${datestamp} false
 
    set NODE_DISPLAY_PREF_${exp_path}_${datestamp} ${NODE_DISPLAY_PREF}
-   set FLOW_SCALE_${exp_path}_${datestamp} ${FLOW_SCALE}
+   set FLOW_SCALE_${exp_path}_${datestamp} [SharedData_getMiscData FLOW_SCALE]
 
    # trace the variable to see if we need to load the resources
    trace add variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} ${datestamp}"
@@ -2733,11 +2727,6 @@ proc xflow_displayFlow { exp_path datestamp } {
    xflow_setFlowResized ${exp_path} ${datestamp} false
 
    set topFrame [xflow_getWidgetName ${exp_path} ${datestamp} top_frame]
-
-   if { ${XFLOW_STANDALONE} == "1" } {
-      wm withdraw .
-   }
-
    if { ! [winfo exists ${topFrame}] } {
       set PROGRESS_REPORT_TXT "Creating widgets..."
       xflow_createWidgets ${exp_path} ${datestamp}
@@ -2761,18 +2750,6 @@ proc xflow_displayFlow { exp_path datestamp } {
 
    xflow_populateDatestamp ${exp_path} ${datestamp} [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_frame]
 
-   # normal mode
-   proc out {} {
-   if { ${XFLOW_STANDALONE} == "1" && [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
-      # in overview mode, the log has already been read once before it reached here,
-      # no need to read again... only read for xflow standalone
-      set PROGRESS_REPORT_TXT "Processing log file ..."
-      if { ${datestamp} != "" } {
-         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
-         LogReader_readFile ${exp_path} ${datestamp}
-      }
-   }
-   }
    xflow_initDatestampEntry ${exp_path} ${datestamp}
    ::log::log notice "xflow_displayFlow ${exp_path} xflow_initDatestampEntry done"
 
@@ -2929,13 +2906,10 @@ proc xflow_parseCmdOptions {} {
       SharedData_readProperties ${rcFile}
       xflow_init
       set expPath [xflow_validateExp]
-      # xflow_readFlowXml ${expPath}
       ExpOptions_read ${expPath}
 
       set newestDatestamp [LogMonitor_getNewestDatestamp ${expPath}]
       SharedData_setExpThreadId ${expPath} ${newestDatestamp} [thread::id]
-      # xflow_readFlowXml ${expPath} ${newestDatestamp}
-      # xflow_displayFlow ${expPath} ${newestDatestamp}
       LogReader_startExpLogReader ${expPath} ${newestDatestamp} all true
       SharedData_setMiscData STARTUP_DONE true
       xflow_displayFlow ${expPath} ${newestDatestamp}
@@ -3056,8 +3030,6 @@ proc xflow_init { {exp_path ""} } {
  
    # initate array containg name for widgets used in the application
 
-   SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
-   SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
    if { ${XFLOW_STANDALONE} == "1" } {
       Utils_createTmpDir
       xflow_initThread
@@ -3069,10 +3041,6 @@ proc xflow_init { {exp_path ""} } {
       } else {
          ::log::log debug "xflow_init SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}"
          SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
-      }
-      set FLOW_SCALE 1
-      if { [SharedData_getMiscData FLOW_SCALE] != "" } {
-         set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
       }
       xflow_setTkOptions
       keynav::enableMnemonics .
@@ -3133,10 +3101,10 @@ if { ! [info exists XFLOW_STANDALONE] || ${XFLOW_STANDALONE} == "1" } {
    puts "lib_dir=$lib_dir"
    set auto_path [linsert $auto_path 0 $lib_dir ]
 
+   package require Tk
+   wm withdraw .
    package require DrawUtils
-
    ::DrawUtils::init
-
    xflow_parseCmdOptions
 }
 
