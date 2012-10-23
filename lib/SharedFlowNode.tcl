@@ -1025,13 +1025,13 @@ proc SharedFlowNode_getNptArgs { exp_path node datestamp {npass_index ""} } {
    set parentLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
    if { ${parentLoopArgs} != "" } {
       set parentLoopArgs "${parentLoopArgs},"
-   } elseif { [SharedFlowNode_hasLoops ${exp_path} ${node}] } {
+   } elseif { [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       return "-1"
    } else {
       set parentLoopArgs "-l "
    }
 
-   set nodeName [SharedFlowNode_getName ${exp_path} ${node}]
+   set nodeName [SharedFlowNode_getName ${exp_path} ${node} ${datestamp}]
    if { ${npass_index} != "" } {
       # if npass_index is passed use it...
       # means user has provided it manually
@@ -1069,7 +1069,7 @@ proc SharedFlowNode_getParentLoopArgs { exp_path node datestamp } {
                break
             }
             set ${currentExt} [string range $current 1 end]
-            set nodeName [SharedFlowNode_getName ${exp_path} ${loopNode}]
+            set nodeName [SharedFlowNode_getName ${exp_path} ${loopNode} ${datestamp}]
             if { $count == 0 } {
                set args "-l ${nodeName}=${currentExt}"
             } else {
@@ -1173,6 +1173,9 @@ proc SharedFlowNode_printNodeStatus  { exp_path node datestamp} {
       if { ${nodeType} == "npass_task" || ${nodeType} == "loop" } {
          puts "   max_ext_value:[tsv::keylget ${exp_path}_${datestamp}_runtime ${node} max_ext_value]"
          puts "   current:[tsv::keylget ${exp_path}_${datestamp}_runtime ${node} current]"
+         puts "   latest:[tsv::keylget ${exp_path}_${datestamp}_runtime ${node} latest_member]"
+      }
+      if { [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
          puts "   latest:[tsv::keylget ${exp_path}_${datestamp}_runtime ${node} latest_member]"
       }
    }
