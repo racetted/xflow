@@ -7,21 +7,15 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
    Utils_logInit
    set MSG_CENTER_THREAD_ID [SharedData_getMsgCenterThreadId]
 
-   # SharedData_setExpThreadId ${exp_path} "${datestamp}" [thread::id]
-
-   ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type}"
-   puts "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type}"
    if [ catch { 
       FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
       ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
-      ::log::log debug "ERROR: LogReader_startExpLogReader Parsing flow.xml file ${exp_path}:\n$message"
+      puts "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message"
       ::log::log notice "ERROR: LogReader_startExpLogReader Parsing flow.xml file ${exp_path}:\n$message."
-      if { [SharedData_getMiscData STARTUP_DONE] == false && [SharedData_getMiscData OVERVIEW_MODE] == true } {
-         thread::send -async  [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_childInitDone ${exp_path} ${datestamp}"
-      }
+      error ${message}
       return
    }
 
@@ -29,7 +23,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
    LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
 
    # then if the log file is not active, release the exp thread
-   if { ${is_startup} == true && [SharedData_getMiscData OVERVIEW_MODE] == true} {
+   if { ${is_startup} == true && [SharedData_getMiscData OVERVIEW_MODE] == true } {
       if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          # inactive log
          # release exp thread
