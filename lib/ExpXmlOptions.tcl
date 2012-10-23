@@ -89,7 +89,7 @@ proc ExpXmlOptions_getRefTimings { _dom_doc } {
       set expHour [${expNode} getAttribute hour ${expNode}]
       set start [${timingInfoNode} getAttribute ref_start]
       set end [${timingInfoNode} getAttribute ref_end]
-      puts "ExpXmlOptions_getRefTimings ${expHour} ${start} ${end}"
+      # puts "ExpXmlOptions_getRefTimings ${expHour} ${start} ${end}"
       lappend results [list ${expHour} ${start} ${end}]
    }
    return ${results}

@@ -16,6 +16,7 @@ proc ExpOptions_showSupportCallback { _exp_path _datestamp parent_widget } {
 # the xml file is simply parse everything the
 # functionality is called
 proc ExpOptions_showSupport { _exp_path _hour _parent_widget } {
+   puts "ExpOptions_showSupport exp_path:${_exp_path} hour:${_hour}"
    package require tablelist
    global env supportData
    #set optionsFile ${exp_path}/ExpOptions.xml
@@ -55,13 +56,14 @@ proc ExpOptions_showSupport { _exp_path _hour _parent_widget } {
       -stripebg ${stripeBgColor} \
       -yscrollcommand [list ${yscrollW} set] -xscrollcommand [list ${xscrollW} set]
 
+   ${tableW} columnconfigure 2 -wrap 1 -maxwidth 25
    # search the data for the given hour and highlight it
-   set selectedRow [${tableW} searchcolumn 0 ${expName}${_hour}]
-   if { ${selectedRow} != -1 } {
-      ${tableW} selection clear active
-      ${tableW} selection set ${selectedRow}
-      ${tableW} see active
-   }
+   # set selectedRow [${tableW} searchcolumn 0 ${expName}${_hour}]
+   # if { ${selectedRow} != -1 } {
+   #   ${tableW} selection clear active
+   #   ${tableW} selection set ${selectedRow}
+   #   ${tableW} see active
+   # }
 
    # creating scrollbars
    scrollbar ${yscrollW} -command [list ${tableW} yview]
