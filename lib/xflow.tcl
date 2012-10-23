@@ -2565,13 +2565,13 @@ proc xflow_newMessageCallback { exp_path visible_datestamp has_new_msg } {
 }
 
 proc xflow_redrawNodesEvent { exp_path datestamp } {
-   puts "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
+   ::log::log debug "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
    if { [xflow_isXflowActive ${exp_path} ${datestamp}] == true } {
       set updatedNodes [SharedData_getExpUpdatedNodes ${exp_path} ${datestamp}]
       if { ${updatedNodes} != "" } {
          # update highest node that was affected during this read
          foreach updatedNode ${updatedNodes} {
-            puts "xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}"
+            ::log::log debug "xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}"
             xflow_redrawNodes ${exp_path} ${datestamp} ${updatedNode}
          }
       }

@@ -2159,10 +2159,10 @@ proc Overview_quit {} {
          set datestamps [SharedData_getDatestamps ${exp}]
 
          foreach datestamp ${datestamps} {
-
-            # is the exp thread still needed?
             set expThreadId [SharedData_getExpThreadId ${exp} ${datestamp}]
-            Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
+            if { ${expThreadId} != "" } {
+               Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
+            }
          }
       }
    }
