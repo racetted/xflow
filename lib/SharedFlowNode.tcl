@@ -1043,7 +1043,7 @@ proc SharedFlowNode_getNptArgs { exp_path node datestamp {npass_index ""} } {
          return $args
       } else {
          # remove the + sign before extension
-         set currentExt [string range $current 1 end]
+         set currentExt [string range ${currentExt} 1 end]
          set args "${parentLoopArgs}${nodeName}=${currentExt}"
       }
    }
