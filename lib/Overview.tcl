@@ -1802,12 +1802,12 @@ proc Overview_addGroup { canvas displayGroup } {
    set groupLevel [$displayGroup cget -level]
    set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
 
-   #puts "Overview_addGroups groupLevel:$groupLevel  groupEntryCurrentY:$groupEntryCurrentY"
+   #puts "Overview_addGrouppLevel  groupEntryCurrentY:$groupEntryCurrentY"
 
    # add indentation for each different level
    set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
 
-   #puts "Overview_addGroups displayGroup:$displayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY"
+   #puts "Overview_addGroupsplayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY"
    set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
       -text $displayName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
 
@@ -1880,6 +1880,7 @@ proc Overview_addGroups { canvas } {
    # wait for all child to be done with their init
    Overview_waitChildInitDone
 
+   Overview_checkStartupError
 
    # get the root groups and display from there
    set rootGroups [DisplayGrp_getGroupLevel 0]
@@ -1890,6 +1891,25 @@ proc Overview_addGroups { canvas } {
    Overview_checkGridLimit
 
    destroy ${progressBar}
+}
+
+# this procedure is called by exp threads when an error is detected
+proc Overview_threadErrorCallback { threadId errorInfo } {
+   global ALL_CHILD_INIT_DONE STARTUP_ERROR_MSG
+   if { [SharedData_getMiscData STARTUP_DONE] == false } {
+      set ALL_CHILD_INIT_DONE 1
+      set STARTUP_ERROR_MSG ${errorInfo}
+   }
+}
+
+# verify if any errors raised by exp threads at startup
+proc Overview_checkStartupError {} {
+   global STARTUP_ERROR_MSG
+   if { [info exists STARTUP_ERROR_MSG] && ${STARTUP_ERROR_MSG} != "" } {
+      tk_messageBox -title "Application Startup Error!" -type ok -icon error -parent [Overview_getToplevel] \
+         -message "Application will exit!\n\n${STARTUP_ERROR_MSG}"
+      exit
+   }
 }
 
 # this function is a place holder to add logic to
@@ -2125,12 +2145,28 @@ proc Overview_readExperiments {} {
 }
 
 proc Overview_quit {} {
-   global TimeAfterId MSG_CENTER_THREAD_ID
+   global TimeAfterId MSG_CENTER_THREAD_ID 
    ::log::log debug "Overview_quit"
    if { [info exists TimeAfterId] } {
       after cancel $TimeAfterId
    }
 
+   set displayGroups [ExpXmlReader_getGroups]
+   foreach displayGroup $displayGroups {
+      set expList [$displayGroup cget -exp_list]
+      foreach exp $expList {
+      
+         set datestamps [SharedData_getDatestamps ${exp}]
+
+         foreach datestamp ${datestamps} {
+
+            # is the exp thread still needed?
+            set expThreadId [SharedData_getExpThreadId ${exp} ${datestamp}]
+            Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
+         }
+      }
+   }
+   ThreadPool_quit
    thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_quit"
 
    # destroy $top
@@ -2516,6 +2552,10 @@ proc Overview_main {} {
 
    # create pool of threads to parse and launch exp flows
    ThreadPool_init [SharedData_getMiscData MAX_XFLOW_INSTANCE]
+
+   # set thread error handler for async calls
+   thread::errorproc Overview_threadErrorCallback
+
    Overview_addGroups ${topCanvas}
    Overview_setCanvasScrollArea ${topCanvas}
    Overview_setCurrentTime ${topCanvas}

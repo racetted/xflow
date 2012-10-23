@@ -348,24 +348,6 @@ proc Utils_logFileContent { _level _filename } {
    }
 }
 
-# this is called as callback for each ::log::log notice | warning | error level
-# inserts the message in the log file
-proc Utils_logMessage { _level _message } {
-   global APP_LOGFILE
-
-   if { [info exists APP_LOGFILE] } {
-      set currentTimeSeconds [clock seconds]
-      set dateString [clock format $currentTimeSeconds -gmt 1]
-      if [ catch {
-         set fileId [open $APP_LOGFILE a 0664]
-         puts $fileId "$dateString:${_message}"
-         catch { close $fileId }
-      } err_message ] {
-         puts "Utils_logMessage ERROR:${err_message}"
-      }
-   }
-}
-
 # this proc displays the effective aix backend as defined by the BACKEND
 # variable of the $HOME/.suites/overrides.def file.
 # defaults to spica if not found

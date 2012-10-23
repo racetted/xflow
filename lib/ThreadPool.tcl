@@ -96,3 +96,10 @@ proc ThreadPool_showThreadStatus {} {
       }
    }
 }
+
+proc ThreadPool_quit {} {
+   global PoolId
+   foreach {threadid busy} [array get PoolId] {
+      thread::release ${threadid}
+   }
+}
