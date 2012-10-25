@@ -89,7 +89,7 @@ proc FlowXml_createNodeFromXml { exp_path datestamp parent_flow_node xml_node } 
       }
    }
 
-   # if one of my parent node in the flow is of type task, I also need to store a mapping
+   # if one of my submitter node in the flow is of type task, I also need to store a mapping
    # of the real node to the flow node. A real node is the value that is required by the
    # sequencer API.
    if { [SharedFlowNode_searchForTask ${exp_path} $actualFlowParent ${datestamp}] != "" } {
@@ -99,7 +99,7 @@ proc FlowXml_createNodeFromXml { exp_path datestamp parent_flow_node xml_node } 
          SharedData_addExpNodeMapping ${exp_path} ${datestamp} $parentContainer/$parentName/$nodeName $newFlowDirname
       }
    }
-   
+
    # I'm storing the list of parent loops if there are any
    SharedFlowNode_searchSubmitLoops ${exp_path} $newFlowDirname ${datestamp} $newFlowDirname
 

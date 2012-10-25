@@ -292,6 +292,7 @@ proc Utils_setDebugOff {} {
 proc Utils_logInit {} {
    global APP_LOGFILE env
    
+   puts "Utils_logInit called"
    set sharedAppLogFile [SharedData_getMiscData APP_LOG_FILE]
    set debugOn [SharedData_getMiscData DEBUG_TRACE]
 

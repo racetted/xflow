@@ -722,7 +722,7 @@ proc xflow_findNode { exp_path datestamp real_node } {
       xflow_drawflow ${exp_path} ${datestamp} [xflow_getMainFlowCanvas ${exp_path} ${datestamp}]
    }
    update idletasks
-    ::DrawUtils::pointNode ${exp_path} ${flowNode}
+    ::DrawUtils::pointNode ${exp_path} ${datestamp} ${flowNode}
 }
 
 # this function is the starting point to draw the experiment flow.
@@ -795,7 +795,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
             # drawing at same position
             set nextY [SharedFlowNode_getDisplayY ${exp_path} ${node} ${datestamp} ${canvas}]
          } else {
-            set nextY [SharedData_getExpDisplayNextY ${exp_path} $canvas]
+            set nextY [SharedData_getExpDisplayNextY ${exp_path} ${datestamp} $canvas]
          }
          SharedFlowNode_setDisplayY  ${exp_path} ${node} ${datestamp} ${canvas} ${nextY}
 
@@ -2005,7 +2005,7 @@ proc xflow_redrawNodes { exp_path datestamp node {canvas ""} } {
 proc xflow_redrawAllFlow { exp_path datestamp } {
    # the active suite could be empty if the redraw is
    # called from the LogReader in overview mode
-   set canvasList [SharedData_getExpCanvasList ${exp_path}]
+   set canvasList [SharedData_getExpCanvasList ${exp_path} ${datestamp}]
    foreach canvasW $canvasList {
       xflow_drawflow ${exp_path} ${datestamp} $canvasW 0
    }
@@ -2075,7 +2075,7 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display "1"} } {
    if { [winfo exists ${canvas}] } {
       ::log::log debug "xflow_drawflow() found existing canvas:$canvas"
       # reset the default spacing for drawing flow
-      SharedData_resetExpDisplayData ${exp_path} ${canvas}
+      SharedData_resetExpDisplayData ${exp_path} ${datestamp} ${canvas}
       set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
 
       xflow_clearCanvasFlow ${canvas}
@@ -2107,8 +2107,8 @@ proc xflow_resizeWindow { exp_path datestamp canvas } {
          set topLevel [winfo toplevel ${canvas}]
          set heightMax [lindex [wm maxsize ${topLevel}] 1]
          set widthMax [lindex [wm maxsize ${topLevel}] 0]
-         set canvasMaximX [SharedData_getExpDisplayMaximumX ${exp_path} ${canvas}]
-         set canvasMaximY [SharedData_getExpDisplayMaximumY ${exp_path} ${canvas}]
+         set canvasMaximX [SharedData_getExpDisplayMaximumX ${exp_path} ${datestamp} ${canvas}]
+         set canvasMaximY [SharedData_getExpDisplayMaximumY ${exp_path} ${datestamp} ${canvas}]
          set windowW [expr ${canvasMaximX} + 50]
          set windowH [expr ${canvasMaximY} + 135]
          if { [expr ${windowH} > ${heightMax}] } {
@@ -3009,17 +3009,6 @@ proc xflow_setWidgetNames {} {
    }
 }
 
-proc xflow_initThread {} {
-   global env DEBUG_TRACE
-   global MSG_CENTER_THREAD_ID
-
-   Utils_logInit
-
-   set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
-   set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
-   SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
-}
-
 proc xflow_init { {exp_path ""} } {
    global env DEBUG_TRACE XFLOW_STANDALONE
    global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF
@@ -3032,7 +3021,7 @@ proc xflow_init { {exp_path ""} } {
 
    if { ${XFLOW_STANDALONE} == "1" } {
       Utils_createTmpDir
-      xflow_initThread
+      SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 
       set SHADOW_STATUS 0
       SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images

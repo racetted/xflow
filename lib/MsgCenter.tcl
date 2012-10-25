@@ -624,6 +624,7 @@ proc MsgCenter_init {} {
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
+   puts "MsgCenter_init Utils_logInit"
    Utils_logInit
 
    # this variable is true when a new message comes in

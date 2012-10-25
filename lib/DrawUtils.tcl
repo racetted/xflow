@@ -240,7 +240,7 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    set maximX ${sx2}
    set maximY ${sy3}
    set nextY  [expr $sy4 + 10]
-   SharedData_setExpDisplayData ${exp_path} $canvas ${nextY} ${maximX} ${maximY}
+   SharedData_setExpDisplayData ${exp_path} ${datestamp} $canvas ${nextY} ${maximX} ${maximY}
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
 }
 
@@ -282,11 +282,11 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
       $canvas create oval ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
             -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
       $canvas lower ${binder}.shadow ${binder}.oval
-      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${sx2} ${sy2}
       set maxX ${sx2}
       set maxY ${sy2}
    } else {
-      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${nx2} ${ny2}
       set maxX ${nx2}
       set maxY ${ny2}
    }
@@ -329,7 +329,7 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
       } else {
          set nextY [expr $barY + [winfo height ${indexListW}]]
       }
-      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${maxX} ${maxY}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
    }
 }
 
@@ -553,9 +553,9 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
       $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
             -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
       $canvas lower ${binder}.shadow ${binder}.rectangle
-      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${sx2} ${sy2}
    } else {
-      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${nx2} ${ny2}
    }
 
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
@@ -601,13 +601,13 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
        $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
                -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.rectangle
-      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${sx2} ${sy2}
       set maxX ${sx2}
       set maxY ${sy2}
    } else {
       set maxX ${nx2}
       set maxY ${ny2}
-      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${nx2} ${ny2}
    }
 
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
@@ -647,15 +647,15 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
       } else {
          set nextY [expr $barY + [winfo height ${indexListW}]]
       }
-      SharedData_setExpDisplayData ${exp_path} ${canvas} ${nextY} ${maxX} ${maxY}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
    }
 }
 
-proc ::DrawUtils::pointNode { exp_path node {canvas ""} } {
+proc ::DrawUtils::pointNode { exp_path datestamp node {canvas ""} } {
    ::log::log debug "::DrawUtils::pointNode exp_path:${exp_path} node:${node}"
    set canvasList ${canvas}
    if { ${canvas} == "" } {
-      set canvasList [SharedData_getExpCanvasList ${exp_path}]
+      set canvasList [SharedData_getExpCanvasList ${exp_path} ${datestamp}]
    }
    foreach canvasW ${canvasList} {
       set newcords [${canvasW} coords ${node}]

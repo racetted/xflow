@@ -4,13 +4,21 @@ package require log
 proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup false} } {
    global MSG_CENTER_THREAD_ID
 
-   Utils_logInit
+   if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
+      puts "LogReader_startExpLogReader Utils_logInit $exp_path $datestamp"
+      Utils_logInit
+   }
+
    set MSG_CENTER_THREAD_ID [SharedData_getMsgCenterThreadId]
 
    if [ catch { 
       FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
-      ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
-      ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
+      # ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
+      # ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
+      puts "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
+      # puts "---------------------------------------------------------------------------------------------"
+      # SharedData_printNodeMapping ${exp_path} ${datestamp}
+      # puts "---------------------------------------------------------------------------------------------"
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
       puts "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message"
@@ -241,11 +249,11 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
    # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
    set finalCmd ""
    if { ${_node} != "" } {
-      set flowNode [SharedData_getExpNodeMapping ${_exp_path} ${_datestamp} ${_node}]
 
       set statusType [SharedData_getRippleStatusMap ${_type}]
       if { ${statusType} != "" } {
 
+         set flowNode [SharedData_getExpNodeMapping ${_exp_path} ${_datestamp} ${_node}]
          ::log::log debug "LogReader_processFlowLine node=${_node} flowNode:$flowNode loopExt:${_loopExt} type=${_type}"
          if [ catch { set nodeType [SharedFlowNode_getNodeType ${_exp_path} ${flowNode} ${_datestamp}] } message ] {
             puts "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} message: ${message}"
