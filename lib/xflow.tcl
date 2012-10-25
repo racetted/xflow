@@ -874,7 +874,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    }
    if { ${flowScale} != "1" } { ::tooltip::tooltip $canvas -item ${node} ${text} }
    ::DrawUtils::drawNodeStatus ${exp_path} ${node} ${datestamp} [xflow_getShawdowStatus]
-   Utils_bindMouseWheel $canvas 20
+   xflow_MouseWheelCheck ${canvas}
    $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed ${exp_path} ${datestamp} $canvas $node %X %Y]
    $canvas bind $node <Button-2> [ list xflow_historyCallback ${exp_path} ${datestamp} $node $canvas "" 48] 
    $canvas bind $node <Button-3> [ list xflow_nodeMenu ${exp_path} ${datestamp} $canvas $node %X %Y]
@@ -892,6 +892,28 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    }
 
    ::log::log debug "xflow_drawNode drawing sub node:$node done"
+}
+
+proc xflow_MouseWheelCheck { canvas } {
+   foreach { yviewLow yviewHigh } [${canvas} yview] {}
+   if { ${yviewLow} == "0.0" } {
+      # reached the limit don't allow scrolling
+      bind ${canvas} <4> ""
+   } else {
+      bind ${canvas} <4> [list xflow_canvasMouseWheelCallback ${canvas} -20] 
+   }
+   if { ${yviewHigh} == "1.0" } {
+      # reached the limit don't allow scrolling
+      bind ${canvas} <5> ""
+   } else {
+      bind ${canvas} <5> [list xflow_canvasMouseWheelCallback ${canvas} 20] 
+   }
+}
+
+proc xflow_canvasMouseWheelCallback { canvas units_value } {
+   ${canvas} yview scroll ${units_value} units
+
+   xflow_MouseWheelCheck ${canvas}
 }
 
 # add a striped circle before the node box to indicate the
@@ -1692,7 +1714,7 @@ proc xflow_submitLoopCallback { exp_path datestamp node canvas caller_menu flow 
    if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} $seqExec "submit [file tail $node] $seqLoopArgs" top \
+      Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "submit [file tail $node] $seqLoopArgs" top \
          -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs 
    }
 }
@@ -1729,7 +1751,7 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node canvas caller_menu 
          Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
       } else {
          ::log::log debug "xflow_submitNpassTaskCallback $seqNpassTaskArgs"
-         Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
+         Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "submit [file tail $node] $seqNpassTaskArgs" top \
             -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqNpassTaskArgs
 
       }
@@ -2127,6 +2149,8 @@ proc xflow_resizeWindow { exp_path datestamp canvas } {
       set flowGeometry [SharedData_getMiscData FLOW_GEOMETRY]
       wm geometry [xflow_getToplevel ${exp_path} ${datestamp}] =${flowGeometry}
    }
+   xflow_MouseWheelCheck ${canvas}
+
 }
 
 proc xflow_resetScrollRegion { _canvas } {
@@ -2137,7 +2161,9 @@ proc xflow_resetScrollRegion { _canvas } {
       set x2 [expr ${x2} + ${delta}]
       set y2 [expr ${y2} + ${delta}]
    }
-   ${_canvas} configure -scrollregion [list ${x1} ${y1} ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
+   # ${_canvas} configure -scrollregion [list ${x1} ${y1} ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
+   ${_canvas} configure -scrollregion [list 0 0 ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
+   xflow_MouseWheelCheck ${_canvas}
 }
 
 # this command is called from a variable trace
@@ -2400,6 +2426,7 @@ proc xflow_canvasConfigureCallback { exp_path datestamp canvas width height} {
    catch {
       xflow_addBgImage ${exp_path} ${datestamp} ${canvas} ${width} ${height} true
    }
+   xflow_MouseWheelCheck ${canvas}
 }
 
 proc xflow_clearCanvasFlow { _canvas } {

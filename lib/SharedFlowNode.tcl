@@ -1055,7 +1055,7 @@ proc SharedFlowNode_getParentLoopArgs { exp_path node datestamp } {
    set args ""
    set count 0
    set isLatest 0
-   set loopList [SharedFlowNode_getLoops ${exp_pat} ${node} ${datestamp}]
+   set loopList [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}]
 
    if { [llength $loopList] > 1 } {
       foreach loopNode $loopList {

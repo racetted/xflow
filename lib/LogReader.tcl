@@ -7,9 +7,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
    if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
       puts "LogReader_startExpLogReader Utils_logInit $exp_path $datestamp"
       Utils_logInit
+      set MSG_CENTER_THREAD_ID [SharedData_getMsgCenterThreadId]
    }
-
-   set MSG_CENTER_THREAD_ID [SharedData_getMsgCenterThreadId]
 
    if [ catch { 
       FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
