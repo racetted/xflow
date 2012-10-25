@@ -139,11 +139,8 @@ proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp _canvas } {
       array unset datestamps_${_exp_path} ${_datestamp}
    }
    SharedData_removeExpDisplayData ${_exp_path} ${_datestamp} ${_canvas}
-   foreach key { offset update_afterid rootnode startup modules } {
-      SharedData_unsetExpData ${_exp_path} ${_datestamp}_${key}
-   }
 
-   foreach key { node_mappings updated_nodes } {
+   foreach key { offset update_afterid rootnode startup modules node_mappings updated_nodes } {
       SharedData_unsetExpDatestampData ${_exp_path} ${_datestamp} ${key}
    }
 }
