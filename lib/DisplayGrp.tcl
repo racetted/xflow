@@ -94,14 +94,13 @@ proc DisplayGrp_setMaxY { display_group y_value {force ""} } {
 # calculates the max value of the y slot based on the exp boxes currently displayed
 # on the overview canvas and set the new value
 proc DisplayGrp_calcMaxY { display_group } {
-   global graphStartY expEntryHeight
-   set expList [${display_group} cget -exp_list]
-   set overviewCanvas [Overview_getCanvas]
+   set canvas [Overview_getCanvas]
    set maxY [${display_group} cget -y]
-   foreach exp ${expList} {
-      set expBoxCoords [Overview_getExpBoundaries ${overviewCanvas} ${exp}]
-      if { [lindex ${expBoxCoords} 3] > ${maxY} } {
-         set maxY  [lindex ${expBoxCoords} 3]
+   set expBoxTags [${canvas} find withtag exp_box.${display_group}]
+   foreach expBoxTag ${expBoxTags} {
+      set boxBoundaries [${canvas} coords ${expBoxTag}]
+      if { [lindex ${boxBoundaries} 3] > ${maxY} } {
+         set maxY  [lindex ${boxBoundaries} 3]
       }
    }
 
