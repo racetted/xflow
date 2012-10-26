@@ -114,7 +114,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
             # is the exp thread still needed?
             set expThreadId [SharedData_getExpThreadId ${exp} ${datestamp}]
             if { ${expThreadId} != "" && [LogMonitor_isLogFileActive ${exp} ${datestamp}] == false } {
-               if { [xflow_isXflowActive ${exp} ${datestamp}] == false } {
+               if { [xflow_isWindowActive ${exp} ${datestamp}] == false } {
                   # the exp thread that followed this log is not needed anymore, release it    
                   ::log::log debug "Overview_GridAdvanceHour releasing exp thread for ${exp} ${datestamp}"
                   Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
@@ -124,7 +124,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
                # first clean any data kept for the datestamp
-               if { [xflow_isXflowActive ${exp} ${datestamp}] == false } {
+               if { [xflow_isWindowActive ${exp} ${datestamp}] == false } {
                   ::log::log notice "Overview_GridAdvanceHour OverviewExpStatus_removeStatusDatestamp exp_path:${exp} datestamp:${datestamp}"
                   OverviewExpStatus_removeStatusDatestamp ${exp} ${datestamp} ${canvasW}
                }
@@ -134,7 +134,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
                set expBoxTag [Overview_getExpBoxTag ${exp} ${datestamp} default false]
                set datestamp ${expBoxTag}
-               set lastStatus default
+               set lastStatus init
             }
 
             Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
@@ -632,12 +632,12 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    ::log::log debug "Overview_ExpCreateStartIcon ${expBoxTag}.start at ${startX} ${startY} ${startX2} ${startY2} outlineColor:${outlineColor} bgColor:${bgColor}"
    # create the left box      
    set startBoxId [$canvas create oval ${startX} ${startY} ${startX2} ${startY2} -width 1.0 \
-      -fill ${bgColor} -outline ${outlineColor} -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.start"]
+      -fill ${bgColor} -outline ${outlineColor} -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.start"]
 
    # create the exp label
    set labelY [expr ${startY} + (${startEndIconSize}/2)]
    set expLabelId [$canvas create text ${labelX} ${labelY} -font [Overview_getBoxLabelFont] \
-      -text ${expLabel} -fill black -anchor w -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.text"]
+      -text ${expLabel} -fill black -anchor w -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.text"]
 }
 
 # this function creates an experiment end icon
@@ -674,7 +674,7 @@ proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day 
       
       # create the left box
       set endBoxId [${canvas} create oval ${startX} ${startY} ${startX2} ${startY2} -width 1 \
-         -fill ${bgColor} -outline ${outlineColor} -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.end"]
+         -fill ${bgColor} -outline ${outlineColor} -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.end"]
 
       if { [${canvas} coords ${expBoxTag}.reference] != "" } {
          $canvas lower ${expBoxTag}.end ${expBoxTag}.reference
@@ -724,7 +724,7 @@ proc Overview_ExpCreateReferenceBox { canvas exp_path datestamp timevalue {late_
          ${canvas} itemconfigure ${expBoxTag}.text -fill DarkViolet
    } else {
       set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} -width 1 \
-         -dash { 4 3 } -outline ${outlineColor} -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.reference"]
+         -dash { 4 3 } -outline ${outlineColor} -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.reference"]
 
       if { [${canvas} coords ${expBoxTag}.middle] != "" } {
          ${canvas} lower ${expBoxTag}.reference  ${expBoxTag}.middle
@@ -767,7 +767,7 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
       set endY [expr ${startY} + $expEntryHeight/2 + 8]
    
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
-         -outline ${outlineColor} -fill white -tag "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
+         -outline ${outlineColor} -fill white -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
 
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
 
@@ -1146,17 +1146,11 @@ proc Overview_ShiftExpRow { display_group empty_slot_y } {
       foreach expDatestamp ${datestamps} {
 
          foreach {xx1 yy1 xx2 yy2} [Overview_getRunBoxBoundaries ${overviewCanvas} ${exp} ${expDatestamp}] { break }
-            if { ${yy1} != "" && ${yy1} > ${empty_slot_y} } {
-               # y of exp is greater than empty box, shift it up
-               ::log::log debug "Overview_ShiftExpRow ${display_group} shifting ${exp}.${expDatestamp} up"
-               ${overviewCanvas} move ${exp}.${expDatestamp} 0 -${expEntryHeight}
-            }
+         if { ${yy1} != "" && ${yy1} > ${empty_slot_y} } {
+            # y of exp is greater than empty box, shift it up
+            ::log::log debug "Overview_ShiftExpRow ${display_group} shifting ${exp}.${expDatestamp} up"
+            ${overviewCanvas} move ${exp}.${expDatestamp} 0 -${expEntryHeight}
          }
-      set expBoxCoords [Overview_getExpBoundaries ${overviewCanvas} ${exp}]
-      if { [lindex ${expBoxCoords} 1] > ${empty_slot_y} } {
-         # y of exp is greater than empty box, shift it up
-         ::log::log debug "Overview_ShiftExpRow ${display_group} shifting ${exp} up"
-         ${overviewCanvas} move ${exp} 0 -${expEntryHeight}
       }
    }
 }
@@ -1335,9 +1329,14 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          }
       }
 
-      ::log::log debug "Overview_launchExpFlow calling xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp}"
-      xflow_displayFlow ${exp_path} ${datestamp}
-      ::log::log notice "Overview_launchExpFlow xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp} done"
+      if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {
+         ::log::log debug "Overview_launchExpFlow flow window already exists exp_path:${exp_path} datestamp: ${datestamp}"
+         xflow_toFront [xflow_getToplevel ${exp_path} ${datestamp}]
+      } else {
+         ::log::log debug "Overview_launchExpFlow calling xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp}"
+         xflow_displayFlow ${exp_path} ${datestamp} true
+         ::log::log notice "Overview_launchExpFlow xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp} done"
+      }
 
       destroy ${progressW}
 
@@ -1364,7 +1363,7 @@ proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
    ::log::log notice "Overview_releaseExpThread exp_thread_id:${exp_thread_id} exp_path:${exp_path} datestamp:${datestamp}"
    xflow_quit ${exp_path} ${datestamp} true
    if { [Overview_isExpBoxObsolete [Overview_getCanvas] ${exp_path} ${datestamp}] == true } {
-      if { [xflow_isXflowActive ${exp_path} ${datestamp}] == false } {
+      if { [xflow_isWindowActive ${exp_path} ${datestamp}] == false } {
          ::log::log notice "Overview_releaseExpThread() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp}"
          OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp} [Overview_getCanvas]
       }
@@ -1546,7 +1545,7 @@ proc Overview_addExp { display_group canvas exp_path } {
    foreach datestamp ${visibleDatestamps} {
       if { [Utils_validateRealDatestamp ${datestamp}] == true } {
          # create a child thread for the exp
-         set childId [ThreadPool_getThread]
+         set childId [ThreadPool_getThread true]
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${childId}
 
          set currentDateTime [clock seconds]
@@ -1570,26 +1569,7 @@ proc Overview_addExp { display_group canvas exp_path } {
 # this function returns a list of 4 coords x1 y1 x2 y2
 # that are the boundaries of an exp box in the display.
 # the boundaries values are based on the different items displayed
-# for an exp box.
-proc Overview_getExpBoundaries { canvas exp_path } {
-   global expEntryHeight startEndIconSize
-
-   if { [${canvas} coords ${exp_path}] == "" } {
-      ::log::log debug "Overview_getExpBoundaries no boundaries found for ${exp_path}"
-      return ""
-   }
-
-   set boundaries [${canvas} coords ${exp_path}]
-   set x1 [lindex ${boundaries} 0]
-   set y1 [lindex ${boundaries} 1]
-   set x2 [lindex ${boundaries} 2]
-   set y2 [lindex ${boundaries} 3]
-
-   set boundaries "$x1 $y1 $x2 $y2"
-   ::log::log debug "Overview_getExpBoundaries boudaries ${exp_path} : ${boundaries}"
-   return ${boundaries}
-}
-
+# for an exp datestamp box.
 proc Overview_getRunBoxBoundaries { canvas exp_path datestamp } {
 
    set lastStatus default
@@ -1659,29 +1639,25 @@ proc Overview_getRunBoxBoundaries { canvas exp_path datestamp } {
 proc Overview_getGroupBoundaries { canvas display_group } {
    global graphX graphStartX graphHourX
 
-   set expList [${display_group} cget -exp_list]
-   set boundaries [${canvas} bbox ${display_group}]
    set startx ${graphStartX}
    set endX [expr ${startx} + 24 * ${graphHourX}]
+   set boundaries [${canvas} bbox ${display_group}]
+   set y1 [lindex ${boundaries} 1]
+   set y2 [lindex ${boundaries} 3]
 
-   if { ${expList} != "" } {
-      set y1 [lindex ${boundaries} 1]
-      set y2 [lindex ${boundaries} 3]
-
-      foreach exp ${expList} {
-         set expBoundaries [Overview_getExpBoundaries ${canvas} ${exp}]
-         set expy1 [lindex ${expBoundaries} 1]
-         set expx2 [lindex ${expBoundaries} 2]
-         set expy2 [lindex ${expBoundaries} 3]
-         if { ${expy1} != "" && ${y1} > ${expy1} } {
-            set y1 ${expy1}
-         }
-         if { ${expy2} != "" && ${y2} < ${expy2} } {
-            set y2 ${expy2}
-         }
+   set expBoxTags [$canvas find withtag exp_box.${display_group}]
+   foreach expBoxTag ${expBoxTags} {
+      set boxBoundaries [${canvas} coords ${expBoxTag}]
+      set expy1 [lindex ${boxBoundaries} 1]
+      set expy2 [lindex ${boxBoundaries} 3]
+      if { ${expy1} != "" && ${y1} > ${expy1} } {
+         set y1 ${expy1}
       }
-      set boundaries [list ${startx} $y1 ${endX} $y2]
+      if { ${expy2} != "" && ${y2} < ${expy2} } {
+         set y2 ${expy2}
+      }
    }
+   set boundaries [list ${startx} $y1 ${endX} $y2]
 
    return ${boundaries}
 }
