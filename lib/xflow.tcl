@@ -848,7 +848,8 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       }
 
       "npass_task" {
-         ::DrawUtils::drawBox ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         # ::DrawUtils::drawBox ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         ::DrawUtils::drawRoundBox ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
          ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${exp_path} ${node} ${datestamp} ${canvas} ${indexListW}]
       }

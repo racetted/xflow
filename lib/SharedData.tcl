@@ -493,6 +493,7 @@ proc SharedData_init {} {
    SharedData_setMiscData CANVAS_PAD_Y 15
    SharedData_setMiscData CANVAS_PAD_TXT_X 4
    SharedData_setMiscData CANVAS_PAD_TXT_Y 23
+   SharedData_setMiscData CANVAS_SHADOW_OFFSET 5
 
    SharedData_setMiscData LOOP_OVAL_SIZE 15
 

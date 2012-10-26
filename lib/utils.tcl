@@ -395,7 +395,6 @@ proc Utils_createTmpDir {} {
    }
 }
 
-
 #setGlobalValue SEQ_BIN [Sequencer_getPath]
 #setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 #setGlobalValue DEBUG_TRACE 1

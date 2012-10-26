@@ -23,7 +23,7 @@ proc ::DrawUtils::init {} {
       family rectangle
       module rectangle
       task rectangle
-      npass_task rectangle
+      npass_task arc
       loop oval
       outlet oval
       case losange
@@ -611,45 +611,162 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
    }
 
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+   proc out {} {
+               if { [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "npass_task" } {
+                  set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
+                  if { ! [winfo exists ${indexListW}] } {
+                     ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
+                        -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
+                     ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
+                     ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
+                  }
+                  set listboxW [${indexListW} getlistbox]
+                  set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
 
-   if { [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "npass_task" } {
-      set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
-      if { ! [winfo exists ${indexListW}] } {
-         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
-            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
-         ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
-         ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
-      }
-      set listboxW [${indexListW} getlistbox]
-      set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
+                  # only modify listbox value on the fly if the listbox is not currently mapped
+                  # i.e. not being selected by the user
+                  if { ! [winfo ismapped ${listboxW}] } {
+                     if {  ${currentExt} == "" || ${currentExt} == "latest" } {
+                        ${indexListW} configure -values {latest} -width 7
+                     } else {
+                        set indexValue [SharedFlowNode_getIndexValue ${currentExt}]
+                        ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+                     }
+                     ${indexListW} setvalue first
+                  }
 
-      # only modify listbox value on the fly if the listbox is not currently mapped
-      # i.e. not being selected by the user
-      if { ! [winfo ismapped ${listboxW}] } {
-         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-            ${indexListW} configure -values {latest} -width 7
-         } else {
-            set indexValue [SharedFlowNode_getIndexValue ${currentExt}]
-            ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
-         }
-         ${indexListW} setvalue first
-      }
-
-      pack ${indexListW} -fill both
-      set barY [expr ${maxY} + 15]
-      #set barX [expr ($nx1 + $nx2)/2]
-      set barX ${nx1}
-      $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
-      set maxY ${barY}
-      update idletasks
-      if { [winfo height ${indexListW}] == "1" } {
-         set nextY [expr $barY + 20]
-      } else {
-         set nextY [expr $barY + [winfo height ${indexListW}]]
-      }
-      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
+                  pack ${indexListW} -fill both
+                  set barY [expr ${maxY} + 15]
+                  #set barX [expr ($nx1 + $nx2)/2]
+                  set barX ${nx1}
+                  $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
+                  set maxY ${barY}
+                  update idletasks
+                  if { [winfo height ${indexListW}] == "1" } {
+                     set nextY [expr $barY + 20]
+                  } else {
+                     set nextY [expr $barY + [winfo height ${indexListW}]]
+                  }
+                  SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
+               }
    }
 }
+
+proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
+   $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
+      -justify center -font [SharedData_getMiscData  FONT_BOLD] -anchor w -tags "flow_element $binder ${binder}.text"
+   set shadowOffset [SharedData_getMiscData CANVAS_SHADOW_OFFSET]
+   # draw a box around the text
+   set boxArea [$canvas bbox ${binder}.text]
+   set radius 45
+
+   $canvas itemconfigure ${binder}.text -text $text
+
+   set nx1 [expr [lindex $boxArea 0] -5]
+   set ny1 [expr [lindex $boxArea 1] -5]
+   set nx2 [expr [lindex $boxArea 2] +5]
+   set ny2 [expr [lindex $boxArea 3] +5]
+   set nextY ${ny2}
+   set maxX ${nx2}
+   set maxY ${ny2}
+
+   $canvas create arc [expr ${nx1} - 4] [expr ${ny1} + 2] [expr ${nx1} + 10] [expr ${ny2} -2] -extent 180 -start 90 -fill ${fill} -outline ${outline} -tag "flow_element ${binder} ${binder}.arc"
+   DrawUtils::roundRect ${canvas} ${nx1} ${ny1} ${nx2} ${ny2} ${radius} -fill $fill -outline ${outline} -tags "flow_element $binder ${binder}.arc"
+
+   ${canvas} lower ${binder}.arc ${binder}.text
+
+   if { $drawshadow == "on" } {
+       # draw a shadow
+       set sx1 [expr $nx1 + ${shadowOffset}]
+       set sx2 [expr $nx2 + ${shadowOffset}]
+       set sy1 [expr $ny1 + ${shadowOffset}]
+       set sy2 [expr $ny2 + ${shadowOffset}]
+       DrawUtils::roundRect $canvas ${sx1} ${sy1} ${sx2} ${sy2} ${radius} \
+               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
+       $canvas lower ${binder}.shadow ${binder}.arc
+      set maxX ${sx2}
+      set maxY ${sy2}
+   }
+
+   ${canvas} lower ${binder}.arc ${binder}.main
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+
+   set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
+   if { ! [winfo exists ${indexListW}] } {
+      ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
+         -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
+      ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
+      ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
+   }
+   set listboxW [${indexListW} getlistbox]
+   set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
+
+   # only modify listbox value on the fly if the listbox is not currently mapped
+   # i.e. not being selected by the user
+   if { ! [winfo ismapped ${listboxW}] } {
+      if {  ${currentExt} == "" || ${currentExt} == "latest" } {
+         ${indexListW} configure -values {latest} -width 7
+      } else {
+         set indexValue [SharedFlowNode_getIndexValue ${currentExt}]
+         ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+      }
+      ${indexListW} setvalue first
+   }
+
+   pack ${indexListW} -fill both
+   set barY [expr ${maxY} + 15]
+   set barX ${nx1}
+   $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
+   set maxY ${barY}
+   update idletasks
+   if { [winfo height ${indexListW}] == "1" } {
+      set nextY [expr $barY + 20]
+   } else {
+      set nextY [expr $barY + [winfo height ${indexListW}]]
+   }
+   SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
+
+}
+
+# got from the web pasting it as is
+proc DrawUtils::roundRect { w x0 y0 x3 y3 radius args } {
+
+    set r [winfo pixels $w $radius]
+    set d [expr { 2 * $r }]
+
+    # Make sure that the radius of the curve is less than 3/8
+    # size of the box!
+
+    set maxr 0.75
+
+    if { $d > $maxr * ( $x3 - $x0 ) } {
+        set d [expr { $maxr * ( $x3 - $x0 ) }]
+    }
+    if { $d > $maxr * ( $y3 - $y0 ) } {
+        set d [expr { $maxr * ( $y3 - $y0 ) }]
+    }
+
+    set x1 [expr { $x0 + $d }]
+    set x2 [expr { $x3 - $d }]
+    set y1 [expr { $y0 + $d }]
+    set y2 [expr { $y3 - $d }]
+
+    set cmd [list $w create polygon]
+    lappend cmd $x0 $y0
+    lappend cmd $x1 $y0
+    lappend cmd $x2 $y0
+    lappend cmd $x3 $y0
+    lappend cmd $x3 $y1
+    lappend cmd $x3 $y2
+    lappend cmd $x3 $y3
+    lappend cmd $x2 $y3
+    lappend cmd $x1 $y3
+    lappend cmd $x0 $y3
+    lappend cmd $x0 $y2
+    lappend cmd $x0 $y1
+    lappend cmd -smooth 1
+    return [eval $cmd $args]
+ }
 
 proc ::DrawUtils::pointNode { exp_path datestamp node {canvas ""} } {
    ::log::log debug "::DrawUtils::pointNode exp_path:${exp_path} node:${node}"
@@ -686,19 +803,6 @@ proc ::DrawUtils::pointNode { exp_path datestamp node {canvas ""} } {
       ${canvasW} create line $target_x2 $target_y2 [expr $target_x2 + $x_offset] \
       [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
 
-      proc out {} {
-      # adjust the canvas so that the job is centered {if possible}
-      # the height and width are the size of the canvas that
-      # is visible
-      set height [winfo height ${canvasW}]
-      set width  [winfo width  ${canvasW}]
-      set scrollregion [${canvasW} cget -scrollregion]
-      set heightp [winfo fpixels ${canvasW} [lindex $scrollregion 3]]
-      set widthp [winfo fpixels ${canvasW} [lindex $scrollregion 2]]
-
-      ${canvasW} xview moveto [expr ($target_x - $width / 2) / $widthp]
-      ${canvasW} yview moveto [expr ($target_y - $height / 2)/ $heightp]
-      }
       ::DrawUtils::viewCanvasItem ${canvasW} ${searchTag}
       raise [winfo toplevel ${canvasW}]
       # after a few seconds, delete the lines pointing at the job
