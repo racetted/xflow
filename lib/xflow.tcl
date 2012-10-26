@@ -2000,6 +2000,7 @@ proc xflow_redrawNodes { exp_path datestamp node {canvas ""} } {
    ::log::log debug "xflow_redrawNodes exp_path:${exp_path} datestamp:${datestamp} node:$node"
    xflow_setRefreshMode ${exp_path} ${datestamp} true
    set cmdList_${exp_path}_${datestamp} ""
+   # update idletasks
    catch {
       if { $canvas == "" } {
          # get the list of all canvases where the node appears
@@ -2103,11 +2104,11 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display "1"} } {
       xflow_clearCanvasFlow ${canvas}
       xflow_drawNode ${exp_path} ${datestamp} $canvas $rootNode 0 true
       xflow_resetScrollRegion ${canvas}
-      # resize the window depending on size of canvas elements
-      xflow_resizeWindow ${exp_path} ${datestamp} ${canvas}
    
       if { $initial_display == "1" } {
-         $canvas yview moveto 0
+         # $canvas yview moveto 0
+         # resize the window depending on size of canvas elements
+         xflow_resizeWindow ${exp_path} ${datestamp} ${canvas}
       }
 
    }
@@ -2283,6 +2284,13 @@ proc xflow_getLoopResources { node exp_path datestamp} {
    # node.specific.TYPE=Default
    ::log::log debug "xflow_getLoopResources ${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'"
    if [ catch { exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'  > ${outputFile} 2> /dev/null" } message ] {
+      if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
+         set parentW [xflow_getToplevel ${exp_path} ${datestamp}]
+         if { ! [winfo exists ${parentW}] } {
+            set parentW [Overview_getToplevel]
+         }
+      }
+
       Utils_raiseError [xflow_getToplevel ${exp_path} ${datestamp}] "Get Loop Resources" $message
       return 0
    }
@@ -2556,7 +2564,7 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
    }
 }
 
-proc xflow_isXflowActive { exp_path datestamp } {
+proc xflow_isWindowActive { exp_path datestamp } {
    set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
    if { [winfo exists ${toplevelW}] == "0" } {
       return false
@@ -2593,7 +2601,7 @@ proc xflow_newMessageCallback { exp_path visible_datestamp has_new_msg } {
 
 proc xflow_redrawNodesEvent { exp_path datestamp } {
    ::log::log debug "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
-   if { [xflow_isXflowActive ${exp_path} ${datestamp}] == true } {
+   if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {
       set updatedNodes [SharedData_getExpUpdatedNodes ${exp_path} ${datestamp}]
       if { ${updatedNodes} != "" } {
          # update highest node that was affected during this read
@@ -2745,7 +2753,7 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # 2) in overview mode, this function is called everytime the user wants to view the exp flow with the latest
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
-proc xflow_displayFlow { exp_path datestamp } {
+proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    global env XFLOW_STANDALONE PROGRESS_REPORT_TXT   
    ::log::log debug "xflow_displayFlow thread id:[thread::id] datestamp:${datestamp}"
    ::log::log notice "xflow_displayFlow thread id:[thread::id] exp_path:${exp_path} datestamp:${datestamp}"
@@ -2782,7 +2790,7 @@ proc xflow_displayFlow { exp_path datestamp } {
 
    set drawFrame [xflow_getWidgetName ${exp_path} ${datestamp} flow_frame].draw_frame
    set canvas [xflow_createFlowCanvas ${exp_path} ${datestamp} $drawFrame]
-   xflow_drawflow ${exp_path} ${datestamp} $canvas
+   xflow_drawflow ${exp_path} ${datestamp} $canvas ${initial_display}
 
    xflow_setTitle ${topFrame} ${exp_path} ${datestamp}
    xflow_toFront [winfo toplevel  ${topFrame}]
