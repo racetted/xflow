@@ -121,13 +121,8 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
    # Need to notify the main thread that this child is done reading
    # the log file for initialization
    if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
-      thread::send -async ${overviewThreadId} "Overview_childInitDone ${exp_path} ${datestamp}"
+      thread::send -async ${overviewThreadId} "Overview_childInitDone [thread::id] ${exp_path} ${datestamp}"
    }
-
-   # special case for flow refresh
-   # if { ${read_type} == "refresh_flow" } {
-   #   set read_type "all"
-   # }
 
    if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
       # this is there so that the exp thread that is done reading at startup waits for other exps to finish before

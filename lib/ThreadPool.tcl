@@ -35,6 +35,7 @@ proc ThreadPool_createThread { {is_init false} } {
       source $env(SEQ_XFLOW_BIN)/../lib/LogMonitor.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/SharedData.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/SharedFlowNode.tcl
+
       thread::wait
    }]
 

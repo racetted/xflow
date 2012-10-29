@@ -1329,6 +1329,15 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          }
       }
 
+      if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+         # inactive log
+         # release exp thread
+         ::log::log notice "Overview_launchExpFlow releasing inactive log ${exp_path} ${datestamp}"
+         thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
+         SharedData_removeExpThreadId ${exp_path} ${datestamp}
+         ThreadPool_releaseThread ${expThreadId} ${exp_path} ${datestamp}
+      }
+
       if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {
          ::log::log debug "Overview_launchExpFlow flow window already exists exp_path:${exp_path} datestamp: ${datestamp}"
          xflow_toFront [xflow_getToplevel ${exp_path} ${datestamp}]
@@ -1376,7 +1385,7 @@ proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
 # exp thread to notify the overview that it is done reading
 # the exp log file... At startup, the overview waits for every exp thread
 # to finish before proceeding...
-proc Overview_childInitDone { exp_path datestamp } {
+proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
    global EXP_THREAD_STARTUP_DONE ALL_CHILD_INIT_DONE STARTUP_PROGRESS_VALUE
    global STARTUP_PROGRESS_TXT
    ::log::log debug "Overview_childInitDone datestamp:${datestamp} exp_path:$exp_path"
@@ -1384,6 +1393,7 @@ proc Overview_childInitDone { exp_path datestamp } {
    catch { unset EXP_THREAD_STARTUP_DONE(${exp_path}_${datestamp}) }
    incr STARTUP_PROGRESS_VALUE
    set STARTUP_PROGRESS_TXT "${exp_path} \n datestamp=${datestamp} loaded."
+
    if { [array names EXP_THREAD_STARTUP_DONE] != "" } {
       ::log::log debug "Overview_childInitDone note done: [array names EXP_THREAD_STARTUP_DONE]"
    } else {
@@ -1464,7 +1474,6 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
    } else {
       ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
    }
-
 }
 
 proc Overview_refreshExpLastStatus { exp_path datestamp } {
