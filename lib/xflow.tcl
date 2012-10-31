@@ -2217,7 +2217,7 @@ proc xflow_getNodeResources { exp_path node datestamp {is_recursive 0} } {
 
    # the line below transforms the output of nodeinfo into a call to SharedFlowNode_setGenericAttributef or every attribute
    # i.e. SharedFlowNode_setGenericAttribute ${exp_path} ${node} attr_name attr_value
-   set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:SharedFlowNode_setGenericAttribute ${exp_path} ${node} ${datestamp}:' -e 's:=: \":' -e 's/$/\"/'> ${outputFile} 2> /dev/null "]} message]
+   set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:SharedFlowNode_setGenericAttribute ${exp_path} ${node} \"${datestamp}\" :' -e 's:=: \":' -e 's/$/\"/'> ${outputFile} 2> /dev/null "]} message]
 
    if { $code != 0 } {
       Utils_raiseError [xflow_getToplevel ${exp_path} ${datestamp}] "Get Node Resource" $message
@@ -2629,7 +2629,7 @@ proc xflow_setDatestampVars { exp_path datestamp } {
    set FLOW_SCALE_${exp_path}_${datestamp} [SharedData_getMiscData FLOW_SCALE]
 
    # trace the variable to see if we need to load the resources
-   trace add variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} ${datestamp}"
+   trace add variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} \"${datestamp}\""
 }
 
 # this is the place to validate essential exp

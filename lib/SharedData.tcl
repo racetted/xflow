@@ -211,7 +211,7 @@ proc SharedData_getExpUpdatedNodes { _exp_path _datestamp} {
 
 proc SharedData_addExpNodeMapping { _exp_path _datestamp _real_node _flow_node } {
    # puts "SharedData_addExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node;${_real_node} flow_node:${_flow_node}"
-   ::log::log notice "SharedData_addExpNodeMapping()  exp_path:${_exp_path} datestamp:${_datestamp} real_node:${_real_node} flow_node:${_flow_node}"
+   # ::log::log notice "SharedData_addExpNodeMapping()  exp_path:${_exp_path} datestamp:${_datestamp} real_node:${_real_node} flow_node:${_flow_node}"
    array set nodeMappings [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} node_mappings]
    set nodeMappings(${_real_node}) ${_flow_node}
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} node_mappings [array get nodeMappings]

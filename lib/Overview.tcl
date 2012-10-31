@@ -118,7 +118,9 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                   # the exp thread that followed this log is not needed anymore, release it    
                   ::log::log debug "Overview_GridAdvanceHour releasing exp thread for ${exp} ${datestamp}"
                   Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
-               }
+               } else {
+	          Overview_releaseLoggerThread ${expThreadId} ${exp} ${datestamp}
+	       }
             }
             if { [Overview_isExpBoxObsolete ${canvasW} ${exp} ${datestamp}] == true } {
                # the end time happened prior to the x origin time,
