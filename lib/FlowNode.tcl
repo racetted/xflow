@@ -228,10 +228,14 @@ proc ::FlowNodes::searchSubmitNode { _node _submitted_node } {
          set foundNode ${_node}
       } else {
          foreach childName ${currentList} {
-            set value [searchSubmitNode ${_node}/${childName} ${_submitted_node}]
-            if { ${value} != "" } {
-               set foundNode ${_node}/${childName}
-               break
+	    set childNode ${_node}/${childName}
+            set childNodeType [${childNode} cget -flow.type]
+	    if { ${childNodeType} == "npass_task" ||  ${childNodeType} == "task" } {
+               set value [searchSubmitNode ${_node}/${childName} ${_submitted_node}]
+               if { ${value} != "" } {
+                  set foundNode ${_node}/${childName}
+                  break
+               }
             }
          }
       }
