@@ -83,6 +83,20 @@ proc ThreadPool_getThread { {wait false} } {
    return ${foundId}
 }
 
+proc ThreadPool_getNextThread {} {
+   global PoolId ThreadPool_Counter
+   if { ! [info exists ThreadPool_Counter] } {
+      set ThreadPool_Counter 0
+   }
+   set threadList [array names PoolId]
+   set threadId [lindex ${threadList} ${ThreadPool_Counter}]
+   incr ThreadPool_Counter
+   if { ${ThreadPool_Counter} == [array size PoolId] } {
+      set ThreadPool_Counter 0
+   }
+   return ${threadId}
+}
+
 # release the thread and make it available again in the pool
 # A release thread event is issued to notify potential clients waiting
 # for a thread release

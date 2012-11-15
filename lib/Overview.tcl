@@ -116,12 +116,14 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
             if { ${expThreadId} != "" && [LogMonitor_isLogFileActive ${exp} ${datestamp}] == false } {
                if { [xflow_isWindowActive ${exp} ${datestamp}] == false } {
                   # the exp thread that followed this log is not needed anymore, release it    
-                  ::log::log debug "Overview_GridAdvanceHour releasing exp thread for ${exp} ${datestamp}"
+                  ::log::log notice "Overview_GridAdvanceHour Overview_releaseExpThread releasing exp thread for ${exp} ${datestamp}"
                   Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
                } else {
+                  ::log::log notice "Overview_GridAdvanceHour Overview_releaseLoggerThread releasing exp thread for ${exp} ${datestamp}"
 	          Overview_releaseLoggerThread ${expThreadId} ${exp} ${datestamp}
 	       }
             }
+
             if { [Overview_isExpBoxObsolete ${canvasW} ${exp} ${datestamp}] == true } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
@@ -180,7 +182,7 @@ proc Overview_getTimeFromCoord { x_value } {
 proc Overview_getXCoordTime { timevalue {shift_day false} } {
    global graphHourX graphStartX
 
-   set timeHour [Utils_getHourFromTime ${timevalue}]
+   set timeHour [Utils_getPaddedValue [Utils_getHourFromTime ${timevalue}]]
    set timeMinute [Utils_getMinuteFromTime ${timevalue}]
 
    if { ${timeHour} > 24 } {
@@ -1331,11 +1333,11 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          }
       }
 
-      if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+      if { ${datestamp} != "" && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          # inactive log
          # release exp thread
          ::log::log notice "Overview_launchExpFlow releasing inactive log ${exp_path} ${datestamp}"
-         thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
+         # thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
          SharedData_removeExpThreadId ${exp_path} ${datestamp}
          ThreadPool_releaseThread ${expThreadId} ${exp_path} ${datestamp}
       }
@@ -1373,14 +1375,20 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
    ::log::log notice "Overview_releaseExpThread exp_thread_id:${exp_thread_id} exp_path:${exp_path} datestamp:${datestamp}"
    xflow_quit ${exp_path} ${datestamp} true
-   if { [Overview_isExpBoxObsolete [Overview_getCanvas] ${exp_path} ${datestamp}] == true } {
-      if { [xflow_isWindowActive ${exp_path} ${datestamp}] == false } {
-         ::log::log notice "Overview_releaseExpThread() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp}"
-         OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp} [Overview_getCanvas]
-      }
-   }
+
+   Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
    SharedData_removeExpThreadId ${exp_path} ${datestamp}
    ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
+}
+
+proc Overview_releaseLoggerThread { exp_thread_id exp_path datestamp } {
+   ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp}"
+   if { [SharedData_getMiscData STARTUP_DONE] == false } {
+      ::thread::send -async ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
+      ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
+   } else {
+      ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
+   }
 }
 
 # At application startup, this function is called by each
@@ -1398,6 +1406,18 @@ proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
 
    if { [array names EXP_THREAD_STARTUP_DONE] != "" } {
       ::log::log debug "Overview_childInitDone note done: [array names EXP_THREAD_STARTUP_DONE]"
+
+      # free up the thread for another exp at startup
+      ThreadPool_releaseThread ${exp_thread_id}
+
+      ::log::log debug "Overview_childInitDone ThreadPool_releaseThread ${exp_thread_id} DONE"
+
+      # ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
+      if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+         ::log::log debug "Overview_childInitDone Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}"
+
+         Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
+      }
    } else {
       set ALL_CHILD_INIT_DONE 1
    }
@@ -2544,7 +2564,9 @@ proc Overview_main {} {
    # set thread error handler for async calls
    thread::errorproc Overview_threadErrorCallback
 
+   puts "Overview calling addGroups: [exec date]"
    Overview_addGroups ${topCanvas}
+   puts "Overview after calling addGroups: [exec date]"
    Overview_setCanvasScrollArea ${topCanvas}
    Overview_setCurrentTime ${topCanvas}
    Overview_addCanvasImage ${topCanvas}
@@ -2556,6 +2578,8 @@ proc Overview_main {} {
    wm geometry ${topOverview} =1500x600
    wm deiconify ${topOverview}
 
+   # start the reader for currently active logs
+   ::thread::broadcast LogReader_readMonitorDatestamps
    # run a periodic monitor to look for new log files to process
    LogMonitor_checkNewLogFiles
 }

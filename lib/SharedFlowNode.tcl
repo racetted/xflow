@@ -176,10 +176,14 @@ proc SharedFlowNode_searchSubmitNode { exp_path node datestamp submitted_node } 
          set foundNode ${node}
       } else {
          foreach childName ${currentList} {
-            set value [SharedFlowNode_searchSubmitNode ${exp_path} ${node}/${childName} ${datestamp} ${submitted_node}]
-            if { ${value} != "" } {
-               set foundNode ${node}/${childName}
-               break
+            set childSubmitNode ${node}/${childName}
+            set childeSubmitNodeType [SharedFlowNode_getNodeType ${exp_path} ${childSubmitNode} ${datestamp}]
+            if { ${childeSubmitNodeType} == "task" || ${childeSubmitNodeType} == "npass_task" } {
+               set value [SharedFlowNode_searchSubmitNode ${exp_path} ${node}/${childName} ${datestamp} ${submitted_node}]
+               if { ${value} != "" } {
+                  set foundNode ${node}/${childName}
+                  break
+               }
             }
          }
       }

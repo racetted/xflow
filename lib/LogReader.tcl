@@ -1,5 +1,46 @@
 package require log
 
+# this proc registers a datestamp to be monitored by the current thread
+proc LogReader_addMonitorDatestamp { exp_path datestamp } {
+   global LogReader_Datestamps
+
+   if { ! [info exists LogReader_Datestamps] } {
+      array set LogReader_Datestamps {}
+   }
+   set key ${exp_path}_${datestamp}
+   set LogReader_Datestamps($key) "${exp_path} ${datestamp}"
+}
+
+# this proc removes a datestamp from being monitored by the current thread
+proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
+   global LogReader_Datestamps
+
+   set key ${exp_path}_${datestamp}
+   if { [info exists LogReader_Datestamps($key)] } {
+      ::log::log notice "LogReader_removeMonitorDatestamp removing datestamp ${exp_path} ${datestamp}"
+      array unset LogReader_Datestamps $key
+   }
+}
+
+# once initiated, this proc monitors all the datestamp that  is registered
+# every 4 seconds
+proc LogReader_readMonitorDatestamps {} {
+   # puts "LogReader_readMonitorDatestamps called from thread: [thread::id]"
+   global READ_LOG_AFTER_ID LogReader_Datestamps
+
+   catch { after cancel [ ${READ_LOG_AFTER_ID} ] }
+
+   foreach { key value } [array get LogReader_Datestamps] {
+      # puts "LogReader_readMonitorDatestamps [thread::id] found key:${key} value:${value}"
+      set expPath [lindex ${value} 0]
+      set datestamp [lindex ${value} 1]
+      # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
+      LogReader_readFile ${expPath} ${datestamp} all
+   }
+
+   set READ_LOG_AFTER_ID [after 4000 [list LogReader_readMonitorDatestamps]]
+}
+
 # read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
 proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup false} } {
    global MSG_CENTER_THREAD_ID
@@ -14,10 +55,6 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
       FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
       # ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
       # ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
-      puts "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
-      # puts "---------------------------------------------------------------------------------------------"
-      # SharedData_printNodeMapping ${exp_path} ${datestamp}
-      # puts "---------------------------------------------------------------------------------------------"
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
       puts "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message"
@@ -29,15 +66,14 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
    # first do a full first pass read of the log file
    LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
 
-   # then if the log file is not active, release the exp thread
-   if { ${is_startup} == true && [SharedData_getMiscData OVERVIEW_MODE] == true } {
-      if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-         # inactive log
-         # release exp thread
-         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread [thread::id] ${exp_path} ${datestamp}"
-         return
-      }
+   if { [SharedData_getMiscData STARTUP_DONE] == false && [SharedData_getMiscData OVERVIEW_MODE] == true } {
+      # at application startup, let the overview know that we're done reading the log
+      # release the thread to other exp
+      thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_childInitDone [thread::id] ${exp_path} ${datestamp}"
    }
+
+   # register the log to be monitor by this thread
+   LogReader_addMonitorDatestamp ${exp_path} ${datestamp}
 }
 
 # read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
@@ -64,8 +100,6 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
       set sendToMsgCenter true
    }
    
-   # first cancel any other waiting read for this suite
-   LogReader_cancelAfter ${exp_path} ${datestamp}
    if { ${datestamp} != "" } {
       set logfile ${exp_path}/logs/${datestamp}_nodelog
 
@@ -76,7 +110,8 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
          if { ${isStartupDone} == "true" } {
             set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
             if { ${logFileOffset} == "" } {
-               ::log::log notice "ERROR: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
+               set logFileOffset 0
+               ::log::log notice "WARNING: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
             }
             ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
          } else {
@@ -116,45 +151,6 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
          set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
          thread::send [thread::id] "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
       }
-   }
-
-   # Need to notify the main thread that this child is done reading
-   # the log file for initialization
-   if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
-      thread::send -async ${overviewThreadId} "Overview_childInitDone [thread::id] ${exp_path} ${datestamp}"
-   }
-
-   if { ${isStartupDone} == "false" && ${isOverviewMode} == "true" } {
-      # this is there so that the exp thread that is done reading at startup waits for other exps to finish before
-      # reading the log again
-      LogReader_waitForStartupDone ${exp_path} ${datestamp} ${read_type}
-   } else {
-      LogReader_readAgain ${exp_path} ${datestamp} all
-   }
-
-}
-
-# at startup time, waits until all exp threads are done before reading logs again
-proc LogReader_waitForStartupDone { exp_path datestamp read_type } {
-   global READ_LOG_IDS_${exp_path}_${datestamp}
-   set isStartupDone [SharedData_getMiscData STARTUP_DONE]
-   if { ${isStartupDone} == true } {
-      LogReader_readAgain ${exp_path} ${datestamp} ${read_type}
-   } else {
-      set READ_LOG_IDS_${exp_path}_${datestamp} [after 4000 [list LogReader_waitForStartupDone ${exp_path} ${datestamp} ${read_type}]]
-   }
-}
-
-proc LogReader_readAgain { exp_path datestamp read_type } {
-   global READ_LOG_IDS_${exp_path}_${datestamp}
-   
-   set READ_LOG_IDS_${exp_path}_${datestamp} [after 4000 [list LogReader_readFile ${exp_path} ${datestamp} ${read_type}]]
-}
-
-proc LogReader_cancelAfter { exp_path datestamp } {
-   global READ_LOG_IDS_${exp_path}_${datestamp}
-   if { [info exists READ_LOG_IDS_${exp_path}_${datestamp}] } {
-      after cancel [set READ_LOG_IDS_${exp_path}_${datestamp}]
    }
 }
 
@@ -357,3 +353,12 @@ proc LogReader_getAvailableDates { exp_path } {
 }
 
 
+proc LogReader_printMonitorDatestamps {} {
+   global LogReader_Datestamps
+
+   foreach { key value } [array get LogReader_Datestamps] {
+      set expPath [lindex ${value} 0]
+      set datestamp [lindex ${value} 1]
+      puts "thread_id:[thread::id] exp:${expPath} datestamp:${datestamp}"
+   }
+}

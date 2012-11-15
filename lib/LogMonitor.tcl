@@ -27,11 +27,10 @@ proc LogMonitor_checkNewLogFiles {} {
                   set expThreadId [SharedData_getExpThreadId ${expPath} ${seqDatestamp}]
                   if { ${expThreadId} == "" } {
                      # if there is already a thread for this datestamp, we don't do anything
-                     set expThreadId [ThreadPool_getThread]
+                     set expThreadId [ThreadPool_getNextThread]
                      #puts "LogMonitor_checkNewLogFiles set log file offset to 0"
                      # force reread of log file from start
                      SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
-                     SharedData_setExpDatestampOffset ${expPath} ${seqDatestamp} 0
                      SharedData_setExpStartupDone ${expPath} ${seqDatestamp} false
 
                      #puts "LogMonitor_checkNewLogFiles LogMonitor_startExpLogReader..."

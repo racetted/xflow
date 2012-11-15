@@ -2553,7 +2553,7 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
          if { ${expThreadId} != "" } {
-            thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
+            # thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
          }
 
          if { ${from_overview} == false } {
