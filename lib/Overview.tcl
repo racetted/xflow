@@ -1425,7 +1425,7 @@ proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
 
 proc Overview_addChildInit { exp_path datestamp } {
    global EXP_THREAD_STARTUP_DONE
-   set EXP_THREAD_STARTUP_DONE(${exp_path}_${datestamp}) 0
+   set EXP_THREAD_STARTUP_DONE(${exp_path}_${datestamp}) "${exp_path} ${datestamp}"
 }
 
 proc Overview_waitChildInitDone {} {
@@ -1573,28 +1573,40 @@ proc Overview_addExp { display_group canvas exp_path } {
       return
    }
 
+   # build the list of valid datestamps
    foreach datestamp ${visibleDatestamps} {
       if { [Utils_validateRealDatestamp ${datestamp}] == true } {
-         # create a child thread for the exp
-         set childId [ThreadPool_getThread true]
-         SharedData_setExpThreadId ${exp_path} "${datestamp}" ${childId}
-
-         set currentDateTime [clock seconds]
-         set currentTime [clock format ${currentDateTime} -format "%H:%M" -gmt 1]
-         set dateValue [clock format ${currentDateTime} -format "%Y%m%d" -gmt 1]
-         # forces the exp node to be init mode
-         # the exp node will be updated later with new entries from the log file
-         OverviewExpStatus_setLastStatusInfo ${exp_path} ${datestamp} init $dateValue ${currentTime}
-
-         # read log and quit
          Overview_addChildInit ${exp_path} ${datestamp}
-
-         thread::send -async ${childId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
       }
    }
 
    # retrieve the exp root node
    SharedData_setExpGroupDisplay ${exp_path} ${display_group}
+}
+
+# reads all the datestamps at application startup time
+proc Overview_readExpLogs {} {
+   global EXP_THREAD_STARTUP_DONE
+   set keyList [array names EXP_THREAD_STARTUP_DONE]
+   foreach key ${keyList} {
+      foreach {exp_path datestamp} [split $EXP_THREAD_STARTUP_DONE($key)] {}
+      puts "Overview_readExpLogs value:[split $EXP_THREAD_STARTUP_DONE($key)] exp_path:${exp_path} datestamp:${datestamp}"
+      if { [Utils_validateRealDatestamp ${datestamp}] == true } {
+         # get a thread from the pool... at startup the call waits if all thread are busy
+	 # processing logs
+         set expThreadId [ThreadPool_getThread true]
+         SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
+         set currentDateTime [clock seconds]
+         set currentTime [clock format ${currentDateTime} -format "%H:%M" -gmt 1]
+         set dateValue [clock format ${currentDateTime} -format "%Y%m%d" -gmt 1]
+
+         # forces the exp node to be init mode
+         # the exp node will be updated later with new entries from the log file
+         OverviewExpStatus_setLastStatusInfo ${exp_path} ${datestamp} init $dateValue ${currentTime}
+
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
+      }
+   }
 }
 
 # this function returns a list of 4 coords x1 y1 x2 y2
@@ -1883,8 +1895,10 @@ proc Overview_addGroups { canvas } {
          SharedData_setExpData ${exp} LAST_CHECKED_TIME ${currentTime}
       }
    }
+   # read all valid datestamp logs 
+   Overview_readExpLogs
 
-   # wait for all child to be done with their init
+   # wait for all child to be done with their reads
    Overview_waitChildInitDone
 
    Overview_checkStartupError
