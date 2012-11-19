@@ -656,6 +656,15 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node } {
    set attrName ${displayPref}
    set attrValue ""
 
+   if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "module" } {
+      set moduleName "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} name]"
+      set moduleLocalName "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} local_name]"
+      if { ${moduleName} != ${moduleLocalName} } {
+         # puts "xflow_getNodeDisplayPrefText set text (${moduleLocalName})"
+         set text "(${moduleLocalName})"
+      }
+   }
+
    if { ${displayPref} == "machine_queue" } {
       set attrName "machine"
    }
@@ -677,7 +686,11 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node } {
    }
 
    if { ${attrValue} != "" } {
-      set text "(${attrValue})"
+      if { ${text} != "" } {
+         set text "${text}\n(${attrValue})"
+      } else {
+         set text "(${attrValue})"
+      }
    }
 
    return $text

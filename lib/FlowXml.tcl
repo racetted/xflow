@@ -200,29 +200,29 @@ proc FlowXml_parseModule { xml_data exp_path datestamp parent_flow_node } {
    
    # get the top node of the xml tree
    set topXmlNode [$rootNode selectNodes /MODULE]
-   set recordName [$topXmlNode getAttribute name]
+   set moduleAttrName [$topXmlNode getAttribute name]
    # defaults to 0
    set workUnitMode [$topXmlNode getAttribute work_unit 0]
 
    if { $parent_flow_node == "" } {
-      set suiteName [$topXmlNode getAttribute name]
-      set recordName "/$suiteName"
-      SharedData_setExpRootNode ${exp_path} ${datestamp} ${recordName}
+      set flowNode "/${moduleAttrName}"
+      SharedData_setExpRootNode ${exp_path} ${datestamp} ${flowNode}
       # create the top node of our flow tree
-      if { [SharedFlowNode_isNodeExist ${exp_path} ${recordName} ${datestamp}] == false } {
-         SharedFlowNode_createNode ${exp_path} $recordName ${datestamp} "" module
-         SharedFlowNode_setGenericAttribute ${exp_path} ${recordName} ${datestamp} load_time [clock seconds]
+      if { [SharedFlowNode_isNodeExist ${exp_path} ${flowNode} ${datestamp}] == false } {
+         SharedFlowNode_createNode ${exp_path} $flowNode ${datestamp} "" module
+         SharedFlowNode_setGenericAttribute ${exp_path} ${flowNode} ${datestamp} load_time [clock seconds]
       }
    } else {
-      set recordName $parent_flow_node
+      set flowNode $parent_flow_node
    }
-   SharedFlowNode_setGenericAttribute ${exp_path} ${recordName} ${datestamp} work_unit ${workUnitMode}
-   FlowXml_getSubmits ${exp_path} ${datestamp} $recordName $topXmlNode
+   SharedFlowNode_setGenericAttribute ${exp_path} ${flowNode} ${datestamp} work_unit ${workUnitMode}
+   SharedFlowNode_setGenericAttribute ${exp_path} ${flowNode} ${datestamp} local_name ${moduleAttrName}
+   FlowXml_getSubmits ${exp_path} ${datestamp} $flowNode $topXmlNode
    # recursively parse the children nodes of the xml tree
    if { [$topXmlNode hasChildNodes] } {
       set xmlChildren [$topXmlNode childNodes]
       foreach xmlChild $xmlChildren {
-         FlowXml_parseNode ${exp_path} ${datestamp} $recordName $xmlChild
+         FlowXml_parseNode ${exp_path} ${datestamp} $flowNode $xmlChild
       }
    }
 
