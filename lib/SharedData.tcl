@@ -514,8 +514,8 @@ proc SharedData_init {} {
 
    SharedData_setMiscData MENU_RELIEF flat
    
-   # number of threads created to process xflow instances
-   SharedData_setMiscData MAX_XFLOW_INSTANCE 20
+   # number of threads created to process exp log datestamps
+   SharedData_setMiscData OVERVIEW_NUM_THREADS 8
 
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]

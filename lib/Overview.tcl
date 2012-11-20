@@ -884,7 +884,7 @@ proc Overview_isExpBoxObsolete { canvas exp_path datestamp } {
 }
 
 proc Overview_addExpDefaultBoxes { canvas exp_path } {
-   puts "Overview_addExpDefaultBoxes $exp_path"
+   # puts "Overview_addExpDefaultBoxes $exp_path"
    set refTimings [SharedData_getExpTimings ${exp_path}]
    if { ${refTimings} == "" } {
       # exp withouth ExpOptions.xml or withouth any ref timings
@@ -899,7 +899,7 @@ proc Overview_addExpDefaultBoxes { canvas exp_path } {
 }
 
 proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
-   puts "Overview_addExpDefaultBox $exp_path $datestamp"
+   # puts "Overview_addExpDefaultBox $exp_path $datestamp"
    set refTimings [SharedData_getExpTimings ${exp_path}]
    if { ${refTimings} != "" } {
       set hour [Utils_getHourFromDatestamp ${datestamp}]
@@ -2552,7 +2552,7 @@ proc Overview_main {} {
    wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
 
    # create pool of threads to parse and launch exp flows
-   ThreadPool_init [SharedData_getMiscData MAX_XFLOW_INSTANCE]
+   ThreadPool_init [SharedData_getMiscData OVERVIEW_NUM_THREADS]
 
    # set thread error handler for async calls
    thread::errorproc Overview_threadErrorCallback

@@ -1,8 +1,9 @@
 # should be called at application startup time to create
 # the desired number of threads to process exp datestamps.
-# The number of threads is configuration thourgh the maestrorc file (max_xflow_instance)
-# Defaults to 25 threads.
-# Each opened xflow window is assigned a thread and each active log file gets assigned a thread
+# The number of threads is configurable through the maestrorc file (overview_num_threads)
+# Defaults to 8 threads.
+# Each experiment active log datestamp is assigned a thread from the thread pool.
+# Each thread can monitor multiple log datestamps.
 # An active log file is one that has been modified within the last hour.
 proc ThreadPool_init { nof_thread } {
    global PoolId count
@@ -102,7 +103,7 @@ proc ThreadPool_getNextThread {} {
 # for a thread release
 proc ThreadPool_releaseThread { thread_id args } {
    global PoolId THREAD_RELEASE_EVENT
-   set maxThreads [SharedData_getMiscData MAX_XFLOW_INSTANCE]
+   set maxThreads [SharedData_getMiscData OVERVIEW_NUM_THREADS]
    if { [array size PoolId] > ${maxThreads} } {
       array unset PoolId ${thread_id}
       ::log::log notice "ThreadPool_releaseThread(): nof threads over maximum: ${maxThreads}... releasing thread: ${thread_id} ${args}"
