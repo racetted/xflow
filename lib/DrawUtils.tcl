@@ -27,6 +27,7 @@ proc ::DrawUtils::init {} {
       loop oval
       outlet oval
       case losange
+      switch_case losange
    }
 
    array set hostColorMap {
@@ -205,7 +206,7 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    variable constants
    set newtx1 [expr ${tx1} + 30]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    set nx1 [expr [lindex $boxArea 0] -30]
@@ -218,7 +219,7 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    set ny3 $ny2
    set ny4 $ny1
    $canvas create polygon ${nx1} ${ny1} ${nx2} ${ny2} ${nx3} ${ny3} ${nx4} ${ny4} \
-         -outline $outline -fill $fill -tags "$binder ${binder}.losange"
+         -outline $outline -fill $fill -tags "flow_element $binder ${binder}.losange"
 
    $canvas lower ${binder}.losange ${binder}.text
 
@@ -233,7 +234,7 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
        set sy3 [expr $ny3 + 5]
        set sy4 [expr $ny4 + 5]
        $canvas create polygon ${sx1} ${sy1} ${sx2} ${sy2} ${sx3} ${sy3} ${sx4} ${sy4} -width $constants(border_width) \
-               -fill $shadowColor  -tags "${binder} ${binder}.shadow"
+               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.losange
    }
 
@@ -243,7 +244,6 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    SharedData_setExpDisplayData ${exp_path} ${datestamp} $canvas ${nextY} ${maximX} ${maximY}
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
 }
-
 
 proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
    global FLOW_SCALE_${exp_path}_${datestamp}
@@ -611,45 +611,6 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
    }
 
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
-   proc out {} {
-               if { [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "npass_task" } {
-                  set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
-                  if { ! [winfo exists ${indexListW}] } {
-                     ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
-                        -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
-                     ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
-                     ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
-                  }
-                  set listboxW [${indexListW} getlistbox]
-                  set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
-
-                  # only modify listbox value on the fly if the listbox is not currently mapped
-                  # i.e. not being selected by the user
-                  if { ! [winfo ismapped ${listboxW}] } {
-                     if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-                        ${indexListW} configure -values {latest} -width 7
-                     } else {
-                        set indexValue [SharedFlowNode_getIndexValue ${currentExt}]
-                        ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
-                     }
-                     ${indexListW} setvalue first
-                  }
-
-                  pack ${indexListW} -fill both
-                  set barY [expr ${maxY} + 15]
-                  #set barX [expr ($nx1 + $nx2)/2]
-                  set barX ${nx1}
-                  $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
-                  set maxY ${barY}
-                  update idletasks
-                  if { [winfo height ${indexListW}] == "1" } {
-                     set nextY [expr $barY + 20]
-                  } else {
-                     set nextY [expr $barY + [winfo height ${indexListW}]]
-                  }
-                  SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
-               }
-   }
 }
 
 proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {

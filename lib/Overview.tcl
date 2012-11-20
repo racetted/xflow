@@ -989,11 +989,10 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
       begin "Overview_processBeginStatus continue_begin"
       beginx "Overview_processBeginStatus continue_begin"
       continue_begin "Overview_processBeginStatus continue_begin"
-      continue_wait "Overview_processWaitStatus continue_wait"
       end "Overview_processEndStatus"
       abort "Overview_processAbortStatus"
       catchup "Overview_processCatchupStatus"
-      wait "Overview_processWaitStatus continue_wait"
+      wait "Overview_processWaitStatus"
    }
    set statusProc ""
    set continueStatus ""

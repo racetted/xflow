@@ -625,6 +625,7 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
 
       if { ${previousDatestamp} != "" } {
          set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
+	 # xflow_cleanDatestampVars ${exp_path} ${datestamp}
          SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
       }
 
@@ -876,7 +877,8 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
          # reset the text to be used for generic tooltip on scaling mode
          set text "${helpText}"
       }
-      "case" {
+      "switch_case" {
+         set text "${text}\n[SharedFlowNode_getSwitchingInfo ${exp_path} ${node} ${datestamp}]"
          ::DrawUtils::drawLosange ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
       }
       "outlet" {
@@ -1707,7 +1709,7 @@ proc xflow_submitCallback { exp_path datestamp node canvas caller_menu flow {loc
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "submit [file tail $node] $seqLoopArgs" top \
-         -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
+         -d ${datestamp} -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
    }
 }
 
@@ -2559,15 +2561,14 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       # we are in overview mode
       set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
       destroy ${toplevelW}
-      catch { trace remove variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} ${datestamp}" }
-      catch { after cancel [set XFLOW_FIND_AFTER_ID_${exp_path}_${datestamp}] }
-      catch { after cancel [set TITLE_AFTER_ID_${exp_path}_${datestamp}]}
+      xflow_cleanDatestampVars ${exp_path} ${datestamp}
+
+      # catch { trace remove variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} ${datestamp}" }
+      # catch { after cancel [set XFLOW_FIND_AFTER_ID_${exp_path}_${datestamp}] }
+      # catch { after cancel [set TITLE_AFTER_ID_${exp_path}_${datestamp}]}
 
       if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
-         if { ${expThreadId} != "" } {
-            # thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
-         }
 
          if { ${from_overview} == false } {
             # notify overview thread to release me
@@ -2643,6 +2644,17 @@ proc xflow_setDatestampVars { exp_path datestamp } {
 
    # trace the variable to see if we need to load the resources
    trace add variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} \"${datestamp}\""
+}
+
+proc xflow_cleanDatestampVars { exp_path datestamp } {
+   foreach variableKey { NODE_DISPLAY_PREF FLOW_SCALE TITLE_AFTER_ID \
+                         XFLOW_FIND_AFTER_ID LOOP_RESOURCES_DONE \
+			 NODE_RESOURCE_DONE FLOW_RESIZED REFRESH_MODE \
+			 cmdList NodeHighLightRestoreCmd } {
+      global ${variableKey}_${exp_path}_${datestamp}
+      ::log::log debug "xflow_cleanDatestampVars cleaning variable: ${variableKey}_${exp_path}_${datestamp}"
+      catch { unset ${variableKey}_${exp_path}_${datestamp} }
+   }
 }
 
 # this is the place to validate essential exp

@@ -207,11 +207,12 @@ proc SharedFlowNode_searchForTask { exp_path flow_node datestamp } {
    return $value
 }
 
-# search uptree for submitter loops and add it to the
+# search uptree for submitter indexed containers (loop and switching nodes) and add it to the
 # current node
 proc SharedFlowNode_searchSubmitLoops { exp_path node datestamp src_node } {
    if { $node != "" } {
-      if { [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type] == "loop" } {
+      set nodeType [SharedFlowNode_getNodeType  ${exp_path} ${node} ${datestamp}]
+      if { ${nodeType} == "loop" || ${nodeType} == "switch_case" } {
          SharedFlowNode_addLoop ${exp_path} ${src_node} ${datestamp} ${node}
       }
       SharedFlowNode_searchSubmitLoops ${exp_path} [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} submitter] ${datestamp} $src_node
@@ -329,6 +330,12 @@ proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } 
    if { ${nodeType} == "npass_task" || ${nodeType} == "loop" } {
       tsv::keylset ${exp_path}_${datestamp}_runtime ${node} max_ext_value 5
    }
+   set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
+   if { ${nodeType} == "switch_case" && 
+        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "datestamp_hour" } {
+      tsv::keylset ${exp_path}_${datestamp}_runtime ${node} current +[Utils_getHourFromDatestamp ${datestamp}]
+   }
+
    # puts "SharedFlowNode_initNodeDatestamp done" 
 }
 
@@ -1007,7 +1014,7 @@ proc SharedFlowNode_getLoopArgs { exp_path node datestamp } {
             return ""
          } else {
             # remove the + sign before extension
-            set current [string range ${currentExt} 1 end]
+            set currentExt [string range ${currentExt} 1 end]
             set nodeName [SharedFlowNode_getName ${exp_path} ${loopNode} ${datestamp}]
             if { $count == 0 } {
                set args "-l ${nodeName}=${currentExt}"
@@ -1146,6 +1153,27 @@ proc SharedFlowNode_convertFromDisplayFormat { node_with_ext } {
       }
    }
    return ${newNodeName}
+}
+
+proc SharedFlowNode_setSwitchingData { exp_path node datestamp switching_type } {
+   tsv::keylset ${exp_path}_${datestamp} ${node} switching_type ${switching_type}
+}
+
+proc SharedFlowNode_getSwitchingInfo { exp_path node datestamp } {
+   set value ""
+   if { [SharedFlowNode_getNodeType  ${exp_path} ${node} ${datestamp}] == "switch_case" } {
+      set switchType [tsv::keylget ${exp_path}_${datestamp} ${node} switching_type]
+      switch ${switchType} {
+         datestamp_hour {
+	    set hour [Utils_getHourFromDatestamp ${datestamp}]
+	    # set value "\[dshour-${hour}\]"
+	    set value "\[dshour]"
+	 }
+	 default {
+	 }
+      }
+   }
+   return ${value}
 }
 
 proc SharedFlowNode_printNode { exp_path node datestamp {print_child false} } {

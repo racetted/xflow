@@ -11,11 +11,43 @@ proc FlowXml_parse { xml_file exp_path datestamp parent_flow_node } {
    FlowXml_parseModule $xmlSrc $exp_path ${datestamp} $parent_flow_node 
 }
 
+# returns the xml node that matches the switching case
+# if no match, an empty string is returned
+proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
+   set returnedValue ""
+   # puts "FlowXml_getSwitchingItemNode() exp_path:${exp_path} datestamp:${datestamp}"
+   if { [${xml_node} nodeName] == "SWITCH" } {
+      # puts "FlowXml_getSwitchingItemNode() got SWITCH"
+      set switchType [${xml_node} getAttribute type "datestamp_hour"]
+      switch ${switchType} {
+         datestamp_hour {
+            set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
+	    if { ${datestampHour} != "" } {
+               set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${datestampHour}\]]
+	       # puts "GOT switchItemNode name:[${switchItemNode} getAttribute name]"
+	       set returnedValue ${switchItemNode}
+	    }
+         }
+	 default {
+            ::log::log notice "ERROR: FlowXml_getSwitchingItemNode() INVALID switch type:${switchType} exp_path:${exp_path} datestamp:${datestamp}" 
+	 }
+      }
+   }
+   return ${returnedValue}
+}
 
 proc FlowXml_getSubmits { exp_path datestamp flow_node xml_node } {
    set submits [$xml_node selectNodes SUBMITS]
    set flowSubmits ""
    #puts "FlowXml_getSubmits ${exp_path} ${flow_node}"
+   if { [${xml_node} nodeName] == "SWITCH" } {
+      # for a switch node, we need to get the matching switch item and continue from there
+      set switchItemNode [FlowXml_getSwitchingItemNode ${exp_path} ${datestamp} ${xml_node}]
+      if { ${switchItemNode} != "" } {
+         set xml_node ${switchItemNode}
+      }
+   }
+   set submits [$xml_node selectNodes SUBMITS]
    foreach submit $submits {
       set flowSubmitName [$submit getAttribute sub_name ""]
       lappend flowSubmits $flowSubmitName
@@ -44,19 +76,16 @@ proc FlowXml_getDeps { exp_path datestamp flow_node xml_node } {
       lappend depValues $depValue
    }
 
-   #set depValues { key0 value0 key1 value1 key2 value2 }
-   #puts "FlowXml_getSubmits flowChildren:$flowChildren"
    SharedFlowNode_setGenericAttribute ${exp_path} ${flow_node} ${datestamp} deps ${depValues}
 }
 
 proc FlowXml_createNodeFromXml { exp_path datestamp parent_flow_node xml_node } {
-   set FlowNodeTypeMap {   TASK "FlowTask task"
-                           FAMILY "FlowFamily family"
-                           LOOP "FlowLoop loop"
-                           CASE_ITEM "FlowOutlet outlet"
-                           CASE "FlowCase case"
-                           MODULE "FlowModule module"
-                           NPASS_TASK "FlowNpassTask npass_task"
+   set FlowNodeTypeMap {   TASK task
+                           FAMILY family
+                           LOOP loop
+                           MODULE module
+                           NPASS_TASK npass_task
+			   SWITCH switch_case
                        }
 
    set xmlNodeName [$xml_node nodeName]
@@ -67,8 +96,8 @@ proc FlowXml_createNodeFromXml { exp_path datestamp parent_flow_node xml_node } 
    ::log::log debug "FlowXml_createNodeFromXml() parent_flow_node:$parent_flow_node nodeName:$nodeName"
    set actualFlowParent [SharedFlowNode_searchSubmitNode ${exp_path} $parent_flow_node ${datestamp} $nodeName]
    set newFlowDirname $actualFlowParent/$nodeName
-   set flowCreateCmd [lindex [string map $FlowNodeTypeMap $xmlNodeName] 0]
-   set flowType [lindex [string map $FlowNodeTypeMap $xmlNodeName] 1]
+   set flowType [string map $FlowNodeTypeMap $xmlNodeName]
+
    #puts "FlowXml_createNodeFromXml() newFlowDirname:$newFlowDirname"
    SharedFlowNode_createNode ${exp_path} ${newFlowDirname} ${datestamp} ${actualFlowParent} ${flowType}
    if { ${xmlNodeName} == "MODULE" } {
@@ -94,8 +123,10 @@ proc FlowXml_createNodeFromXml { exp_path datestamp parent_flow_node xml_node } 
    # sequencer API.
    if { [SharedFlowNode_searchForTask ${exp_path} $actualFlowParent ${datestamp}] != "" } {
       if { [string match "*task" ${parentType} ] } {
+         ::log::log debug "FlowXml_createNodeFromXml()  SharedData_addExpNodeMapping ${exp_path} ${datestamp} $parentContainer/$nodeName $newFlowDirname"
          SharedData_addExpNodeMapping ${exp_path} ${datestamp} $parentContainer/$nodeName $newFlowDirname
       } else {
+         ::log::log debug "SharedData_addExpNodeMapping ${exp_path} ${datestamp} $parentContainer/$parentName/$nodeName $newFlowDirname"
          SharedData_addExpNodeMapping ${exp_path} ${datestamp} $parentContainer/$parentName/$nodeName $newFlowDirname
       }
    }
@@ -132,7 +163,6 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
    switch $xmlNodeName {
       "TASK" -
       "NPASS_TASK" -
-      "CASE_ITEM" -
       "FAMILY" {
          set newParentNode [FlowXml_createNodeFromXml ${exp_path}  ${datestamp} $parent_flow_node $current_xml_node]
       }
@@ -157,10 +187,11 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
          }
          SharedFlowNode_setLoopData ${exp_path} ${newParentNode} ${datestamp} ${type} ${start} ${step} ${end} ${setValue}
       }
-      "CASE" {
-         # set newParentNode [FlowXml_createNodeFromXml ${exp_path} $parent_flow_node $current_xml_node]
-         # set evalScript [$current_xml_node getAttribute exec_script]
-         # $newParentNode configure -eval_exec $evalScript
+      "SWITCH" {
+         set newParentNode [FlowXml_createNodeFromXml ${exp_path}  ${datestamp} ${parent_flow_node} ${current_xml_node}]
+         set switchType [${current_xml_node} getAttribute type "datestamp_hour"]
+	 SharedFlowNode_setSwitchingData  ${exp_path} ${newParentNode} ${datestamp} ${switchType}
+	 puts "FlowXml_parseNode got SWITCH: newParentNode:${newParentNode} switchType:${switchType}"
       }
       "DEPENDS_ON" -
       "SUBMITS" -
@@ -180,17 +211,22 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
    }
    # do I need to go down further?
    if { ${parseChild} == 1 } {
-      if { [$current_xml_node hasChildNodes] && $parseChild == 1 } {
-         set xmlChildren [$current_xml_node childNodes]
-         foreach xmlChild $xmlChildren {
-            FlowXml_parseNode ${exp_path} ${datestamp} $parentFlowNode $xmlChild
+      if { ${xmlNodeName} == "SWITCH" } {
+         # for a switch node, we need to get the matching switch item and continue from there
+         set switchItemNode [FlowXml_getSwitchingItemNode ${exp_path} ${datestamp} ${current_xml_node}]
+         set current_xml_node ${switchItemNode}
+      }
+      if { ${current_xml_node} != "" && [${current_xml_node} hasChildNodes] && ${parseChild} == 1 } {
+         set xmlChildren [${current_xml_node} childNodes]
+         foreach xmlChild ${xmlChildren} {
+            FlowXml_parseNode ${exp_path} ${datestamp} ${parentFlowNode} ${xmlChild}
          }
       }
    }
 }
 
 proc FlowXml_parseModule { xml_data exp_path datestamp parent_flow_node } {
-   ::log::log debug "FlowXml_parseModule exp_path:$exp_path parent_flow_node:$parent_flow_node"
+  ::log::log debug "FlowXml_parseModule exp_path:$exp_path parent_flow_node:$parent_flow_node"
    # puts "FlowXml_parseModule exp_path:$exp_path parent_flow_node:$parent_flow_node"
    # First you parse the XML, the result is held in token d.
    set xml_data [string trim $xml_data] ;# v2.6 barfed w/o this
@@ -200,32 +236,31 @@ proc FlowXml_parseModule { xml_data exp_path datestamp parent_flow_node } {
    
    # get the top node of the xml tree
    set topXmlNode [$rootNode selectNodes /MODULE]
-   set moduleAttrName [$topXmlNode getAttribute name]
+   set recordName [$topXmlNode getAttribute name]
    # defaults to 0
    set workUnitMode [$topXmlNode getAttribute work_unit 0]
 
    if { $parent_flow_node == "" } {
-      set flowNode "/${moduleAttrName}"
-      SharedData_setExpRootNode ${exp_path} ${datestamp} ${flowNode}
+      set suiteName [$topXmlNode getAttribute name]
+      set recordName "/$suiteName"
+      SharedData_setExpRootNode ${exp_path} ${datestamp} ${recordName}
       # create the top node of our flow tree
-      if { [SharedFlowNode_isNodeExist ${exp_path} ${flowNode} ${datestamp}] == false } {
-         SharedFlowNode_createNode ${exp_path} $flowNode ${datestamp} "" module
-         SharedFlowNode_setGenericAttribute ${exp_path} ${flowNode} ${datestamp} load_time [clock seconds]
+      if { [SharedFlowNode_isNodeExist ${exp_path} ${recordName} ${datestamp}] == false } {
+         SharedFlowNode_createNode ${exp_path} $recordName ${datestamp} "" module
+         SharedFlowNode_setGenericAttribute ${exp_path} ${recordName} ${datestamp} load_time [clock seconds]
       }
    } else {
-      set flowNode $parent_flow_node
+      set recordName $parent_flow_node
    }
-   SharedFlowNode_setGenericAttribute ${exp_path} ${flowNode} ${datestamp} work_unit ${workUnitMode}
-   SharedFlowNode_setGenericAttribute ${exp_path} ${flowNode} ${datestamp} local_name ${moduleAttrName}
-   FlowXml_getSubmits ${exp_path} ${datestamp} $flowNode $topXmlNode
+   SharedFlowNode_setGenericAttribute ${exp_path} ${recordName} ${datestamp} work_unit ${workUnitMode}
+   FlowXml_getSubmits ${exp_path} ${datestamp} $recordName $topXmlNode
    # recursively parse the children nodes of the xml tree
    if { [$topXmlNode hasChildNodes] } {
       set xmlChildren [$topXmlNode childNodes]
       foreach xmlChild $xmlChildren {
-         FlowXml_parseNode ${exp_path} ${datestamp} $flowNode $xmlChild
+         FlowXml_parseNode ${exp_path} ${datestamp} $recordName $xmlChild
       }
    }
 
    $doc delete
 }
-
