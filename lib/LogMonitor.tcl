@@ -105,6 +105,10 @@ proc LogMonitor_createLogFile { _exp_path _datestamp } {
 # the log file is considered inactive if it has not been modified for 
 # the last hour
 proc LogMonitor_isLogFileActive { _exp_path _datestamp } {
+   if { ${_datestamp} == "" } {
+      return false
+   }
+
    if { [LogMonitor_getDatestampModTime ${_exp_path} ${_datestamp}] < [clock add [clock seconds] -1 hours] } {
       return false
    }
