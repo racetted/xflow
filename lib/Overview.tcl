@@ -118,10 +118,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                   # the exp thread that followed this log is not needed anymore, release it    
                   ::log::log notice "Overview_GridAdvanceHour Overview_releaseExpThread releasing exp thread for ${exp} ${datestamp}"
                   Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
-               } else {
-                  ::log::log notice "Overview_GridAdvanceHour Overview_releaseLoggerThread releasing exp thread for ${exp} ${datestamp}"
-	          Overview_releaseLoggerThread ${expThreadId} ${exp} ${datestamp}
-	       }
+               }
             }
 
             if { [Overview_isExpBoxObsolete ${canvasW} ${exp} ${datestamp}] == true } {
@@ -284,22 +281,6 @@ proc Overview_processInitStatus { canvas exp_path datestamp {status init} } {
       Overview_ExpCreateEndIcon ${canvas} ${exp_path} ${datestamp} ${endTime}
    }
 }
-
-proc Overview_setDefaultStatus { canvas exp_path hour } {
-   ::log::log debug "Overview_setDefaultStatus ${exp_path} ${hour}"
-   set refStartTime [Overview_getRefTimings ${exp_path} ${hour} start]
-   set refEndTime [Overview_getRefTimings ${exp_path} ${hour} end]
-   if { ${refStartTime} != "" } {
-      Overview_ExpCreateStartIcon ${canvas} ${exp_path} default_${hour} ${refStartTime}
-      Overview_ExpCreateMiddleBox ${canvas} ${exp_path} default_${hour} ${refEndTime}
-      Overview_ExpCreateEndIcon ${canvas} ${exp_path} default_${hour} ${refEndTime}
-   } else {
-      # we do not have exp reference timings,
-      # put it at beginning of graph wherever it fits
-      Overview_ExpCreateStartIcon ${canvas} ${exp_path} default_${hour} [Overview_GraphGetXOriginTime]
-   }
-}
-
 
 # this function process the exp box logic when the root experiment node
 # is in wait state
@@ -903,7 +884,7 @@ proc Overview_isExpBoxObsolete { canvas exp_path datestamp } {
 }
 
 proc Overview_addExpDefaultBoxes { canvas exp_path } {
-   # puts "Overview_addExpDefaultBoxes $exp_path"
+   puts "Overview_addExpDefaultBoxes $exp_path"
    set refTimings [SharedData_getExpTimings ${exp_path}]
    if { ${refTimings} == "" } {
       # exp withouth ExpOptions.xml or withouth any ref timings
@@ -918,7 +899,7 @@ proc Overview_addExpDefaultBoxes { canvas exp_path } {
 }
 
 proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
-   #puts "Overview_addExpDefaultBox $exp_path $datestamp"
+   puts "Overview_addExpDefaultBox $exp_path $datestamp"
    set refTimings [SharedData_getExpTimings ${exp_path}]
    if { ${refTimings} != "" } {
       set hour [Utils_getHourFromDatestamp ${datestamp}]
@@ -1030,7 +1011,7 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
          # the box becomes history, don't need it anymore
          OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp} ${canvas}
 
-         Overview_addExpDefaultBox ${canvas} ${exp_path} ${datestamp}
+         # Overview_addExpDefaultBox ${canvas} ${exp_path} ${datestamp}
          set datestamp [file tail [Overview_getExpBoxTag ${exp_path} ${datestamp} default false]]
       } else {
          ${statusProc} ${canvas} ${exp_path} ${datestamp} ${status}
@@ -1299,7 +1280,8 @@ proc Overview_launchExpFlow { exp_path datestamp } {
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
       if { ${expThreadId} == "" } {
          puts "Overview_launchExpFlow ThreadPool_getThread..."
-         set expThreadId [ThreadPool_getThread]
+         # set expThreadId [ThreadPool_getThread]
+	 set expThreadId [ThreadPool_getNextThread]
          if { ${expThreadId} == "" } {
             tk_messageBox -title "Launch Exp Flow Error" -parent [Overview_getToplevel] -type ok -icon error \
                -message "Maximum flow windows reached, please close some windows and re-launch manually."
@@ -1387,8 +1369,10 @@ proc Overview_releaseLoggerThread { exp_thread_id exp_path datestamp } {
       ::thread::send -async ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
       ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
    } else {
+      ::log::log notice "::thread::send ${exp_thread_id} LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
       ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
    }
+   ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp} DONE"
 }
 
 # At application startup, this function is called by each
@@ -1412,7 +1396,6 @@ proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
 
       ::log::log debug "Overview_childInitDone ThreadPool_releaseThread ${exp_thread_id} DONE"
 
-      # ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
       if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          ::log::log debug "Overview_childInitDone Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}"
 
@@ -1435,10 +1418,6 @@ proc Overview_waitChildInitDone {} {
       ::log::log debug "Overview_waitChildInitDone ..."
       vwait ALL_CHILD_INIT_DONE
    }
-}
-
-proc Overview_isExpStartupDone { exp_thread_id exp_path datestamp } {
-   set isStartupDone [SharedData_getMiscData STARTUP_DONE]
 }
 
 # this function is called asynchronously by experiment child threads to
@@ -1476,16 +1455,16 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
       set isStartupDone [SharedData_getMiscData STARTUP_DONE]
       if { $status == "begin" } {
          # launch the flow if needed... but not when the app is startup up
-         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+         if { ${AUTO_LAUNCH} == true && ${isStartupDone} == true } {
             ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
             ::log::log notice "exp launching xflow window ${exp_path} datestamp:${datestamp}"
             Overview_launchExpFlow ${exp_path} ${datestamp}
-         }
+	 }
       } else {
          # change the exp colors
          Overview_refreshBoxStatus ${exp_path} ${datestamp}
       }
-      if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+      if { ${isStartupDone} == true } {
          # check for box overlapping, auto-refresh, etc
          Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${status} ${timeValue}
       ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
@@ -1738,9 +1717,6 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
    }
 
    switch ${currentStatus} {
-      "init" {
-         append tooltipText "\n${currentStatus}: ${currentStatusTime}"
-      }
       "abort" {
          append tooltipText "\nbegin: ${startTime}"
          append tooltipText "\n${currentStatus}: ${currentStatusTime}"
@@ -1750,11 +1726,14 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
          append tooltipText "\n${currentStatus}: ${currentStatusTime}"
       }
       default {
-         # append tooltipText "\n${currentStatus}: ${currentStatusTime}"
+         if { ! [string match "default*" ${currentStatus}] } {
+            append tooltipText "\n${currentStatus}: ${currentStatusTime}"
+         }
       }
    }
 
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
+   ::log::log debug "Overview_setExpTooltip exp_path:${exp_path} datestamp:${datestamp} currentStatus:${currentStatus} currentStatusTime:${currentStatusTime} expBoxTag:${expBoxTag}"
 
    ::tooltip::tooltip $canvas -item ${expBoxTag} ${tooltipText}
 }

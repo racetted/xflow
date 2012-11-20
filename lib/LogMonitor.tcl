@@ -31,7 +31,6 @@ proc LogMonitor_checkNewLogFiles {} {
                      #puts "LogMonitor_checkNewLogFiles set log file offset to 0"
                      # force reread of log file from start
                      SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
-                     SharedData_setExpStartupDone ${expPath} ${seqDatestamp} false
 
                      #puts "LogMonitor_checkNewLogFiles LogMonitor_startExpLogReader..."
                      ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"

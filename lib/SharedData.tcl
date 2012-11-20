@@ -134,14 +134,6 @@ proc SharedData_getExpRootNode { _exp_path _datestamp } {
    return ${rootNode}
 }
 
-proc SharedData_setExpStartupDone { _exp_path _datestamp _startupDone } {
-   SharedData_setExpDatestampData ${_exp_path} ${_datestamp} startup ${_startupDone}
-}
-
-proc SharedData_getExpStartupDone { _exp_path _datestamp } {
-   SharedData_getExpDatestampData ${_exp_path} ${_datestamp} startup
-}
-
 proc SharedData_getExpGroupDisplay { _exp_path } {
    set groupDisplay [SharedData_getExpData ${_exp_path} groupdisplay]
    return ${groupDisplay}
