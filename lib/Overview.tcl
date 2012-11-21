@@ -1455,7 +1455,7 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
       set isStartupDone [SharedData_getMiscData STARTUP_DONE]
       if { $status == "begin" } {
          # launch the flow if needed... but not when the app is startup up
-         if { ${AUTO_LAUNCH} == true && ${isStartupDone} == true } {
+         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
             ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
             ::log::log notice "exp launching xflow window ${exp_path} datestamp:${datestamp}"
             Overview_launchExpFlow ${exp_path} ${datestamp}
@@ -1464,7 +1464,8 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
          # change the exp colors
          Overview_refreshBoxStatus ${exp_path} ${datestamp}
       }
-      if { ${isStartupDone} == true } {
+      if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+
          # check for box overlapping, auto-refresh, etc
          Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${status} ${timeValue}
       ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"

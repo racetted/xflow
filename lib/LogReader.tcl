@@ -126,6 +126,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
             LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}
          }
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} [tell $f_logfile]
+         SharedData_setExpStartupDone ${exp_path} ${datestamp} true
          close $f_logfile
 
       } else {
