@@ -54,7 +54,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
    if [ catch { 
       FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
       # ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
-      # ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
+      ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
       puts "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message"
@@ -65,6 +65,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
 
    # first do a full first pass read of the log file
    LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
+   ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} first pass read DONE."
 
    if { [SharedData_getMiscData STARTUP_DONE] == false && [SharedData_getMiscData OVERVIEW_MODE] == true } {
       # at application startup, let the overview know that we're done reading the log
@@ -73,6 +74,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
    }
 
    # register the log to be monitor by this thread
+   ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} added to monitor list"
    LogReader_addMonitorDatestamp ${exp_path} ${datestamp}
 }
 

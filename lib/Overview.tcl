@@ -551,7 +551,8 @@ proc Overview_refreshBoxStatus { exp_path datestamp {status ""} } {
    if { ${status} == "" } {
       set status [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    }
-   set tagName ${exp_path}.${datestamp}
+   # set tagName ${exp_path}.${datestamp}
+   set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${status}]
    set colors [::DrawUtils::getStatusColor $status]
    set bgColor [::DrawUtils::getBgStatusColor ${status}]
    set fgColor [::DrawUtils::getFgStatusColor ${status}]
@@ -559,16 +560,11 @@ proc Overview_refreshBoxStatus { exp_path datestamp {status ""} } {
    set initBgColor [::DrawUtils::getBgStatusColor init]
    if { [winfo exists $canvas] } {
 
-      if { ${status} == "late" } {
-         $canvas itemconfigure ${tagName}.middle -fill DarkViolet
-         $canvas itemconfigure ${tagName}.text -fill [::DrawUtils::getFgStatusColor end]
-      } else {
-         $canvas itemconfigure ${tagName}.start -fill $bgColor -outline ${outlineColor}
-         $canvas itemconfigure ${tagName}.middle -outline ${outlineColor}
-         $canvas itemconfigure ${tagName}.reference -fill ${initBgColor} -outline ${outlineColor}
-         $canvas itemconfigure ${tagName}.end -fill $bgColor -outline ${outlineColor}
-      }
-      ${canvas} raise ${tagName}.text
+      $canvas itemconfigure ${expBoxTag}.start -fill $bgColor -outline ${outlineColor}
+      $canvas itemconfigure ${expBoxTag}.middle -outline ${outlineColor}
+      $canvas itemconfigure ${expBoxTag}.reference -fill ${initBgColor} -outline ${outlineColor}
+      $canvas itemconfigure ${expBoxTag}.end -fill $bgColor -outline ${outlineColor}
+      ${canvas} raise ${expBoxTag}.text
    }
 }
 
@@ -1764,6 +1760,7 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
             # move the group and exp boxes that belongs to it
             ::log::log debug "Overview_moveGroups ${overviewCanvas} moving ${displayGroup} delta_y:${delta_y}"
             ${overviewCanvas} move ${displayGroup} ${delta_x} ${delta_y}
+            ${overviewCanvas} move exp_box.${displayGroup} ${delta_x} ${delta_y}
          }
       }
    }
