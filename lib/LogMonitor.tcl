@@ -80,8 +80,12 @@ proc LogMonitor_isDatestampVisible { _exp_path _datestamp } {
 
 # returns a decimal string giving the modifiction time of the log file
 proc LogMonitor_getDatestampModTime { _exp_path _datestamp } {
+   set mtime 0
    set logfile ${_exp_path}/logs/${_datestamp}_nodelog
-   return [file mtime ${logfile}]
+   if { [file readable ${logfile}] } {
+      set mtime [file mtime ${logfile}]
+   }
+   return ${mtime}
 }
 
 # return the newest log file for an experience
