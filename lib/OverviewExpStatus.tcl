@@ -138,9 +138,15 @@ proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp _canvas } {
    if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
       array unset datestamps_${_exp_path} ${_datestamp}
    }
+
+   tsv::unset ${_exp_path}_${_datestamp}
+   tsv::unset ${_exp_path}_${_datestamp}_runtime
+
+   proc out {} {
    SharedData_removeExpDisplayData ${_exp_path} ${_datestamp} ${_canvas}
 
    foreach key { offset update_afterid rootnode startup modules node_mappings updated_nodes } {
       SharedData_unsetExpDatestampData ${_exp_path} ${_datestamp} ${key}
+   }
    }
 }
