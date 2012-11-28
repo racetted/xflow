@@ -439,13 +439,19 @@ proc Overview_processEndStatus { canvas exp_path datestamp {status end} } {
    ::log::log debug "Overview_processEndStatus ${exp_path} refStartTime:$refStartTime refEndTime:$refEndTime startTime:$startTime endTime:$endTime startDateTime:$startDateTime endDateTime:$endDateTime"
    set shiftDay false
    if { ${startTime} != "" } {
+      set currentTime [Utils_getCurrentTime]
       set middleBoxTime ${endTime}
       if { [expr ${startDateTime} < ${xoriginDateTime}] &&
             [expr ${endDateTime} > ${xoriginDateTime} ] } {
+
          # start time is not visible hour but end time is visible... move it 0
          Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} [Overview_GraphGetXOriginTime]
          Overview_ExpCreateMiddleBox ${canvas} ${exp_path} ${datestamp} ${middleBoxTime} ${shiftDay}
          Overview_ExpCreateEndIcon ${canvas} ${exp_path} ${datestamp} ${middleBoxTime} ${shiftDay}
+         if { ${refEndTime} != "" && [Overview_getXCoordTime ${endTime}] > [Overview_getXCoordTime ${refEndTime}] } {
+            # we are late
+            Overview_setExpLate ${canvas} ${exp_path} ${datestamp}
+         }
       } elseif { [expr ${startDateTime} <= ${xoriginDateTime}] &&
             [expr ${endDateTime} <= ${xoriginDateTime}]  } {
          # start time and end time both prior to origin hour, shit to right end grid
@@ -468,7 +474,6 @@ proc Overview_processEndStatus { canvas exp_path datestamp {status end} } {
          Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} ${startTime} ${shiftDay}
          Overview_ExpCreateMiddleBox ${canvas} ${exp_path} ${datestamp} ${middleBoxTime} ${shiftDay}
          Overview_ExpCreateEndIcon ${canvas} ${exp_path} ${datestamp} ${middleBoxTime} ${shiftDay}
-         set currentTime [Utils_getCurrentTime]
          if { ${refEndTime} != "" && [Overview_getXCoordTime ${endTime}] > [Overview_getXCoordTime ${refEndTime}] } {
             # we are late
             Overview_setExpLate ${canvas} ${exp_path} ${datestamp}
@@ -546,7 +551,7 @@ proc Overview_setExpLate { canvas exp_path datestamp } {
    set status [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
 
-   # puts "Overview_setExpLate  $exp_path $datestamp status:$status refEndTime:${refEndTime}" 
+   puts "Overview_setExpLate  $exp_path $datestamp status:$status refEndTime:${refEndTime}" 
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${status}]
 
    ${canvas} itemconfigure ${expBoxTag}.text -fill DarkViolet
@@ -1383,19 +1388,20 @@ proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
    incr STARTUP_PROGRESS_VALUE
    set STARTUP_PROGRESS_TXT "${exp_path} \n datestamp=${datestamp} loaded."
 
+   # free up the thread to process another log at startup
+   ThreadPool_releaseThread ${exp_thread_id}
+
+   ::log::log debug "Overview_childInitDone ThreadPool_releaseThread ${exp_thread_id} DONE"
+
+   # if log has not been modified for a while, we don't monitor it
+   if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+      ::log::log debug "Overview_childInitDone Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}"
+      Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
+   }
+
+   # check if all startup threads are done reading
    if { [array names EXP_THREAD_STARTUP_DONE] != "" } {
-      ::log::log debug "Overview_childInitDone note done: [array names EXP_THREAD_STARTUP_DONE]"
-
-      # free up the thread for another exp at startup
-      ThreadPool_releaseThread ${exp_thread_id}
-
-      ::log::log debug "Overview_childInitDone ThreadPool_releaseThread ${exp_thread_id} DONE"
-
-      if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-         ::log::log debug "Overview_childInitDone Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}"
-
-         Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
-      }
+      ::log::log debug "Overview_childInitDone not done: [array names EXP_THREAD_STARTUP_DONE]"
    } else {
       set ALL_CHILD_INIT_DONE 1
    }
