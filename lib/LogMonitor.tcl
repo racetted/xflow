@@ -18,7 +18,12 @@ proc LogMonitor_checkNewLogFiles {} {
             #set newLastChecked [clock format [clock seconds]]
             set newLastChecked [clock seconds]
             catch { exec ls ${checkDir} > /dev/null }
-            set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
+	    set modifiedFiles ""
+	    if { [ catch {
+               set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
+            } errMsg] } {
+	       log::log::notice "ERROR: LogMonitor_checkNewLogFiles() $errMsg"
+	    }
             foreach modifiedFile ${modifiedFiles} {
                ::log::log debug  "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."
                set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
