@@ -1035,7 +1035,9 @@ proc xflow_nodeMenu { exp_path datestamp canvas node x y } {
          ${submitNoDependMenu} add command -label "Submit" \
             -command [list xflow_submitCallback ${exp_path} ${datestamp} $node $canvas $popMenu continue dep_off]
          ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
-         ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
+         ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
+         ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
+         ${infoMenu} add command -label "Full Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popMenu} "-f 1" ]
          ${miscMenu} add command -label "Initbranch" -command [list xflow_initbranchCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
       } else {
          ${submitMenu} add command -label "Submit & Continue" -underline 9 -command [list xflow_submitCallback ${exp_path} ${datestamp} $node $canvas $popMenu continue ]
@@ -1049,7 +1051,9 @@ proc xflow_nodeMenu { exp_path datestamp canvas node x y } {
 
          ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
          ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
-         ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
+         ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
+         ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
+         ${infoMenu} add command -label "Full Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popMenu} "-f 1" ]
          ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
       }
       ${miscMenu} add command -label "End" -command [list xflow_endCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
@@ -1079,7 +1083,9 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node } {
    ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
-   ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Full Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "-f 1" ]
    ${infoMenu} add command -label "Loop Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} 1]
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} 0]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
@@ -1133,7 +1139,9 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node } {
    ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
-   ${infoMenu} add command -label "Node Full Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
+   ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Full Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "-f 1" ]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
 
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
@@ -1598,7 +1606,33 @@ proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
    }
 }
 
-proc xflow_evalConfigCallback { exp_path datestamp node canvas caller_menu } {
+proc xflow_evalConfigCallback { exp_path datestamp node canvas caller_menu {fullcfg ""} } {
+   global SESSION_TMPDIR
+   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
+   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/evaluate_vars"
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
+
+   set textViewer [SharedData_getMiscData TEXT_VIEWER]
+   set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
+
+   set winTitle "Evaluated Node Config [file tail $node]"
+   regsub -all " " ${winTitle} _ tempfile
+   set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+   set seqCmd "${seqExec} -n ${seqNode} ${seqLoopArgs} -o ${outputfile} -d ${datestamp} $fullcfg"
+   puts $seqCmd
+   Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd}
+
+   if { ${textViewer} == "default" } {
+      create_text_window ${winTitle} ${outputfile} top .
+   } else {
+      set editorCmd "${textViewer} ${outputfile}"
+      ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
+      TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
+   }
+}
+
+proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
    global SESSION_TMPDIR
    #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/chaindot.py"
