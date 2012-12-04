@@ -356,8 +356,8 @@ proc Utils_getBackEndHost { _parentW } {
    set backEndHost spica
    set overrideFile $env(HOME)/.suites/overrides.def
    if { [file readable ${overrideFile}] } {
-      set backeEndHost [exec grep "^BACKEND=" ${overrideFile} | cut -d = -f 2]
-      if { ${backeEndHost} != "" } {
+      set backEndHost [exec grep "^BACKEND=" ${overrideFile} | cut -d = -f 2]
+      if { ${backEndHost} != "" } {
          set backEndHost ${backEndHost}
       }
    }
