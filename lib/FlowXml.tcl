@@ -95,6 +95,7 @@ proc FlowXml_createNodeFromXml { exp_path datestamp parent_flow_node xml_node } 
    # node
    ::log::log debug "FlowXml_createNodeFromXml() parent_flow_node:$parent_flow_node nodeName:$nodeName"
    set actualFlowParent [SharedFlowNode_searchSubmitNode ${exp_path} $parent_flow_node ${datestamp} $nodeName]
+   ::log::log debug "FlowXml_createNodeFromXml() found submitter node:${actualFlowParent}"
    set newFlowDirname $actualFlowParent/$nodeName
    set flowType [string map $FlowNodeTypeMap $xmlNodeName]
 

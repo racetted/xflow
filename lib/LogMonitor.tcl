@@ -22,7 +22,7 @@ proc LogMonitor_checkNewLogFiles {} {
 	    if { [ catch {
                set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
             } errMsg] } {
-	       log::log::notice "ERROR: LogMonitor_checkNewLogFiles() $errMsg"
+	       ::log::log notice "ERROR: LogMonitor_checkNewLogFiles() $errMsg"
 	    }
             foreach modifiedFile ${modifiedFiles} {
                ::log::log debug  "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."

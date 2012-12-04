@@ -177,14 +177,21 @@ proc SharedFlowNode_searchSubmitNode { exp_path node datestamp submitted_node } 
       } else {
          foreach childName ${currentList} {
             set childSubmitNode ${node}/${childName}
-            set childeSubmitNodeType [SharedFlowNode_getNodeType ${exp_path} ${childSubmitNode} ${datestamp}]
-            if { ${childeSubmitNodeType} == "task" || ${childeSubmitNodeType} == "npass_task" } {
-               set value [SharedFlowNode_searchSubmitNode ${exp_path} ${node}/${childName} ${datestamp} ${submitted_node}]
-               if { ${value} != "" } {
-                  set foundNode ${node}/${childName}
-                  break
+	    # ::log::debug "SharedFlowNode_searchSubmitNode submitted_node:${submitted_node} childSubmitNode:${childSubmitNode}"
+	    if { [SharedFlowNode_isNodeExist ${exp_path} ${childSubmitNode} ${datestamp}] == true } {
+               set childeSubmitNodeType [SharedFlowNode_getNodeType ${exp_path} ${childSubmitNode} ${datestamp}]
+               if { ${childeSubmitNodeType} == "task" || ${childeSubmitNodeType} == "npass_task" } {
+                  set value [SharedFlowNode_searchSubmitNode ${exp_path} ${node}/${childName} ${datestamp} ${submitted_node}]
+                  if { ${value} != "" } {
+                     set foundNode ${node}/${childName}
+                     break
+                  }
                }
-            }
+            } else {
+	       # the node does not exists if we have not parsed the definition of the node yet 
+	       # (the parsing of the submit might have been done though)
+	       ::log::debug "SharedFlowNode_searchSubmitNode submitted_node:${submitted_node} bypassing childSubmitNode:${childSubmitNode}"
+	    }
          }
       }
    }
