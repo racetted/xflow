@@ -67,6 +67,14 @@ proc OverviewExpStatus_getLastStatusTime { exp_path datestamp } {
    return  ${value}
 }
 
+proc OverviewExpStatus_getLastStatusDateTime { exp_path datestamp } {
+
+   set lastStatus [OverviewExpStatus_getStatusInfo ${exp_path} ${datestamp} last]
+   set statusInfo [OverviewExpStatus_getStatusInfo ${exp_path} ${datestamp} ${lastStatus}]
+   set value [clock scan ${statusInfo}]
+   return  ${value}
+}
+
 proc OverviewExpStatus_getStartTime { exp_path datestamp } {
    set statusInfo [OverviewExpStatus_getStatusInfo ${exp_path} ${datestamp} begin]
    set value [lindex ${statusInfo} 1]
@@ -133,7 +141,7 @@ proc OverviewExpStatus_getStatusInfo { _exp_path _datestamp _status } {
    return ${value}
 }
 
-proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp _canvas } {
+proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp } {
    global datestamps_${_exp_path}
    if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
       array unset datestamps_${_exp_path} ${_datestamp}
@@ -141,12 +149,38 @@ proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp _canvas } {
 
    tsv::unset ${_exp_path}_${_datestamp}
    tsv::unset ${_exp_path}_${_datestamp}_runtime
+}
 
-   proc out {} {
-   SharedData_removeExpDisplayData ${_exp_path} ${_datestamp} ${_canvas}
+proc OverviewExpStatus_addObsoleteDatestamp {  _exp_path _datestamp } {
+   global obsolete_datestamps
+   if { ! [info exists obsolete_datestamps] } {
+      array set obsolete_datestamps {}
+   }
+   set key ${_exp_path}_${_datestamp}
+   set obsolete_datestamps(${key}) "${_exp_path} ${_datestamp}"
+}
 
-   foreach key { offset update_afterid rootnode startup modules node_mappings updated_nodes } {
-      SharedData_unsetExpDatestampData ${_exp_path} ${_datestamp} ${key}
-   }
-   }
+proc OverviewExpStatus_checkObseleteDatestamps {} {
+  global obsolete_datestamps
+  foreach key [array names obsolete_datestamps] {
+     set keyValue $obsolete_datestamps($key)
+     set exp_path [lindex ${keyValue} 0 ]
+     set datestamp [lindex ${keyValue} 1 ]
+     if { ${exp_path} != "" && ${datestamp} != "" } {
+        if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+	   # the end time happened prior to the x origin time,
+           # clean any data kept for the datestamp
+
+	   # I need to make sure the log file is not monitored first before releasing the data
+	   # sometimes the log file has just been modified even though it does not affect the node (EVENT DELAYS for instance)
+	   # so if the box is obsolete... force release of the log
+           set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
+           Overview_releaseLoggerThread ${expThreadId} ${exp_path} ${datestamp}
+
+           ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp}"
+           OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp}
+	   unset obsolete_datestamps($key)
+	}
+     }
+  }
 }

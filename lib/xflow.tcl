@@ -2597,10 +2597,6 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       destroy ${toplevelW}
       xflow_cleanDatestampVars ${exp_path} ${datestamp}
 
-      # catch { trace remove variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} ${datestamp}" }
-      # catch { after cancel [set XFLOW_FIND_AFTER_ID_${exp_path}_${datestamp}] }
-      # catch { after cancel [set TITLE_AFTER_ID_${exp_path}_${datestamp}]}
-
       if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
 

@@ -96,6 +96,9 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    # shift all the exp boxes in the canvas
    set displayGroups [ExpXmlReader_getGroups]
 
+   # check if we need to release obsolete data
+   OverviewExpStatus_checkObseleteDatestamps
+
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
@@ -113,24 +116,20 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
             # is the exp thread still needed?
             set expThreadId [SharedData_getExpThreadId ${exp} ${datestamp}]
-            if { ${expThreadId} != "" && [LogMonitor_isLogFileActive ${exp} ${datestamp}] == false } {
-               if { [xflow_isWindowActive ${exp} ${datestamp}] == false } {
-                  # the exp thread that followed this log is not needed anymore, release it    
-                  ::log::log notice "Overview_GridAdvanceHour Overview_releaseExpThread releasing exp thread for ${exp} ${datestamp}"
-                  Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
-               }
+            if { [LogMonitor_isLogFileActive ${exp} ${datestamp}] == false && [xflow_isWindowActive ${exp} ${datestamp}] == false } {
+               # the exp thread that followed this log is not needed anymore, release it    
+               ::log::log notice "Overview_GridAdvanceHour Overview_releaseExpThread releasing exp thread for ${exp} ${datestamp}"
+               Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
             }
 
-            if { [Overview_isExpBoxObsolete ${canvasW} ${exp} ${datestamp}] == true } {
+            if { [Overview_isExpBoxObsolete ${exp} ${datestamp}] == true } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
-               # first clean any data kept for the datestamp
-               if { [xflow_isWindowActive ${exp} ${datestamp}] == false } {
-                  ::log::log notice "Overview_GridAdvanceHour OverviewExpStatus_removeStatusDatestamp exp_path:${exp} datestamp:${datestamp}"
-                  OverviewExpStatus_removeStatusDatestamp ${exp} ${datestamp} ${canvasW}
-               }
 
-               # delete current box
+               # register the datestamp for data cleanup
+	       OverviewExpStatus_addObsoleteDatestamp ${exp} ${datestamp}
+
+               # delete current exp box from overview
                Overview_removeExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus}
 
                set expBoxTag [Overview_getExpBoxTag ${exp} ${datestamp} default false]
@@ -551,7 +550,7 @@ proc Overview_setExpLate { canvas exp_path datestamp } {
    set status [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
 
-   puts "Overview_setExpLate  $exp_path $datestamp status:$status refEndTime:${refEndTime}" 
+   # puts "Overview_setExpLate  $exp_path $datestamp status:$status refEndTime:${refEndTime}" 
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${status}]
 
    ${canvas} itemconfigure ${expBoxTag}.text -fill DarkViolet
@@ -856,7 +855,7 @@ proc Overview_getExpBoxTags { canvas exp_path } {
    return ${results}
 }
 
-proc Overview_isExpBoxObsolete { canvas exp_path datestamp } {
+proc Overview_isExpBoxObsolete { exp_path datestamp } {
    # puts "Overview_isExpBoxObsolete $exp_path $datestamp"
    if { ${datestamp} == "default" } {
       # puts "Overview_isExpBoxObsolete exp_path:${exp_path} datestamp:${datestamp}"
@@ -1006,12 +1005,11 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
    if { ${statusProc} != "" } {
       if { [string match "default*" ${datestamp}] } {
          Overview_addExpDefaultBox ${canvas} ${exp_path} ${datestamp}
-      } elseif { [Overview_isExpBoxObsolete ${canvas} ${exp_path} ${datestamp}] == true } {
+      } elseif { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
          # the box becomes history, don't need it anymore
-	 puts "Overview_updateExpBox OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp} ${canvas}"
-         OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp} ${canvas}
-
-         # Overview_addExpDefaultBox ${canvas} ${exp_path} ${datestamp}
+	 ::log::log notice "Overview_updateExpBox() OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}"
+	 OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}
+         # OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp}
          set datestamp [file tail [Overview_getExpBoxTag ${exp_path} ${datestamp} default false]]
       } else {
          ${statusProc} ${canvas} ${exp_path} ${datestamp} ${status}
@@ -1280,7 +1278,6 @@ proc Overview_launchExpFlow { exp_path datestamp } {
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
       if { ${expThreadId} == "" } {
          puts "Overview_launchExpFlow ThreadPool_getThread..."
-         # set expThreadId [ThreadPool_getThread]
 	 set expThreadId [ThreadPool_getNextThread]
          if { ${expThreadId} == "" } {
             tk_messageBox -title "Launch Exp Flow Error" -parent [Overview_getToplevel] -type ok -icon error \
@@ -1319,9 +1316,9 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          # inactive log
          # release exp thread
          ::log::log notice "Overview_launchExpFlow releasing inactive log ${exp_path} ${datestamp}"
-         # thread::send ${expThreadId} "LogReader_cancelAfter ${exp_path} \"${datestamp}\""
-         SharedData_removeExpThreadId ${exp_path} ${datestamp}
-         ThreadPool_releaseThread ${expThreadId} ${exp_path} ${datestamp}
+         # SharedData_removeExpThreadId ${exp_path} ${datestamp}
+         # ThreadPool_releaseThread ${expThreadId} ${exp_path} ${datestamp}
+         Overview_releaseLoggerThread ${expThreadId} ${exp_path} ${datestamp}
       }
 
       if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {
@@ -1354,25 +1351,24 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 }
 
 # this proc is called before releasing an exp thread to the thread pool
+# it also cleans up flow related data
 proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
    ::log::log notice "Overview_releaseExpThread exp_thread_id:${exp_thread_id} exp_path:${exp_path} datestamp:${datestamp}"
    xflow_quit ${exp_path} ${datestamp} true
-
    Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
-   SharedData_removeExpThreadId ${exp_path} ${datestamp}
-   ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
 }
 
+# stops monitoring the datestamp log
 proc Overview_releaseLoggerThread { exp_thread_id exp_path datestamp } {
-   ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp}"
-   if { [SharedData_getMiscData STARTUP_DONE] == false } {
+   if { ${exp_thread_id} != "" } {
+      ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp}"
       ::thread::send -async ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
-      ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
-   } else {
-      ::log::log notice "::thread::send ${exp_thread_id} LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
-      ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
+      if { [SharedData_getMiscData STARTUP_DONE] == false } {
+         ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
+      }
+      SharedData_removeExpThreadId ${exp_path} ${datestamp}
+      ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp} DONE"
    }
-   ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp} DONE"
 }
 
 # At application startup, this function is called by each
@@ -1397,6 +1393,7 @@ proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
    if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
       ::log::log debug "Overview_childInitDone Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}"
       Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
+      # SharedData_removeExpThreadId ${exp_path} ${datestamp}
    }
 
    # check if all startup threads are done reading
@@ -1444,31 +1441,34 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
       ::log::log debug "Overview_updateExp getStatusInfo $exp_path $datestamp status:begin statusInfo:${statusInfo}"
       ::log::log debug "Overview_updateExp getStatusInfo $exp_path $datestamp status:beginx statusInfo:[OverviewExpStatus_getStatusInfo ${exp_path} ${datestamp} beginx]"
    }
-   if { [winfo exists $canvas] } {
-      set isStartupDone [SharedData_getMiscData STARTUP_DONE]
-      if { $status == "begin" } {
-         # launch the flow if needed... but not when the app is startup up
-	 # the SharedData_getExpStartupDone is to make sure that you don't
-	 # trigger multiple begins when launching a flow with a datestamp that is currently not running
-         if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
-            ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
-            ::log::log notice "exp launching xflow window ${exp_path} datestamp:${datestamp}"
-            Overview_launchExpFlow ${exp_path} ${datestamp}
-	 }
-      } else {
-         # change the exp colors
-         Overview_refreshBoxStatus ${exp_path} ${datestamp}
-      }
-      if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
 
-         # check for box overlapping, auto-refresh, etc
-         Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${status} ${timeValue}
-      ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
-         Overview_checkGridLimit
-      ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
+   if { [OverviewExpStatus_getLastStatusDateTime ${exp_path} ${datestamp}] >  [Overview_GraphGetXOriginDateTime] } {
+      if { [winfo exists $canvas] } {
+         set isStartupDone [SharedData_getMiscData STARTUP_DONE]
+         if { $status == "begin" } {
+            # launch the flow if needed... but not when the app is startup up
+      # the SharedData_getExpStartupDone is to make sure that you don't
+      # trigger multiple begins when launching a flow with a datestamp that is currently not running
+            if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+               ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
+               ::log::log notice "exp launching xflow window ${exp_path} datestamp:${datestamp}"
+               Overview_launchExpFlow ${exp_path} ${datestamp}
       }
-   } else {
-      ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
+         } else {
+            # change the exp colors
+            Overview_refreshBoxStatus ${exp_path} ${datestamp}
+         }
+         if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+
+            # check for box overlapping, auto-refresh, etc
+            Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${status} ${timeValue}
+         ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
+            Overview_checkGridLimit
+         ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
+         }
+      } else {
+         ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
+      }
    }
 }
 
@@ -2158,9 +2158,7 @@ proc Overview_quit {} {
 
          foreach datestamp ${datestamps} {
             set expThreadId [SharedData_getExpThreadId ${exp} ${datestamp}]
-            if { ${expThreadId} != "" } {
-               Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
-            }
+            Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
          }
       }
    }
@@ -2560,6 +2558,8 @@ proc Overview_main {} {
    Overview_setCanvasScrollArea ${topCanvas}
    Overview_setCurrentTime ${topCanvas}
    Overview_addCanvasImage ${topCanvas}
+   # check if we need to release obsolete data
+   OverviewExpStatus_checkObseleteDatestamps
    Overview_GridAdvanceHour
 
    SharedData_setMiscData STARTUP_DONE true

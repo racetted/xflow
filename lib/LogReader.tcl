@@ -15,11 +15,13 @@ proc LogReader_addMonitorDatestamp { exp_path datestamp } {
 proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
    global LogReader_Datestamps
 
+   ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} called."
    set key ${exp_path}_${datestamp}
    if { [info exists LogReader_Datestamps($key)] } {
-      ::log::log notice "LogReader_removeMonitorDatestamp removing datestamp ${exp_path} ${datestamp}"
+      ::log::log notice "LogReader_removeMonitorDatestamp() removing datestamp ${exp_path} ${datestamp}"
       array unset LogReader_Datestamps $key
    }
+   ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} done."
 }
 
 # once initiated, this proc monitors all the datestamp that  is registered
@@ -182,7 +184,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
          set typeEndIndex [expr $msgIndex -2]
       }
       set msgStartIndex [expr $msgIndex + 7]
- }
+   }
 
    set timestamp [string range ${_line} 10 [expr $nodeIndex - 2]]
    set node [string range ${_line} $nodeStartIndex $nodeEndIndex]
