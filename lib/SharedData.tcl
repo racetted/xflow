@@ -184,6 +184,19 @@ proc SharedData_getExpShortName { _exp_path } {
    return ${info}
 }
 
+# true | false
+proc SharedData_setExpAutoLaunch { _exp_path _autoLaunch} {
+   SharedData_setExpData ${_exp_path} autolaunch ${_autoLaunch}
+}
+
+proc SharedData_getExpAutoLaunch { _exp_path } {
+   set autoLaunchValue [SharedData_getExpData ${_exp_path} autolaunch]
+   if { ${autoLaunchValue} == "" } {
+      set autoLaunchValue true
+   }
+   return ${autoLaunchValue}
+}
+
 proc SharedData_setExpModules { _exp_path _datestamp _modules } {
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} modules ${_modules}
 }

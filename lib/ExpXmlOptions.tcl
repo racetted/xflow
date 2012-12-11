@@ -160,5 +160,16 @@ proc ExpXmlOptions_getShortName { _dom_doc _exp_path } {
    return ${defaultShortName}
 }
 
+proc ExpXmlOptions_getAutoLaunch { _dom_doc _exp_path } {
+   set autoLaunchValue true
+   set root [${_dom_doc} documentElement root]
+
+   set query "/ExpOptions/MonitorInfo"
+   set monitorInfoNode [${root} selectNodes ${query}]
+   if { ${monitorInfoNode} != "" } {
+      set autoLaunchValue [${monitorInfoNode} getAttribute auto_launch true]
+   }
+   return ${autoLaunchValue}
+}
 #global env
 #ExpXmlOptions_read $env(SEQ_EXP_HOME)/ExpOptions.xml

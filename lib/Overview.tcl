@@ -1449,7 +1449,8 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
             # launch the flow if needed... but not when the app is startup up
       # the SharedData_getExpStartupDone is to make sure that you don't
       # trigger multiple begins when launching a flow with a datestamp that is currently not running
-            if { ${AUTO_LAUNCH} == "true" && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+            if { [SharedData_getExpAutoLaunch ${exp_path}] == true && ${AUTO_LAUNCH} == "true" \
+	         && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
                ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
                ::log::log notice "exp launching xflow window ${exp_path} datestamp:${datestamp}"
                Overview_launchExpFlow ${exp_path} ${datestamp}

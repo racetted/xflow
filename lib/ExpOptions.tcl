@@ -133,6 +133,9 @@ proc ExpOptions_read { _exp_path } {
       # get support info
       set supportData [ExpXmlOptions_getSupport ${domDoc} ${_exp_path} ${shortName}]
 
+      # get auto launch info
+      set autoLaunchValue [ExpXmlOptions_getAutoLaunch ${domDoc} ${_exp_path}]
+
       # close xml doc
       ExpXmlOptions_done ${domDoc}
 
@@ -141,6 +144,7 @@ proc ExpOptions_read { _exp_path } {
       SharedData_setExpTimings ${_exp_path} ${refTimings}
       SharedData_setExpShortName ${_exp_path} ${shortName}
       SharedData_setExpSupportInfo ${_exp_path} ${supportData}
+      SharedData_setExpAutoLaunch ${_exp_path} ${autoLaunchValue}
    } else {
       SharedData_setExpDisplayName ${_exp_path} [file tail ${_exp_path}]
    }
