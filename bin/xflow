@@ -4,10 +4,8 @@
 
 arch=`uname -s`
 if [[ "$arch" = "Linux" ]]; then
-   #TCLSH=/home/binops/afsi/ssm/sw/linux26-i686/bin/tclsh8.4
-   #TCLSH=/data/bowmore/afsisul/ssm_targets/tcl-tk_8.5.7_linux26-i686/bin/tclsh8.5
-   #TCLSH=/home/binops/afsi/ssm/domain2/linux26-i686/bin/wish8.5
    TCLSH=/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
+   TCLSH=$(which wish8.5)
 else
    echo xflow is only supported on Linux platforms >&2
    exit
