@@ -2111,6 +2111,9 @@ proc xflow_refreshFlow { exp_path datestamp } {
          LogReader_startExpLogReader ${exp_path} ${datestamp} no_overview
       } else {
          set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
+	 if { ${expThreadId} == "" } {
+	    set expThreadId [ThreadPool_getThread]
+	 }
          thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview"
       }
 
@@ -3007,8 +3010,9 @@ proc xflow_parseCmdOptions {} {
       SharedData_setMiscData STARTUP_DONE true
       xflow_displayFlow ${expPath} ${newestDatestamp}
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
+      # start monitoring datestamps for new log entries
+      LogReader_readMonitorDatestamps
    }
-
 }
 
 proc xflow_getImageFile { key } {
