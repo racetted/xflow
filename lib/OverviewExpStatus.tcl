@@ -167,7 +167,7 @@ proc OverviewExpStatus_checkObseleteDatestamps {} {
      set exp_path [lindex ${keyValue} 0 ]
      set datestamp [lindex ${keyValue} 1 ]
      if { ${exp_path} != "" && ${datestamp} != "" } {
-        if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+        if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false && [xflow_isWindowActive ${exp_path} ${datestamp}] == false } {
 	   # the end time happened prior to the x origin time,
            # clean any data kept for the datestamp
 

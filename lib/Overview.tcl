@@ -1129,7 +1129,7 @@ proc Overview_ShiftExpRow { display_group empty_slot_y } {
       foreach expDatestamp ${datestamps} {
 
          foreach {xx1 yy1 xx2 yy2} [Overview_getRunBoxBoundaries ${overviewCanvas} ${exp} ${expDatestamp}] { break }
-         if { ${yy1} != "" && ${yy1} > ${empty_slot_y} } {
+         if { [info exists yy1] && ${yy1} != "" && ${yy1} > ${empty_slot_y} } {
             # y of exp is greater than empty box, shift it up
             ::log::log debug "Overview_ShiftExpRow ${display_group} shifting ${exp}.${expDatestamp} up"
             ${overviewCanvas} move ${exp}.${expDatestamp} 0 -${expEntryHeight}
@@ -1311,7 +1311,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
             thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow"
          }
       }
-
+      proc out {} {
       if { ${datestamp} != "" && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
          # inactive log
          # release exp thread
@@ -1319,6 +1319,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          # SharedData_removeExpThreadId ${exp_path} ${datestamp}
          # ThreadPool_releaseThread ${expThreadId} ${exp_path} ${datestamp}
          Overview_releaseLoggerThread ${expThreadId} ${exp_path} ${datestamp}
+      }
       }
 
       if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {
@@ -1393,7 +1394,6 @@ proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
    if { [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
       ::log::log debug "Overview_childInitDone Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}"
       Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
-      # SharedData_removeExpThreadId ${exp_path} ${datestamp}
    }
 
    # check if all startup threads are done reading

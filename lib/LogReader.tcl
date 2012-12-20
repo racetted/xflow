@@ -126,8 +126,16 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
          # position yourself in the file
          seek $f_logfile $logFileOffset
 
-         while {[gets $f_logfile line] >= 0} {
-            LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}
+         # while {[gets $f_logfile line] >= 0} {
+         #   LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}
+         # }
+         while {[gets $f_logfile line] > 0} {
+            catch { 
+	       if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}] != 0 } {
+                  ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: [tell $f_logfile]"
+		  break
+	       }
+	    }
          }
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} [tell $f_logfile]
          SharedData_setExpStartupDone ${exp_path} ${datestamp} true
@@ -160,11 +168,15 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
 
 proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter {first_read false} } {
    global MSG_CENTER_THREAD_ID
+   if { [string first "TIMESTAMP=" ${_line}] != 0 } {
+      return 1
+   }
+
    set nodeIndex 28
    set typeIndex [string first "MSGTYPE=" ${_line} $nodeIndex]
    if { $typeIndex == -1 } {
       puts "LogReader_processLine invalid line ignored:${_line} exp_path:${_exp_path} datestamp:${_datestamp}"
-      return
+      return 1
    }
    set loopIndex [string first "SEQLOOP=" ${_line} $typeIndex]
    set msgIndex [string first "SEQMSG=" ${_line} $typeIndex]
@@ -231,6 +243,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
          LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} ${first_read}
       }
    }
+   return 0
 }
 
 proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp {_firstRead false}} {
