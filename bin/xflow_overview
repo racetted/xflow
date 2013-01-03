@@ -5,7 +5,7 @@ eval
 arch=`uname -s`
 if [[ "$arch" = "Linux" ]]; then
    # TCLSH=/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
-   TCLSH=$(which wish8.5)
+   TCLSH=$(which maestro_wish8.5)
 else
    echo xflow_overview is only supported on Linux platforms >&2
    exit
