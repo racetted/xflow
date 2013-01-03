@@ -518,8 +518,10 @@ proc SharedData_init {} {
    SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
    SharedData_setMiscData MSG_CENTER_USE_BELL true
 
-   #SharedData_setMiscData FONT_BOLD "-microsoft-verdana-bold-r-normal--11-*-*-*-p-*-iso8859-10"
    SharedData_setMiscData FONT_BOLD "-*-*-bold-r-normal--11-*-*-*-p-*-iso8859-10"
+   # SharedData_setMiscData FONT_NAME "DejaVu Sans"
+   SharedData_setMiscData FONT_SIZE 10
+
    SharedData_setMiscData DEBUG_TRACE 0
    SharedData_setMiscData FLOW_SCALE 1
    SharedData_setMiscData AUTO_LAUNCH true

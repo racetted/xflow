@@ -162,6 +162,7 @@ proc OverviewExpStatus_addObsoleteDatestamp {  _exp_path _datestamp } {
 
 proc OverviewExpStatus_checkObseleteDatestamps {} {
   global obsolete_datestamps
+  ::log::log notice "OverviewExpStatus_checkObseleteDatestamps()  started..."
   foreach key [array names obsolete_datestamps] {
      set keyValue $obsolete_datestamps($key)
      set exp_path [lindex ${keyValue} 0 ]
@@ -183,4 +184,5 @@ proc OverviewExpStatus_checkObseleteDatestamps {} {
 	}
      }
   }
+  ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() DONE"
 }

@@ -43,6 +43,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
    set currentClock [clock seconds]
    ::log::log debug "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
+   ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
    set advanceGrid true
    if { ${new_hour} == "" } {
       # first time called, calculate the time to sleep before the hour
@@ -142,6 +143,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
          }
       }
    }
+   ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}] DONE"
 }
 
 # this function returns a time value based on a grid x coordinate value

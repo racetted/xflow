@@ -16,7 +16,6 @@ namespace eval ::DrawUtils {
 
 proc ::DrawUtils::init {} {
    variable nodeTypeMap
-   variable hostColorMap
    variable constants
 
    array set nodeTypeMap {
@@ -29,19 +28,41 @@ proc ::DrawUtils::init {} {
       case losange
       switch_case losange
    }
+   if { [SharedData_getMiscData FONT_NAME] != "" } {
+      # use user defined font
+      ::DrawUtils::setDefaultFonts [SharedData_getMiscData FONT_NAME] [SharedData_getMiscData FONT_SIZE]
+   }
+}
 
-   array set hostColorMap {
-      castor "cornflowerblue"
-      ib "cyan1"
-      naos "IndianRed4"
-      maia "IndianRed2"
-      pollux "Sandybrown"
-      unknown "black"
+proc ::DrawUtils::setDefaultFonts { {_family fixed} {_size 12} } {
+   font configure TkDefaultFont -size ${_size} -family ${_family}
+   font configure TkTextFont -size ${_size} -family ${_family}
+   font configure TkMenuFont -size ${_size} -family ${_family}
+   font configure TkHeadingFont -size ${_size} -family ${_family}
+   font configure TkTooltipFont -size [expr ${_size} - 2] -family ${_family}
+   font configure TkFixedFont -size ${_size} -family ${_family}
+   font configure TkIconFont -size ${_size} -family ${_family}
+}
+
+proc ::DrawUtils::getBoxLabelFont { _canvas } {
+   set labelFont flow_box_label_font
+   if { [SharedData_getMiscData FONT_NAME] == "" } {
+      # use legacy font
+      return [SharedData_getMiscData FONT_BOLD]
    }
 
-   array set constants {
-      border_width "3"
+   # use user defined font
+   if { [lsearch [font names] ${labelFont}] == -1 } {
+      set newFont [font create ${labelFont}]
+      font configure ${newFont} -family [font actual ${_canvas} -family] \
+         -size [font actual ${_canvas} -size] \
+         -weight [font actual ${_canvas} -weight] \
+         -slant  [font actual ${_canvas} -slant ]
+
+      # font configure ${newFont} -weight bold -size 11
+      font configure ${newFont} -weight bold -size [expr  [font actual ${_canvas} -size] - 2 ]
    }
+   return ${labelFont}
 }
 
 proc ::DrawUtils::getStatusColor { node_status } {
@@ -206,7 +227,7 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    variable constants
    set newtx1 [expr ${tx1} + 30]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
+      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    set nx1 [expr [lindex $boxArea 0] -30]
@@ -255,7 +276,7 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
    set newtx1 [expr ${tx1} + 10]
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
+      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    $canvas itemconfigure ${binder}.text -text $txt
@@ -528,7 +549,7 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
       set text /$maxtext
    }
    $canvas create text ${tx1} ${ty1} -text ${text} -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
+      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
@@ -578,7 +599,7 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
    }
 
    $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
+      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
@@ -615,7 +636,7 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
 
 proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
    $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
-      -justify center -font [SharedData_getMiscData  FONT_BOLD] -anchor w -tags "flow_element $binder ${binder}.text"
+      -justify center -font [::DrawUtils::getBoxLabelFont ${canvas}] -anchor w -tags "flow_element $binder ${binder}.text"
    set shadowOffset [SharedData_getMiscData CANVAS_SHADOW_OFFSET]
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
