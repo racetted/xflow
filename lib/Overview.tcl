@@ -2387,15 +2387,24 @@ proc Overview_createToolbar { _toplevelW } {
    button ${colorLegendW} -image ${toolbarW}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}] -relief flat
    tooltip::tooltip ${colorLegendW} "Show color legend."
 
+   set backEndW ""
    if { [SharedData_getMiscData OVERVIEW_SHOW_AIX_ICON] == true } { 
-      # show aix icon
+      # mainly for a&p, show aix icon to fetch the active aix cluster
       image create photo ${toolbarW}.back_end_img -file ${imageDir}/backend.png
       set backEndW [button ${toolbarW}.button_be -image ${toolbarW}.back_end_img -relief flat \
                      -command [list Utils_getBackEndHost [Overview_getToplevel] ] ]
-      grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${closeW} -sticky w -padx 2 
-   } else {
-      grid ${mesgCenterW} ${colorLegendW} ${closeW} -sticky w -padx 2 
    }
+
+   set testBellW ""
+   if { [SharedData_getMiscData OVERVIEW_SHOW_TEST_BELL_ICON] == true } { 
+      # mainly for a&p allow them to test if the application alarm bell is working
+      image create photo ${toolbarW}.test_bell_img -file ${imageDir}/bell_test.png
+      set testBellW [button ${toolbarW}.button_test_bell -image ${toolbarW}.test_bell_img -relief flat \
+                     -command [list Overview_testBellCallback] ]
+      tooltip::tooltip ${testBellW} "Test Bell"
+   }
+
+   eval grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${testBellW} ${closeW} -sticky w -padx 2 
 
    grid ${toolbarW} -row 1 -column 0 -sticky nsew -padx 2
 }
@@ -2508,6 +2517,24 @@ proc Overview_getExpRootNodeInfo { exp_path } {
    }
    return ${rootNode}
 }
+
+proc Overview_testBellCallback {} {
+   global TEST_BELL_VAR
+   set TEST_BELL_VAR 1
+   Overview_soundbell
+   tk_messageBox -title "Bell Testing" -message "You should hear the bell every 2 seconds. Click on the ok button to stop!" -type ok
+   set TEST_BELL_VAR 0
+}
+
+proc Overview_soundbell {} {
+   global TEST_BELL_VAR
+   if { [info exists TEST_BELL_VAR] && $TEST_BELL_VAR == "1" } {
+      puts "sounding bell..."
+      bell
+      after 2000 { Overview_soundbell }
+   }
+}
+
 
 proc Overview_main {} {
    global MSG_CENTER_THREAD_ID
