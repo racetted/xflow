@@ -2400,7 +2400,7 @@ proc Overview_createToolbar { _toplevelW } {
       # mainly for a&p allow them to test if the application alarm bell is working
       image create photo ${toolbarW}.test_bell_img -file ${imageDir}/bell_test.png
       set testBellW [button ${toolbarW}.button_test_bell -image ${toolbarW}.test_bell_img -relief flat \
-                     -command [list Overview_testBellCallback] ]
+                     -command [list Overview_testBellCallback ${toolbarW}.button_test_bell] ]
       tooltip::tooltip ${testBellW} "Test Bell"
    }
 
@@ -2518,11 +2518,11 @@ proc Overview_getExpRootNodeInfo { exp_path } {
    return ${rootNode}
 }
 
-proc Overview_testBellCallback {} {
+proc Overview_testBellCallback { source_w } {
    global TEST_BELL_VAR
    set TEST_BELL_VAR 1
    Overview_soundbell
-   tk_messageBox -title "Bell Testing" -message "You should hear the bell every 2 seconds. Click on the ok button to stop!" -type ok
+   tk_messageBox -title "Bell Testing" -message "You should hear the bell every 2 seconds. Click on the ok button to stop!" -type ok -parent ${source_w}
    set TEST_BELL_VAR 0
 }
 
