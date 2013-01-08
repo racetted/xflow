@@ -601,7 +601,7 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
 
    if { [Utils_validateVisibleDatestamp ${newDatestamp}] == false } {
       tk_messageBox -title "Datestamp Error" -parent ${parent_w} -type ok -icon error \
-         -message "Invalid datestamp value: ${newDatestamp}. Format must be yyymmddhh."
+         -message "Invalid datestamp value: ${newDatestamp}. Format must be yyyymmddhh."
       return
    }
 
