@@ -244,7 +244,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
                if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
                   ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
                   thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
-                     "Overview_updateExp [thread::id] ${_exp_path} ${_datestamp} ${type} ${timestamp}"
+                     "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
                }
             }
          }

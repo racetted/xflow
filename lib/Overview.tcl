@@ -1534,12 +1534,18 @@ proc Overview_setCanvasScrollArea { canvasW } {
 # this function is called to add a new experiment to be monitored by the overview
 proc Overview_addExp { display_group canvas exp_path } {
    ::log::log debug "Overview_addExp display_group:$display_group exp_path:$exp_path"
-   
+ 
+   set key [regsub -all " " ${exp_path} _]
+   set key [regsub -all "/" ${key} _]
+   set key [regsub -all {[\.]} ${key} _]
+   SharedData_setExpData ${exp_path} EXP_PATH_KEY ${key}
+
    set mainid [thread::id]
 
    # create startup threads to process log datestamps
    # get the list of datestamps visible from the left side of the overview for this exp
-   set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [clock format [clock add [clock seconds] -13 hours]]]
+   # set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [clock format [clock add [clock seconds] -13 hours]]]
+   set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [expr -13*60] ]
    ::log::log debug "Overview_addExp exp_path:$exp_path visibleDatestamps:$visibleDatestamps"
 
    if [ catch { ExpOptions_read ${exp_path} } message ] {
@@ -1871,7 +1877,8 @@ proc Overview_addGroups { canvas } {
       foreach exp $expList {
          set currentTime [clock seconds]
          Overview_addExp $displayGroup $canvas $exp
-         SharedData_setExpData ${exp} LAST_CHECKED_TIME ${currentTime}
+         # SharedData_setExpData ${exp} LAST_CHECKED_TIME ${currentTime}
+         LogMonitor_setLastCheckTime ${exp} ${currentTime}
       }
    }
    # read all valid datestamp logs 
@@ -2146,7 +2153,7 @@ proc Overview_readExperiments {} {
 }
 
 proc Overview_quit {} {
-   global TimeAfterId MSG_CENTER_THREAD_ID 
+   global TimeAfterId MSG_CENTER_THREAD_ID SESSION_TMPDIR
    ::log::log debug "Overview_quit"
    if { [info exists TimeAfterId] } {
       after cancel $TimeAfterId
@@ -2166,8 +2173,13 @@ proc Overview_quit {} {
       }
    }
    ThreadPool_quit
-   thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_quit"
+   # thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_quit"
 
+   catch { 
+      puts "Overview_quit rm -fr ${SESSION_TMPDIR}"
+      exec rm -fr ${SESSION_TMPDIR}
+   }
+   
    # destroy $top
    exit 0
 }

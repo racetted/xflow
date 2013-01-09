@@ -1,5 +1,21 @@
 #!/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
 
+# touches a file for each experiment; it serves as a timestamp for to be used
+# for the find -newer command; used to know log files that have changed since the
+# last check
+proc LogMonitor_setLastCheckTime { _exp_path _time_in_seconds } {
+   global SESSION_TMPDIR
+   set expPathKey [SharedData_getExpData ${_exp_path} EXP_PATH_KEY]
+   ::log::log debug "LogMonitor_setLastCheckTime touch ${SESSION_TMPDIR}/${expPathKey}.last_checked_file"
+   set timeFormat [clock format ${_time_in_seconds} -format "%y%m%d%H%M.%S"]
+   exec touch ${SESSION_TMPDIR}/${expPathKey}.last_checked_file -t ${timeFormat}
+}
+
+proc LogMonitor_getLastCheckFile { _exp_path } {
+   global SESSION_TMPDIR
+   set expPathKey [SharedData_getExpData ${_exp_path} EXP_PATH_KEY]
+   return ${SESSION_TMPDIR}/${expPathKey}.last_checked_file
+}
 
 # look for new log files created under SEQ_EXP_HOME/logs
 proc LogMonitor_checkNewLogFiles {} {
@@ -14,15 +30,19 @@ proc LogMonitor_checkNewLogFiles {} {
          set checkDir ${expPath}/logs
          if { [file readable ${checkDir}] } {
             # puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
-            set lastCheckedTime [SharedData_getExpData ${expPath} LAST_CHECKED_TIME]
-            #set newLastChecked [clock format [clock seconds]]
+            # set lastCheckedTime [SharedData_getExpData ${expPath} LAST_CHECKED_TIME]
+	    set lastCheckedFile [LogMonitor_getLastCheckFile ${expPath}]
+            set lastCheckedTime [file mtime ${lastCheckedFile}]
             set newLastChecked [clock seconds]
             catch { exec ls ${checkDir} > /dev/null }
 	    set modifiedFiles ""
 	    if { [ catch {
-               set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
+               # set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
+	       # -newerct not available on 32 bits find version
+               set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
             } errMsg] } {
 	       ::log::log notice "ERROR: LogMonitor_checkNewLogFiles() $errMsg"
+	       puts "ERROR: LogMonitor_checkNewLogFiles() $errMsg"
 	    }
             foreach modifiedFile ${modifiedFiles} {
                ::log::log debug  "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."
@@ -37,9 +57,7 @@ proc LogMonitor_checkNewLogFiles {} {
                      # force reread of log file from start
                      SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
 
-                     #puts "LogMonitor_checkNewLogFiles LogMonitor_startExpLogReader..."
-                     ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
-                     # puts "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
+                     #puts "LogMonitor_checkNewLogFiles LogMonitor_startExpLogReader..." ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}" # puts "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
                      thread::send ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all"
                      ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader done."
                      # puts "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader done."
@@ -52,7 +70,8 @@ proc LogMonitor_checkNewLogFiles {} {
             }
             if { [expr ${newLastChecked} - ${lastCheckedTime}] > 300 } {
                # to go around nfs latency, I only change the checked time every 5 minutes
-               SharedData_setExpData ${expPath} LAST_CHECKED_TIME ${newLastChecked}
+               # SharedData_setExpData ${expPath} LAST_CHECKED_TIME ${newLastChecked}
+	       LogMonitor_setLastCheckTime ${expPath} ${newLastChecked}
             }
          }
       }
@@ -62,7 +81,7 @@ proc LogMonitor_checkNewLogFiles {} {
 }
 
 # process log *_nodelog files that have been modified within the _deltaTime window.
-# _deltaTime must be a valid date format that can be used with the "-newerct" option of find
+# _deltaTime must be a valid date format that can be used with the "-mmin" option of find
 # returns a list of files {log_file1 log_file2...} if found else returns empty list
 # 
 proc LogMonitor_getDatestamps { _exp_path _deltaTime } {
@@ -70,7 +89,8 @@ proc LogMonitor_getDatestamps { _exp_path _deltaTime } {
    set modifiedFiles {}
    if { [file readable ${checkDir}] } {
       #puts "LogMonitor_getDatestamps exec find ${checkDir} -maxdepth 1 -type f -name \"*_nodelog\" -newerct ${_deltaTime} -exec basename \{\} \;"
-      set modifiedFiles [exec find ${checkDir} -maxdepth 1 -name "*\[0-9\]_nodelog" -newerct ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
+      # set modifiedFiles [exec find ${checkDir} -maxdepth 1 -name "*\[0-9\]_nodelog" -newerct ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
+      set modifiedFiles [exec find ${checkDir} -maxdepth 1 -name "*\[0-9\]_nodelog" -mmin ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
    }
    return ${modifiedFiles}
 }

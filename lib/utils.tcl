@@ -390,6 +390,7 @@ proc Utils_createTmpDir {} {
          file delete -force ${myTmpDir}
       }
       ::log::log debug "Utils_createTmpDir creating ${myTmpDir}"
+      puts "Utils_createTmpDir creating ${myTmpDir}"
       file mkdir ${myTmpDir}
       set SESSION_TMPDIR ${myTmpDir}
    }
