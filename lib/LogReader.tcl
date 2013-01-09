@@ -109,6 +109,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
 
       if { [file exists $logfile] } {
          set f_logfile [ open $logfile r ]
+	 # fconfigure ${f_logfile} -buffering line
          flush stdout
          
          if { ${isStartupDone} == "true" } {
@@ -125,15 +126,26 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
 
          # position yourself in the file
          seek $f_logfile $logFileOffset
-
-         # while {[gets $f_logfile line] >= 0} {
-         #   LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}
-         # }
+	 set sameRead false
          while {[gets $f_logfile line] > 0} {
             catch { 
 	       if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}] != 0 } {
-                  ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: [tell $f_logfile]"
-		  break
+	          # something went wrong reading the line
+		  # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
+		  # writing to it... a retry seems to do the trick
+		  if { ${sameRead} == false } {
+		     set sameRead true
+		     # go to previous spot in the file
+                     seek $f_logfile $logFileOffset
+		     after 500
+		  } else {
+		     # only retry once... after that we log the error
+                     ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: ${logFileOffset} after 1 retry."
+		     break
+		  }
+	       } else {
+	          set sameRead false
+	          set logFileOffset [tell ${f_logfile}]
 	       }
 	    }
          }
@@ -160,7 +172,6 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
       if { ${isOverviewMode} == true } {
          thread::send ${overviewThreadId} "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
       } else {
-         set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
          thread::send [thread::id] "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
       }
    }
