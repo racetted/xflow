@@ -142,6 +142,7 @@ proc OverviewExpStatus_getStatusInfo { _exp_path _datestamp _status } {
 }
 
 proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp } {
+   ::log::log notice "OverviewExpStatus_removeStatusDatestamp() exp_path:${_exp_path} datestamp:${_datestamp}"
    global datestamps_${_exp_path}
    if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
       array unset datestamps_${_exp_path} ${_datestamp}
@@ -149,6 +150,7 @@ proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp } {
 
    tsv::unset ${_exp_path}_${_datestamp}
    tsv::unset ${_exp_path}_${_datestamp}_runtime
+   ::log::log notice "OverviewExpStatus_removeStatusDatestamp() exp_path:${_exp_path} datestamp:${_datestamp} DONE"
 }
 
 proc OverviewExpStatus_addObsoleteDatestamp {  _exp_path _datestamp } {
@@ -181,6 +183,7 @@ proc OverviewExpStatus_checkObseleteDatestamps {} {
            ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp}"
            OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp}
 	   unset obsolete_datestamps($key)
+           ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() exp_path:${exp_path} datestamp:${datestamp} unset obsolete_datestamps DONE."
 	}
      }
   }

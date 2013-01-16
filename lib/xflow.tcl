@@ -538,7 +538,7 @@ proc xflow_killNode { exp_path datestamp list_widget } {
          set nodeID [file tail ${jobPath}]
          set node [file dirname ${jobPath}]/[lindex $listEntryValue end]
          ::log::log debug "xflow_killNode command: $seqExec  -n $node -job_id $nodeID"
-         Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getTopLevel ${exp_path} ${datestamp}] $seqExec "Node Kill [file tail $node]" top -n $node -job_id $nodeID
+         Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "Node Kill [file tail $node]" top -n $node -job_id $nodeID
       } else {
          Utils_raiseError [winfo toplevel ${list_widget}] "Kill Node" "Application Error: Unable to retrieve Task Id."
       }
@@ -2526,8 +2526,8 @@ proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height {force false
 proc xflow_canvasDestroyCallback { exp_path datestamp } {
    global FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp} FLOW_TILED_IMG_${exp_path}_${datestamp}
    global XFLOW_BG_WIDTH_${exp_path}_${datestamp} XFLOW_BG_HEIGHT_${exp_path}_${datestamp}
-   image delete [set FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp}] [set FLOW_TILED_IMG_${exp_path}_${datestamp}]
-   unset XFLOW_BG_WIDTH_${exp_path}_${datestamp} XFLOW_BG_HEIGHT_${exp_path}_${datestamp}
+   catch { image delete [set FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp}] [set FLOW_TILED_IMG_${exp_path}_${datestamp}] }
+   catch { unset XFLOW_BG_WIDTH_${exp_path}_${datestamp} XFLOW_BG_HEIGHT_${exp_path}_${datestamp} }
 }
 
 proc xflow_tileBgImage { exp_path datestamp canvas sourceImage tiledImage _width _height} {
@@ -2537,7 +2537,6 @@ proc xflow_tileBgImage { exp_path datestamp canvas sourceImage tiledImage _width
    set canvasItemsH [lindex ${canvasBox} 3]
    set usedW ${canvasItemsW}
    set usedH ${canvasItemsH}
-
 
    # if the canvas is bigger than the number of elements, we use the
    # canvas width and height
@@ -2607,6 +2606,13 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
             # notify overview thread to release me
             thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread ${expThreadId} ${exp_path} \"${datestamp}\""
          }
+      }
+
+      # clean images used by this flow
+      set images [image names]
+      set myImageIndexes [lsearch -all ${images} ${toplevelW}*]
+      foreach myImageIndex ${myImageIndexes} {
+         image delete [lindex ${images} ${myImageIndex}]
       }
    } else {
       # standalone mode
@@ -2680,9 +2686,10 @@ proc xflow_setDatestampVars { exp_path datestamp } {
 }
 
 proc xflow_cleanDatestampVars { exp_path datestamp } {
+   catch { xflow_canvasDestroyCallback ${exp_path} ${datestamp} }
    foreach variableKey { NODE_DISPLAY_PREF FLOW_SCALE TITLE_AFTER_ID \
                          XFLOW_FIND_AFTER_ID LOOP_RESOURCES_DONE \
-			 NODE_RESOURCE_DONE FLOW_RESIZED REFRESH_MODE \
+			 NODE_RESOURCE_DONE FLOW_RESIZED REFRESH_MODE FLOW_RESIZED \
 			 cmdList NodeHighLightRestoreCmd } {
       global ${variableKey}_${exp_path}_${datestamp}
       ::log::log debug "xflow_cleanDatestampVars cleaning variable: ${variableKey}_${exp_path}_${datestamp}"
