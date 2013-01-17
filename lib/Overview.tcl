@@ -130,6 +130,9 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                # register the datestamp for data cleanup
 	       OverviewExpStatus_addObsoleteDatestamp ${exp} ${datestamp}
 
+               # remove msg center data
+               Overview_cleanExpMsgDatestamp ${exp} ${datestamp}
+
                # delete current exp box from overview
                Overview_removeExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus}
 
@@ -469,7 +472,7 @@ proc Overview_processEndStatus { canvas exp_path datestamp {status end} } {
             Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} [Overview_GraphGetXOriginTime] ${shiftDay}
          }
          if { ${datestamp} != "" } {
-            Overview_cleanExpDatestamp ${exp_path} ${datestamp}
+            Overview_cleanExpMsgDatestamp ${exp_path} ${datestamp}
          }
       } else {
          Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} ${startTime} ${shiftDay}
@@ -500,11 +503,11 @@ proc Overview_processEndStatus { canvas exp_path datestamp {status end} } {
    }
 }
 
-proc Overview_cleanExpDatestamp { exp_path datestamp } {
+proc Overview_cleanExpMsgDatestamp { exp_path datestamp } {
    global MSG_CENTER_THREAD_ID
    if { ${MSG_CENTER_THREAD_ID} != "" } {
       puts "Overview_cleanExpDatestamp $exp_path $datestamp"
-      catch { thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_removeDatestamp ${exp_path} ${datestamp}" }
+      catch { thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_removeDatestamp ${exp_path} ${datestamp}" }
    }
 }
 
@@ -2173,10 +2176,8 @@ proc Overview_quit {} {
       }
    }
    ThreadPool_quit
-   # thread::send ${MSG_CENTER_THREAD_ID} "MsgCenterThread_quit"
 
    catch { 
-      puts "Overview_quit rm -fr ${SESSION_TMPDIR}"
       exec rm -fr ${SESSION_TMPDIR}
    }
    

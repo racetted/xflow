@@ -2526,8 +2526,12 @@ proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height {force false
 proc xflow_canvasDestroyCallback { exp_path datestamp } {
    global FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp} FLOW_TILED_IMG_${exp_path}_${datestamp}
    global XFLOW_BG_WIDTH_${exp_path}_${datestamp} XFLOW_BG_HEIGHT_${exp_path}_${datestamp}
-   catch { image delete [set FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp}] [set FLOW_TILED_IMG_${exp_path}_${datestamp}] }
-   catch { unset XFLOW_BG_WIDTH_${exp_path}_${datestamp} XFLOW_BG_HEIGHT_${exp_path}_${datestamp} }
+   catch { image delete [set FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp}] }
+   catch { image delete [set FLOW_TILED_IMG_${exp_path}_${datestamp}] }
+   catch { unset XFLOW_BG_WIDTH_${exp_path}_${datestamp} }
+   catch { unset XFLOW_BG_HEIGHT_${exp_path}_${datestamp} }
+   catch { unset FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp} }
+   catch { unset FLOW_TILED_IMG_${exp_path}_${datestamp} }
 }
 
 proc xflow_tileBgImage { exp_path datestamp canvas sourceImage tiledImage _width _height} {
