@@ -590,7 +590,7 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
 
          # ask the suite thread to take care of showing the selected node in it's flow
          set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
-         thread::send ${expThreadId} "xflow_findNode ${expPath} ${convertedNode}"
+         thread::send ${expThreadId} "xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}"
       }
 
       Utils_normalCursor ${table_widget}
