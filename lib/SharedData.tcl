@@ -44,9 +44,11 @@ proc SharedData_setExpDatestampData { exp_path datestamp key value } {
       set initValues [list ${key} ${value}]
       tsv::array set ${exp_path}_${datestamp} ${initValues}
    } else {
-      array set values [tsv::array get ${exp_path}_${datestamp}]
-      set values(${key}) ${value}
-      tsv::array set ${exp_path}_${datestamp} [array get values]
+      tsv::lock ${exp_path}_${datestamp} {
+         array set values [tsv::array get ${exp_path}_${datestamp}]
+         set values(${key}) ${value}
+         tsv::array set ${exp_path}_${datestamp} [array get values]
+      }
    }
 }
 
@@ -63,9 +65,11 @@ proc SharedData_getExpDatestampData { exp_path datestamp key } {
 # removes experiment data based on the exp_path and the key
 proc SharedData_unsetExpDatestampData { exp_path datestamp key } {
    if { [tsv::exists ${exp_path}_${datestamp} ${key}] } {
-      array set values [tsv::array get ${exp_path}_${datestamp}]
-      array unset values ${key}
-      tsv::array reset ${exp_path}_${datestamp} [array get values]
+      tsv::lock ${exp_path}_${datestamp} {
+         array set values [tsv::array get ${exp_path}_${datestamp}]
+         array unset values ${key}
+         tsv::array reset ${exp_path}_${datestamp} [array get values]
+      }
    }
 }
 
@@ -88,8 +92,8 @@ proc SharedData_removeExpThreadId { _exp_path _datestamp } {
    SharedData_unsetExpDatestampData ${_exp_path} ${_datestamp} thread_id
 }
 
-# sets the thread id associated with the experiment datestamp
-proc SharedData_setExpThreadId { _exp_path _datestamp  _thread_id } {
+# sets the thread id associated with the experiment datestamp 
+proc SharedData_setExpThreadId { _exp_path _datestamp  _thread_id } { 
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} thread_id ${_thread_id}
 }
 
@@ -363,31 +367,10 @@ proc SharedData_removeExpDisplayData { _exp_path _datestamp _canvas } {
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} canvases [array get canvasList]
 }
 
-
-proc SharedData_getDatestamps { _exp_path } {
-   global datestamps_${_exp_path}
-   set datestampList [array names datestamps_${_exp_path}]
-   return ${datestampList}
-}
-
 proc SharedData_printNodeMapping { _exp_path _datestamp } {
    array set nodeMapping [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} node_mappings]
    foreach { real_node flow_node } [array get nodeMapping] {
       puts "${_exp_path} ${_datestamp} real_node:${real_node} flow_node:${flow_node}"
-   }
-}
-
-proc SharedData_printData { _exp_path {_datestamp ""} } {
-   global datestamps_${_exp_path}
-   puts "-------------------------------------------"
-   puts "${_exp_path}"
-   puts "-------------------------------------------"
-   #array set datestamps [SharedData_getExpData ${_exp_path} datestamps]
-   set datestamps [SharedData_getDatestamps ${_exp_path}]
-   foreach datestamp ${datestamps} {
-      # set statusList $datestamps(${datestamp})
-      set statusList [set datestamps_${_exp_path}(${_datestamp})]
-      puts "datestamp:${datestamp} statuses:${statusList}"
    }
 }
 

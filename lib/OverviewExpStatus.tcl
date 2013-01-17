@@ -89,6 +89,12 @@ proc OverviewExpStatus_getEndTime { exp_path datestamp } {
 
 # the following data are related to experiment datestamp status as a whole and it is only used
 # by the overview... therefore do not need to put in a tsv shared structure
+proc OverviewExpStatus_getDatestamps { _exp_path } {
+   global datestamps_${_exp_path}
+   set datestampList [array names datestamps_${_exp_path}]
+   return ${datestampList}
+}
+
 proc OverviewExpStatus_setStatusInfo { _exp_path _datestamp _status _status_info  } {
    global datestamps_${_exp_path}
    # puts "in OverviewExpStatus_setStatusInfo $_exp_path $_datestamp status:$_status statusinfo:$_status_info"
@@ -148,9 +154,23 @@ proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp } {
       array unset datestamps_${_exp_path} ${_datestamp}
    }
 
-   tsv::unset ${_exp_path}_${_datestamp}
-   tsv::unset ${_exp_path}_${_datestamp}_runtime
+   SharedFlowNode_removeDatestamp ${_exp_path} ${_datestamp}
+
    ::log::log notice "OverviewExpStatus_removeStatusDatestamp() exp_path:${_exp_path} datestamp:${_datestamp} DONE"
+}
+
+proc OverviewExpStatus_printStatusDatestamp { _exp_path {_datestamp ""} } {
+   global datestamps_${_exp_path}
+   puts "-------------------------------------------"
+   puts "${_exp_path}"
+   puts "-------------------------------------------"
+   #array set datestamps [SharedData_getExpData ${_exp_path} datestamps]
+   set datestamps [SharedData_getDatestamps ${_exp_path}]
+   foreach datestamp ${datestamps} {
+      # set statusList $datestamps(${datestamp})
+      set statusList [set datestamps_${_exp_path}(${_datestamp})]
+      puts "datestamp:${datestamp} statuses:${statusList}"
+   }
 }
 
 proc OverviewExpStatus_addObsoleteDatestamp {  _exp_path _datestamp } {
@@ -189,3 +209,6 @@ proc OverviewExpStatus_checkObseleteDatestamps {} {
   }
   ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() DONE"
 }
+
+
+

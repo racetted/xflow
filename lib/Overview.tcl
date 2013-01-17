@@ -107,7 +107,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
          # move the default ones if exists (init state, waiting to be submitted, usually right side of current time line
          Overview_advanceExpDefaultBox ${canvasW} ${exp}
 
-         set datestamps [SharedData_getDatestamps ${exp}]
+         set datestamps [OverviewExpStatus_getDatestamps ${exp}]
 
          foreach datestamp ${datestamps} {
             set runBoxCoords [Overview_getRunBoxBoundaries  ${canvasW} ${exp} ${datestamp}]
@@ -836,7 +836,7 @@ proc Overview_getExpBoxTag { exp_path datestamp status {full_tag true} } {
 # and default tags for experiment that have reference timings i.e. default_00, default_06, default_12 ....
 # and or the default for experiments withouth any reference timings.
 proc Overview_getExpBoxTags { canvas exp_path } {
-   set expBoxTags [SharedData_getDatestamps ${exp_path}]
+   set expBoxTags [OverviewExpStatus_getDatestamps ${exp_path}]
    set refTimings [SharedData_getExpTimings ${exp_path}]
    if { ${refTimings} == "" } {
       if { [${canvas} gettags ${exp_path}.default] != "" } {
@@ -867,7 +867,6 @@ proc Overview_isExpBoxObsolete { exp_path datestamp } {
       return false
    }
 
-   # SharedData_printData ${exp_path} ${datestamp}
    set endTime [OverviewExpStatus_getEndTime  ${exp_path} ${datestamp}]
    # puts "Overview_isExpBoxObsolete $exp_path endTime:$endTime"
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
@@ -1049,7 +1048,7 @@ proc Overview_OptimizeExpBoxes { displayGroup } {
    set expList [$displayGroup cget -exp_list]
    foreach exp $expList {
       # get the list of datestamps
-      set datestamps [SharedData_getDatestamps ${exp}]
+      set datestamps [OverviewExpStatus_getDatestamps ${exp}]
 
       foreach expDatestamp ${datestamps} {
          set newcoords [Overview_getRunBoxBoundaries ${canvasW} ${exp} ${expDatestamp}]
@@ -1130,7 +1129,7 @@ proc Overview_ShiftExpRow { display_group empty_slot_y } {
    set expList [${display_group} cget -exp_list]
    set overviewCanvas [Overview_getCanvas]
    foreach exp ${expList} {
-      set datestamps [SharedData_getDatestamps ${exp}]
+      set datestamps [OverviewExpStatus_getDatestamps ${exp}]
       foreach expDatestamp ${datestamps} {
 
          foreach {xx1 yy1 xx2 yy2} [Overview_getRunBoxBoundaries ${overviewCanvas} ${exp} ${expDatestamp}] { break }
@@ -1832,7 +1831,7 @@ proc Overview_addGroup { canvas displayGroup } {
    set expList [$displayGroup cget -exp_list]
    foreach exp $expList {
       Overview_addExpDefaultBoxes ${canvas} ${exp}
-      set datestamps [SharedData_getDatestamps ${exp}]
+      set datestamps [OverviewExpStatus_getDatestamps ${exp}]
       foreach datestamp ${datestamps} {
          set currentStatus [OverviewExpStatus_getLastStatus ${exp} ${datestamp}]
          set statusTime [OverviewExpStatus_getLastStatusTime ${exp} ${datestamp}]
@@ -2167,7 +2166,7 @@ proc Overview_quit {} {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
       
-         set datestamps [SharedData_getDatestamps ${exp}]
+         set datestamps [OverviewExpStatus_getDatestamps ${exp}]
 
          foreach datestamp ${datestamps} {
             set expThreadId [SharedData_getExpThreadId ${exp} ${datestamp}]
