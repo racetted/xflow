@@ -351,8 +351,14 @@ proc MsgCenter_ackMessages { table_w_ } {
       set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
       set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
       # puts "MsgCenter_sendNotification exp=$exp datestamp=${datestamp}"
-      thread::send ${xflowThreadId} "xflow_newMessageCallback ${exp} ${datestamp} false"
+      thread::send ${xflowThreadId} "xflow_newMessageCallback \"${exp}\" \"${datestamp}\" false"
    }
+}
+
+proc MsgCenter_clearAllMessages {} {
+   set tableW [MsgCenter_getTableWidget]
+   MsgCenter_ackMessages ${tableW}
+   MsgCenter_initActiveMessages
 }
 
 proc MsgCenter_clearMessages { source_w table_w_ } {
@@ -518,6 +524,11 @@ proc MsgCenter_getThread {} {
          # called by xflow or xflow_overview to show msg center on demand
          proc MsgCenterThread_showWindow {} {
             MsgCenter_show
+         }
+
+         # called by xflow to clear msg center on datestamp switch
+         proc MsgCenterThread_clearAllMessages {} {
+	    MsgCenter_clearAllMessages
          }
 
          # called by xflow or xflow_overview to let msg center

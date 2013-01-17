@@ -299,7 +299,7 @@ proc xflow_addDatestampWidget { exp_path datestamp parent_widget } {
    image create photo ${buttonFrame}.new_win_image -file ${imageDir}/new_window.png
 
    set setButton [button ${buttonFrame}.set_button -relief flat -image ${buttonFrame}.set_image \
-      -command [list xflow_setDateStampCallback ${exp_path} ${datestamp} ${dtFrame}]]
+      -command [list xflow_setDatestampCallback ${exp_path} ${datestamp} ${dtFrame}]]
    tooltip::tooltip ${setButton} "Sets new datestamp value."
 
    set refreshButton [button ${buttonFrame}.refresh_button -relief flat -image ${buttonFrame}.refresh_image \
@@ -591,9 +591,9 @@ proc xflow_initDatestampEntry { exp_path datestamp } {
 # "Exp Datestamp" field. 
 # - Resets flow node status
 # - redraw the flow
-proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
-
-   ::log::log debug "xflow_setDateStamp exp_path:$exp_path datestamp:$exp_path parent_w:$parent_w"
+proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
+   global MSG_CENTER_THREAD_ID
+   ::log::log debug "xflow_setDatestamp exp_path:$exp_path datestamp:$exp_path parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
    set dateEntry [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
 
@@ -619,7 +619,7 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
       LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
       SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
 
-      ::log::log debug "xflow_setDateStamp exp_path:${exp_path} seqDatestamp:${seqDatestamp}"
+      ::log::log debug "xflow_setDatestamp exp_path:${exp_path} seqDatestamp:${seqDatestamp}"
 
       ${hiddenDate} configure -text ${newDatestamp}
 
@@ -633,7 +633,12 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
          set expThreadId [ThreadPool_getThread]
          thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${seqDatestamp}\" no_overview"
       } else {
+         thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_clearAllMessages"
+         SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]
+         SharedData_setMiscData STARTUP_DONE false
          LogReader_startExpLogReader ${exp_path} ${seqDatestamp} no_overview
+         SharedData_setMiscData STARTUP_DONE true
+         # thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
       }
 
       set currentTop [xflow_getToplevel ${exp_path} ${datestamp}]
@@ -644,6 +649,10 @@ proc xflow_setDateStampCallback { exp_path datestamp parent_w } {
       xflow_createWidgets ${exp_path} ${seqDatestamp} ${currentx} ${currenty}
       xflow_displayFlow ${exp_path} ${seqDatestamp}
       xflow_closeExpDatestamp ${exp_path} ${datestamp}
+
+      # if { [SharedData_getMiscData OVERVIEW_MODE] == false } {
+      #   thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
+      # }
    }
    Utils_normalCursor $top
 }
@@ -2647,9 +2656,9 @@ proc xflow_newMessageCallback { exp_path visible_datestamp has_new_msg } {
    set msgCenterWidget [xflow_getWidgetName ${exp_path} ${datestamp} msgcenter_button]
    set noNewMsgImage [xflow_getWidgetName ${exp_path} ${datestamp} msg_center_img]
    set hasNewMsgImage [xflow_getWidgetName ${exp_path} ${datestamp} msg_center_new_img]
-   set normalBgColor [option get ${msgCenterWidget} background Button]
-   set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    if { [winfo exists ${msgCenterWidget}] } {
+      set normalBgColor [option get ${msgCenterWidget} background Button]
+      set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
       set currentImage [${msgCenterWidget} cget -image]
       if { ${has_new_msg} == "true" && ${currentImage} != ${hasNewMsgImage} } {
          ${msgCenterWidget} configure -image ${hasNewMsgImage} -bg ${newMsgBgColor} -bd 1
