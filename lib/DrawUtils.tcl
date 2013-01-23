@@ -28,6 +28,11 @@ proc ::DrawUtils::init {} {
       case losange
       switch_case losange
    }
+
+   array set constants {
+      border_width "3"
+   }
+
    if { [SharedData_getMiscData FONT_NAME] != "" } {
       # use user defined font
       ::DrawUtils::setDefaultFonts [SharedData_getMiscData FONT_NAME] [SharedData_getMiscData FONT_SIZE]
