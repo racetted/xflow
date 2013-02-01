@@ -200,6 +200,8 @@ proc OverviewExpStatus_checkObseleteDatestamps {} {
            set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
            Overview_releaseLoggerThread ${expThreadId} ${exp_path} ${datestamp}
 
+           ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() ShareData_removeExpDatestampData exp_path:${exp_path} datestamp:${datestamp}"
+           SharedData_removeExpDatestampData ${exp_path} ${datestamp}
            ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp}"
            OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp}
 	   unset obsolete_datestamps($key)

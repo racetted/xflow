@@ -8,22 +8,22 @@ package require Thread
 # exp_path is the full path of the experiment i.e. SEQ_EXP_HOME
 # key is the key for the specific value
 proc SharedData_setExpData { exp_path key value } {
-   if { [tsv::names ${exp_path}] == "" } {
+   if { [tsv::names SharedData_${exp_path}] == "" } {
       # does not exists... create it
       set initValues [list ${key} ${value}]
-      tsv::array set ${exp_path} ${initValues}
+      tsv::array set SharedData_${exp_path} ${initValues}
    } else {
-      array set values [tsv::array get ${exp_path}]
+      array set values [tsv::array get SharedData_${exp_path}]
       set values(${key}) ${value}
-      tsv::array set ${exp_path} [array get values]
+      tsv::array set SharedData_${exp_path} [array get values]
    }
 }
 
 # retrieve experiment data based on the exp_path and the key
 proc SharedData_getExpData { exp_path key } {
    set returnedValue ""
-   if { [tsv::exists ${exp_path} ${key}] } {
-      array set values [tsv::array get ${exp_path} ${key}]      
+   if { [tsv::exists SharedData_${exp_path} ${key}] } {
+      array set values [tsv::array get SharedData_${exp_path} ${key}]      
       set returnedValue $values(${key})
    }
    return ${returnedValue}
@@ -31,32 +31,36 @@ proc SharedData_getExpData { exp_path key } {
 
 # removes experiment data based on the exp_path and the key
 proc SharedData_unsetExpData { exp_path key } {
-   if { [tsv::exists ${exp_path} ${key}] } {
-      array set values [tsv::array get ${exp_path}]
+   if { [tsv::exists SharedData_${exp_path} ${key}] } {
+      array set values [tsv::array get SharedData_${exp_path}]
       array unset values ${key}
-      tsv::array reset ${exp_path} [array get values]
+      tsv::array reset SharedData_${exp_path} [array get values]
    }
 }
 
 proc SharedData_setExpDatestampData { exp_path datestamp key value } {
-   if { [tsv::names ${exp_path}_${datestamp}] == "" } {
+   if { [tsv::names SharedData_${exp_path}_${datestamp}] == "" } {
       # does not exists... create it
       set initValues [list ${key} ${value}]
-      tsv::array set ${exp_path}_${datestamp} ${initValues}
+      tsv::array set SharedData_${exp_path}_${datestamp} ${initValues}
    } else {
-      tsv::lock ${exp_path}_${datestamp} {
-         array set values [tsv::array get ${exp_path}_${datestamp}]
+      tsv::lock SharedData_${exp_path}_${datestamp} {
+         array set values [tsv::array get SharedData_${exp_path}_${datestamp}]
          set values(${key}) ${value}
-         tsv::array set ${exp_path}_${datestamp} [array get values]
+         tsv::array set SharedData_${exp_path}_${datestamp} [array get values]
       }
    }
+}
+
+proc SharedData_removeExpDatestampData { exp_path datestamp } {
+   catch { tsv::unset SharedData_${exp_path}_${datestamp} }
 }
 
 # retrieve experiment data based on the exp_path and the key
 proc SharedData_getExpDatestampData { exp_path datestamp key } {
    set returnedValue ""
-   if { [tsv::exists ${exp_path}_${datestamp} ${key}] } {
-      array set values [tsv::array get ${exp_path}_${datestamp} ${key}]      
+   if { [tsv::exists SharedData_${exp_path}_${datestamp} ${key}] } {
+      array set values [tsv::array get SharedData_${exp_path}_${datestamp} ${key}]      
       set returnedValue $values(${key})
    }
    return ${returnedValue}
@@ -64,11 +68,11 @@ proc SharedData_getExpDatestampData { exp_path datestamp key } {
 
 # removes experiment data based on the exp_path and the key
 proc SharedData_unsetExpDatestampData { exp_path datestamp key } {
-   if { [tsv::exists ${exp_path}_${datestamp} ${key}] } {
-      tsv::lock ${exp_path}_${datestamp} {
-         array set values [tsv::array get ${exp_path}_${datestamp}]
+   if { [tsv::exists SharedData_${exp_path}_${datestamp} ${key}] } {
+      tsv::lock SharedData_${exp_path}_${datestamp} {
+         array set values [tsv::array get SharedData_${exp_path}_${datestamp}]
          array unset values ${key}
-         tsv::array reset ${exp_path}_${datestamp} [array get values]
+         tsv::array reset SharedData_${exp_path}_${datestamp} [array get values]
       }
    }
 }
@@ -524,6 +528,10 @@ proc SharedData_init {} {
    # number of threads created to process exp log datestamps
    SharedData_setMiscData OVERVIEW_NUM_THREADS 8
 
+   # default datestamp range value visible in overview box
+   # 8,9 is daetstamp hour
+   SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE 8,9
+
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 
@@ -566,6 +574,22 @@ proc SharedData_readProperties { {rc_file ""} } {
          }
       }
       catch { close ${propertiesFile} }
+
+      # validate maestrorc input if any
+      # validate overview_datestamp_range
+      set overviewDatestampRange [SharedData_getMiscData OVERVIEW_DATESTAMP_RANGE]
+      if { ${overviewDatestampRange} != "" } {
+         SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE "8 9"
+	 catch {
+	    set values [split ${overviewDatestampRange} ,]
+	    set startIndex [lindex ${values} 0]
+	    set endIndex [lindex ${values} 1]
+	    if { ${startIndex} > -1 && ${endIndex} < 15 } {
+               SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE "${startIndex} ${endIndex}"
+	    }
+	 }
+      }
+
       if { ${errorMsg} != "" } {
          error "ERROR: ${errorMsg}"
       }

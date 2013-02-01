@@ -31,9 +31,17 @@ proc SharedFlowNode_createNode { exp_path node datestamp submitter type } {
 # remove the datestamp completely... This is called to cleanup data for a datestamp that is not viewed anymore
 #
 proc SharedFlowNode_removeDatestamp { exp_path datestamp } {
-   
-   catch { tsv::unset ${exp_path}_${datestamp} }
+   ::log::log notice "SharedFlowNode_removeDatestamp ${exp_path} ${datestamp}"
+
+   ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset ${exp_path}_${datestamp}_runtime"
    catch { tsv::unset ${exp_path}_${datestamp}_runtime }
+   ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset ${exp_path}_${datestamp}_runtime DONE"
+
+   ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset ${exp_path}_${datestamp}"
+   catch { tsv::unset ${exp_path}_${datestamp} }
+   ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset ${exp_path}_${datestamp} DONE"
+
+   ::log::log notice "SharedFlowNode_removeDatestamp ${exp_path} ${datestamp} DONE"
 }
 
 # this is a generic attribute accessor for the ${exp_path}_${datestamp} data structure

@@ -126,12 +126,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
             if { [Overview_isExpBoxObsolete ${exp} ${datestamp}] == true } {
                # the end time happened prior to the x origin time,
                # shift the exp box to the left
-
-               # register the datestamp for data cleanup
-	       OverviewExpStatus_addObsoleteDatestamp ${exp} ${datestamp}
-
-               # remove msg center data
-               Overview_cleanExpMsgDatestamp ${exp} ${datestamp}
+               Overview_cleanDatestamp ${exp} ${datestamp}
 
                # delete current exp box from overview
                Overview_removeExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus}
@@ -506,7 +501,7 @@ proc Overview_processEndStatus { canvas exp_path datestamp {status end} } {
 proc Overview_cleanExpMsgDatestamp { exp_path datestamp } {
    global MSG_CENTER_THREAD_ID
    if { ${MSG_CENTER_THREAD_ID} != "" } {
-      puts "Overview_cleanExpDatestamp $exp_path $datestamp"
+      puts "Overview_cleanExpMsgDatestamp $exp_path $datestamp"
       catch { thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_removeDatestamp ${exp_path} ${datestamp}" }
    }
 }
@@ -619,6 +614,7 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    Overview_removeExpBox ${canvas} ${exp_path} ${datestamp} ${currentStatus}
 
    # set tailName [file tail ${exp_path}]
+   set datestampRange [SharedData_getMiscData OVERVIEW_DATESTAMP_RANGE]
    set shortName [SharedData_getExpShortName ${exp_path}]
    set expLabel " ${shortName} "
    set outlineColor [::DrawUtils::getOutlineStatusColor ${currentStatus}]
@@ -627,14 +623,14 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
       set currentStatus init
       set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
       if { [SharedData_getExpTimings ${exp_path}] != "" } {
-         set hour [Utils_getHourFromDatestamp ${datestamp}]
-         set expLabel " ${shortName}-${hour} "
+         set labelDatestamp [Utils_getHourFromDatestamp ${datestamp}]
+         set expLabel " ${shortName}-${labelDatestamp} "
       }
    } else {
       set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
       if { [SharedData_getExpTimings ${exp_path}] != "" || ${currentStatus} != "init"} {
-         set hour [Utils_getHourFromDatestamp ${datestamp}]
-         set expLabel " ${shortName}-${hour} "
+         set labelDatestamp [string range ${datestamp} [lindex ${datestampRange} 0] [lindex ${datestampRange} 1]]
+         set expLabel " ${shortName}-${labelDatestamp} "
       }
    }
    set bgColor [::DrawUtils::getBgStatusColor ${currentStatus}]
@@ -1355,6 +1351,18 @@ proc Overview_launchExpFlow { exp_path datestamp } {
    }
 }
 
+proc Overview_cleanDatestamp { exp_path datestamp } {
+   if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
+      # the end time happened prior to the x origin time,
+
+      # register the datestamp for data cleanup
+      OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}
+
+      # remove msg center data
+      Overview_cleanExpMsgDatestamp ${exp_path} ${datestamp}
+   }
+}
+
 # this proc is called before releasing an exp thread to the thread pool
 # it also cleans up flow related data
 proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
@@ -1546,8 +1554,7 @@ proc Overview_addExp { display_group canvas exp_path } {
 
    # create startup threads to process log datestamps
    # get the list of datestamps visible from the left side of the overview for this exp
-   # set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [clock format [clock add [clock seconds] -13 hours]]]
-   set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [expr -13*60] ]
+   set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [expr -14*60] ]
    ::log::log debug "Overview_addExp exp_path:$exp_path visibleDatestamps:$visibleDatestamps"
 
    if [ catch { ExpOptions_read ${exp_path} } message ] {
