@@ -2612,12 +2612,15 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       destroy ${toplevelW}
       xflow_cleanDatestampVars ${exp_path} ${datestamp}
 
-      if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-         set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
-
-         if { ${from_overview} == false } {
-            # notify overview thread to release me
-            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_releaseExpThread ${expThreadId} ${exp_path} \"${datestamp}\""
+      if { ${from_overview} == false } {
+         if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
+            Overview_cleanDatestamp ${exp_path} ${datestamp}
+         } else {
+            if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+               set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
+               # notify overview thread to release me
+               Overview_releaseExpThread ${expThreadId} ${exp_path} \"${datestamp}\"
+            }
          }
       }
 
