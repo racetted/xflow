@@ -147,6 +147,7 @@ proc ExpOptions_read { _exp_path } {
       SharedData_setExpAutoLaunch ${_exp_path} ${autoLaunchValue}
    } else {
       SharedData_setExpDisplayName ${_exp_path} [file tail ${_exp_path}]
+      SharedData_setExpShortName ${_exp_path} [file tail ${_exp_path}]
    }
 }
 
