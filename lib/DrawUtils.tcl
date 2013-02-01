@@ -675,7 +675,6 @@ proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext te
       set maxY ${sy2}
    }
 
-   ${canvas} lower ${binder}.arc ${binder}.main
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 
    set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
