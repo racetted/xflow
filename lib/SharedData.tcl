@@ -529,8 +529,8 @@ proc SharedData_init {} {
    SharedData_setMiscData OVERVIEW_NUM_THREADS 8
 
    # default datestamp range value visible in overview box
-   # 8,9 is daetstamp hour
-   SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE 8,9
+   # 8-9 is daetstamp hour
+   SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE 8-9
 
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
@@ -581,7 +581,7 @@ proc SharedData_readProperties { {rc_file ""} } {
       if { ${overviewDatestampRange} != "" } {
          SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE "8 9"
 	 catch {
-	    set values [split ${overviewDatestampRange} ,]
+	    set values [split ${overviewDatestampRange} -]
 	    set startIndex [lindex ${values} 0]
 	    set endIndex [lindex ${values} 1]
 	    if { ${startIndex} > -1 && ${endIndex} < 15 } {
