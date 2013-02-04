@@ -1,0 +1,4 @@
+#!/bin/ksh
+exp_path=$1
+latestlog=$(ls -c ${exp_path}/logs/*[0-9]_nodelog | head -1 | xargs basename | cut -c 1-14) 2>/dev/null || latestlog=""
+print "${latestlog}"

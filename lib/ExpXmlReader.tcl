@@ -2,25 +2,10 @@ package require tdom
 package require struct::record
 namespace import ::struct::record::*
 
-# x  is x coord variable used to know where to
-#    display next exp
-# x  is y coord variable used to know where to
-#    display next exp
-proc out {} {
-record define DisplayGroup {
-   name
-   level {0}
-   parent ""
-   exp_list {}
-   x {0}
-   y {0}
-   {maxy 0}
-}
-}
-
 # reads an xml file for a list of folders
 # containing experiment paths.
 proc ExpXmlReader_readExperiments { xml_file } {
+   global DISPLAY_GROUPS
    set xmlFile $xml_file
    if [ catch { set xmlSrc [exec cat $xmlFile] } ] {
       puts "XML Document Not Found: $xmlFile"
@@ -40,7 +25,6 @@ proc ExpXmlReader_readExperiments { xml_file } {
    foreach child $children {
       set childName [$child nodeName]
       if { $childName == "Group" } {
-         set goupName [$child getAttribute name]
          ExpXmlReader_readGroup $child "" $level
       }
    }
@@ -48,26 +32,24 @@ proc ExpXmlReader_readExperiments { xml_file } {
 
 proc ExpXmlReader_readGroup { xml_node parent_name level} {
    global DISPLAY_GROUPS
-
    set nodeName [$xml_node nodeName]
    if { $nodeName == "Group" } {
-      set goupName [$xml_node getAttribute name]
+      set groupName [$xml_node getAttribute name]
 
       set newLevel $level
       if { $parent_name != "" } {
-         set goupName ${parent_name}/${goupName}
+         set groupName ${parent_name}/${groupName}
          set newLevel [expr $level + 1]
-         ::log::log debug "ExpXmlReader_readGroup goupName:$goupName newLevel:$newLevel"
-      } else {
-         ::log::log debug "ExpXmlReader_readGroup goupName:$goupName newLevel:$newLevel"
       }
+      ::log::log debug "ExpXmlReader_readGroup groupName:$groupName newLevel:$newLevel"
 
       # replace / and spaces with _
-      set groupRecordName [regsub -all "/" ${goupName} _]
+      set groupRecordName [regsub -all "/" ${groupName} _]
       set groupRecordName [regsub -all " " ${groupRecordName} _ ]
       if { ! [record exists instance $groupRecordName] } {
-         set recordId [DisplayGroup $groupRecordName -name ${goupName} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0]
-	 lappend DISPLAY_GROUPS ${recordId}
+         puts "DisplayGroup $groupRecordName "
+         set recordId [DisplayGroup $groupRecordName -name ${groupName} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0]
+         lappend DISPLAY_GROUPS ${recordId}
          if { ${parent_name} != "" } {
             DisplayGrp_insertGroup ${parent_name} ${recordId}
          }
@@ -75,8 +57,8 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
 
       set childs [$xml_node childNodes]
       if { $childs == "" } {
-         # puts "ExpXmlReader_readGroup group name:$goupName no child"
-         # DisplayGroup $goupName -name $goupName -level $newLevel
+         # puts "ExpXmlReader_readGroup group name:$groupName no child"
+         # DisplayGroup $groupName -name $groupName -level $newLevel
       } else {
          foreach child $childs {
             set childName [$child nodeName]
@@ -111,8 +93,8 @@ proc ExpXmlReader_getGroups {} {
 
 proc ExpXmlReader_getExpList {} {
    set expList ""
-   #set displayGroups [record show instances DisplayGroup]
    set displayGroups [ExpXmlReader_getGroups]
+
    foreach dispGroup $displayGroups {
       ::log::log debug "ExpXmlReader_getExpList $dispGroup [$dispGroup cget -exp_list]"
       append expList [$dispGroup cget -exp_list]

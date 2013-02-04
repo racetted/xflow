@@ -166,6 +166,7 @@ proc Utils_isOverlap { b1x1 b1y1 b1x2 b1y2 b2x1 b2y1 b2x2 b2y2 } {
       set isOverlap 1
    }
 
+   ::log::log debug "Utils_isOverlap returns ${isOverlap}"
    return ${isOverlap}
 }
 
@@ -204,14 +205,50 @@ proc Utils_getPaddedValue { value } {
    return ${value}
 }
 
+# must be 10 digits values yyyymmddhh
+proc Utils_validateVisibleDatestamp { _datestamp } {
+   if { [string length ${_datestamp}] != 10 } {
+      return false
+   }
+   if [ catch { clock scan ${_datestamp} } message ] {
+      return false
+   }
+   return true
+}
+
+proc Utils_validateRealDatestamp { _datestamp } {
+   if { [string length ${_datestamp}] != 14 } {
+      return false
+   }
+   if [ catch { clock scan ${_datestamp} } message ] {
+      return false
+   }
+   return true
+}
+
 proc Utils_getVisibleDatestampValue { date } {
    set newValue [string range $date 0 9]
    return ${newValue}
 }
 
-proc Utils_getRealDatestampValue { date } {
-   set newValue ${date}0000
-   return ${newValue}
+#proc Utils_getRealDatestampValue { date } {
+#   set newValue ${date}0000
+#   return ${newValue}
+#}
+
+proc Utils_getRealDatestampValue { _datestamp } { 
+   set newDateStamp ${_datestamp}
+   # the format of the log file is 14 digits
+   if { [string length ${_datestamp}] < 14 } {
+      set padNumber [expr 14 - [string length ${_datestamp}]]
+      set newDateStamp "${_datestamp}[join [lrepeat ${padNumber} 0] ""]"
+   }
+   return ${newDateStamp}
+}
+
+# returns hour value from yyyymmddhh*
+proc Utils_getHourFromDatestamp { _datestamp } {
+   return [string range ${_datestamp} 8 9]
 }
 
 proc Utils_getHourFromDatestamp { _datestamp } {
@@ -281,9 +318,12 @@ proc Utils_logInit {} {
       ::log::lvSuppress warning 0
       ::log::lvSuppress notice 0
 
-      ::log::lvCmd notice Utils_logMessage 
-      ::log::lvCmd warning Utils_logMessage 
-      ::log::lvCmd error Utils_logMessage 
+      # ::log::lvCmd notice Utils_logMessage 
+      # ::log::lvCmd warning Utils_logMessage 
+      # ::log::lvCmd error Utils_logMessage 
+      ::log::lvCmd notice FileLogger_log 
+      ::log::lvCmd warning FileLogger_log 
+      ::log::lvCmd error FileLogger_log 
    }
 }
 
@@ -312,20 +352,51 @@ proc Utils_logFileContent { _level _filename } {
    }
 }
 
-# this is called as callback for each ::log::log notice | warning | error level
-# inserts the message in the log file
-proc Utils_logMessage { _level _message } {
-   global APP_LOGFILE
-   if { [info exists APP_LOGFILE] } {
-      set currentTimeSeconds [clock seconds]
-      set dateString [clock format $currentTimeSeconds -gmt 1]
-      if [ catch {
-         set fileId [open $APP_LOGFILE a 0664]
-         puts $fileId "$dateString:${_message}"
-         catch { close $fileId }
-      } err_message ] {
-         puts "Utils_logMessage ERROR:${err_message}"
+# this proc displays the effective aix backend as defined by the BACKEND
+# variable of the $HOME/.suites/overrides.def file.
+# defaults to spica if not found
+proc Utils_getBackEndHost { _parentW } {
+   global env
+   set backEndHost spica
+   set overrideFile $env(HOME)/.suites/overrides.def
+   if { [file readable ${overrideFile}] } {
+      set backEndHost [exec grep "^BACKEND=" ${overrideFile} | cut -d = -f 2]
+      if { ${backEndHost} != "" } {
+         set backEndHost ${backEndHost}
       }
+   }
+   tk_messageBox -title "Operational AIX host" -parent ${_parentW} -type ok -icon info \
+         -message "The effective AIX backend host for user $env(USER) is: ${backEndHost}."
+      return
+
+}
+
+proc Utils_createTmpDir {} {
+   global env SESSION_TMPDIR
+   if { ! [info exists SESSION_TMPDIR] } {
+      set thisPid [thread::id]
+      set userTmpDir [SharedData_getMiscData USER_TMP_DIR]
+      if { ${userTmpDir} != "default" } {
+         if { ! [file isdirectory ${userTmpDir}] } {
+            Utils_fatalError . "Xflow Startup Error" "Invalid user configuration in .maestrorc file. Directory ${userTmpDir} does not exists!"
+         }
+         set rootTmpDir ${userTmpDir}
+      } else {
+         if { ! [info exists env(TMPDIR)] } {
+            Utils_fatalError . "Xflow Startup Error" "TMPDIR environment variable does not exists!"
+         }
+         set rootTmpDir $env(TMPDIR)
+      }
+      set id [clock seconds]
+      set myTmpDir ${rootTmpDir}/maestro_${thisPid}_${id}
+      if { [file exists ${myTmpDir}] } {
+         ::log::log debug "Utils_createTmpDir deleting ${myTmpDir}"
+         file delete -force ${myTmpDir}
+      }
+      ::log::log debug "Utils_createTmpDir creating ${myTmpDir}"
+      puts "Utils_createTmpDir creating ${myTmpDir}"
+      file mkdir ${myTmpDir}
+      set SESSION_TMPDIR ${myTmpDir}
    }
 }
 

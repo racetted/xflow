@@ -4,9 +4,12 @@
 eval 
 arch=`uname -s`
 if [[ "$arch" = "Linux" ]]; then
-   #TCLSH=/home/binops/afsi/ssm/sw/linux26-i686/bin/tclsh8.4
-   TCLSH=/home/binops/afsi/ssm/domain2/linux26-i686/bin/wish8.5
-   TCLSH=/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
+   # TCLSH=/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
+   TCLSH=$(which maestro_wish8.5)
+   if [[ "${TCLSH}" == "" ]] ; then
+      echo "ERROR: executable \"maestro_wish8.5\" not found! Cannot start application..."
+      exit 1
+   fi
 else
    echo xflow_overview is only supported on Linux platforms >&2
    exit
@@ -46,7 +49,6 @@ print "\nusing DISPLAY=$DISPLAY"
 
 # switch to another user?
 if [[ "${as}" != "" ]] ; then
-   # flag to keep track of real user before switching
    userOverviewFlag="-user ${USER}"
    if [ "${USER}" = "afsfops" -a '("${as}" = "afsipar" || "${as}" = "afsiops")' ] ; then
       print "\nxflow_overview switching ${USER} user to ${as}"
@@ -57,13 +59,15 @@ if [[ "${as}" != "" ]] ; then
 	 exit 1
       fi
       print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag} | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST} ---"
-      echo "xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
+      #echo "xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
+      echo "export SEQ_XFLOW_BIN=~afsisul/tmp/maestro/xflow/bin;${SEQ_XFLOW_BIN}/xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
       exit 0
    else
       if [[ "${USER}" != "${as}" ]] ; then
          print "\nxflow_overview switching ${USER} user to ${as} dollar_0=${0}"
-         print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag} | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
-	 echo "xflow_overview ${arguments} ${userOverviewFlag} " | ssh ${sshX} -T ${as}@${TRUE_HOST}
+         print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
+	 #echo "xflow_overview ${arguments} ${userOverviewFlag}" " | ssh ${sshX} -T ${as}@${TRUE_HOST}
+	 echo "export SEQ_XFLOW_BIN=~afsisul/tmp/maestro/xflow/bin;${SEQ_XFLOW_BIN}/xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST}
 	 exit 0
       fi
    fi
@@ -101,4 +105,4 @@ fi
 
 export NO_STOP_MESSAGE=on
 print "\n$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}"
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt} ${logfile_opt} ${debug_opt} ${rc_opt} ${user_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl -main ${automsg_opt} ${suites_opt} ${logfile_opt} ${debug_opt} ${rc_opt} ${user_opt}

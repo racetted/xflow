@@ -240,10 +240,20 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    }
 }
 
+proc MsgCenter_getFieldFromLastMessage { field_index } {
+   global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
+   set value ""
+   catch {
+      set messageEntry [lindex ${MSG_ACTIVE_TABLE} [expr ${MSG_ACTIVE_COUNTER} - 1]]
+      set value [lindex ${messageEntry} ${field_index}]
+   }
+   return ${value}
+}
+
 # see if we need to send notification to xflow or xflow-overview
 # for new messages
 proc MsgCenter_sendNotification {} {
-   global MSG_ACTIVE_COUNTER
+   global MSG_ACTIVE_COUNTER MsgTableColMap
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 0] } {
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
@@ -252,7 +262,10 @@ proc MsgCenter_sendNotification {} {
          thread::send ${overviewThreadId} "Overview_newMessageCallback true"
       } else {
          set xflowThreadId [SharedData_getMiscData XFLOW_THREAD_ID]
-         thread::send ${xflowThreadId} "xflow_newMessageCallback true"
+         set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
+         set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
+         # puts "MsgCenter_sendNotification exp=$exp datestamp=${datestamp}"
+         thread::send ${xflowThreadId} "xflow_newMessageCallback ${exp} ${datestamp} true"
       }
    }
 }
@@ -282,7 +295,7 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
 
    if { ${isMsgActive} == "true" } {
       ::log::log debug "MsgCenter_addActiveMessage adding ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
-      set displayedNodeText [::FlowNodes::convertToDisplayFormat ${node_}]
+      set displayedNodeText [SharedFlowNode_convertToDisplayFormat ${node_}]
       # add 2 spaces between date and time
       set displayedTimestamp [join [split ${timestamp_} .] "  "]
       # show only first 10 digits of datestamp
@@ -335,8 +348,17 @@ proc MsgCenter_ackMessages { table_w_ } {
       thread::send ${overviewThreadId} "Overview_newMessageCallback false"
    } else {
       set xflowThreadId [SharedData_getMiscData XFLOW_THREAD_ID]
-      thread::send ${xflowThreadId} "xflow_newMessageCallback false"
+      set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
+      set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
+      # puts "MsgCenter_sendNotification exp=$exp datestamp=${datestamp}"
+      thread::send ${xflowThreadId} "xflow_newMessageCallback \"${exp}\" \"${datestamp}\" false"
    }
+}
+
+proc MsgCenter_clearAllMessages {} {
+   set tableW [MsgCenter_getTableWidget]
+   MsgCenter_ackMessages ${tableW}
+   MsgCenter_initActiveMessages
 }
 
 proc MsgCenter_clearMessages { source_w table_w_ } {
@@ -359,7 +381,6 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
 # datestamp is obsolete from xflow_overview
 proc MsgCenter_removeMessages { table_w_ exp datestamp } {
    global MSG_TABLE MsgTableColMap
-   puts "MsgCenter_removeMessages for exp:${exp} datestamp:${datestamp}"
    ::log::log notice "MsgCenter_removeMessages for exp:${exp} datestamp:${datestamp}"
    # get exp messages
    set foundIndexes [lsearch -exact -all -index $MsgTableColMap(SuiteColNumber) $MSG_TABLE ${exp}]
@@ -452,7 +473,7 @@ proc MsgCenter_show {} {
 # thread procedures
 # The MsgCenter Thread act as a singleton
 # for new messages coming from all the
-# monitored suites.
+# monitored exps.
 # It is either called from xflow standalone thread (one experiment)
 # or from xflow_overview (multiple experiments).
 # 
@@ -474,7 +495,9 @@ proc MsgCenter_getThread {} {
          set this_id [thread::id]
          SharedData_setMsgCenterThreadId ${this_id}
          MsgCenter_init
-	 tk appname "MsgCenter"
+
+         tk appname "Message Center"
+
          #
          # From here to the 'thread::wait' statement, define the procedure(s)
          # that will be called from your main program
@@ -494,13 +517,18 @@ proc MsgCenter_getThread {} {
          }
 
          # called by xflow_overview to cleanup datestamp when not visible anymore
-         proc MsgCenterThread_removeDatestamp { exp_ datestamp_ } {
-	    MsgCenter_removeMessages [MsgCenter_getTableWidget] ${exp_} ${datestamp_}
-	 }
+        proc MsgCenterThread_removeDatestamp { exp_ datestamp_ } {
+           MsgCenter_removeMessages [MsgCenter_getTableWidget] ${exp_} ${datestamp_}
+        }
 
          # called by xflow or xflow_overview to show msg center on demand
          proc MsgCenterThread_showWindow {} {
             MsgCenter_show
+         }
+
+         # called by xflow to clear msg center on datestamp switch
+         proc MsgCenterThread_clearAllMessages {} {
+	    MsgCenter_clearAllMessages
          }
 
          # called by xflow or xflow_overview to let msg center
@@ -548,10 +576,12 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
    set selectedRow [${table_widget} curselection]
    # retrieve needed information
    set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
-   set suitePath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
-   ::log::log debug "MsgCenter_DoubleClickCallback node:${node} suitePath:${suitePath}"
+   set expPath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
+   set datestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
+   set realDatestamp [Utils_getRealDatestampValue ${datestamp}]
+   ::log::log debug "MsgCenter_DoubleClickCallback node:${node} expPath:${expPath} ${datestamp}"
 
-   if { ${node} == "" || ${suitePath} == "" } {
+   if { ${node} == "" || ${expPath} == "" } {
       return
    }
 
@@ -559,16 +589,20 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
    set result [ catch {
       # start the suite flow if not started
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-      set suiteThreadId [SharedData_getSuiteData ${suitePath} THREAD_ID]
-      set suiteRecord [::SuiteNode::formatSuiteRecord ${suitePath}]
+      set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
       if { ${isOverviewMode} == "true" } {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-         thread::send ${suiteThreadId} "thread_launchFLow ${overviewThreadId} ${suitePath}"
-      }
+         thread::send ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}"
 
-      # ask the suite thread to take care of showing the selected node in it's flow
-      set convertedNode [::FlowNodes::convertFromDisplayFormat ${node}]
-      thread::send ${suiteThreadId} "xflow_findNode ${suiteRecord} ${convertedNode}"
+         # ask the suite thread to take care of showing the selected node in it's flow
+         set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
+         thread::send ${overviewThreadId} "xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}"
+      } else {
+
+         # ask the suite thread to take care of showing the selected node in it's flow
+         set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
+         thread::send ${expThreadId} "xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}"
+      }
 
       Utils_normalCursor ${table_widget}
 
@@ -601,6 +635,7 @@ proc MsgCenter_init {} {
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
+   puts "MsgCenter_init Utils_logInit"
    Utils_logInit
 
    # this variable is true when a new message comes in

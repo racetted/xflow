@@ -94,15 +94,13 @@ proc DisplayGrp_setMaxY { display_group y_value {force ""} } {
 # calculates the max value of the y slot based on the exp boxes currently displayed
 # on the overview canvas and set the new value
 proc DisplayGrp_calcMaxY { display_group } {
-   global graphStartY expEntryHeight
-   set expList [${display_group} cget -exp_list]
-   set overviewCanvas [Overview_getCanvas]
+   set canvas [Overview_getCanvas]
    set maxY [${display_group} cget -y]
-   foreach exp ${expList} {
-      set suiteRecord [::SuiteNode::getSuiteRecordFromPath ${exp} ]
-      set expBoxCoords [Overview_getExpBoundaries ${overviewCanvas} ${suiteRecord}]
-      if { [lindex ${expBoxCoords} 3] > ${maxY} } {
-         set maxY  [lindex ${expBoxCoords} 3]
+   set expBoxTags [${canvas} find withtag exp_box.${display_group}]
+   foreach expBoxTag ${expBoxTags} {
+      set boxBoundaries [${canvas} coords ${expBoxTag}]
+      if { [lindex ${boxBoundaries} 3] > ${maxY} } {
+         set maxY  [lindex ${boxBoundaries} 3]
       }
    }
 
@@ -114,7 +112,7 @@ proc DisplayGrp_calcMaxY { display_group } {
 }
 
 # this function will shift groups and exps up a notch if it detects empty rows
-# it is useful after an exp has been moved up so the exp or suite record 
+# it is useful after an exp has been moved up so the exp
 # can be used as input
 proc DisplayGrp_processEmptyRows { display_group } {
    global expEntryHeight graphStartX graphHourX
@@ -165,10 +163,7 @@ proc DisplayGrp_processEmptyRows { display_group } {
 # and you want to make sure that it does not walk on someone else's ground
 proc DisplayGrp_processOverlap { display_group } {
    ::log::log debug "DisplayGrp_processOverlap display_group:$display_group"
-   # set groupOwner [${suite_record} cget -overview_group_record]
-   #set displayGroups [record show instances DisplayGroup]
    set displayGroups [ExpXmlReader_getGroups]
-
    set canvas [Overview_getCanvas]
    set groupIndex [lsearch ${displayGroups} ${display_group}]
    if { ${groupIndex} != -1 } {

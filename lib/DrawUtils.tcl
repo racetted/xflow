@@ -1,11 +1,6 @@
 package provide DrawUtils 1.0
 package require Tk
-package require FlowNodes
-#package require Tix
-package require tile
 package require BWidget 1.9
-
-#namespace delete ::DrawUtils
 
 namespace eval ::DrawUtils {
 
@@ -21,51 +16,63 @@ namespace eval ::DrawUtils {
 
 proc ::DrawUtils::init {} {
    variable nodeTypeMap
-   variable hostColorMap
    variable constants
-   variable rippleStatusMap
 
    array set nodeTypeMap {
       family rectangle
       module rectangle
       task rectangle
-      npass_task rectangle
+      npass_task arc
       loop oval
       outlet oval
       case losange
-   }
-
-   array set hostColorMap {
-      castor "cornflowerblue"
-      ib "cyan1"
-      naos "IndianRed4"
-      maia "IndianRed2"
-      pollux "Sandybrown"
-      unknown "black"
-   }
-
-   array set rippleStatusMap {
-      abortx abort
-      abort  abort
-      end    end
-      endx   end
-      begin  begin
-      beginx begin
-      init   init
-      submit submit
-      wait   wait
-      catchup catchup
-      discret discret
+      switch_case losange
    }
 
    array set constants {
       border_width "3"
    }
+
+   if { [SharedData_getMiscData FONT_NAME] != "" } {
+      # use user defined font
+      ::DrawUtils::setDefaultFonts [SharedData_getMiscData FONT_NAME] [SharedData_getMiscData FONT_SIZE]
+   }
+}
+
+proc ::DrawUtils::setDefaultFonts { {_family fixed} {_size 12} } {
+   font configure TkDefaultFont -size ${_size} -family ${_family}
+   font configure TkTextFont -size ${_size} -family ${_family}
+   font configure TkMenuFont -size ${_size} -family ${_family}
+   font configure TkHeadingFont -size ${_size} -family ${_family}
+   font configure TkTooltipFont -size [expr ${_size} - 2] -family ${_family}
+   font configure TkFixedFont -size ${_size} -family ${_family}
+   font configure TkIconFont -size ${_size} -family ${_family}
+}
+
+proc ::DrawUtils::getBoxLabelFont { _canvas } {
+   set labelFont flow_box_label_font
+   if { [SharedData_getMiscData FONT_NAME] == "" } {
+      # use legacy font
+      return [SharedData_getMiscData FONT_BOLD]
+   }
+
+   # use user defined font
+   if { [lsearch [font names] ${labelFont}] == -1 } {
+      set newFont [font create ${labelFont}]
+      font configure ${newFont} -family [font actual ${_canvas} -family] \
+         -size [font actual ${_canvas} -size] \
+         -weight [font actual ${_canvas} -weight] \
+         -slant  [font actual ${_canvas} -slant ]
+
+      # font configure ${newFont} -weight bold -size 11
+      font configure ${newFont} -weight bold -size [expr  [font actual ${_canvas} -size] - 2 ]
+   }
+   return ${labelFont}
 }
 
 proc ::DrawUtils::getStatusColor { node_status } {
    ::log::log debug "::DrawUtils::getStatusColor ${node_status}"
-   catch { set node_status $::DrawUtils::rippleStatusMap(${node_status}) }
+   catch { set node_status [SharedData_getRippleStatusMap ${node_status}] }
    switch ${node_status} {
       init -
       begin -
@@ -104,14 +111,14 @@ proc ::DrawUtils::getOutlineStatusColor { node_status } {
    return ${value}
 }
 
-proc ::DrawUtils::clearBranch { canvas node { cmd_list "" } } {
+proc ::DrawUtils::clearBranch { exp_path node datestamp canvas { cmd_list "" } } {
    ::log::log debug "clearBranch $canvas $node"
    if { ${cmd_list} != "" } {
       upvar #0 ${cmd_list} evalCmdList
    }
 
    set pady [SharedData_getMiscData CANVAS_PAD_Y]
-   set displayInfo [::FlowNodes::getDisplayCoords ${node} ${canvas}]
+   set displayInfo [SharedFlowNode_getDisplayCoords ${exp_path} ${node} ${datestamp} ${canvas}]
 
    set allBoxInfo [${canvas} bbox all]
    if { $allBoxInfo == "" } {
@@ -125,30 +132,15 @@ proc ::DrawUtils::clearBranch { canvas node { cmd_list "" } } {
    set newx2 [lindex ${allBoxInfo} 2]
    set newy2 [expr [lindex ${displayInfo} 3] + 5]
 
-   set children [$node cget -flow.children]
-
-   proc out {} {
-      set indexListW ""
-      if { [$node cget -flow.type] == "npass_task" || [$node cget -flow.type] == "loop" } {
-         set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
-         destroy ${indexListW}
-         append evalCmdList "destroy ${indexListW};"
-      }
-
-      set tags [${canvas} find enclosed ${newx1} ${newy1} ${newx2} ${newy2}]
-      foreach tagItem ${tags} {
-         ${canvas} delete ${tagItem}
-      }
-   }
+   set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}]
 
    # delete submit arrows
    set lineTagName ${node}.submit_tag
    #${canvas} delete ${lineTagName}
    append evalCmdList "${canvas} delete ${lineTagName};"
 
-   set children [$node cget -flow.children]
-   foreach child ${children} {
-      ::DrawUtils::clearBranch ${canvas} ${node}/${child} ${cmd_list}
+   foreach submitName ${submits} {
+      ::DrawUtils::clearBranch ${exp_path} ${node}/${submitName} ${datestamp} ${canvas}  ${cmd_list}
    }
 
    #${canvas} delete ${node}
@@ -170,38 +162,14 @@ proc ::DrawUtils::clearCanvas { canvas } {
    update idletasks
 }
 
-proc ::DrawUtils::drawNodeHost { node host {canvas ""}} {
-   variable nodeTypeMap
-   variable hostColorMap
-   
-   set type [$node cget -flow.type]
-   if [ catch { set imageType $nodeTypeMap($type) } ] {
-      error "Invalid node type $type in proc ::DrawUtils::drawNodeHost()"
-      return
-   }
-   set imageType $nodeTypeMap($type)
-   set canvasTag $node.$imageType
-   set hostColor $hostColorMap(unknown)
-   catch { set hostColor $hostColorMap($host) }
-   if { $canvas == "" } {
-      # get the list of all canvases where the node appears
-      set canvasList [::FlowNodes::getDisplayList $node]
-   } else {
-      set canvasList $canvas
-   }
-   foreach canvas $canvasList {
-      $canvas itemconfigure $canvasTag -outline $hostColor
-   }
-}
-
 # canvas = "" means we draw the status on all canvases that
 # the node might appear
-proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
+proc ::DrawUtils::drawNodeStatus { exp_path node datestamp {shadow_status 0} } {
    variable nodeStatusColorMap
    variable nodeTypeMap
-   set type [$node cget -flow.type]
-   set currentExtension [::FlowNodes::getNodeExtension $node]
-   set status [FlowNodes::getMemberStatus $node $currentExtension ]
+   set type [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
+   set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
+   set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension} ]
 
    # get the icon type of the node
    if [ catch { set imageType $nodeTypeMap($type) } ] {
@@ -216,9 +184,10 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
    catch { set colors [::DrawUtils::getStatusColor $status] }
 
    ::log::log debug "::DrawUtils::drawNodeStatus node=$node canvasTag=$canvasTag canvasTextTag=$canvasTextTag status=$status font=[lindex $colors 0] fill=[lindex $colors 1]"
+   # puts "::DrawUtils::drawNodeStatus node=$node canvasTag=$canvasTag canvasTextTag=$canvasTextTag status=$status font=[lindex $colors 0] fill=[lindex $colors 1]"
 
    # get the list of all canvases where the node appears
-   set canvasList [::FlowNodes::getDisplayList $node]
+   set canvasList [SharedFlowNode_getDisplayList ${exp_path} ${node} ${datestamp}]
    foreach canvas $canvasList {
       if { [winfo exists $canvas] } {
          if { $shadow_status == "1" } {
@@ -239,27 +208,7 @@ proc ::DrawUtils::drawNodeStatus { node {shadow_status 0} } {
    }
 }
 
-# canvas = "" means we draw the status on all canvases that
-# the node might appear
-proc ::DrawUtils::drawNodeText { node new_text {canvas ""} } {
-   set canvasTextTag $node.text
-   if { $canvas == "" } {
-      # get the list of all canvases where the node appears
-      set canvasList [::FlowNodes::getDisplayList $node]
-   } else {
-      set canvasList $canvas
-   }
-   if { [$node cget -flow.type] == "family" || [$node cget -flow.type] == "module"} {
-      set new_text "/$new_text"
-   }
-   ::log::log debug "::DrawUtils::drawNodeText new_text:$new_text "
-   foreach canvas $canvasList {
-      if { [winfo exists $canvas] && [$canvas type $canvasTextTag] == "text" } {
-         $canvas itemconfigure $canvasTextTag -text $new_text
-      }
-   }
-}
-
+proc out {} {
 proc ::DrawUtils::drawFamily { node canvas } {
    array set displayInfoList [$node cget -flow.display_infos]
    set displayInfo $displayInfoList($canvas)
@@ -277,14 +226,13 @@ proc ::DrawUtils::drawFamily { node canvas } {
       $canvas lower box.$node
    }
 }
+}
 
-
-proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder drawshadow shadowColor} {
+proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill outline fill binder drawshadow shadowColor} {
    variable constants
-   #::log::log debug "drawLosange canvas:$canvas text:$text binder:$binder"
    set newtx1 [expr ${tx1} + 30]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "$binder ${binder}.text"
+      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    set nx1 [expr [lindex $boxArea 0] -30]
@@ -297,7 +245,7 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder
    set ny3 $ny2
    set ny4 $ny1
    $canvas create polygon ${nx1} ${ny1} ${nx2} ${ny2} ${nx3} ${ny3} ${nx4} ${ny4} \
-         -outline $outline -fill $fill -tags "$binder ${binder}.losange"
+         -outline $outline -fill $fill -tags "flow_element $binder ${binder}.losange"
 
    $canvas lower ${binder}.losange ${binder}.text
 
@@ -312,55 +260,41 @@ proc ::DrawUtils::drawLosange { canvas tx1 ty1 text textfill outline fill binder
        set sy3 [expr $ny3 + 5]
        set sy4 [expr $ny4 + 5]
        $canvas create polygon ${sx1} ${sy1} ${sx2} ${sy2} ${sx3} ${sy3} ${sx4} ${sy4} -width $constants(border_width) \
-               -fill $shadowColor  -tags "${binder} ${binder}.shadow"
+               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.losange
    }
-
-   set suiteRecord [xflow_getActiveSuite]
 
    set maximX ${sx2}
    set maximY ${sy3}
    set nextY  [expr $sy4 + 10]
-   ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maximX} ${maximY}
-   ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
+   SharedData_setExpDisplayData ${exp_path} ${datestamp} $canvas ${nextY} ${maximX} ${maximY}
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
 }
 
-
-proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
-   global FLOW_SCALE
+proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
+   global FLOW_SCALE_${exp_path}_${datestamp}
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    variable constants
    ::log::log debug "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder"
    ::log::log debug "drawOval textfill:$textfill fill:$fill binder:$binder"
 
-   set suiteRecord [xflow_getActiveSuite]
    set newtx1 [expr ${tx1} + 10]
    set newty1 $ty1
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
+      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
    $canvas itemconfigure ${binder}.text -text $txt
 
    set ovalSize [SharedData_getMiscData LOOP_OVAL_SIZE]
    set nx1 [expr [lindex $boxArea 0] - ${ovalSize}]
-   set ny1 [expr [lindex $boxArea 1] - ${ovalSize}/${FLOW_SCALE}]
+   set ny1 [expr [lindex $boxArea 1] - ${ovalSize}/${flowScale}]
    set nx2 [expr [lindex $boxArea 2] + ${ovalSize}]
-   set ny2 [expr [lindex $boxArea 3] + ${ovalSize}/${FLOW_SCALE}]
+   set ny2 [expr [lindex $boxArea 3] + ${ovalSize}/${flowScale}]
    set nextY ${ny2}
    
    $canvas create oval ${nx1} ${ny1} ${nx2} ${ny2}  \
           -fill $fill -tags "flow_element $binder ${binder}.oval"
-
-   #if { [$binder cget -record_type] == "FlowLoop" &&
-   #      [$binder cget -loop_type] == "loopset" } {
-      # add parallel icon
-   #   set parx1 [expr $nx2 -5]
-   #   set parx2 $parx1
-   #   set pary1 [expr [lindex $boxArea 1] + 4]
-   #   set pary2 [lindex $boxArea 3]
-   #   $canvas create line $parx1 $pary1 [expr $parx1 - 5] [expr $pary1 + 5] -width 1.5 -fill black -tags flow_element
-   #   $canvas create line [expr $parx1 - 5] $pary1 [expr $parx1 - 10] [expr $pary1 + 5] -width 1.5 -fill black -tags flow_element
-   #}
 
    $canvas lower ${binder}.oval ${binder}.text
 
@@ -374,38 +308,38 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
       $canvas create oval ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
             -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
       $canvas lower ${binder}.shadow ${binder}.oval
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${sx2} ${sy2}
       set maxX ${sx2}
       set maxY ${sy2}
    } else {
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${nx2} ${ny2}
       set maxX ${nx2}
       set maxY ${ny2}
    }
 
-   ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 
    # this part adds a combo box to hold the index values of a loop node
-   if { [$binder cget -record_type] == "FlowLoop" } {
+   if {  [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "loop" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
          ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
-            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
+            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
          ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
          ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
 
       }
       set listboxW [${indexListW} getlistbox]
-      set currentExt [${binder} cget -current]
+      set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
 
       # only modify listbox value on the fly if the listbox is not currently mapped
       # i.e. not being selected by the user
       if { ! [winfo ismapped ${listboxW}] } {
          if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-            ${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
+            ${indexListW} configure -values {latest} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
          } else {
-            set indexValue [::FlowNodes::getIndexValue ${currentExt}] 
-            ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
+            set indexValue [SharedFlowNode_getIndexValue ${currentExt}] 
+            ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
          }
          ${indexListW} setvalue first
       }
@@ -421,7 +355,7 @@ proc ::DrawUtils::drawOval { canvas tx1 ty1 txt maxtext textfill outline fill bi
       } else {
          set nextY [expr $barY + [winfo height ${indexListW}]]
       }
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maxX} ${maxY}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
    }
 }
 
@@ -432,14 +366,15 @@ proc ::DrawUtils::showIndexWidget { node index_widget } {
 # this function is called to populate the loop node listbox will
 # all the loop indexes... This is ONLY called when the user is attempting
 # to view the listbox items
-proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
+proc ::DrawUtils::setIndexWidgetStatuses { exp_path node datestamp index_widget } {
    variable nodeStatusColorMap
    variable nodeTypeMap
 
-   if { [${node} cget -record_type] == "FlowNpassTask" } {
-      set extensions [::FlowNodes::getNptExtensions ${node}]
+   set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
+   if { ${nodeType} == "npass_task" } {
+      set extensions [SharedFlowNode_getNptExtensions ${exp_path} ${node} ${datestamp}]
    } else {
-      set extensions [::FlowNodes::getLoopExtensions ${node}]
+      set extensions [SharedFlowNode_getLoopExtensions ${exp_path} ${node} ${datestamp}]
    }
    set extensions [linsert ${extensions} 0 latest]
 
@@ -455,7 +390,7 @@ proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
    set maxItemLength [string length latest]
 
    set index 0
-   set parentExt [::FlowNodes::getParentLoopExt ${node}]
+   set parentExt [SharedFlowNode_getParentLoopExt ${exp_path} ${node} ${datestamp}]
    # we through each extension and set the extension status color
    # in the listbox widget
    foreach ext ${extensions} {
@@ -467,14 +402,14 @@ proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
          if { ${parentExt} == "" } {
             # got no loops
             # need to get status of every iteration
-            set extStatus [::FlowNodes::getMemberStatus ${node} +${ext}]
+            set extStatus [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} +${ext}]
          } elseif { ${parentExt} == "latest" } {
             # parent loop set to latest but current loop set to a specific iteration
             # all our iteration should be in init state...
             set extStatus init
          } else {
             # parent has loop iteration set, every iteration is relative to parent one
-            set extStatus [::FlowNodes::getMemberStatus ${node} ${parentExt}+${ext}]
+            set extStatus [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${parentExt}+${ext}]
          }
 
          set indexStatusImg [::DrawUtils::getStatusImage ${extStatus}]
@@ -483,9 +418,9 @@ proc ::DrawUtils::setIndexWidgetStatuses { node index_widget } {
       incr index
    }
 
-   set currentExt [${node} cget -current]
+   set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${node} ${datestamp}]
    if { ${currentExt} != "" && ${currentExt} != "latest" } {
-      set currentValue [::FlowNodes::getIndexValue ${currentExt}]
+      set currentValue [SharedFlowNode_getIndexValue ${currentExt}]
       set currentValueIndex [lsearch ${extensions} ${currentValue}]
       # this is the format of the call of Bwidget combox to set a value for
       # a specific index
@@ -605,29 +540,24 @@ proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
     $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.5 -arrow $arrow -fill $fill -dash { 4 3 }
 }
 
-proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
-   global FLOW_SCALE
+proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
+   global FLOW_SCALE_${exp_path}_${datestamp}
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    variable constants
    ::log::log debug "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder"
    set pad 5
-   if { ${FLOW_SCALE} != "1" } {
-      if { [::FlowNodes::isCollapsed $binder $canvas] == 1 } {
-         set text "/  +"
-      } else {
-         set text "/   "
-      }
+   if { ${flowScale} != "1" } {
+      set text "/   "
       set maxtext ${text}
       set pad 0
    } else {
       set text /$maxtext
    }
    $canvas create text ${tx1} ${ty1} -text ${text} -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
+      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
-
-   #$canvas itemconfigure ${binder}.text -text /$text
 
    set nx1 [expr [lindex $boxArea 0] - ${pad}]
    set ny1 [expr [lindex $boxArea 1] - ${pad}]
@@ -640,8 +570,6 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
            -fill $fill -tags "flow_element $binder ${binder}.rectangle" 
    $canvas lower ${binder}.rectangle ${binder}.text
 
-   set suiteRecord [xflow_getActiveSuite]
-
    if { $drawshadow == "on" } {
       # draw a shadow
       set sx1 [expr $nx1 + ${pad}]
@@ -651,24 +579,21 @@ proc ::DrawUtils::drawBoxSansOutline { canvas tx1 ty1 text maxtext textfill outl
       $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
             -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
       $canvas lower ${binder}.shadow ${binder}.rectangle
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${sx2} ${sy2}
    } else {
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${nx2} ${ny2}
    }
 
-   ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 }
 
-proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
-   global FLOW_SCALE
+proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
+   global FLOW_SCALE_${exp_path}_${datestamp}
    variable constants
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    ::log::log debug "drawBox canvas:$canvas text:$text textfill=$textfill outline=$outline fill=$fill binder:$binder"
-   if { ${FLOW_SCALE} != "1" && [$binder cget -record_type] != "FlowNpassTask" } {
-      if { [::FlowNodes::isCollapsed $binder $canvas] == 1 } {
-         set text "  +"
-      } else {
-         set text "   "
-      }
+   if { ${flowScale} != "1" && [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}]  != "npass_task" } {
+      set text "   "
       set maxtext ${text}
       set padx 5
       set pady 0
@@ -679,13 +604,10 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
    }
 
    $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [SharedData_getMiscData  FONT_BOLD] -tags "flow_element $binder ${binder}.text"
+      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
-
-   #$canvas itemconfigure ${binder}.text -text $text
-   set suiteRecord [xflow_getActiveSuite]
 
    set nx1 [expr [lindex $boxArea 0] - ${padx}]
    set ny1 [expr [lindex $boxArea 1] - ${pady}]
@@ -705,62 +627,138 @@ proc ::DrawUtils::drawBox { canvas tx1 ty1 text maxtext textfill outline fill bi
        $canvas create rectangle ${sx1} ${sy1} ${sx2} ${sy2} -width 0 \
                -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.rectangle
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${sx2} ${sy2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${sx2} ${sy2}
       set maxX ${sx2}
       set maxY ${sy2}
    } else {
       set maxX ${nx2}
       set maxY ${ny2}
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${nx2} ${ny2}
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${nx2} ${ny2}
    }
 
-   ::FlowNodes::setDisplayCoords $binder $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
-
-   if { [$binder cget -record_type] == "FlowNpassTask" } {
-      set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
-      if { ! [winfo exists ${indexListW}] } {
-         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
-            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${binder} ${indexListW}]
-         ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
-         ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
-      }
-      set listboxW [${indexListW} getlistbox]
-      set currentExt [${binder} cget -current]
-
-      # only modify listbox value on the fly if the listbox is not currently mapped
-      # i.e. not being selected by the user
-      if { ! [winfo ismapped ${listboxW}] } {
-         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-            #${indexListW} configure -values {latest} -width [expr [${binder} cget -max_ext_value] + 3]
-            ${indexListW} configure -values {latest} -width 7
-         } else {
-            set indexValue [::FlowNodes::getIndexValue ${currentExt}]
-            ${indexListW} configure -values  ${indexValue} -width [expr [${binder} cget -max_ext_value] + 3]
-         }
-         ${indexListW} setvalue first
-      }
-
-      pack ${indexListW} -fill both
-      set barY [expr ${maxY} + 15]
-      #set barX [expr ($nx1 + $nx2)/2]
-      set barX ${nx1}
-      $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
-      set maxY ${barY}
-      update idletasks
-      if { [winfo height ${indexListW}] == "1" } {
-         set nextY [expr $barY + 20]
-      } else {
-         set nextY [expr $barY + [winfo height ${indexListW}]]
-      }
-      ::SuiteNode::setDisplayData $suiteRecord $canvas ${nextY} ${maxX} ${maxY}
-   }
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 }
 
-proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
-   ::log::log debug "::DrawUtils::pointNode ${suite_record} node:${node}"
+proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
+   $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
+      -justify center -font [::DrawUtils::getBoxLabelFont ${canvas}] -anchor w -tags "flow_element $binder ${binder}.text"
+   set shadowOffset [SharedData_getMiscData CANVAS_SHADOW_OFFSET]
+   # draw a box around the text
+   set boxArea [$canvas bbox ${binder}.text]
+   set radius 45
+
+   $canvas itemconfigure ${binder}.text -text $text
+
+   set nx1 [expr [lindex $boxArea 0] -5]
+   set ny1 [expr [lindex $boxArea 1] -5]
+   set nx2 [expr [lindex $boxArea 2] +5]
+   set ny2 [expr [lindex $boxArea 3] +5]
+   set nextY ${ny2}
+   set maxX ${nx2}
+   set maxY ${ny2}
+
+   $canvas create arc [expr ${nx1} - 4] [expr ${ny1} + 2] [expr ${nx1} + 10] [expr ${ny2} -2] -extent 180 -start 90 -fill ${fill} -outline ${outline} -tag "flow_element ${binder} ${binder}.arc"
+   DrawUtils::roundRect ${canvas} ${nx1} ${ny1} ${nx2} ${ny2} ${radius} -fill $fill -outline ${outline} -tags "flow_element $binder ${binder}.arc"
+
+   ${canvas} lower ${binder}.arc ${binder}.text
+
+   if { $drawshadow == "on" } {
+       # draw a shadow
+       set sx1 [expr $nx1 + ${shadowOffset}]
+       set sx2 [expr $nx2 + ${shadowOffset}]
+       set sy1 [expr $ny1 + ${shadowOffset}]
+       set sy2 [expr $ny2 + ${shadowOffset}]
+       DrawUtils::roundRect $canvas ${sx1} ${sy1} ${sx2} ${sy2} ${radius} \
+               -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
+       $canvas lower ${binder}.shadow ${binder}.arc
+      set maxX ${sx2}
+      set maxY ${sy2}
+   }
+
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+
+   set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
+   if { ! [winfo exists ${indexListW}] } {
+      ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
+         -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
+      ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
+      ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
+   }
+   set listboxW [${indexListW} getlistbox]
+   set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
+
+   # only modify listbox value on the fly if the listbox is not currently mapped
+   # i.e. not being selected by the user
+   if { ! [winfo ismapped ${listboxW}] } {
+      if {  ${currentExt} == "" || ${currentExt} == "latest" } {
+         ${indexListW} configure -values {latest} -width 7
+      } else {
+         set indexValue [SharedFlowNode_getIndexValue ${currentExt}]
+         ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+      }
+      ${indexListW} setvalue first
+   }
+
+   pack ${indexListW} -fill both
+   set barY [expr ${maxY} + 15]
+   set barX ${nx1}
+   $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
+   set maxY ${barY}
+   update idletasks
+   if { [winfo height ${indexListW}] == "1" } {
+      set nextY [expr $barY + 20]
+   } else {
+      set nextY [expr $barY + [winfo height ${indexListW}]]
+   }
+   SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
+
+}
+
+# got from the web pasting it as is
+proc DrawUtils::roundRect { w x0 y0 x3 y3 radius args } {
+
+    set r [winfo pixels $w $radius]
+    set d [expr { 2 * $r }]
+
+    # Make sure that the radius of the curve is less than 3/8
+    # size of the box!
+
+    set maxr 0.75
+
+    if { $d > $maxr * ( $x3 - $x0 ) } {
+        set d [expr { $maxr * ( $x3 - $x0 ) }]
+    }
+    if { $d > $maxr * ( $y3 - $y0 ) } {
+        set d [expr { $maxr * ( $y3 - $y0 ) }]
+    }
+
+    set x1 [expr { $x0 + $d }]
+    set x2 [expr { $x3 - $d }]
+    set y1 [expr { $y0 + $d }]
+    set y2 [expr { $y3 - $d }]
+
+    set cmd [list $w create polygon]
+    lappend cmd $x0 $y0
+    lappend cmd $x1 $y0
+    lappend cmd $x2 $y0
+    lappend cmd $x3 $y0
+    lappend cmd $x3 $y1
+    lappend cmd $x3 $y2
+    lappend cmd $x3 $y3
+    lappend cmd $x2 $y3
+    lappend cmd $x1 $y3
+    lappend cmd $x0 $y3
+    lappend cmd $x0 $y2
+    lappend cmd $x0 $y1
+    lappend cmd -smooth 1
+    return [eval $cmd $args]
+ }
+
+proc ::DrawUtils::pointNode { exp_path datestamp node {canvas ""} } {
+   ::log::log debug "::DrawUtils::pointNode exp_path:${exp_path} node:${node}"
    set canvasList ${canvas}
    if { ${canvas} == "" } {
-      set canvasList [::SuiteNode::getCanvasList ${suite_record}]
+      set canvasList [SharedData_getExpCanvasList ${exp_path} ${datestamp}]
    }
    foreach canvasW ${canvasList} {
       set newcords [${canvasW} coords ${node}]
@@ -791,19 +789,6 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
       ${canvasW} create line $target_x2 $target_y2 [expr $target_x2 + $x_offset] \
       [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
 
-      proc out {} {
-      # adjust the canvas so that the job is centered {if possible}
-      # the height and width are the size of the canvas that
-      # is visible
-      set height [winfo height ${canvasW}]
-      set width  [winfo width  ${canvasW}]
-      set scrollregion [${canvasW} cget -scrollregion]
-      set heightp [winfo fpixels ${canvasW} [lindex $scrollregion 3]]
-      set widthp [winfo fpixels ${canvasW} [lindex $scrollregion 2]]
-
-      ${canvasW} xview moveto [expr ($target_x - $width / 2) / $widthp]
-      ${canvasW} yview moveto [expr ($target_y - $height / 2)/ $heightp]
-      }
       ::DrawUtils::viewCanvasItem ${canvasW} ${searchTag}
       raise [winfo toplevel ${canvasW}]
       # after a few seconds, delete the lines pointing at the job
@@ -815,35 +800,35 @@ proc ::DrawUtils::pointNode { suite_record node {canvas ""} } {
 # to the current node that might require more space than
 # usual ones Example loop. Used mainly to know where to draw the first
 # node of a branch
-proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
-   global FLOW_SCALE
-   ::log::log debug "::DrawUtils::getLineDeltaSpace $flow_node delta_value: $delta_value"
+proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp {delta_value 0} } {
+   global FLOW_SCALE_${exp_path}_${datestamp}
+   ::log::log debug "::DrawUtils::getLineDeltaSpace ${exp_path} ${node} delta_value: $delta_value"
    set value ${delta_value}
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    # I only need to calculate extra space if the current node is not in position 0
    # in it's parent node. If it is in position 0, the extra space has already been calculated.
 
-   if { [::FlowNodes::getPosition ${flow_node}] != 0 } {
+   if { [SharedFlowNode_getSubmitPosition ${exp_path} ${node} ${datestamp}] != 0 } {
       set done 0
-      set node ${flow_node}
       while { ! ${done} } {
+         set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
          # for now only loops needs be treated
-         if { [${node} cget -flow.type] == "loop" } {
+         if { ${nodeType} == "loop" } {
             if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
                set value [SharedData_getMiscData LOOP_OVAL_SIZE]
-               #if { ${FLOW_SCALE} != "1" } { set value [expr ${value} + 5 ] }
             }
-         } elseif { [${node} cget -flow.type] == "npass_task" } {
-            if { [expr ${value} < 5] && ${FLOW_SCALE} != "1" } { set value 5 }
+         } elseif { ${nodeType} == "npass_task" } {
+            if { [expr ${value} < 5] && ${flowScale} != "1" } { set value 5 }
          }
 
-         set childNodes [${node} cget -flow.children]
+         set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}]
          # i'm only interested in the first position of the child list, the others will be calculated
          # when we move down the tree
-         set childNode [lindex ${childNodes} 0]
+         set submitName [lindex ${submits} 0]
       
-         if { ${childNode} != "" } {
+         if { ${submitName} != "" } {
             # move further down the tree
-            set node ${node}/${childNode}
+            set node ${node}/${submitName}
          } else {
             set done 1
          }
@@ -852,12 +837,13 @@ proc ::DrawUtils::getLineDeltaSpace { flow_node {delta_value 0} } {
    return $value
 }
 
-proc ::DrawUtils::getNodeDeltaX { _flow_node _canvas } {
+proc ::DrawUtils::getNodeDeltaX { exp_path node datestamp canvas } {
    set deltax 0
-   if { [${_flow_node} cget -flow.type] == "npass_task" } {
-      set indexListW [::DrawUtils::getIndexWidgetName ${_flow_node} ${_canvas}]
-      foreach { px1 py1 px2 py2 } [::FlowNodes::getDisplayCoords ${_flow_node} ${_canvas}] { break }
-      foreach { nx1 ny1 nx2 ny2 } [${_canvas} bbox ${_flow_node}.index_widget] { break }
+   # puts "::DrawUtils::getNodeDeltaX SharedFlowNode_getNodeType ${exp_path} ${node}"
+   if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
+      set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
+      foreach { px1 py1 px2 py2 } [SharedFlowNode_getDisplayCoords ${exp_path} ${node} ${datestamp} ${canvas}] {break}
+      foreach { nx1 ny1 nx2 ny2 } [${canvas} bbox ${node}.index_widget] { break }
       if { ${nx2} > ${px2} } {
          set deltax [expr ${nx2} - ${px2}]
       }
@@ -865,7 +851,7 @@ proc ::DrawUtils::getNodeDeltaX { _flow_node _canvas } {
    return ${deltax}
 }
 
-proc  ::DrawUtils::delPointNode {canvas } {
+proc  ::DrawUtils::delPointNode { canvas } {
 
     if { [winfo exists $canvas] } {
         $canvas delete ${canvas}searchlines
@@ -884,11 +870,11 @@ proc ::DrawUtils::getStatusImage { status } {
    return ${statusImage}
 }
 
-proc ::DrawUtils::highLightNode { suite_record node canvas_w } {
-   global NodeHighLightRestoreCmd 
+proc ::DrawUtils::highLightNode { exp_path node datestamp canvas_w } {
+   global NodeHighLightRestoreCmd_${exp_path}_${datestamp}
    variable nodeTypeMap
 
-   set type [$node cget -flow.type]
+   set type [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] 
    set imageType $nodeTypeMap($type)
    set canvasTag $node.$imageType
 
@@ -896,13 +882,13 @@ proc ::DrawUtils::highLightNode { suite_record node canvas_w } {
    set currentWidth [${canvas_w} itemcget ${canvasTag} -width ]
    set currentOutline [${canvas_w} itemcget ${canvasTag} -outline]
    ${canvas_w} itemconfigure ${canvasTag} -width 2 -outline ${selectColor}
-   set NodeHighLightRestoreCmd "${canvas_w} itemconfigure ${canvasTag} -width ${currentWidth} -outline ${currentOutline}"
+   set NodeHighLightRestoreCmd_${exp_path}_${datestamp} "${canvas_w} itemconfigure ${canvasTag} -width ${currentWidth} -outline ${currentOutline}"
 }
 
 # highlights a node that is selected with the find functionality
 # by drawing a yellow rectangle around the node
-proc ::DrawUtils::highLightFindNode { _suite_record _node _canvas_w } {
-   global NodeHighLightRestoreCmd 
+proc ::DrawUtils::highLightFindNode { _exp_path _datestamp _node _canvas_w } {
+   global NodeHighLightRestoreCmd_${_exp_path}_${_datestamp}
    variable nodeTypeMap
 
    set nodeShadowTag ${_node}.shadow
@@ -921,7 +907,7 @@ proc ::DrawUtils::highLightFindNode { _suite_record _node _canvas_w } {
    ${_canvas_w} lower ${selectTag} ${_node}
 
    # sets the command to restore the node to its previous state
-   set NodeHighLightRestoreCmd "${_canvas_w} delete ${selectTag};"
+   set NodeHighLightRestoreCmd_${_exp_path}_${_datestamp} "${_canvas_w} delete ${selectTag};"
    return ${selectTag}
 }
 

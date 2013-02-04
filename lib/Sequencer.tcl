@@ -24,35 +24,47 @@ proc Sequencer_getUtilsPath {} {
    return [file dirname $utilsPath]
 }
 
-proc Sequencer_runCommandWithWindow { suite_path command title position args } {
+proc Sequencer_getExpRootNodeInfo { exp_path } {
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+
+   set cmd "export SEQ_EXP_HOME=$exp_path; ${seqExec} -f root | cut -d \"=\" -f2"
+   set rootNode [exec ksh -c ${cmd}]
+   return ${rootNode}
+}
+
+proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command title position args } {
    global env
    regsub -all " " [file tail $command] _ tmpfile
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
-   #set cmd "export SEQ_EXP_HOME=$suite_path;$command [join $args] > $tmpfile 2>&1"
-   #::log::log debug "Sequencer_runCommand ksh -c $cmd"
-   #catch { eval [exec ksh -c $cmd]}
-   Sequencer_runCommand ${suite_path} ${tmpfile} "${command} [join ${args}]"
-   create_text_window "$title" ${tmpfile} ${position} .
+   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
+   create_text_window "$title" ${tmpfile} ${position} ${parent_top}
    catch {[exec rm -f ${tmpfile}}
 }
 
-proc Sequencer_runCommandLogAndWindow { suite_path command title position args } {
+proc Sequencer_runCommandLogAndWindow { exp_path datestamp parent_top command title position args } {
    global env
    regsub -all " " [file tail $command] _ tmpfile
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
-   Sequencer_runCommand ${suite_path} ${tmpfile} "${command} [join ${args}]"
+   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
    ::log::log notice "${command} [join ${args}]"
    Utils_logFileContent notice ${tmpfile}
-   create_text_window "$title" ${tmpfile} ${position} .
+   create_text_window "$title" ${tmpfile} ${position} ${parent_top}
    catch {[exec rm -f ${tmpfile}}
 }
 
-proc Sequencer_runCommand { suite_path out_file command } {
-   set cmd "export SEQ_EXP_HOME=$suite_path;print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
+proc Sequencer_runCommand { exp_path datestamp out_file command } {
+   # if { [Utils_validateRealDatestamp ${datestamp}] == false } {
+   #  error "Invalid datestamp"
+   # }
+   if { ${datestamp} != "" } {
+      set cmd "export SEQ_EXP_HOME=$exp_path;export SEQ_DATE=${datestamp}; print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
+   } else {
+      set cmd "export SEQ_EXP_HOME=$exp_path;print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
+   }
    ::log::log debug "Sequencer_runCommand ksh -c $cmd"
    catch { eval [exec ksh -c $cmd]}
 }
