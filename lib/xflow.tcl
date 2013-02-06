@@ -593,7 +593,7 @@ proc xflow_initDatestampEntry { exp_path datestamp } {
 # - redraw the flow
 proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
    global MSG_CENTER_THREAD_ID
-   ::log::log debug "xflow_setDatestamp exp_path:$exp_path datestamp:$exp_path parent_w:$parent_w"
+   ::log::log debug "xflow_setDatestampCallback exp_path:$exp_path datestamp:$exp_path parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
    set dateEntry [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
 
@@ -619,7 +619,7 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
       LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
       SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
 
-      ::log::log debug "xflow_setDatestamp exp_path:${exp_path} seqDatestamp:${seqDatestamp}"
+      ::log::log debug "xflow_setDatestampCallback exp_path:${exp_path} seqDatestamp:${seqDatestamp}"
 
       ${hiddenDate} configure -text ${newDatestamp}
 
