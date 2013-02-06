@@ -455,7 +455,6 @@ proc SharedFlowNode_getMemberStatus { exp_path node datestamp member } {
 # sets the status of a node. Generic procedure used for all type of nodes
 # called by LogReader
 proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status timestamp {is_recursive false} } {
-   # puts "SharedFlowNode_setMemberStatus exp:${exp_path} node:${node} datestamp:${datestamp} member:${member} status:${status} timestamp:${timestamp}"
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
       # puts "SharedFlowNode_setMemberStatus SharedFlowNode_initNodeDatestamp"
       SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp} 
@@ -492,7 +491,19 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status time
             }
          } else {
             set statuses($member) "${status} ${timestamp}"
-            tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member $member
+	    if { ${nodeType} == "loop"} {
+	       # for loops, the latest_member stores the value of the whole loop.
+	       # for inn   # how many parent loops do I have
+               set nofParentLoops [llength [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} loops]]
+               # how many index separator do I have from the given member
+               set nofSeparators [expr [llength [split ${member} +]] - 1]
+
+               if { ${nofParentLoops} > 1 && [expr ${nofParentLoops} - 1] == ${nofSeparators} } {
+                  tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member $member
+               }
+	    } else {
+               tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member $member
+	    }
          }
       }
       set values [array get statuses]
@@ -823,12 +834,17 @@ proc SharedFlowNode_getNodeExtension { exp_path node datestamp } {
          set extension ${parentLoopExt}${nptExtension}
       }
    } else {
-      foreach loopNode ${loopList} {
-         set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${loopNode} ${datestamp}]
-         if { ${currentExt} == "latest" } {
-            return [SharedFlowNode_getLatestExt ${exp_path} ${node} ${datestamp}]
+      if { ${nodeType} == "loop" && [llength ${loopList}] == 1 && [SharedFlowNode_getCurrentExt ${exp_path} ${node} ${datestamp}] == "latest" } {
+         # exception case for top loop
+         return "all"
+      } else {
+         foreach loopNode ${loopList} {
+            set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${loopNode} ${datestamp}]
+            if { ${currentExt} == "latest" } {
+               return [SharedFlowNode_getLatestExt ${exp_path} ${node} ${datestamp}]
+            }
+            set extension "${extension}[SharedFlowNode_getCurrentExt ${exp_path} ${loopNode} ${datestamp}]"
          }
-         set extension "${extension}[SharedFlowNode_getCurrentExt ${exp_path} ${loopNode} ${datestamp}]"
       }
    }
    return ${extension}
