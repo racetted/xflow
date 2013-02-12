@@ -228,7 +228,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
                set msgNode ${node}
             }
             thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenterThread_newMessage [thread::id] \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} \"${msg}\""
+               "MsgCenterThread_newMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} \"${msg}\""
          }
       }
 

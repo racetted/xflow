@@ -396,6 +396,7 @@ proc MsgCenter_removeMessages { table_w_ exp datestamp } {
    foreach deleteIndex ${deleteIndexes} {
       set MSG_TABLE [lreplace ${MSG_TABLE} ${deleteIndex} ${deleteIndex}]
    }
+   ::log::log notice "MsgCenter_removeMessages for exp:${exp} datestamp:${datestamp} DONE"
 }
 
 proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
@@ -506,12 +507,12 @@ proc MsgCenter_getThread {} {
          #
 
          # called everytime a new message comes in from experiment threads
-         proc MsgCenterThread_newMessage { calling_thread_id datestamp_ timestamp_ type_ node_ exp_ msg_ } {
-            ::log::log debug "MsgCenterThread_newMessage calling_thread_id:${calling_thread_id} ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
+         proc MsgCenterThread_newMessage { datestamp_ timestamp_ type_ node_ exp_ msg_ } {
+            ::log::log debug "MsgCenterThread_newMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
             MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
             # if the exp is done reading messages, we send a notification out
             # to warn about new messages available in the msg center
-            if { [SharedData_getMiscData ${calling_thread_id}_STARTUP_DONE] == true } {
+            if { [SharedData_getMiscData STARTUP_DONE] == true } {
                MsgCenter_sendNotification
             }
          }
