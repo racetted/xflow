@@ -651,7 +651,7 @@ proc SharedFlowNode_uncollapseBranch { exp_path node datestamp canvas } {
    }
 
    set previousNode ${node}
-   set nextNode [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} submitter]
+   set nextNode [tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} submitter]
    set found false
    while { ${nextNode} != "" && ${found} == false } {
       array set displayInfoList [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${nextNode} display_infos]

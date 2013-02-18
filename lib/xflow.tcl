@@ -413,7 +413,7 @@ proc xflow_findCallback { _exp_path _datestamp _entry_w _next_or_previous } {
       set mainFlowCanvas [xflow_getMainFlowCanvas ${_exp_path} ${_datestamp}]
       # if the node is collapsed, uncollapse it
       if { [SharedFlowNode_uncollapseBranch ${_exp_path} ${foundNode} ${_datestamp} ${mainFlowCanvas}] != "" } {
-         xflow_drawflow ${_exp_path} ${_datestamp} ${mainFlowCanvas}  ${_datestamp} 0
+         xflow_drawflow ${_exp_path} ${_datestamp} ${mainFlowCanvas} 0
       }
 
       set foundTag [::DrawUtils::highLightFindNode ${_exp_path} ${_datestamp} ${foundNode} ${mainFlowCanvas}]
