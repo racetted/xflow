@@ -613,7 +613,6 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    # delete previous box
    Overview_removeExpBox ${canvas} ${exp_path} ${datestamp} ${currentStatus}
 
-   # set tailName [file tail ${exp_path}]
    set datestampRange [SharedData_getMiscData OVERVIEW_DATESTAMP_RANGE]
    set shortName [SharedData_getExpShortName ${exp_path}]
    set expLabel " ${shortName} "
