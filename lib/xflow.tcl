@@ -631,14 +631,14 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
 
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
          set expThreadId [ThreadPool_getThread]
-         thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${seqDatestamp}\" no_overview"
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${seqDatestamp}\" no_overview" LogReaderDone
+	 vwait LogReaderDone
       } else {
          thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_clearAllMessages"
          SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]
          SharedData_setMiscData STARTUP_DONE false
          LogReader_startExpLogReader ${exp_path} ${seqDatestamp} no_overview
          SharedData_setMiscData STARTUP_DONE true
-         # thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
       }
 
       set currentTop [xflow_getToplevel ${exp_path} ${datestamp}]
@@ -649,10 +649,6 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
       xflow_createWidgets ${exp_path} ${seqDatestamp} ${currentx} ${currenty}
       xflow_displayFlow ${exp_path} ${seqDatestamp}
       xflow_closeExpDatestamp ${exp_path} ${datestamp}
-
-      # if { [SharedData_getMiscData OVERVIEW_MODE] == false } {
-      #   thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
-      # }
    }
    Utils_normalCursor $top
 }
@@ -2123,7 +2119,8 @@ proc xflow_refreshFlow { exp_path datestamp } {
 	 if { ${expThreadId} == "" } {
 	    set expThreadId [ThreadPool_getThread]
 	 }
-         thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview"
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview" LogReaderDone
+	 vwait LogReaderDone
       }
 
       xflow_displayFlow ${exp_path} ${datestamp}

@@ -857,7 +857,7 @@ proc Overview_getExpBoxTags { canvas exp_path } {
 }
 
 proc Overview_isExpBoxObsolete { exp_path datestamp } {
-   # puts "Overview_isExpBoxObsolete $exp_path $datestamp"
+   ::log::log debug "Overview_isExpBoxObsolete $exp_path $datestamp"
    if { ${datestamp} == "default" } {
       # puts "Overview_isExpBoxObsolete exp_path:${exp_path} datestamp:${datestamp}"
       return false
@@ -869,12 +869,15 @@ proc Overview_isExpBoxObsolete { exp_path datestamp } {
    set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
 
    set isObsolete false
+   ::log::log debug "Overview_isExpBoxObsolete $exp_path $datestamp currentStatus:${currentStatus}"
    if { ${currentStatus} == "end" } {
       set endDateTime [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} end]
+      ::log::log debug "Overview_isExpBoxObsolete $exp_path $datestamp endDateTime:${endDateTime} xoriginDateTime:${xoriginDateTime}"
       if { [expr ${endDateTime} <= ${xoriginDateTime}] } {
          set isObsolete true
       }
    }
+   ::log::log debug "Overview_isExpBoxObsolete $exp_path $datestamp isObsolete:$isObsolete"
    return ${isObsolete}
 }
 
@@ -1308,18 +1311,9 @@ proc Overview_launchExpFlow { exp_path datestamp } {
 
          if { [thread::exists ${expThreadId}] } {
              ::log::log notice "Overview_launchExpFlow new exp thread calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
-            thread::send ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow"
+            thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow" LogReaderDone
+	    vwait LogReaderDone
          }
-      }
-      proc out {} {
-      if { ${datestamp} != "" && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-         # inactive log
-         # release exp thread
-         ::log::log notice "Overview_launchExpFlow releasing inactive log ${exp_path} ${datestamp}"
-         # SharedData_removeExpThreadId ${exp_path} ${datestamp}
-         # ThreadPool_releaseThread ${expThreadId} ${exp_path} ${datestamp}
-         Overview_releaseLoggerThread ${expThreadId} ${exp_path} ${datestamp}
-      }
       }
 
       if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {
@@ -1351,16 +1345,16 @@ proc Overview_launchExpFlow { exp_path datestamp } {
    }
 }
 
+# the end time happened prior to the x origin time,
 proc Overview_cleanDatestamp { exp_path datestamp } {
-   if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
-      # the end time happened prior to the x origin time,
+   ::log::log notice "Overview_cleanDatestamp exp_path:${exp_path} datestamp:${datestamp}"
+   # register the datestamp for data cleanup
+   OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}
 
-      # register the datestamp for data cleanup
-      OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}
+   # remove msg center data
+   Overview_cleanExpMsgDatestamp ${exp_path} ${datestamp}
 
-      # remove msg center data
-      Overview_cleanExpMsgDatestamp ${exp_path} ${datestamp}
-   }
+   ::log::log notice "Overview_cleanDatestamp exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
 
 # this proc is called before releasing an exp thread to the thread pool
@@ -1436,6 +1430,7 @@ proc Overview_waitChildInitDone {} {
 proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
    global AUTO_LAUNCH
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
+   ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    set canvas [Overview_getCanvas]
    # retrieve the date & time from the given time stamp
    set dateValue [Utils_getDateFromDatestamp ${timestamp}]

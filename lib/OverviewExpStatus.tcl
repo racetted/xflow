@@ -165,7 +165,7 @@ proc OverviewExpStatus_printStatusDatestamp { _exp_path {_datestamp ""} } {
    puts "${_exp_path}"
    puts "-------------------------------------------"
    #array set datestamps [SharedData_getExpData ${_exp_path} datestamps]
-   set datestamps [SharedData_getDatestamps ${_exp_path}]
+   set datestamps [OverviewExpStatus_getDatestamps ${_exp_path}]
    foreach datestamp ${datestamps} {
       # set statusList $datestamps(${datestamp})
       set statusList [set datestamps_${_exp_path}(${_datestamp})]
@@ -175,11 +175,13 @@ proc OverviewExpStatus_printStatusDatestamp { _exp_path {_datestamp ""} } {
 
 proc OverviewExpStatus_addObsoleteDatestamp {  _exp_path _datestamp } {
    global obsolete_datestamps
+   ::log::log notice "OverviewExpStatus_addObseleteDatestamps() ${_exp_path} ${_datestamp} started..."
    if { ! [info exists obsolete_datestamps] } {
       array set obsolete_datestamps {}
    }
    set key ${_exp_path}_${_datestamp}
    set obsolete_datestamps(${key}) "${_exp_path} ${_datestamp}"
+   ::log::log notice "OverviewExpStatus_addObseleteDatestamps() ${_exp_path} ${_datestamp} DONE"
 }
 
 proc OverviewExpStatus_checkObseleteDatestamps {} {

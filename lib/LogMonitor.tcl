@@ -51,17 +51,20 @@ proc LogMonitor_checkNewLogFiles {} {
                   # look see if we have a thread monitoring this log file, if not create one
                   set expThreadId [SharedData_getExpThreadId ${expPath} ${seqDatestamp}]
                   if { ${expThreadId} == "" } {
+                     ::log::log notice "LogMonitor_checkNewLogFiles(): getting thread for ${expPath} ${seqDatestamp}"
                      # if there is already a thread for this datestamp, we don't do anything
                      set expThreadId [ThreadPool_getNextThread]
+                     ::log::log notice "LogMonitor_checkNewLogFiles(): got thread id ${expThreadId} for ${expPath} ${seqDatestamp}"
                      #puts "LogMonitor_checkNewLogFiles set log file offset to 0"
                      # force reread of log file from start
                      SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
 
-                     #puts "LogMonitor_checkNewLogFiles LogMonitor_startExpLogReader..." ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}" # puts "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
-                     thread::send ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all"
-                     ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader done."
-                     # puts "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader done."
-                     # Overview_refreshExpLastStatus ${expPath} ${seqDatestamp}
+                     ::log::log notice "LogMonitor_checkNewLogFiles(): setExpThreadId ${expThreadId} for ${expPath} ${seqDatestamp} DONE"
+                     ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
+                     thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all" LogReaderDone
+		     vwait LogReaderDone
+                     #thread::send ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all"
+                     ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp} DONE"
                   }
                } else {
                   ::log::log notice "ERROR: LogMonitor_checkNewLogFiles():Found invalid log file format: ${expPath} ${modifiedFile}"
@@ -70,7 +73,6 @@ proc LogMonitor_checkNewLogFiles {} {
             }
             if { [expr ${newLastChecked} - ${lastCheckedTime}] > 300 } {
                # to go around nfs latency, I only change the checked time every 5 minutes
-               # SharedData_setExpData ${expPath} LAST_CHECKED_TIME ${newLastChecked}
 	       LogMonitor_setLastCheckTime ${expPath} ${newLastChecked}
             }
          }

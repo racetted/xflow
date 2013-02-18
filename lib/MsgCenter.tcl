@@ -259,13 +259,13 @@ proc MsgCenter_sendNotification {} {
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       if { ${isOverviewMode} == "true" } {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-         thread::send ${overviewThreadId} "Overview_newMessageCallback true"
+         thread::send -async ${overviewThreadId} "Overview_newMessageCallback true"
       } else {
          set xflowThreadId [SharedData_getMiscData XFLOW_THREAD_ID]
          set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
          set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
          # puts "MsgCenter_sendNotification exp=$exp datestamp=${datestamp}"
-         thread::send ${xflowThreadId} "xflow_newMessageCallback ${exp} ${datestamp} true"
+         thread::send -async ${xflowThreadId} "xflow_newMessageCallback ${exp} ${datestamp} true"
       }
    }
 }
@@ -345,13 +345,13 @@ proc MsgCenter_ackMessages { table_w_ } {
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == "true" } {
       set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-      thread::send ${overviewThreadId} "Overview_newMessageCallback false"
+      thread::send -async ${overviewThreadId} "Overview_newMessageCallback false"
    } else {
       set xflowThreadId [SharedData_getMiscData XFLOW_THREAD_ID]
       set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
       set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
       # puts "MsgCenter_sendNotification exp=$exp datestamp=${datestamp}"
-      thread::send ${xflowThreadId} "xflow_newMessageCallback \"${exp}\" \"${datestamp}\" false"
+      thread::send -async ${xflowThreadId} "xflow_newMessageCallback \"${exp}\" \"${datestamp}\" false"
    }
 }
 
@@ -593,16 +593,16 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
       set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
       if { ${isOverviewMode} == "true" } {
          set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
-         thread::send ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}"
-
+         thread::send -async ${overviewThreadId} "Overview_launchExpFlow ${expPath} ${realDatestamp}" launchDone
+         vwait launchDone
          # ask the suite thread to take care of showing the selected node in it's flow
          set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
-         thread::send ${overviewThreadId} "xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}"
+         thread::send -async ${overviewThreadId} "xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}"
       } else {
 
          # ask the suite thread to take care of showing the selected node in it's flow
          set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
-         thread::send ${expThreadId} "xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}"
+         thread::send -async ${expThreadId} "xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}"
       }
 
       Utils_normalCursor ${table_widget}

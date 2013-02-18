@@ -34,13 +34,16 @@ proc SharedFlowNode_removeDatestamp { exp_path datestamp } {
    ::log::log notice "SharedFlowNode_removeDatestamp ${exp_path} ${datestamp}"
 
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime"
-   catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime }
+   tsv::lock SharedFlowNode_${exp_path}_${datestamp}_runtime {
+      catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime }
+   }
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime DONE"
 
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}"
-   catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp} }
+   tsv::lock SharedFlowNode_${exp_path}_${datestamp} {
+      catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp} }
+   }
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp} DONE"
-
    ::log::log notice "SharedFlowNode_removeDatestamp ${exp_path} ${datestamp} DONE"
 }
 

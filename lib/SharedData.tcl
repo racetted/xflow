@@ -53,7 +53,9 @@ proc SharedData_setExpDatestampData { exp_path datestamp key value } {
 }
 
 proc SharedData_removeExpDatestampData { exp_path datestamp } {
-   catch { tsv::unset SharedData_${exp_path}_${datestamp} }
+   tsv::lock SharedData_${exp_path}_${datestamp} {
+      catch { tsv::unset SharedData_${exp_path}_${datestamp} }
+   }
 }
 
 # retrieve experiment data based on the exp_path and the key

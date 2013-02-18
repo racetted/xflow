@@ -116,7 +116,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
             set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
             if { ${logFileOffset} == "" } {
                set logFileOffset 0
-               ::log::log notice "WARNING: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
+               ::log::log notice "INFO: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
             }
             ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
          } else {
@@ -167,11 +167,15 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
       # the gui runs in the overview thread... so set the update nodes list in shared memory
       SharedData_setExpUpdatedNodes ${exp_path} ${datestamp} [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}]
       # let gui knows that he needs to redraw the flow
-      # This call is a synchromous call to the overview to redraw the flow... ATTENTION potential dead lock!...
-      # Need to make sure this must not be called when this proc is also called in synchronous mode.
       if { ${isOverviewMode} == true } {
-         thread::send ${overviewThreadId} "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
+         ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
+         thread::send -async ${overviewThreadId} "xflow_redrawNodesEvent ${exp_path} ${datestamp}" XflowRedrawDone
+	 vwait XflowRedrawDone
+         ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp} DONE"
       } else {
+         # in non-overview mode, xflow and LogReader runs within same thread
+	 # we are sending the request through the thread messaging  instead of direct call
+	 # so that no dependency on the TK is found in this tcl file
          thread::send [thread::id] "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
       }
    }
@@ -243,6 +247,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
             if { ${type} != "info" } {
                if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
                   ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
+                  ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
                   thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
                      "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
                }
