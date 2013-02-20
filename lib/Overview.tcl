@@ -875,7 +875,15 @@ proc Overview_isExpBoxObsolete { exp_path datestamp } {
       if { [expr ${endDateTime} <= ${xoriginDateTime}] } {
          set isObsolete true
       }
+   } else {
+      if { [LogMonitor_isLogFileObsolete  ${exp_path} ${datestamp}] == true } {
+         # log file has not been modified since 12 hours... This is mainly to care of exp like
+	 # preop where there might not be any status at all for the top node...
+	 # they still need to be cleared at some point...
+         set isObsolete true
+      }
    }
+
    ::log::log debug "Overview_isExpBoxObsolete $exp_path $datestamp isObsolete:$isObsolete"
    return ${isObsolete}
 }
@@ -1114,8 +1122,6 @@ proc Overview_resolveLocation { canvas exp_path datestamp x1 y1 x2 y2 } {
       ::log::log debug "Overview_resolveLocation moving ${exp_path} from $x1 $y1 $x2 $y2 to $overlapCoords"
    }
    DisplayGrp_processEmptyRows ${displayGroup}
-   # sua testing buggy right now
-   # Overview_OptimizeExpBoxes ${displayGroup}
 }
 
 # this function is used to shift up a row exp boxes within an exp group 
@@ -1582,6 +1588,8 @@ proc Overview_readExpLogs {} {
 	 # processing other logs
          set expThreadId [ThreadPool_getThread true]
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
+         OverviewExpStatus_addStatusDatestamp ${exp_path} ${datestamp}
+
          thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
 
          # set currentDateTime [clock seconds]
@@ -1837,7 +1845,9 @@ proc Overview_addGroup { canvas displayGroup } {
          set currentStatus [OverviewExpStatus_getLastStatus ${exp} ${datestamp}]
          set statusTime [OverviewExpStatus_getLastStatusTime ${exp} ${datestamp}]
          set statusDateTime [OverviewExpStatus_getStatusClockValue ${exp} ${datestamp} ${currentStatus}]
-         Overview_updateExpBox ${canvas} ${exp} ${datestamp} ${currentStatus} ${statusTime}
+	 if { ${statusTime} != "" } {
+            Overview_updateExpBox ${canvas} ${exp} ${datestamp} ${currentStatus} ${statusTime}
+         }
       }
    }
 

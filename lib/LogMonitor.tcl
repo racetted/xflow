@@ -59,6 +59,8 @@ proc LogMonitor_checkNewLogFiles {} {
                      # force reread of log file from start
                      SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
 
+                     OverviewExpStatus_addStatusDatestamp ${expPath} ${seqDatestamp}
+
                      ::log::log notice "LogMonitor_checkNewLogFiles(): setExpThreadId ${expThreadId} for ${expPath} ${seqDatestamp} DONE"
                      ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
                      thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all" LogReaderDone
@@ -145,3 +147,17 @@ proc LogMonitor_isLogFileActive { _exp_path _datestamp } {
    }
    return true
 }
+
+# the log has not been modified within the last 13 hours i.e. out of overview visible space
+proc LogMonitor_isLogFileObsolete { _exp_path _datestamp } {
+   if { ${_datestamp} == "" } {
+      return false
+   }
+
+   if { [LogMonitor_getDatestampModTime ${_exp_path} ${_datestamp}] > [clock add [clock seconds] -13 hours] } {
+      return false
+   }
+
+   return true
+}
+
