@@ -1020,7 +1020,15 @@ proc xflow_nodeMenu { exp_path datestamp canvas node x y } {
       set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
       set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
       if { ${status} == "begin" } {
-	  ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+          set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+	  if { [file readable ${outputFile}] } {
+	     ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+          }
+      } elseif { ${status} == "abort" || ${status} == "end" } {
+          set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+	  if { [file readable ${outputFile}] } {
+	     ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
+          }
       }
       ${listingMenu} add command -label "Node Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
       ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas $popMenu success]
@@ -1097,10 +1105,20 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node } {
 
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
+   puts "currentExtension:$currentExtension"
    if { ${status} == "begin" } {
-       ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+      set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+      if { [file readable ${outputFile}] } {
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+      }
+   } elseif { ${status} == "abort" || ${status} == "end" } {
+      set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+      if { [file readable ${outputFile}] } {
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
+      }
    }
-   ${listingMenu} add command -label "Loop Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${datestamp} $canvas ${popmenu_w} 1]
+
+   ${listingMenu} add command -label "Loop Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} 1]
    ${listingMenu} add command -label "Loop Abort Listing" \
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} 1] \
       -foreground [::DrawUtils::getBgStatusColor abort]
@@ -1152,8 +1170,17 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node } {
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
    if { ${status} == "begin" } {
-       ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+      set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+      if { [file readable ${outputFile}] } {
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+      }
+   } elseif { ${status} == "abort" || ${status} == "end" } {
+      set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+      if { [file readable ${outputFile}] } {
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
+      }
    }
+
    ${listingMenu} add command -label "Node Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
    ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} success]
    ${listingMenu} add command -label "Node Abort Listing" \
@@ -1831,12 +1858,82 @@ proc xflow_tailfCallback { exp_path datestamp node canvas {full_loop 0} } {
       if { $nodeExt != "" } {
          set nodeExt ".${nodeExt}"
       }
+      ::log::log debug "xflow_tailfCallback looking for ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout*"
       if [ catch { set listPath [exec ksh -c "ls -rt1 ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] } message ] {
          Utils_raiseError . "Retrieve node output" $message
          return 0
       }
       Utils_launchShell $env(TRUE_HOST) ${exp_path} ${exp_path} "Monitoring=${seqNode}${nodeExt}" "tail -f ${listPath}"
     }
+}
+
+# verifies if the temp output file for a node exists
+# and returns the path to the file if it exists.
+# returns "" if not exists
+proc xflow_getOutputFile { exp_path datestamp node } {
+   if { ${datestamp} == "" } {
+      return ""
+   }
+   set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   if { $currentExtension == "all" } {
+      set nodeExt  ""
+   } else {
+      set nodeExt ${currentExtension}
+   }
+
+   if { $nodeExt != "" } {
+      set nodeExt ".${nodeExt}"
+   }
+   set outputFile ""
+   ::log::log debug "xflow_getOutputFile looking for ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout*"
+   catch { set outputFile [exec ksh -c "ls -rt1 ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] }
+   ::log::log debug "xflow_getOutputFile outputFile:${outputFile}"
+   return ${outputFile}
+}
+
+proc xflow_viewOutputFile { exp_path datestamp node output_file } {
+   set listingViewer [SharedData_getMiscData TEXT_VIEWER]
+   set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
+
+   set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp}]
+   if { $nodeExt != "" } {
+      set nodeExt ".${nodeExt}"
+   }
+   # title is used only for default viewer
+   set winTitle "Node Output [file tail $node]${nodeExt}.${datestamp}"
+
+   if { ${listingViewer} == "default" } {
+      create_text_window ${winTitle} ${output_file} top .
+   } else {
+      set editorCmd "${listingViewer} ${output_file}"
+      TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
+   }
+}
+
+# this funtion is invoked to list all the successfull node listing for this node.
+# this means all available listings in different datestamps
+proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu type } {
+  global env
+   #puts "xflow_allListingCallback $exp_path $node $canvas $caller_menu $type"
+   set shadowColor [SharedData_getColor SHADOW_COLOR]
+   set bgColor [SharedData_getColor CANVAS_COLOR]
+   set id [clock seconds]
+   set tmpdir $env(TMPDIR)
+   set tmpfile "${tmpdir}/test$id"
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+
+   set listerPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -type $type -list > $tmpfile 2>&1"
+   ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
+   catch { eval [exec ksh -c $cmd ] }
+
+   if { ${listingViewer} == "default" } {
+      create_text_window ${winTitle} ${outputfile} top .
+   } else {
+      set editorCmd "${listingViewer} ${outputfile}"
+      TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
+   }
 }
 
 # this function is invoked to show the latest succesfull node listing
