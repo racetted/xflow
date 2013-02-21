@@ -136,8 +136,10 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                set lastStatus init
             }
 
-            Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
-            Overview_checkGridLimit 
+            if { ${lastStatusTime} != "" } {
+               Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
+               Overview_checkGridLimit 
+            }
          }
       }
    }
@@ -259,6 +261,7 @@ proc Overview_processInitStatus { canvas exp_path datestamp {status init} } {
    set currentTime [Utils_getCurrentTime]
    set shiftDay false
 
+   
    if { [expr ${statusDateTime} < ${xoriginDateTime}] } {
       # start time is prior to visible hour, move it 0
       Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} [Overview_GraphGetXOriginTime]
@@ -928,9 +931,7 @@ proc Overview_advanceExpDefaultBox { canvas exp_path } {
    set refTimings [SharedData_getExpTimings ${exp_path}]
 
    if { ${refTimings} == "" } {
-      if { [${canvas} gettags ${exp_path}.default] != "" } {
-         Overview_updateExpBox ${canvas} ${exp_path} default init
-      }
+      Overview_updateExpBox ${canvas} ${exp_path} default init
    } else {
       foreach refTiming ${refTimings} {
          foreach { hour startTime endTime } ${refTiming} {
