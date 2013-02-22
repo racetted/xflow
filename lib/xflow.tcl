@@ -1,5 +1,3 @@
-#!/home/binops/afsi/ssm/domain2/tcl-tk_8.5.7_linux26-i686/bin/wish8.5
-#!/home/binops/afsi/ssm/sw/linux26-i686/bin/tclsh8.4
 #set auto_path [linsert $auto_path 0 /home/ordenv/ssm-domains/ssm-setup-1.0-ops/xflow_1.0_all/lib]
 #set auto_path [linsert $auto_path 0 [exec pwd]]
 #package require Tk

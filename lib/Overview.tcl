@@ -1,4 +1,3 @@
-#!/home/binops/afsi/ssm/sw/linux26-i686/bin/tclsh8.4
 package require struct::record
 package require tooltip
 package require cmdline

@@ -1,5 +1,3 @@
-#!/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
-
 # touches a file for each experiment; it serves as a timestamp for to be used
 # for the find -newer command; used to know log files that have changed since the
 # last check
