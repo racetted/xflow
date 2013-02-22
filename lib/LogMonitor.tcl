@@ -63,8 +63,8 @@ proc LogMonitor_checkNewLogFiles {} {
 
                      ::log::log notice "LogMonitor_checkNewLogFiles(): setExpThreadId ${expThreadId} for ${expPath} ${seqDatestamp} DONE"
                      ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
-                     thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all" LogReaderDone
-		     vwait LogReaderDone
+                     thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all" SendDone
+		     vwait SendDone
                      #thread::send ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all"
                      ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp} DONE"
                   }
