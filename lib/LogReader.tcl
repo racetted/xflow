@@ -169,8 +169,8 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
       # let gui knows that he needs to redraw the flow
       if { ${isOverviewMode} == true } {
          ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
-         thread::send -async ${overviewThreadId} "xflow_redrawNodesEvent ${exp_path} ${datestamp}" XflowRedrawDone
-	 vwait XflowRedrawDone
+         thread::send -async ${overviewThreadId} "xflow_redrawNodesEvent ${exp_path} ${datestamp}" SendDone
+	 vwait SendDone
          ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp} DONE"
       } else {
          # in non-overview mode, xflow and LogReader runs within same thread
@@ -249,7 +249,8 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
                   ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
                   ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
                   thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
-                     "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
+                     "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\"" SendDone
+		  vwait SendDone
                }
             }
          }

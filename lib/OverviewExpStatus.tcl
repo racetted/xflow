@@ -159,6 +159,16 @@ proc OverviewExpStatus_removeStatusDatestamp { _exp_path _datestamp } {
    ::log::log notice "OverviewExpStatus_removeStatusDatestamp() exp_path:${_exp_path} datestamp:${_datestamp} DONE"
 }
 
+proc OverviewExpStatus_addStatusDatestamp { _exp_path _datestamp } {
+   global datestamps_${_exp_path}
+   if { ![info exists datestamps_${_exp_path}] } {
+      array set datestamps_${_exp_path} {}
+   }
+   if { ! [info exists datestamps_${_exp_path}(${_datestamp})] } {
+      set datestamps_${_exp_path}(${_datestamp}) ""
+   }
+}
+
 proc OverviewExpStatus_printStatusDatestamp { _exp_path {_datestamp ""} } {
    global datestamps_${_exp_path}
    puts "-------------------------------------------"

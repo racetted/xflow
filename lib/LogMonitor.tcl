@@ -1,5 +1,3 @@
-#!/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
-
 # touches a file for each experiment; it serves as a timestamp for to be used
 # for the find -newer command; used to know log files that have changed since the
 # last check
@@ -59,10 +57,12 @@ proc LogMonitor_checkNewLogFiles {} {
                      # force reread of log file from start
                      SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
 
+                     OverviewExpStatus_addStatusDatestamp ${expPath} ${seqDatestamp}
+
                      ::log::log notice "LogMonitor_checkNewLogFiles(): setExpThreadId ${expThreadId} for ${expPath} ${seqDatestamp} DONE"
                      ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
-                     thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all" LogReaderDone
-		     vwait LogReaderDone
+                     thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all" SendDone
+		     vwait SendDone
                      #thread::send ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all"
                      ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp} DONE"
                   }
@@ -145,3 +145,17 @@ proc LogMonitor_isLogFileActive { _exp_path _datestamp } {
    }
    return true
 }
+
+# the log has not been modified within the last 13 hours i.e. out of overview visible space
+proc LogMonitor_isLogFileObsolete { _exp_path _datestamp } {
+   if { ${_datestamp} == "" } {
+      return false
+   }
+
+   if { [LogMonitor_getDatestampModTime ${_exp_path} ${_datestamp}] > [clock add [clock seconds] -13 hours] } {
+      return false
+   }
+
+   return true
+}
+

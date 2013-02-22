@@ -1,4 +1,3 @@
-#!/home/binops/afsi/ssm/domain2/tcl-tk_8.5.7_linux26-i686/bin/wish8.5
 package require tdom
 # sample ExpOptions.xml file
 #

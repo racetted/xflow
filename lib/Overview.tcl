@@ -1,4 +1,3 @@
-#!/home/binops/afsi/ssm/sw/linux26-i686/bin/tclsh8.4
 package require struct::record
 package require tooltip
 package require cmdline
@@ -136,8 +135,10 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                set lastStatus init
             }
 
-            Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
-            Overview_checkGridLimit 
+            if { ${lastStatusTime} != "" } {
+               Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
+               Overview_checkGridLimit 
+            }
          }
       }
    }
@@ -259,6 +260,7 @@ proc Overview_processInitStatus { canvas exp_path datestamp {status init} } {
    set currentTime [Utils_getCurrentTime]
    set shiftDay false
 
+   
    if { [expr ${statusDateTime} < ${xoriginDateTime}] } {
       # start time is prior to visible hour, move it 0
       Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} [Overview_GraphGetXOriginTime]
@@ -613,7 +615,6 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    # delete previous box
    Overview_removeExpBox ${canvas} ${exp_path} ${datestamp} ${currentStatus}
 
-   # set tailName [file tail ${exp_path}]
    set datestampRange [SharedData_getMiscData OVERVIEW_DATESTAMP_RANGE]
    set shortName [SharedData_getExpShortName ${exp_path}]
    set expLabel " ${shortName} "
@@ -876,7 +877,15 @@ proc Overview_isExpBoxObsolete { exp_path datestamp } {
       if { [expr ${endDateTime} <= ${xoriginDateTime}] } {
          set isObsolete true
       }
+   } else {
+      if { [LogMonitor_isLogFileObsolete  ${exp_path} ${datestamp}] == true } {
+         # log file has not been modified since 12 hours... This is mainly to care of exp like
+	 # preop where there might not be any status at all for the top node...
+	 # they still need to be cleared at some point...
+         set isObsolete true
+      }
    }
+
    ::log::log debug "Overview_isExpBoxObsolete $exp_path $datestamp isObsolete:$isObsolete"
    return ${isObsolete}
 }
@@ -921,9 +930,7 @@ proc Overview_advanceExpDefaultBox { canvas exp_path } {
    set refTimings [SharedData_getExpTimings ${exp_path}]
 
    if { ${refTimings} == "" } {
-      if { [${canvas} gettags ${exp_path}.default] != "" } {
-         Overview_updateExpBox ${canvas} ${exp_path} default init
-      }
+      Overview_updateExpBox ${canvas} ${exp_path} default init
    } else {
       foreach refTiming ${refTimings} {
          foreach { hour startTime endTime } ${refTiming} {
@@ -1115,8 +1122,6 @@ proc Overview_resolveLocation { canvas exp_path datestamp x1 y1 x2 y2 } {
       ::log::log debug "Overview_resolveLocation moving ${exp_path} from $x1 $y1 $x2 $y2 to $overlapCoords"
    }
    DisplayGrp_processEmptyRows ${displayGroup}
-   # sua testing buggy right now
-   # Overview_OptimizeExpBoxes ${displayGroup}
 }
 
 # this function is used to shift up a row exp boxes within an exp group 
@@ -1583,16 +1588,9 @@ proc Overview_readExpLogs {} {
 	 # processing other logs
          set expThreadId [ThreadPool_getThread true]
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
+         OverviewExpStatus_addStatusDatestamp ${exp_path} ${datestamp}
+
          thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
-
-         # set currentDateTime [clock seconds]
-         # set currentTime [clock format ${currentDateTime} -format "%H:%M" -gmt 1]
-         # set dateValue [clock format ${currentDateTime} -format "%Y%m%d" -gmt 1]
-
-         # forces the exp node to be init mode
-         # the exp node will be updated later with new entries from the log file
-         # OverviewExpStatus_setLastStatusInfo ${exp_path} ${datestamp} init $dateValue ${currentTime}
-
       }
    }
 }
@@ -1838,7 +1836,9 @@ proc Overview_addGroup { canvas displayGroup } {
          set currentStatus [OverviewExpStatus_getLastStatus ${exp} ${datestamp}]
          set statusTime [OverviewExpStatus_getLastStatusTime ${exp} ${datestamp}]
          set statusDateTime [OverviewExpStatus_getStatusClockValue ${exp} ${datestamp} ${currentStatus}]
-         Overview_updateExpBox ${canvas} ${exp} ${datestamp} ${currentStatus} ${statusTime}
+	 if { ${statusTime} != "" } {
+            Overview_updateExpBox ${canvas} ${exp} ${datestamp} ${currentStatus} ${statusTime}
+         }
       }
    }
 
