@@ -363,7 +363,6 @@ proc xflow_findCallback { _exp_path _datestamp _entry_w _next_or_previous } {
    global FIND_MATCH_CASE NodeHighLightRestoreCmd_${_exp_path}_${_datestamp}
    ::log::log debug "xflow_findCallback _entry_w:${_entry_w} _next_or_previous:${_next_or_previous}"
    set findFrame [xflow_getWidgetName ${_exp_path} ${_datestamp} find_frame]
-   # set datestamp [xflow_getSequencerDatestamp ${_exp_path}]
    if { [grid info ${findFrame}] == "" } {
       # the find window is close, do nothing
       return
@@ -967,7 +966,6 @@ proc xflow_nodeMenuUnmapCallback { exp_path datestamp } {
 proc xflow_nodeMenu { exp_path datestamp canvas node x y } {
    global ignoreDep 
    ::log::log debug "xflow_nodeMenu() node:$node"
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
 
    # highlights the selected node
    ::DrawUtils::highLightNode ${exp_path} ${node} ${datestamp} ${canvas}
@@ -1048,9 +1046,8 @@ proc xflow_nodeMenu { exp_path datestamp canvas node x y } {
          ${submitNoDependMenu} add command -label "Submit" \
             -command [list xflow_submitCallback ${exp_path} ${datestamp} $node $canvas $popMenu continue dep_off]
          ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
-         ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
+         ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node $popMenu ]
          ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
-         ${infoMenu} add command -label "Full Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popMenu} "-f 1" ]
          ${miscMenu} add command -label "Initbranch" -command [list xflow_initbranchCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
       } else {
          ${submitMenu} add command -label "Submit & Continue" -underline 9 -command [list xflow_submitCallback ${exp_path} ${datestamp} $node $canvas $popMenu continue ]
@@ -1064,9 +1061,8 @@ proc xflow_nodeMenu { exp_path datestamp canvas node x y } {
 
          ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
          ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
-         ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
+         ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node $popMenu]
          ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
-         ${infoMenu} add command -label "Full Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popMenu} "-f 1" ]
          ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
       }
       ${miscMenu} add command -label "End" -command [list xflow_endCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
@@ -1085,7 +1081,6 @@ proc xflow_nodeMenu { exp_path datestamp canvas node x y } {
 # creates the popup menu for a loop node
 proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node } {
    ::log::log debug "xflow_addLoopNodeMenu() exp_path:${exp_path} datestamp:${datestamp} node:$node"
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
 
    set infoMenu ${popmenu_w}.info_menu
    set listingMenu ${popmenu_w}.listing_menu
@@ -1096,9 +1091,8 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node } {
    ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
-   ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${popmenu_w}]
    ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
-   ${infoMenu} add command -label "Full Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "-f 1" ]
    ${infoMenu} add command -label "Loop Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} 1]
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} 0]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
@@ -1149,7 +1143,6 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node } {
 # creates the popup menu for a npt node
 proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node } {
 
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
 
    set infoMenu ${popmenu_w}.info_menu
    set listingMenu ${popmenu_w}.listing_menu
@@ -1162,9 +1155,8 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node } {
    ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
-   ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
+   ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${popmenu_w} ]
    ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
-   ${infoMenu} add command -label "Full Evaluated Node Config" -command [list xflow_evalConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "-f 1" ]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
 
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
@@ -1252,7 +1244,6 @@ proc xflow_getNodeHistoryOptions {} {
 proc xflow_historyCallback { exp_path datestamp node canvas caller_menu {history 48} {full_loop 0} } {
    ::log::log debug "xflow_historyCallback node:$node canvas:$canvas $full_loop"
 
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
 
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
@@ -1265,7 +1256,6 @@ proc xflow_historyCallback { exp_path datestamp node canvas caller_menu {history
          set nodeExt ".${nodeExt}"
       }
 
-      # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
       set historyRange ""
       if { ${datestamp} != "" } {
          set historyRange "-history $history -edate $datestamp "
@@ -1287,7 +1277,6 @@ proc xflow_nodeInfoCallback { exp_path datestamp node canvas caller_menu } {
    if { [winfo exists $infoWidget] } {
       destroy $infoWidget
    }
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
@@ -1312,7 +1301,6 @@ proc xflow_initbranchCallback { exp_path datestamp node canvas caller_menu } {
       return
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
 
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
@@ -1329,7 +1317,6 @@ proc xflow_initbranchCallback { exp_path datestamp node canvas caller_menu } {
 # current task node. It deletes all sequencer related node status files for
 # the current node.
 proc xflow_initnodeCallback { exp_path datestamp node canvas caller_menu } {
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node init" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1352,7 +1339,6 @@ proc xflow_initnodeCallback { exp_path datestamp node canvas caller_menu } {
 # current loop node. It deletes all sequencer related node status files for
 # the current loop node and all its child iteration nodes.
 proc xflow_initbranchLoopCallback { exp_path datestamp node canvas caller_menu } {
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "init branch" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1373,7 +1359,6 @@ proc xflow_initbranchLoopCallback { exp_path datestamp node canvas caller_menu }
 
 # forces an abort to be sent to maestro sequencer
 proc xflow_abortCallback { exp_path datestamp node canvas caller_menu } {
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1392,7 +1377,6 @@ proc xflow_abortCallback { exp_path datestamp node canvas caller_menu } {
 }
 
 proc xflow_endNpasssTaskCallback { exp_path datestamp node canvas caller_menu } {
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1424,7 +1408,6 @@ proc xflow_endNpasssTaskCallback { exp_path datestamp node canvas caller_menu } 
 }
 
 proc xflow_abortNpasssTaskCallback { exp_path datestamp node canvas caller_menu } {
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1464,7 +1447,6 @@ proc xflow_launchShellCallback { exp_path } {
 # launch an xterm in ${TASK_BASEDIR} on the execution host
 proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
    ::log::log debug "xflow_launchWorkCallback node$node canvas$canvas"
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "view workdir" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1492,7 +1474,6 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
 proc xflow_killNodeFromDropdown { exp_path datestamp node canvas caller_menu } {
 
    global env
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set shadowColor [SharedData_getColor SHADOW_COLOR]
    set bgColor [SharedData_getColor CANVAS_COLOR]
    set id [clock seconds]
@@ -1547,7 +1528,6 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node canvas caller_menu } {
 
 # forces and end signal to be sent to the maestro sequencer for the current node.
 proc xflow_endCallback { exp_path datestamp node canvas caller_menu } {
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1568,7 +1548,6 @@ proc xflow_endCallback { exp_path datestamp node canvas caller_menu } {
 
 # forces and end signal to be sent to the maestro sequencer for the current loop node.
 proc xflow_endLoopCallback { exp_path datestamp node canvas caller_menu } {
-   # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1589,7 +1568,6 @@ proc xflow_endLoopCallback { exp_path datestamp node canvas caller_menu } {
 # displays the content of a task node (.tsk)
 proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
    global SESSION_TMPDIR
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodesource"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
@@ -1615,7 +1593,6 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
 # displays the content of a config file (.cfg) if it is available.
 proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
    global SESSION_TMPDIR
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodeconfig"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
@@ -1638,9 +1615,77 @@ proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
    }
 }
 
-proc xflow_evalConfigCallback { exp_path datestamp node canvas caller_menu {fullcfg ""} } {
-   global SESSION_TMPDIR
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
+proc xflow_evalConfigCreateWidgets { exp_path datestamp node caller_w } {
+   global env
+   global xflow_EvalConfigFullConfigVar xflow_SubmitHostsVar
+   if { ! [info exists xflow_SubmitHostsVar] } {
+      set xflow_SubmitHostsVar ""
+      set hostsFile $env(SEQ_XFLOW_BIN)/../etc/submit_hosts
+      if { [file readable ${hostsFile}] } {
+         set xflow_SubmitHostsVar [exec cat ${hostsFile}]
+      }
+   }
+
+   set parentW [winfo toplevel ${caller_w}]
+   set topLevelWidget [xflow_getWidgetName ${exp_path} ${datestamp} evalconfig_toplevel]
+   if { [winfo exists ${topLevelWidget}] } {
+      destroy ${topLevelWidget}
+   }
+   toplevel ${topLevelWidget}
+   set xflow_EvalConfigFullConfigVar false
+   wm geometry ${topLevelWidget} +[winfo pointerx ${parentW}]+[winfo pointery ${parentW}]
+   wm title ${topLevelWidget} "Evaluated Config [file tail ${node}] (${node})"
+   wm minsize  ${topLevelWidget} 300 100
+
+   set attrFrame [frame ${topLevelWidget}.attr_frame]
+   set machineLabel [label ${attrFrame}.machine_label -text "Machine:"]
+   set machineEntry [ComboBox ${attrFrame}.machine_entry -values ${xflow_SubmitHostsVar}]
+   ::tooltip::tooltip ${machineEntry} "Machine target where the evaluation will be done."
+   set fullConfigLabel [label ${attrFrame}.fullconfig_label -text "Full Config:"]
+   set fullConfigEntry [checkbutton ${attrFrame}.fullconfig_entry -indicatoron true \
+                        -onvalue true -offvalue false -variable xflow_EvalConfigFullConfigVar]
+   ::tooltip::tooltip ${fullConfigEntry} "When enable, will do a full evaluation up to this node."
+
+   set buttonFrame [frame ${topLevelWidget}.button_frame]
+   set closeButton [button ${buttonFrame}.close_button -text Close -command [list destroy ${topLevelWidget}]]
+   set applyButton [button ${buttonFrame}.apply_button -text Apply -command [list xflow_goEvalConfig ${exp_path} ${datestamp} ${node} ${topLevelWidget}]]
+
+   grid ${machineLabel} -row 0 -column 0 -padx 2 -pady 2 -sticky w
+   grid ${machineEntry} -row 0 -column 1 -padx 2 -pady 2 -sticky nesw
+   grid ${fullConfigLabel} -row 1 -column 0 -padx 2 -pady 2 -sticky w
+   grid ${fullConfigEntry} -row 1 -column 1 -padx 2 -pady 2 -sticky nesw
+
+   grid ${applyButton} ${closeButton} -padx { 2 2 } -pady 5 -sticky e
+   grid ${attrFrame} -row 0 -padx 2 -sticky news
+   grid ${buttonFrame} -row 1 -padx 5 -sticky e
+
+   # allow widgets in column to take all available horiz space
+   grid columnconfigure ${attrFrame} 1 -weight 1
+   grid columnconfigure ${attrFrame} 0 -weight 1
+
+   # allow widgets in first column to take all available horiz space
+   grid columnconfigure ${topLevelWidget} 0 -weight 1
+
+   # allow widgets in first row to take all available vert space space
+   grid rowconfigure ${topLevelWidget} 0 -weight 1
+}
+
+proc xflow_goEvalConfig { exp_path datestamp node toplevel_w } {
+   global SESSION_TMPDIR env
+   global xflow_EvalConfigFullConfigVar
+   set attrFrame ${toplevel_w}.attr_frame
+   set machineEntry ${attrFrame}.machine_entry
+
+   set machineValue [${machineEntry} get]
+
+   if { ${machineValue} == "" } {
+     return
+   }
+   set fullcfg ""
+   if { [info exists xflow_EvalConfigFullConfigVar] && ${xflow_EvalConfigFullConfigVar} == true } {
+      set fullcfg "-f 1"
+   }
+
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/evaluate_vars"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
@@ -1651,9 +1696,13 @@ proc xflow_evalConfigCallback { exp_path datestamp node canvas caller_menu {full
    set winTitle "Evaluated Node Config [file tail $node]"
    regsub -all " " ${winTitle} _ tempfile
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
-   set seqCmd "${seqExec} -n ${seqNode} ${seqLoopArgs} -o ${outputfile} -d ${datestamp} $fullcfg"
+   set seqCmd "${seqExec} -n ${seqNode} ${seqLoopArgs} -m ${machineValue} -d ${datestamp} -o ${outputfile} ${fullcfg}"
    puts $seqCmd
-   Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd}
+   Utils_busyCursor ${toplevel_w}
+   catch {
+      Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd}
+   }
+   Utils_normalCursor ${toplevel_w}
 
    if { ${textViewer} == "default" } {
       create_text_window ${winTitle} ${outputfile} top .
@@ -1666,7 +1715,6 @@ proc xflow_evalConfigCallback { exp_path datestamp node canvas caller_menu {full
 
 proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
    global SESSION_TMPDIR
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/chaindot.py"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
@@ -1692,7 +1740,6 @@ proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
 # displays the resource file (.def) if it is available
 proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu } {
    global SESSION_TMPDIR
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/noderesource"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
@@ -1718,7 +1765,6 @@ proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu } {
 # displays the latest batch command file generated by maestro
 proc xflow_batchCallback { exp_path datestamp node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodebatch"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
@@ -1782,7 +1828,6 @@ proc xflow_submitCallback { exp_path datestamp node canvas caller_menu flow {loc
 # same as previous but for loop node
 proc xflow_submitLoopCallback { exp_path datestamp node canvas caller_menu flow {local_ignore_dep dep_on}} {
    set ignoreDepFlag ""
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1806,7 +1851,6 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node canvas caller_menu 
 
    ::log::log debug "xflow_submitNpassTaskCallback node:$node canvas:$canvas"
    set ignoreDepFlag ""
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1844,7 +1888,6 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node canvas caller_menu 
 proc xflow_tailfCallback { exp_path datestamp node canvas {full_loop 0} } {
     global env
     ::log::log debug "xflow_tailfCallback node$node canvas$canvas"
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "monitor listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -1940,7 +1983,6 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu type 
 proc xflow_listingCallback { exp_path datestamp node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    ::log::log debug "xflow_listingCallback node:$node canvas:$canvas"
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -2067,7 +2109,6 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
 proc xflow_abortListingCallback { exp_path datestamp node canvas caller_menu {full_loop 0} } {
    global SESSION_TMPDIR
    ::log::log debug "xflow_abortListingCallback node:$node canvas:$canvas"
-   #set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -2121,7 +2162,6 @@ proc xflow_indexedNodeSelectionCallback { exp_path node datestamp canvas combobo
 
 # this function is called to expand a node and all of its child nodes
 proc xflow_expandAllCallback { exp_path datestamp node canvas caller_menu } {
-  # set datestamp [xflow_getSequencerDatestamp ${exp_path}]
    SharedFlowNode_uncollapseAll ${exp_path} ${node} ${datestamp} ${canvas}
    destroy $caller_menu
    xflow_drawflow ${exp_path} ${datestamp} $canvas
@@ -3219,6 +3259,7 @@ proc xflow_setWidgetNames {} {
          find_previous_image .find_frame.previous_img
 
          catchup_toplevel .catchup_top
+         evalconfig_toplevel .evaluate_config_top
       }
    }
 }
