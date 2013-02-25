@@ -1639,6 +1639,10 @@ proc xflow_evalConfigCreateWidgets { exp_path datestamp node caller_w } {
    set machineLabel [label ${attrFrame}.machine_label -text "Machine:"]
    set machineEntry [ComboBox ${attrFrame}.machine_entry -values ${xflow_SubmitHostsVar}]
    ::tooltip::tooltip ${machineEntry} "Machine target where the evaluation will be done."
+   if { [llength ${xflow_SubmitHostsVar}] == 1 } {
+      ${machineEntry} setvalue first
+   }
+
    set fullConfigLabel [label ${attrFrame}.fullconfig_label -text "Full Config:"]
    set fullConfigEntry [checkbutton ${attrFrame}.fullconfig_entry -indicatoron true \
                         -onvalue true -offvalue false -variable xflow_EvalConfigFullConfigVar]
