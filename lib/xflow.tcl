@@ -1694,11 +1694,12 @@ proc xflow_goEvalConfig { exp_path datestamp node toplevel_w } {
    set winTitle "Evaluated Node Config [file tail $node]"
    regsub -all " " ${winTitle} _ tempfile
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
-   set seqCmd "${seqExec} -n ${seqNode} ${seqLoopArgs} -m ${machineValue} -d ${datestamp} -o ${outputfile} ${fullcfg}"
+   # set seqCmd "${seqExec} -n ${seqNode} ${seqLoopArgs} -m ${machineValue} -d ${datestamp} -o ${outputfile} ${fullcfg}"
+   set seqCmd "${seqExec} -n ${seqNode} ${seqLoopArgs} -m ${machineValue} -d ${datestamp} ${fullcfg}"
    puts $seqCmd
    Utils_busyCursor ${toplevel_w}
    catch {
-      Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
    }
    Utils_normalCursor ${toplevel_w}
 
@@ -1706,7 +1707,7 @@ proc xflow_goEvalConfig { exp_path datestamp node toplevel_w } {
       create_text_window ${winTitle} ${outputfile} top .
    } else {
       set editorCmd "${textViewer} ${outputfile}"
-      ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
+      ::log::log debug "xflow_goEvalConfig running ${defaultConsole} ${editorCmd}"
       TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
    }
 }
