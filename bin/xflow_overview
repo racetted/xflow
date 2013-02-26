@@ -59,15 +59,15 @@ if [[ "${as}" != "" ]] ; then
 	 exit 1
       fi
       print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag} | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST} ---"
-      #echo "xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
-      echo "export SEQ_XFLOW_BIN=~afsisul/tmp/maestro/xflow/bin;${SEQ_XFLOW_BIN}/xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
+      echo "xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
+      #echo "export SEQ_XFLOW_BIN=~afsisul/tmp/maestro/xflow/bin;${SEQ_XFLOW_BIN}/xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T -i ${sshCommandKey} ${as}@${TRUE_HOST}
       exit 0
    else
       if [[ "${USER}" != "${as}" ]] ; then
          print "\nxflow_overview switching ${USER} user to ${as} dollar_0=${0}"
-         print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
-	 #echo "xflow_overview ${arguments} ${userOverviewFlag}" " | ssh ${sshX} -T ${as}@${TRUE_HOST}
-	 echo "export SEQ_XFLOW_BIN=~afsisul/tmp/maestro/xflow/bin;${SEQ_XFLOW_BIN}/xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST}
+         print "\nxflow_overview command\n--- echo ${0} ${arguments} ${userOverviewFlag} | ssh ${sshX} -T ${as}@${TRUE_HOST} ---"
+	 echo "xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST}
+	 #echo "export SEQ_XFLOW_BIN=~afsisul/tmp/maestro/xflow/bin;${SEQ_XFLOW_BIN}/xflow_overview ${arguments} ${userOverviewFlag}" | ssh ${sshX} -T ${as}@${TRUE_HOST}
 	 exit 0
       fi
    fi
