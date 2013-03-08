@@ -236,6 +236,10 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
          }
       }
 
+      if { ${_ToFlow} == true } {
+         LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} ${first_read}
+      }
+
       if { ${_toOverview} == true } {
          if { ! ($node == "" || $type == "") } {
             # abortx, endx, beginx type are used for signals we send to the parent containers nodes
@@ -254,10 +258,6 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
                }
             }
          }
-      }
-
-      if { ${_ToFlow} == true } {
-         LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} ${first_read}
       }
    }
    return 0

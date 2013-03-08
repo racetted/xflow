@@ -216,6 +216,7 @@ proc OverviewExpStatus_checkObseleteDatestamps {} {
            SharedData_removeExpDatestampData ${exp_path} ${datestamp}
            ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp}"
            OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp}
+           ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp} DONE"
 	   unset obsolete_datestamps($key)
            ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() exp_path:${exp_path} datestamp:${datestamp} unset obsolete_datestamps DONE."
 	}
