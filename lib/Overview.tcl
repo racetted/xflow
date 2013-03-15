@@ -2110,7 +2110,6 @@ proc Overview_init {} {
    Utils_logInit
    Utils_createTmpDir
 
-   ::log::log notice "xflow_overview Application startup user=$env(USER) real user:[SharedData_getMiscData REAL_USER] host:[exec hostname]"
 
    # hor size of graph
    set graphX 1225
@@ -2182,6 +2181,7 @@ proc Overview_quit {} {
       exec rm -fr ${SESSION_TMPDIR}
    }
    
+   ::log::log notice "xflow_overview exited normally..."
    # destroy $top
    exit 0
 }
@@ -2551,7 +2551,7 @@ proc Overview_soundbell {} {
 
 
 proc Overview_main {} {
-   global MSG_CENTER_THREAD_ID
+   global MSG_CENTER_THREAD_ID env
    global DEBUG_TRACE
    Overview_setTkOptions
 
@@ -2560,7 +2560,12 @@ proc Overview_main {} {
    Overview_init
    set appLogFile [SharedData_getMiscData APP_LOG_FILE]
    if { ${appLogFile} != "" } {
-      FileLogger_createThread ${appLogFile}
+      puts "Using application log file: ${appLogFile}"
+      set loggerThreadId [FileLogger_createThread ${appLogFile}]
+      SharedData_setMiscData FILE_LOGGER_THREAD ${loggerThreadId}
+
+      puts "xflow_overview loggerThreadId:${loggerThreadId}"
+      ::log::log notice "xflow_overview Application startup user=$env(USER) real user:[SharedData_getMiscData REAL_USER] host:[exec hostname]"
    }
 
    set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
@@ -2616,6 +2621,7 @@ proc Overview_main {} {
    ::thread::broadcast LogReader_readMonitorDatestamps
    # run a periodic monitor to look for new log files to process
    LogMonitor_checkNewLogFiles
+
 }
 
 Overview_parseCmdOptions
