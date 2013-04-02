@@ -201,7 +201,7 @@ proc SharedFlowNode_searchSubmitNode { exp_path node datestamp submitted_node } 
             } else {
 	       # the node does not exists if we have not parsed the definition of the node yet 
 	       # (the parsing of the submit might have been done though)
-	       ::log::debug "SharedFlowNode_searchSubmitNode submitted_node:${submitted_node} bypassing childSubmitNode:${childSubmitNode}"
+	       ::log::log debug "SharedFlowNode_searchSubmitNode submitted_node:${submitted_node} bypassing childSubmitNode:${childSubmitNode}"
 	    }
          }
       }
