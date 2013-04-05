@@ -192,7 +192,7 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
          set newParentNode [FlowXml_createNodeFromXml ${exp_path}  ${datestamp} ${parent_flow_node} ${current_xml_node}]
          set switchType [${current_xml_node} getAttribute type "datestamp_hour"]
 	 SharedFlowNode_setSwitchingData  ${exp_path} ${newParentNode} ${datestamp} ${switchType}
-	 puts "FlowXml_parseNode got SWITCH: newParentNode:${newParentNode} switchType:${switchType}"
+	 # puts "FlowXml_parseNode got SWITCH: newParentNode:${newParentNode} switchType:${switchType}"
       }
       "DEPENDS_ON" -
       "SUBMITS" -

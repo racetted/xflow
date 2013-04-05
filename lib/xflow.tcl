@@ -2415,7 +2415,7 @@ proc xflow_getNodeResources { exp_path node datestamp {is_recursive 0} } {
 
    # the line below transforms the output of nodeinfo into a call to SharedFlowNode_setGenericAttributef or every attribute
    # i.e. SharedFlowNode_setGenericAttribute ${exp_path} ${node} attr_name attr_value
-   set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -f res |  sed -e 's:node.:SharedFlowNode_setGenericAttribute ${exp_path} ${node} \"${datestamp}\" :' -e 's:=: \":' -e 's/$/\"/'> ${outputFile} 2> /dev/null "]} message]
+   set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res |  sed -e 's:node.:SharedFlowNode_setGenericAttribute ${exp_path} ${node} \"${datestamp}\" :' -e 's:=: \":' -e 's/$/\"/'> ${outputFile} 2> /dev/null "]} message]
 
    if { $code != 0 } {
       Utils_raiseError [xflow_getToplevel ${exp_path} ${datestamp}] "Get Node Resource" $message
@@ -2440,10 +2440,13 @@ proc xflow_getNodeResources { exp_path node datestamp {is_recursive 0} } {
 # the loop parameters
 proc xflow_getAllLoopResourcesCallback { exp_path node datestamp} {
    global LOOP_RESOURCES_DONE_${exp_path}_${datestamp}
-   if { ! [info exists LOOP_RESOURCES_DONE_${exp_path}_${datestamp}] || [set LOOP_RESOURCES_DONE_${exp_path}_${datestamp}] == "false" } {
-      ::log::log debug "xflow_getAllLoopResourcesCallback getting resources..."
-      xflow_getAllLoopResources ${exp_path} ${node} ${datestamp}
-      set LOOP_RESOURCES_DONE_${exp_path}_${datestamp} true
+   if { ${datestamp} != "" } {
+
+      if { ! [info exists LOOP_RESOURCES_DONE_${exp_path}_${datestamp}] || [set LOOP_RESOURCES_DONE_${exp_path}_${datestamp}] == "false" } {
+         ::log::log debug "xflow_getAllLoopResourcesCallback getting resources..."
+         xflow_getAllLoopResources ${exp_path} ${node} ${datestamp}
+         set LOOP_RESOURCES_DONE_${exp_path}_${datestamp} true
+      }
    }
 }
 
@@ -2481,8 +2484,8 @@ proc xflow_getLoopResources { node exp_path datestamp} {
    # node.specific.END=10
    # node.specific.STEP=2
    # node.specific.TYPE=Default
-   ::log::log debug "xflow_getLoopResources ${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'"
-   if [ catch { exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'  > ${outputFile} 2> /dev/null" } message ] {
+   ::log::log debug "xflow_getLoopResources ${nodeInfoExec} -n ${seqNode} -d ${datestamp} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'"
+   if [ catch { exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'  > ${outputFile} 2> /dev/null" } message ] {
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
          set parentW [xflow_getToplevel ${exp_path} ${datestamp}]
          if { ! [winfo exists ${parentW}] } {
