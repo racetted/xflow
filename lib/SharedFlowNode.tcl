@@ -1113,7 +1113,7 @@ proc SharedFlowNode_getParentLoopArgs { exp_path node datestamp } {
             if { $node == ${loopNode} } {
                break
             }
-            set ${currentExt} [string range $current 1 end]
+            set currentExt [string range ${currentExt} 1 end]
             set nodeName [SharedFlowNode_getName ${exp_path} ${loopNode} ${datestamp}]
             if { $count == 0 } {
                set args "-l ${nodeName}=${currentExt}"
