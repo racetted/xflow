@@ -1293,6 +1293,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
             return
          }
          set isNewThread true
+         puts "Overview_launchExpFlow SharedData_setExpThreadId exp_path:${exp_path} datestamp:${datestamp} threadid:${expThreadId}"
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
       } else {
          puts "Overview_launchExpFlow got existing thread..."
@@ -1315,7 +1316,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
-             ::log::log notice "Overview_launchExpFlow new exp thread calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
+             ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
             thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow" LogReaderDone
 	    vwait LogReaderDone
          }
@@ -1459,25 +1460,25 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
          set isStartupDone [SharedData_getMiscData STARTUP_DONE]
          if { $status == "begin" } {
             # launch the flow if needed... but not when the app is startup up
-      # the SharedData_getExpStartupDone is to make sure that you don't
-      # trigger multiple begins when launching a flow with a datestamp that is currently not running
+            # the SharedData_getExpStartupDone is to make sure that you don't
+            # trigger multiple begins when launching a flow with a datestamp that is currently not running
             if { [SharedData_getExpAutoLaunch ${exp_path}] == true && ${AUTO_LAUNCH} == "true" \
-	         && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+	         && ${isStartupDone} == "true" } {
                ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
                ::log::log notice "exp launching xflow window ${exp_path} datestamp:${datestamp}"
                Overview_launchExpFlow ${exp_path} ${datestamp}
-      }
+            }
          } else {
             # change the exp colors
             Overview_refreshBoxStatus ${exp_path} ${datestamp}
          }
-         if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+         if { ${isStartupDone} == "true" } {
 
             # check for box overlapping, auto-refresh, etc
             Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${status} ${timeValue}
-         ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
+            ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
             Overview_checkGridLimit
-         ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
+            ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
          }
       } else {
          ::log::log debug "Overview_updateExp canvas $canvas does not exists!"

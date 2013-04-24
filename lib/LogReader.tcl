@@ -4,22 +4,27 @@ package require log
 proc LogReader_addMonitorDatestamp { exp_path datestamp } {
    global LogReader_Datestamps
 
-   if { ! [info exists LogReader_Datestamps] } {
-      array set LogReader_Datestamps {}
+   if { ${exp_path} != "" && ${datestamp} != "" } {
+      if { ! [info exists LogReader_Datestamps] } {
+         array set LogReader_Datestamps {}
+      }
+      set key ${exp_path}_${datestamp}
+      set LogReader_Datestamps($key) "${exp_path} ${datestamp}"
    }
-   set key ${exp_path}_${datestamp}
-   set LogReader_Datestamps($key) "${exp_path} ${datestamp}"
 }
 
 # this proc removes a datestamp from being monitored by the current thread
 proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
-   global LogReader_Datestamps
+   global LogReader_Datestamps LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
 
    ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} called."
    set key ${exp_path}_${datestamp}
    if { [info exists LogReader_Datestamps($key)] } {
       ::log::log notice "LogReader_removeMonitorDatestamp() removing datestamp ${exp_path} ${datestamp}"
       array unset LogReader_Datestamps $key
+   }
+   if { [info exists LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] } {
+      unset LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    }
    ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} done."
 }
@@ -65,19 +70,21 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
       return
    }
 
-   # first do a full first pass read of the log file
-   LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
-   ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} first pass read DONE."
+   if { ${datestamp} != "" } {
+      # first do a full first pass read of the log file
+      LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
+      ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} first pass read DONE."
 
-   if { [SharedData_getMiscData STARTUP_DONE] == false && [SharedData_getMiscData OVERVIEW_MODE] == true } {
-      # at application startup, let the overview know that we're done reading the log
-      # release the thread to other exp
-      thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_childInitDone [thread::id] ${exp_path} ${datestamp}"
+      if { [SharedData_getMiscData STARTUP_DONE] == false && [SharedData_getMiscData OVERVIEW_MODE] == true } {
+         # at application startup, let the overview know that we're done reading the log
+         # release the thread to other exp
+         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_childInitDone [thread::id] ${exp_path} ${datestamp}"
+      }
+   
+      # register the log to be monitor by this thread
+      ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} added to monitor list"
+      LogReader_addMonitorDatestamp ${exp_path} ${datestamp}
    }
-
-   # register the log to be monitor by this thread
-   ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} added to monitor list"
-   LogReader_addMonitorDatestamp ${exp_path} ${datestamp}
 }
 
 # read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
@@ -88,7 +95,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
-         set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
+      set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
    }
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    set sendToOverview false
@@ -390,9 +397,11 @@ proc LogReader_getAvailableDates { exp_path } {
 proc LogReader_printMonitorDatestamps {} {
    global LogReader_Datestamps
 
+   puts "LogReader_printMonitorDatestamps thread_id:[thread::id]..."
    foreach { key value } [array get LogReader_Datestamps] {
       set expPath [lindex ${value} 0]
       set datestamp [lindex ${value} 1]
       puts "thread_id:[thread::id] exp:${expPath} datestamp:${datestamp}"
    }
+   puts "LogReader_printMonitorDatestamps thread_id:[thread::id] DONE"
 }
