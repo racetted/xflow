@@ -628,8 +628,9 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
 
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
          set expThreadId [ThreadPool_getThread]
-         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${seqDatestamp}\" no_overview" LogReaderDone
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${seqDatestamp} no_overview" LogReaderDone
 	 vwait LogReaderDone
+         SharedData_setExpThreadId ${exp_path} ${seqDatestamp} ${expThreadId}
       } else {
          thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_clearAllMessages"
          SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]
@@ -2753,13 +2754,14 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       xflow_cleanDatestampVars ${exp_path} ${datestamp}
 
       if { ${from_overview} == false } {
+         set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
          if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
             Overview_cleanDatestamp ${exp_path} ${datestamp}
+            Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
          } else {
             if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-               set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
                # notify overview thread to release me
-               Overview_releaseExpThread ${expThreadId} ${exp_path} \"${datestamp}\"
+               Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
             }
          }
       }
