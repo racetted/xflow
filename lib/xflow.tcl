@@ -438,19 +438,6 @@ proc xflow_setAutoMsgDisplay {} {
    SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
 }
 
-# this function adds a background image to an exp flow canvas.
-# The image is created once when the canvas is created; this function is called
-# when the flow is redrawn or the window is resized
-proc xflow_AddCanvasBg { canvas } {
-   # image already created at canvas creaton time
-   set imageBg ${canvas}.bg_image
-   set imageTagName ${canvas}_bg_image
-
-   ${canvas} delete ${imageTagName}
-   ${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags ${imageTagName}
-   ${canvas} lower ${imageTagName}
-}
-
 # this function creates the widgets for the node kill window
 # that is invoked from the xflow toolbar
 proc xflow_nodeKillDisplay { exp_path datestamp parent_w } {
@@ -623,7 +610,6 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
       if { ${previousDatestamp} != "" } {
          set previousRealDatestamp [Utils_getRealDatestampValue ${previousDatestamp}]
 	 # xflow_cleanDatestampVars ${exp_path} ${datestamp}
-         SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
       }
 
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
@@ -644,9 +630,12 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
       set currentx [winfo x ${currentTop}]
       set currenty [winfo y ${currentTop}]
 
+      # clean previous datestamp
+      xflow_closeExpDatestamp ${exp_path} ${datestamp}
+      # SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
+
       xflow_createWidgets ${exp_path} ${seqDatestamp} ${currentx} ${currenty}
       xflow_displayFlow ${exp_path} ${seqDatestamp}
-      xflow_closeExpDatestamp ${exp_path} ${datestamp}
    }
    Utils_normalCursor $top
 }
@@ -1098,7 +1087,6 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node } {
 
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
-   puts "currentExtension:$currentExtension"
    if { ${status} == "begin" } {
       set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
       if { [file readable ${outputFile}] } {
@@ -2213,7 +2201,9 @@ proc xflow_redrawNodes { exp_path datestamp node {canvas ""} } {
          eval [set cmdList_${exp_path}_${datestamp}]
          xflow_drawNode ${exp_path} ${datestamp} ${canvas} ${node} ${nodePosition}
          xflow_resetScrollRegion ${canvas}
-         xflow_addBgImage ${exp_path} ${canvas} [winfo width ${canvas}] [winfo height ${canvas}] true
+         if { [xflow_needBgImageRefresh ${exp_path} ${datestamp} ${canvas}] == true } {
+	    xflow_addBgImage ${exp_path} ${datestamp} ${canvas} [winfo width ${canvas}] [winfo height ${canvas}] true
+         }
       }
    }
    xflow_setRefreshMode ${exp_path} ${datestamp} false
@@ -2362,7 +2352,6 @@ proc xflow_resetScrollRegion { _canvas } {
       set x2 [expr ${x2} + ${delta}]
       set y2 [expr ${y2} + ${delta}]
    }
-   # ${_canvas} configure -scrollregion [list ${x1} ${y1} ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
    ${_canvas} configure -scrollregion [list 0 0 ${x2} ${y2}] -yscrollincrement 5 -xscrollincrement 5
    xflow_MouseWheelCheck ${_canvas}
 }
@@ -2620,7 +2609,7 @@ proc xflow_createFlowCanvas { exp_path datestamp parent } {
          }
       }
 
-      bind $canvas <Configure> [list xflow_canvasConfigureCallback ${exp_path} ${datestamp} ${canvas} %w %h]
+      #bind $canvas <Configure> [list xflow_canvasConfigureCallback ${exp_path} ${datestamp} ${canvas} %w %h]
       grid $canvas -row 0 -column 0 -sticky nsew
 
 
@@ -2633,54 +2622,62 @@ proc xflow_createFlowCanvas { exp_path datestamp parent } {
    return $canvas
 }
 
-proc xflow_canvasConfigureCallback { exp_path datestamp canvas width height} {
-   catch {
-      xflow_addBgImage ${exp_path} ${datestamp} ${canvas} ${width} ${height} true
-   }
-   xflow_MouseWheelCheck ${canvas}
-}
-
 proc xflow_clearCanvasFlow { _canvas } {
    if { [winfo exists ${_canvas}] } {
-
-      # retrieve all flow elements to delete
+      # retrieve all flow elements to delete but not the
+      # bg image
       ${_canvas} delete flow_element
    }
    update idletasks
 }
 
+# we don't need to redraw the bg image on a node redraw if
+# the bg already covers all elements.
+proc xflow_needBgImageRefresh { _exp_path _datestamp _canvas } {
+   set needRefresh true
+   # the current bg already covers all elements if the bbox around all
+   # elements is the same as the bbox aroun the bg itself is the same
+   if { [$canvas bbox all] == [$canvas bbox backgroundBitmap] } {
+      set needRefresh false
+   }
+   return ${needRefresh}
+}
+
 proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height {force false} } {
-   global FLOW_BG_SOURCE_IMG_${_exp_path}_${_datestamp} FLOW_TILED_IMG_${_exp_path}_${_datestamp}
+   global FLOW_BG_SOURCE_IMG FLOW_TILED_IMG_${_exp_path}_${_datestamp}
    package require img::gif
 
    Utils_busyCursor [winfo toplevel ${_canvas}]
 
-   if { [${_canvas} find withtag backgroundBitmap] == "" } {
-      set FLOW_BG_SOURCE_IMG_${_exp_path}_${_datestamp} [image create photo -file [xflow_getImageFile bg_image]]
-      set FLOW_TILED_IMG_${_exp_path}_${_datestamp} [image create photo]
-      # does not exists, create new one
-      ${_canvas} create image 0 0 \
-         -anchor nw \
-         -image [set FLOW_TILED_IMG_${_exp_path}_${_datestamp}] \
-         -tags backgroundBitmap
-
-      ${_canvas} lower backgroundBitmap
-      bind ${_canvas} <Destroy> [list xflow_canvasDestroyCallback ${_exp_path} ${_datestamp}]
+   if { ! [info exists FLOW_BG_SOURCE_IMG] } {
+      set FLOW_BG_SOURCE_IMG [image create photo -file [xflow_getImageFile bg_image]]
    }
 
-   xflow_tileBgImage ${_exp_path} ${_datestamp} ${_canvas} [set FLOW_BG_SOURCE_IMG_${_exp_path}_${_datestamp}] [set FLOW_TILED_IMG_${_exp_path}_${_datestamp}] ${_width} ${_height}
+   if { [info exists  FLOW_TILED_IMG_${_exp_path}_${_datestamp}] } {
+      # already has current bg
+      image delete [ set FLOW_TILED_IMG_${_exp_path}_${_datestamp} ]
+      ${_canvas} delete backgroundBitmap
+   }
+
+   set FLOW_TILED_IMG_${_exp_path}_${_datestamp} [image create photo]
+   ${_canvas} create image 0 0 \
+      -anchor nw \
+      -image [set FLOW_TILED_IMG_${_exp_path}_${_datestamp}] \
+      -tags backgroundBitmap
+   ${_canvas} lower backgroundBitmap
+   bind ${_canvas} <Destroy> [list xflow_canvasDestroyCallback ${_exp_path} ${_datestamp}]
+
+   xflow_tileBgImage ${_exp_path} ${_datestamp} ${_canvas} [set FLOW_BG_SOURCE_IMG] [set FLOW_TILED_IMG_${_exp_path}_${_datestamp}] ${_width} ${_height}
 
    Utils_normalCursor [winfo toplevel ${_canvas}]
 }
 
 proc xflow_canvasDestroyCallback { exp_path datestamp } {
-   global FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp} FLOW_TILED_IMG_${exp_path}_${datestamp}
+   global FLOW_BG_SOURCE_IMG FLOW_TILED_IMG_${exp_path}_${datestamp}
    global XFLOW_BG_WIDTH_${exp_path}_${datestamp} XFLOW_BG_HEIGHT_${exp_path}_${datestamp}
-   catch { image delete [set FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp}] }
    catch { image delete [set FLOW_TILED_IMG_${exp_path}_${datestamp}] }
    catch { unset XFLOW_BG_WIDTH_${exp_path}_${datestamp} }
    catch { unset XFLOW_BG_HEIGHT_${exp_path}_${datestamp} }
-   catch { unset FLOW_BG_SOURCE_IMG_${exp_path}_${datestamp} }
    catch { unset FLOW_TILED_IMG_${exp_path}_${datestamp} }
 }
 
@@ -2704,16 +2701,17 @@ proc xflow_tileBgImage { exp_path datestamp canvas sourceImage tiledImage _width
    if { ! [info exists XFLOW_BG_WIDTH_${exp_path}_${datestamp}] } {
       set XFLOW_BG_WIDTH_${exp_path}_${datestamp} ${usedW}
       set XFLOW_BG_HEIGHT_${exp_path}_${datestamp} ${usedH}
-      $tiledImage copy $sourceImage -to 0 0 ${usedW} ${usedH}
    } else {
       set previousWidth [set XFLOW_BG_WIDTH_${exp_path}_${datestamp}]
       set previousHeight [set XFLOW_BG_HEIGHT_${exp_path}_${datestamp}]
       if { ${usedW} > ${previousWidth} || ${usedH} > ${previousHeight} } {
          set XFLOW_BG_WIDTH_${exp_path}_${datestamp} ${usedW}
          set XFLOW_BG_HEIGHT_${exp_path}_${datestamp} ${usedH}
-         $tiledImage copy $sourceImage -to 0 0 ${usedW} ${usedH}
       }
    }
+   #::log::log debug "xflow_tileBgImage copy new source img exp_path:$exp_path datestamp:$datestamp"
+   # copy from source... sourceImage must be of type photo
+   $tiledImage copy $sourceImage -to 0 0 ${usedW} ${usedH}
  }
 
 proc xflow_setErrorMessages {} {
@@ -2731,10 +2729,37 @@ proc xflow_getErroMsg { key } {
    return $ERROR_MSG_LIST($key)
 }
 
-proc xflow_closeExpDatestamp { exp_path datestamp } {
+# this proc should be called when we need to clean the xflow related data
+# with respect to a datestamp; should be called when you need to close a flow;
+# should be called when you are switching a flow from one datestamp to another.
+proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
    # puts "xflow_closeExpDatestamp ${exp_path} ${datestamp}"
    set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
    destroy ${toplevelW}
+   xflow_cleanDatestampVars ${exp_path} ${datestamp}
+
+   # clean images used by this flow
+   set images [image names]
+   set myImageIndexes [lsearch -all ${images} ${toplevelW}*]
+   foreach myImageIndex ${myImageIndexes} {
+      image delete [lindex ${images} ${myImageIndex}]
+   }
+
+   if { [SharedData_getMiscData OVERVIEW_MODE] == true && ${from_overview} == false } {
+      # this procedure can be called twice (from the xflow itself and callback from the overview
+      # When called from the overview, the from_overview is set to true so that we don't
+      # try to cleanp data twice and to avoid infinite recursion
+      set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
+      if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
+         Overview_cleanDatestamp ${exp_path} ${datestamp}
+         Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
+      } else {
+         if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+            # notify overview thread to release me
+            Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
+         }
+      }
+   }
 }
 
 # function called when user quits the application.
@@ -2748,6 +2773,8 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
 
    if { ${isOverviewMode} == "true" } {
+      xflow_closeExpDatestamp ${exp_path} ${datestamp} ${from_overview}
+      proc out {} {
       # we are in overview mode
       set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
       destroy ${toplevelW}
@@ -2771,6 +2798,7 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       set myImageIndexes [lsearch -all ${images} ${toplevelW}*]
       foreach myImageIndex ${myImageIndexes} {
          image delete [lindex ${images} ${myImageIndex}]
+      }
       }
    } else {
       # standalone mode
@@ -2878,7 +2906,6 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    ::log::log debug "xflow_createWidgets"
    set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
    if { ! [winfo exists ${toplevelW}] } {
-      puts "xflow_createWidgets creating ${toplevelW}"
       toplevel ${toplevelW}
       if { ${topx} != "" } {
          wm geometry ${toplevelW} +${topx}+${topy}
@@ -2938,18 +2965,24 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
 
    set sizeGripW [xflow_getWidgetName ${exp_path}  ${datestamp} main_size_grip]
    ttk::sizegrip ${sizeGripW}
-   bind ${sizeGripW} <B1-Motion> [list xflow_B1MotionCallback ${exp_path}  ${datestamp} ${sizeGripW}]
 
    grid ${sizeGripW} -row 4 -column 1 -sticky se
    
    wm geometry ${toplevelW} =1200x800
 }
 
-proc xflow_B1MotionCallback { exp_path datestamp widget } {
+proc xflow_sizeGripMotionCallback { exp_path datestamp widget } {
    catch {
       ttk::sizegrip::Drag ${widget} [winfo pointerx .] [winfo pointery .]
       xflow_setFlowResized ${exp_path} ${datestamp} true
    }
+}
+
+proc xflow_sizeGripButtonReleaseCallback {  exp_path datestamp sizeGripW canvas } {
+  # add the canvas bg image... based the width and height  on the x and y of the sizegrip widget
+  set canvasW [winfo x $sizeGripW]
+  set canvasH [winfo y $sizeGripW]
+  xflow_addBgImage ${exp_path} ${datestamp} ${canvas} ${canvasW} ${canvasH}
 }
 
 proc xflow_getExpLabelFont {} {
@@ -3018,10 +3051,19 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    set canvas [xflow_createFlowCanvas ${exp_path} ${datestamp} $drawFrame]
    xflow_drawflow ${exp_path} ${datestamp} $canvas ${initial_display}
 
+   set sizeGripW [xflow_getWidgetName ${exp_path}  ${datestamp} main_size_grip]
+   bind ${sizeGripW} <B1-Motion> [list xflow_sizeGripMotionCallback ${exp_path}  ${datestamp} ${sizeGripW}]
+   bind ${sizeGripW} <ButtonRelease-1> [list xflow_sizeGripButtonReleaseCallback  ${exp_path} ${datestamp} ${sizeGripW} ${canvas}]
+
    xflow_setTitle ${topFrame} ${exp_path} ${datestamp}
    xflow_toFront [winfo toplevel  ${topFrame}]
+
+   update
+
+   # force adding of bg image 
+   xflow_sizeGripButtonReleaseCallback ${exp_path} ${datestamp} ${sizeGripW} ${canvas}
+
    ::log::log notice "xflow_displayFlow ${exp_path} thread id:[thread::id] done datestamp:${datestamp}"
-   # Console_create
 }
 
 # Position the flow windows relative to the main overview window.
