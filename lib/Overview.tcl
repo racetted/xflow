@@ -1542,6 +1542,14 @@ proc Overview_setCanvasScrollArea { canvasW } {
    ${canvasW} configure -scrollregion [list $x1 $y1 $x2 $y2] -yscrollincrement 5 -xscrollincrement 5
 }
 
+proc Overview_addStartupProgressMax { numberToAdd } {
+   set progressWidget .overview_progress
+   if { [winfo exists ${progressWidget}] } {
+      set currentMax [${progressWidget} cget -maximum]
+      ${progressWidget} configure -maximum [expr ${currentMax} + ${numberToAdd}]
+   }
+}
+
 # this function is called to add a new experiment to be monitored by the overview
 proc Overview_addExp { display_group canvas exp_path } {
    ::log::log debug "Overview_addExp display_group:$display_group exp_path:$exp_path"
@@ -1556,6 +1564,8 @@ proc Overview_addExp { display_group canvas exp_path } {
    # create startup threads to process log datestamps
    # get the list of datestamps visible from the left side of the overview for this exp
    set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [expr -14*60] ]
+   Overview_addStartupProgressMax [llength ${visibleDatestamps}]
+
    ::log::log debug "Overview_addExp exp_path:$exp_path visibleDatestamps:$visibleDatestamps"
 
    if [ catch { ExpOptions_read ${exp_path} } message ] {
@@ -1852,7 +1862,7 @@ proc Overview_addGroup { canvas displayGroup } {
 # the values of the labels are read from an exp list
 proc Overview_addGroups { canvas } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
-   global STARTUP_PROGRESS_VALUE STARTUP_PROGRESS_TXT
+   global STARTUP_PROGRESS_VALUE STARTUP_PROGRESS_TXT STARTUP_MAX
    set displayGroups [ExpXmlReader_getGroups]
 
    set groupEntryCurrentY $entryStartY
@@ -1868,6 +1878,7 @@ proc Overview_addGroups { canvas } {
    }
    # startup progress bar
    set STARTUP_PROGRESS_VALUE 0
+   set STARTUP_MAX 0
    set progressBar [ProgressDlg .overview_progress \
     -title "Xflow_overview - Loading Experiments Data" -maximum ${expNumber} \
     -variable STARTUP_PROGRESS_VALUE -textvariable STARTUP_PROGRESS_TXT]
@@ -1882,7 +1893,6 @@ proc Overview_addGroups { canvas } {
       foreach exp $expList {
          set currentTime [clock seconds]
          Overview_addExp $displayGroup $canvas $exp
-         # SharedData_setExpData ${exp} LAST_CHECKED_TIME ${currentTime}
          LogMonitor_setLastCheckTime ${exp} ${currentTime}
       }
    }
@@ -2602,9 +2612,7 @@ proc Overview_main {} {
    # set thread error handler for async calls
    thread::errorproc Overview_threadErrorCallback
 
-   puts "Overview calling addGroups: [exec date]"
    Overview_addGroups ${topCanvas}
-   puts "Overview after calling addGroups: [exec date]"
    Overview_setCanvasScrollArea ${topCanvas}
    Overview_setCurrentTime ${topCanvas}
    Overview_addCanvasImage ${topCanvas}
