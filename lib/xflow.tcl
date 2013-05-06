@@ -1659,6 +1659,17 @@ proc xflow_evalConfigCreateWidgets { exp_path datestamp node caller_w } {
 
    # allow widgets in first row to take all available vert space space
    grid rowconfigure ${topLevelWidget} 0 -weight 1
+
+   # this section fetches the node.machine as given by nodeinfo
+   set machine ""
+   catch {
+      set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+      set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+      set machine [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res | grep node.machine | sed -e 's:node.machine=::' 2> /dev/null "]
+   }
+   if { ${machine} != "" } {
+      ${machineEntry} configure -text ${machine}
+   }
 }
 
 proc xflow_goEvalConfig { exp_path datestamp node toplevel_w } {
@@ -2175,6 +2186,9 @@ proc xflow_changeCollapsed { exp_path datestamp canvas node x y } {
    }
 
    xflow_drawflow ${exp_path} ${datestamp} $canvas 0
+   if { [xflow_needBgImageRefresh ${exp_path} ${datestamp} ${canvas}] == true } {
+      xflow_addBgImage ${exp_path} ${datestamp} ${canvas} [winfo width ${canvas}] [winfo height ${canvas}]
+   }
 }
 
 # redraws the flow starting from a node... without having
@@ -2202,7 +2216,7 @@ proc xflow_redrawNodes { exp_path datestamp node {canvas ""} } {
          xflow_drawNode ${exp_path} ${datestamp} ${canvas} ${node} ${nodePosition}
          xflow_resetScrollRegion ${canvas}
          if { [xflow_needBgImageRefresh ${exp_path} ${datestamp} ${canvas}] == true } {
-	    xflow_addBgImage ${exp_path} ${datestamp} ${canvas} [winfo width ${canvas}] [winfo height ${canvas}] true
+	    xflow_addBgImage ${exp_path} ${datestamp} ${canvas} [winfo width ${canvas}] [winfo height ${canvas}]
          }
       }
    }
@@ -2637,13 +2651,13 @@ proc xflow_needBgImageRefresh { _exp_path _datestamp _canvas } {
    set needRefresh true
    # the current bg already covers all elements if the bbox around all
    # elements is the same as the bbox aroun the bg itself is the same
-   if { [$canvas bbox all] == [$canvas bbox backgroundBitmap] } {
+   if { [${_canvas} bbox all] == [${_canvas} bbox backgroundBitmap] } {
       set needRefresh false
    }
    return ${needRefresh}
 }
 
-proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height {force false} } {
+proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height } {
    global FLOW_BG_SOURCE_IMG FLOW_TILED_IMG_${_exp_path}_${_datestamp}
    package require img::gif
 
