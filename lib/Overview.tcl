@@ -215,6 +215,8 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
    ::log::log debug "setCurrentTime canvas:$canvas current_time:${current_time}"
    $canvas delete current_timeline
 
+   after cancel ${TimeAfterId}
+
    # setting current time
    if { ${current_time} == "" } {
       set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
@@ -625,13 +627,15 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
       set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
       if { [SharedData_getExpTimings ${exp_path}] != "" } {
          set labelDatestamp [Utils_getHourFromDatestamp ${datestamp}]
-         set expLabel " ${shortName}-${labelDatestamp} "
+         # set expLabel " ${shortName}-${labelDatestamp} "
+         set expLabel " ${shortName}-${labelDatestamp}"
       }
    } else {
       set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
       if { [SharedData_getExpTimings ${exp_path}] != "" || ${currentStatus} != "init"} {
          set labelDatestamp [string range ${datestamp} [lindex ${datestampRange} 0] [lindex ${datestampRange} 1]]
-         set expLabel " ${shortName}-${labelDatestamp} "
+         # set expLabel " ${shortName}-${labelDatestamp} "
+         set expLabel " ${shortName}-${labelDatestamp}"
       }
    }
    set bgColor [::DrawUtils::getBgStatusColor ${currentStatus}]
@@ -2224,10 +2228,6 @@ proc Overview_parseCmdOptions {} {
          SharedData_init
          SharedData_setMiscData OVERVIEW_MODE true
 
-         if { $params(logfile) != "" } {
-            puts "Overview_parseCmdOptions writing to log file: $params(logfile)"
-            SharedData_setMiscData APP_LOG_FILE $params(logfile)
-         } 
 
          SharedData_setMiscData REAL_USER $env(USER)
          if { $params(user) != "" } {
@@ -2249,6 +2249,19 @@ proc Overview_parseCmdOptions {} {
          }
 
          SharedData_readProperties $params(rc)
+
+	 set logDir [SharedData_getMiscData APP_LOG_DIR]
+         if { $params(logfile) == "" && ${logDir} != "" } {
+	    if { ! [file writable ${logDir}] } {
+	       puts "ERROR: cannot create application log file in directory ${logDir}!"
+	       puts "   Check the APP_LOG_DIR entry from your maestrorc file."
+	       exit 0
+	    }
+	    # log in given log directory
+            SharedData_setMiscData APP_LOG_FILE [SharedData_getMiscData APP_LOG_DIR]/xflow_overview_log.[exec hostname].[pid]
+         } else {
+            SharedData_setMiscData APP_LOG_FILE $params(logfile)
+	 }
 
          if { ! ($params(suites) == "") } {
             # command line arguments overwrites maestrorc file
