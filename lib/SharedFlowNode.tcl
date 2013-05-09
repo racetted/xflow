@@ -34,15 +34,14 @@ proc SharedFlowNode_removeDatestamp { exp_path datestamp } {
    ::log::log notice "SharedFlowNode_removeDatestamp ${exp_path} ${datestamp}"
 
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime"
-   tsv::lock SharedFlowNode_${exp_path}_${datestamp}_runtime {
+      catch { tsv::reset SharedFlowNode_${exp_path}_${datestamp}_runtime }
       catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime }
-   }
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime DONE"
 
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}"
-   tsv::lock SharedFlowNode_${exp_path}_${datestamp} {
+      catch { tsv::reset SharedFlowNode_${exp_path}_${datestamp} }
       catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp} }
-   }
+
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp} DONE"
    ::log::log notice "SharedFlowNode_removeDatestamp ${exp_path} ${datestamp} DONE"
 }
@@ -623,7 +622,7 @@ proc SharedFlowNode_isParentCollapsed { exp_path node datestamp canvas } {
 
    set submitter [SharedFlowNode_getSubmitter ${exp_path} ${node} ${datestamp} ]
    set value [SharedFlowNode_isCollapsed ${exp_path} ${submitter} ${datestamp} ${canvas}]
-   return 0
+   return ${value}
 }
 
 proc SharedFlowNode_setCollapsed { exp_path node datestamp canvas value } {
