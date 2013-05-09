@@ -27,12 +27,6 @@ eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
   -user ""	""	"[real user]" \
   ++ $arguments`
 
-if [[ "${SEQ_XFLOW_BIN}" = "" ]] ; then
-   echo "xflow_overview getting maestro env from /home/binops/afsi/ssm/domain2"
-   eval "`ssmuse sh -d /home/binops/afsi/ssm/domain2`"
-   echo "which xflow_overview? $(which xflow_overview)"
-fi
-
 # setting the display properly
 if [[ "${display}" = "" ]] ; then 
    # use the ssh -Y, allow trusted hosts
@@ -75,8 +69,6 @@ fi
 
 logfile_opt=""
 [[ ${logfile} != "" ]] && logfile_opt="-logfile ${logfile}"
-[[ "${USER}" = "afsiops" && "${logfile}" = "" ]] && logfile_opt="-logfile /cnfs/ops/production/log/xflow_overview_log.$$"
-[[ "${USER}" = "afsipar" && "${logfile}" = "" ]] && logfile_opt="-logfile /cnfs/ops/production/log/par/xflow_overview_log.$$"
 
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 suites_opt=""
