@@ -103,8 +103,11 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
       
-         # move the default ones if exists (init state, waiting to be submitted, usually right side of current time line
-         Overview_advanceExpDefaultBox ${canvasW} ${exp}
+         # delete all exp boxes
+         Overview_removeAllExpBoxes ${canvasW} ${exp}
+
+         # create default boxes
+         Overview_addExpDefaultBoxes ${canvasW} ${exp}
 
          set datestamps [OverviewExpStatus_getDatestamps ${exp}]
 
@@ -215,7 +218,9 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
    ::log::log debug "setCurrentTime canvas:$canvas current_time:${current_time}"
    $canvas delete current_timeline
 
-   after cancel ${TimeAfterId}
+   if { [info exists TimeAfterId] } {
+      after cancel ${TimeAfterId}
+   }
 
    # setting current time
    if { ${current_time} == "" } {
@@ -627,15 +632,13 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
       set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
       if { [SharedData_getExpTimings ${exp_path}] != "" } {
          set labelDatestamp [Utils_getHourFromDatestamp ${datestamp}]
-         # set expLabel " ${shortName}-${labelDatestamp} "
-         set expLabel " ${shortName}-${labelDatestamp}"
+         set expLabel " ${shortName}-${labelDatestamp} "
       }
    } else {
       set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
       if { [SharedData_getExpTimings ${exp_path}] != "" || ${currentStatus} != "init"} {
          set labelDatestamp [string range ${datestamp} [lindex ${datestampRange} 0] [lindex ${datestampRange} 1]]
-         # set expLabel " ${shortName}-${labelDatestamp} "
-         set expLabel " ${shortName}-${labelDatestamp}"
+         set expLabel " ${shortName}-${labelDatestamp} "
       }
    }
    set bgColor [::DrawUtils::getBgStatusColor ${currentStatus}]
@@ -928,22 +931,6 @@ proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
    }
 }
 
-proc Overview_advanceExpDefaultBox { canvas exp_path } {
-   global graphHourX
-
-   set refTimings [SharedData_getExpTimings ${exp_path}]
-
-   if { ${refTimings} == "" } {
-      Overview_updateExpBox ${canvas} ${exp_path} default init
-   } else {
-      foreach refTiming ${refTimings} {
-         foreach { hour startTime endTime } ${refTiming} {
-            Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init
-         }
-      }
-   }
-}
-
 proc Overview_removeExpBox { canvas exp_path datestamp status } {
 
    # puts "Overview_removeExpBox $canvas $exp_path datestamp:$datestamp status:$status"
@@ -966,6 +953,10 @@ proc Overview_removeExpBox { canvas exp_path datestamp status } {
       ${canvas} delete ${expBoxTag}.end
       ${canvas} delete ${expBoxTag}.late_line
    }
+}
+
+proc Overview_removeAllExpBoxes { canvas exp_path } {
+   ${canvas} delete ${exp_path}
 }
 
 proc Overview_isDefaultBoxActive { canvas exp_path datestamp } {
@@ -1178,6 +1169,7 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
          }
       }
       if { ${isOverlap} } {
+         ::log::log debug "Overview_resolveOverlap FOUND OVERLAP? YES expBoxTag:$expBoxTag currentExpBoxTag:$currentExpBoxTag exp_path:$exp_path  $x1 $y1 $x2 $y2 $xx1 $yy1 $xx2 $yy2"
          # try to display the box in the next row
          set newy1 [expr ${y1} + ${expEntryHeight}]
          set newy2 [expr ${y2} + ${expEntryHeight}]
@@ -1208,6 +1200,7 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
                ::log::log debug "Overview_resolveOverlap FOUND OVERLAP? $isOverlap"
             }
             if { ${isOverlap} } {
+               ::log::log debug "Overview_resolveOverlap FOUND OVERLAP? YES exp:$exp testedExpBox:$testedExpBox with $exp_path"
                # try to display the box in the next row
                set newy1 [expr ${y1} + ${expEntryHeight}]
                set newy2 [expr ${y2} + ${expEntryHeight}]
@@ -1535,14 +1528,8 @@ proc Overview_checkGridLimit {} {
 proc Overview_setCanvasScrollArea { canvasW } {
    global graphX graphStartX
 
-   set x1 0
-   set y1 0
-   set x2 [expr ${graphStartX} + ${graphX} + 60]
-   set footerCoords [${canvasW} coords grid_footer]
-   set y2 [expr [lindex ${footerCoords} 3] + 120]
+   foreach { x1 y1 x2 y2 } [${canvasW} bbox canvas_bg_image] { break }
 
-   # the scroll area is determined by the grid
-   # puts "Overview_setCanvasScrollArea -scrollregion $x1 $y1 $x2 $y2"
    ${canvasW} configure -scrollregion [list $x1 $y1 $x2 $y2] -yscrollincrement 5 -xscrollincrement 5
 }
 
@@ -2474,8 +2461,6 @@ proc Overview_createCanvas { _toplevelW } {
    canvas ${canvasFrame}.canvas -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR] \
       -yscrollcommand [list ${canvasFrame}.yscroll set] -xscrollcommand [list ${canvasFrame}.xscroll set]
 
-   Utils_bindMouseWheel ${canvasW} 5
-
    grid ${canvasW} -row 0 -column 0 -sticky nsew
 
    # make the canvas expandable to right & bottom
@@ -2486,11 +2471,9 @@ proc Overview_createCanvas { _toplevelW } {
 
 }
 
-proc Overview_addCanvasImage { canvas } {
-
+proc Overview_addCanvasImage { canvas width height } {
+   global FLOW_BG_SOURCE_IMG OVERVIEW_TILED_IMG
    set boxCoords [${canvas} bbox all]
-   set imageBg ${canvas}.bg_image
-   set tiledImage [image create photo]
    if { [SharedData_getMiscData BACKGROUND_IMAGE] != "" } {
       set imageFile [SharedData_getMiscData BACKGROUND_IMAGE]
    } else {
@@ -2498,29 +2481,34 @@ proc Overview_addCanvasImage { canvas } {
       set imageFile [SharedData_getMiscData IMAGE_DIR]/artist-canvas_2.gif
    }
 
-   ${canvas} delete canvas_bg_image
-   image create photo ${imageBg} -file ${imageFile}
-   #${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags canvas_bg_image
-   ${canvas} create image 0 0 -anchor nw -image ${tiledImage} -tags canvas_bg_image
+   if { ! [info exists FLOW_BG_SOURCE_IMG] } {
+      set FLOW_BG_SOURCE_IMG [image create photo -file ${imageFile}]
+   }
+
+   if { [${canvas} gettags canvas_bg_image] != "" } {
+      image delete ${OVERVIEW_TILED_IMG}
+      ${canvas} delete canvas_bg_image
+   }
+   set OVERVIEW_TILED_IMG [image create photo]
+   ${canvas} create image 0 0 -anchor nw -image ${OVERVIEW_TILED_IMG} -tags canvas_bg_image
    
-    bind $canvas <Configure> [list Overview_tileBgImage ${canvas} ${imageBg} ${tiledImage}]
-    Overview_tileBgImage $canvas ${imageBg} ${tiledImage}
+   Overview_tileBgImage $canvas ${FLOW_BG_SOURCE_IMG} ${OVERVIEW_TILED_IMG} ${width} ${height}
    ${canvas} lower canvas_bg_image
 }
 
- proc Overview_tileBgImage { canvas sourceImage tiledImage } {
+ proc Overview_tileBgImage { canvas sourceImage tiledImage width height } {
     set canvasBox [${canvas} bbox all]
     set canvasItemsW [lindex ${canvasBox} 2]
     set canvasItemsH [lindex ${canvasBox} 3]
     set canvasW [winfo width ${canvas}]
     set canvasH [winfo height ${canvas}]
     set usedW ${canvasItemsW}
-    if { ${canvasW} > ${canvasItemsW} } {
-      set usedW ${canvasW}
+    if { ${width} > ${canvasItemsW} } {
+      set usedW [expr ${width} + 50]
     }
     set usedH ${canvasItemsH}
-    if { ${canvasH} > ${canvasItemsH} } {
-      set usedH ${canvasH}
+    if { ${height} > ${canvasItemsH} } {
+      set usedH [expr ${height} + 50]
     }
 
     $tiledImage copy $sourceImage \
@@ -2573,6 +2561,14 @@ proc Overview_soundbell {} {
    }
 }
 
+proc Overview_sizeGripButtonReleaseCallback { sizeGripWidget canvas } {
+  # add the canvas bg image... based the width and height  on the x and y of the sizegrip widget
+  set canvasW [winfo x $sizeGripWidget]
+  set canvasH [winfo y $sizeGripWidget]
+  Overview_addCanvasImage ${canvas} ${canvasW} ${canvasH}
+  Overview_setCanvasScrollArea ${canvas}
+  xflow_MouseWheelCheck ${canvas}
+}
 
 proc Overview_main {} {
    global MSG_CENTER_THREAD_ID env
@@ -2614,8 +2610,9 @@ proc Overview_main {} {
    set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
    grid ${sizeGripWidget} -sticky se
 
-   Overview_createGraph ${topCanvas}
+   bind ${sizeGripWidget} <ButtonRelease-1> [list Overview_sizeGripButtonReleaseCallback ${sizeGripWidget} ${topCanvas}]
 
+   Overview_createGraph ${topCanvas}
 
    wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
 
@@ -2626,9 +2623,8 @@ proc Overview_main {} {
    thread::errorproc Overview_threadErrorCallback
 
    Overview_addGroups ${topCanvas}
-   Overview_setCanvasScrollArea ${topCanvas}
    Overview_setCurrentTime ${topCanvas}
-   Overview_addCanvasImage ${topCanvas}
+
    # check if we need to release obsolete data
    OverviewExpStatus_checkObseleteDatestamps
    Overview_GridAdvanceHour
@@ -2638,6 +2634,9 @@ proc Overview_main {} {
 
    wm geometry ${topOverview} =1500x600
    wm deiconify ${topOverview}
+
+   update
+   Overview_sizeGripButtonReleaseCallback ${sizeGripWidget} ${topCanvas}
 
    # start the reader for currently active logs
    ::thread::broadcast LogReader_readMonitorDatestamps
