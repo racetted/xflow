@@ -761,7 +761,7 @@ proc ::DrawUtils::pointNode { exp_path datestamp node {canvas ""} } {
       set canvasList [SharedData_getExpCanvasList ${exp_path} ${datestamp}]
    }
    foreach canvasW ${canvasList} {
-      set newcords [${canvasW} coords ${node}]
+      set newcords [${canvasW} bbox ${node}]
    
       if { [string length $newcords] == 0 } {
          ::log::log debug "::DrawUtils::pointNode can't find node:${node}"

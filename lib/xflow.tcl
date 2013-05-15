@@ -709,17 +709,24 @@ proc xflow_findNode { exp_path datestamp real_node } {
    set refreshNode ""
    # loop throught the list of indexes
    while { ${indexCount} < ${extLen} } {
+      # indexes until the last one are loop indexes... last one could also be npass_task
       set extValue +[lindex ${extList} ${indexCount}]
-      if { [SharedFlowNode_getNodeType ${exp_path} ${flowNode} ${datestamp}] == "npass_task" } {
-         SharedFlowNode_setCurrentExt ${exp_path} ${flowNode} $${datestamp} {extValue}
-         set refreshNode ${flowNode}
-      } else {
-         # must be a loop extension
+      if { ${indexCount} != [expr ${extLen} - 1] } {
+         # not last iteration, must be loop 
          set loopNode [lindex ${loopList} [expr ${indexCount} - 1]]
          SharedFlowNode_setCurrentExt ${exp_path} ${loopNode} ${datestamp} ${extValue}
-      }
-      if { ${refreshNode} == "" } {
          set refreshNode ${loopNode}
+      } else {
+         # last iteration
+         if { [SharedFlowNode_getNodeType ${exp_path} ${flowNode} ${datestamp}] == "npass_task" } {
+            SharedFlowNode_setCurrentExt ${exp_path} ${flowNode} ${datestamp} ${extValue}
+            set refreshNode ${flowNode}
+         } else {
+            # must be a loop extension
+            set loopNode [lindex ${loopList} [expr ${indexCount} - 1]]
+            SharedFlowNode_setCurrentExt ${exp_path} ${loopNode} ${datestamp} ${extValue}
+            set refreshNode ${loopNode}
+         }
       }
       incr indexCount
    }
@@ -2324,11 +2331,9 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display "1"} } {
 proc xflow_resizeWindow { exp_path datestamp canvas } {
    ::log::log debug "xflow_resizeWindow canvas:${canvas}"
 
-   if { [xflow_isFlowResized ${exp_path} ${datestamp}] == true } {
-      ::log::log debug "xflow_resizeWindow FLOW_RESIZED== true returing without resize"
-      return
-   }
-
+   if { [SharedData_getExpFlowSize ${exp_path} ${datestamp}] != "" } {
+      wm geometry [xflow_getToplevel ${exp_path} ${datestamp}] =[SharedData_getExpFlowSize ${exp_path} ${datestamp}]
+   } else {
    if { [SharedData_getMiscData FLOW_GEOMETRY] == "" } {
       if { [winfo exists ${canvas}] } {
          set topLevel [winfo toplevel ${canvas}]
@@ -2353,6 +2358,7 @@ proc xflow_resizeWindow { exp_path datestamp canvas } {
       # read value from ~/.maestrorc
       set flowGeometry [SharedData_getMiscData FLOW_GEOMETRY]
       wm geometry [xflow_getToplevel ${exp_path} ${datestamp}] =${flowGeometry}
+   }
    }
    xflow_MouseWheelCheck ${canvas}
 
@@ -2623,7 +2629,7 @@ proc xflow_createFlowCanvas { exp_path datestamp parent } {
          }
       }
 
-      #bind $canvas <Configure> [list xflow_canvasConfigureCallback ${exp_path} ${datestamp} ${canvas} %w %h]
+      bind $canvas <Configure> [list xflow_canvasConfigureCallback ${exp_path} ${datestamp} ${canvas} %w %h]
       grid $canvas -row 0 -column 0 -sticky nsew
 
 
@@ -2634,6 +2640,26 @@ proc xflow_createFlowCanvas { exp_path datestamp parent } {
       grid ${drawFrame} -row 0 -column 0 -sticky nsew
    }
    return $canvas
+}
+
+# this is called when a configure event is triggered on a widget to resize, iconified a window.
+# I need to redraw the bg image everytime the window is resized... however, this proc can 
+# be called about 10-15 times when the user drags the mouse to resize; I don't want
+# to redraw the bg 15 times... So let's put a delay and every call cancels the previous one unless the 
+# delay is passed; only the last one will live to execute the image redraw.
+proc xflow_canvasConfigureCallback { exp_path datestamp canvas width height } {
+   global RESIZE_AFTERID
+   # cancel the previous event
+   catch { after cancel [set RESIZE_AFTERID] }
+   # set the event to draw bg
+   set RESIZE_AFTERID [after 100 [list xflow_resizeWindowEvent ${exp_path} ${datestamp} ${canvas} ${width} ${height}]]
+}
+
+proc xflow_resizeWindowEvent {  exp_path datestamp canvas width height } {
+  xflow_addBgImage ${exp_path} ${datestamp} ${canvas} ${width} ${height}
+  set topLevel [winfo toplevel $canvas]
+  SharedData_setExpFlowSize ${exp_path} ${datestamp} [winfo width ${topLevel}]x[winfo height ${topLevel}]
+  xflow_MouseWheelCheck ${canvas}
 }
 
 proc xflow_clearCanvasFlow { _canvas } {
@@ -2689,9 +2715,11 @@ proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height } {
 proc xflow_canvasDestroyCallback { exp_path datestamp } {
    global FLOW_BG_SOURCE_IMG FLOW_TILED_IMG_${exp_path}_${datestamp}
    global XFLOW_BG_WIDTH_${exp_path}_${datestamp} XFLOW_BG_HEIGHT_${exp_path}_${datestamp}
+   catch { ::log::log notice "xflow_canvasDestroyCallback deleting image FLOW_TILED_IMG_${exp_path}_${datestamp}" }
    catch { image delete [set FLOW_TILED_IMG_${exp_path}_${datestamp}] }
    catch { unset XFLOW_BG_WIDTH_${exp_path}_${datestamp} }
    catch { unset XFLOW_BG_HEIGHT_${exp_path}_${datestamp} }
+   catch { ::log::log notice "xflow_canvasDestroyCallback unset FLOW_TILED_IMG_${exp_path}_${datestamp}" }
    catch { unset FLOW_TILED_IMG_${exp_path}_${datestamp} }
 }
 
@@ -2747,7 +2775,7 @@ proc xflow_getErroMsg { key } {
 # with respect to a datestamp; should be called when you need to close a flow;
 # should be called when you are switching a flow from one datestamp to another.
 proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
-   # puts "xflow_closeExpDatestamp ${exp_path} ${datestamp}"
+   ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp}"
    set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
    destroy ${toplevelW}
    xflow_cleanDatestampVars ${exp_path} ${datestamp}
@@ -2757,6 +2785,7 @@ proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
    set myImageIndexes [lsearch -all ${images} ${toplevelW}*]
    foreach myImageIndex ${myImageIndexes} {
       image delete [lindex ${images} ${myImageIndex}]
+      ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp} deleting [lindex ${images} ${myImageIndex}]"
    }
 
    if { [SharedData_getMiscData OVERVIEW_MODE] == true && ${from_overview} == false } {
@@ -2765,15 +2794,18 @@ proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
       # try to cleanp data twice and to avoid infinite recursion
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
       if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
+         ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp} exp obsolete..."
          Overview_cleanDatestamp ${exp_path} ${datestamp}
          Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
       } else {
          if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+            ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp} not obsolete..."
             # notify overview thread to release me
             Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
          }
       }
    }
+   ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp} DONE"
 }
 
 # function called when user quits the application.
@@ -2788,32 +2820,6 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
 
    if { ${isOverviewMode} == "true" } {
       xflow_closeExpDatestamp ${exp_path} ${datestamp} ${from_overview}
-      proc out {} {
-      # we are in overview mode
-      set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
-      destroy ${toplevelW}
-      xflow_cleanDatestampVars ${exp_path} ${datestamp}
-
-      if { ${from_overview} == false } {
-         set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
-         if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
-            Overview_cleanDatestamp ${exp_path} ${datestamp}
-            Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
-         } else {
-            if { ${datestamp} == "" || [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-               # notify overview thread to release me
-               Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
-            }
-         }
-      }
-
-      # clean images used by this flow
-      set images [image names]
-      set myImageIndexes [lsearch -all ${images} ${toplevelW}*]
-      foreach myImageIndex ${myImageIndexes} {
-         image delete [lindex ${images} ${myImageIndex}]
-      }
-      }
    } else {
       # standalone mode
       exit
@@ -2893,6 +2899,7 @@ proc xflow_cleanDatestampVars { exp_path datestamp } {
 			 cmdList NodeHighLightRestoreCmd } {
       global ${variableKey}_${exp_path}_${datestamp}
       ::log::log debug "xflow_cleanDatestampVars cleaning variable: ${variableKey}_${exp_path}_${datestamp}"
+      ::log::log notice "xflow_cleanDatestampVars cleaning variable: ${variableKey}_${exp_path}_${datestamp}"
       catch { unset ${variableKey}_${exp_path}_${datestamp} }
    }
 }
@@ -2985,20 +2992,6 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    wm geometry ${toplevelW} =1200x800
 }
 
-proc xflow_sizeGripMotionCallback { exp_path datestamp widget } {
-   catch {
-      ttk::sizegrip::Drag ${widget} [winfo pointerx .] [winfo pointery .]
-      xflow_setFlowResized ${exp_path} ${datestamp} true
-   }
-}
-
-proc xflow_sizeGripButtonReleaseCallback {  exp_path datestamp sizeGripW canvas } {
-  # add the canvas bg image... based the width and height  on the x and y of the sizegrip widget
-  set canvasW [winfo x $sizeGripW]
-  set canvasH [winfo y $sizeGripW]
-  xflow_addBgImage ${exp_path} ${datestamp} ${canvas} ${canvasW} ${canvasH}
-}
-
 proc xflow_getExpLabelFont {} {
    set expLabelFont ExpLabelFont
    if { [lsearch [font names] ExpLabelFont] == -1 } {
@@ -3032,8 +3025,6 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    ::log::log notice "xflow_displayFlow thread id:[thread::id] exp_path:${exp_path} datestamp:${datestamp}"
    set topLevel [xflow_getToplevel ${exp_path} ${datestamp}]
 
-   xflow_setFlowResized ${exp_path} ${datestamp} false
-
    set topFrame [xflow_getWidgetName ${exp_path} ${datestamp} top_frame]
    if { ! [winfo exists ${topFrame}] } {
       set PROGRESS_REPORT_TXT "Creating widgets..."
@@ -3066,16 +3057,9 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    xflow_drawflow ${exp_path} ${datestamp} $canvas ${initial_display}
 
    set sizeGripW [xflow_getWidgetName ${exp_path}  ${datestamp} main_size_grip]
-   bind ${sizeGripW} <B1-Motion> [list xflow_sizeGripMotionCallback ${exp_path}  ${datestamp} ${sizeGripW}]
-   bind ${sizeGripW} <ButtonRelease-1> [list xflow_sizeGripButtonReleaseCallback  ${exp_path} ${datestamp} ${sizeGripW} ${canvas}]
 
    xflow_setTitle ${topFrame} ${exp_path} ${datestamp}
    xflow_toFront [winfo toplevel  ${topFrame}]
-
-   update
-
-   # force adding of bg image 
-   xflow_sizeGripButtonReleaseCallback ${exp_path} ${datestamp} ${sizeGripW} ${canvas}
 
    ::log::log notice "xflow_displayFlow ${exp_path} thread id:[thread::id] done datestamp:${datestamp}"
 }
@@ -3230,7 +3214,8 @@ proc xflow_parseCmdOptions {} {
       LogReader_startExpLogReader ${expPath} ${newestDatestamp} all true
       SharedData_setMiscData STARTUP_DONE true
       xflow_displayFlow ${expPath} ${newestDatestamp}
-      thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
+      thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone" SendDone
+      vwait SendDone
       # start monitoring datestamps for new log entries
       LogReader_readMonitorDatestamps
    }
@@ -3357,7 +3342,9 @@ proc xflow_init { {exp_path ""} } {
       set NODE_DISPLAY_PREF  [SharedData_getMiscData NODE_DISPLAY_PREF]
       set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
 
+      puts "xflow_init() Utils_logInit..."
       Utils_logInit
+      puts "xflow_init() Utils_logInit done" 
    }
 
    xflow_setWidgetNames 
@@ -3367,20 +3354,6 @@ proc xflow_init { {exp_path ""} } {
    keynav::enableMnemonics .
 
    # xflow_createTmpDir
-}
-
-proc xflow_setFlowResized { exp_path datestamp value } {
-   global FLOW_RESIZED_${exp_path}_${datestamp}
-   set FLOW_RESIZED_${exp_path}_${datestamp} value
-}
-
-proc xflow_isFlowResized { exp_path datestamp } {
-   global FLOW_RESIZED_${exp_path}_${datestamp}
-   set value false
-   if { [info exists FLOW_RESIZED_${exp_path}_${datestamp}] } {
-      set value [set FLOW_RESIZED_${exp_path}_${datestamp}]
-   }
-   return ${value}
 }
 
 proc xflow_setRefreshMode { exp_path datestamp value } {
