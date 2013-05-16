@@ -25,7 +25,7 @@ proc LogMonitor_checkNewLogFiles {} {
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach expPath $expList {
-         set checkDir ${expPath}/logs
+         set checkDir ${expPath}/logs/
          if { [file readable ${checkDir}] } {
             # puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
             # set lastCheckedTime [SharedData_getExpData ${expPath} LAST_CHECKED_TIME]
@@ -87,7 +87,7 @@ proc LogMonitor_checkNewLogFiles {} {
 # returns a list of files {log_file1 log_file2...} if found else returns empty list
 # 
 proc LogMonitor_getDatestamps { _exp_path _deltaTime } {
-   set checkDir ${_exp_path}/logs
+   set checkDir ${_exp_path}/logs/
    set modifiedFiles {}
    if { [file readable ${checkDir}] } {
       #puts "LogMonitor_getDatestamps exec find ${checkDir} -maxdepth 1 -type f -name \"*_nodelog\" -newerct ${_deltaTime} -exec basename \{\} \;"
