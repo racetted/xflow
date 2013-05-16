@@ -157,7 +157,6 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
 	    }
          }
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} [tell $f_logfile]
-         # SharedData_setExpStartupDone ${exp_path} ${datestamp} true
          close $f_logfile
 
       } else {
@@ -341,7 +340,6 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
 # level..
 proc LogReader_updateNodes { exp_path datestamp node } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} 
-
    if { ! [info exists LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] } {
       set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} ${node}
    } else {
@@ -352,7 +350,7 @@ proc LogReader_updateNodes { exp_path datestamp node } {
       if { [lsearch  -exact ${updatedNodeList} ${node}] == -1 } {
          # exact node is not in list... search for parent nodes
          # check if the current node is parent of updated nodes
-         set childNodes [lsearch  -all ${updatedNodeList} ${node}*]
+         set childNodes [lsearch  -all ${updatedNodeList} ${node}/*]
          if {  ${childNodes} != "" } {
             # current is parent of updated ones, delete updated ones and add current one
             set childNodes [lreverse ${childNodes}]
@@ -366,14 +364,13 @@ proc LogReader_updateNodes { exp_path datestamp node } {
             # break as soon as we find one
             set found false
             foreach updatedNode ${updatedNodeList} {
-               if { [string first ${updatedNode} ${node}] != -1 } {
+               if { [string first ${updatedNode}/ ${node}] != -1 } {
                   set found true
                   break
                }
             }
             if { ${found} == "false" } {
                # the node is new, add it
-               # lappend LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} ${node}
                lappend updatedNodeList ${node}
             }
          }
