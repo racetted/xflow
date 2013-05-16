@@ -73,11 +73,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
    set canvasW [Overview_getCanvas]
 
-   # refresh current Time 
-   set timeHour [Utils_getPaddedValue ${new_hour}]
-   set currenTime "${timeHour}:00"
-   Overview_setCurrentTime ${canvasW} ${currenTime}
-
    # delete first hour tag, the one at the far-left of the grid
    set mostLeftHour [Overview_GraphGetXOriginHour]
 
@@ -145,6 +140,13 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
          }
       }
    }
+
+   # refresh current Time 
+   #set timeHour [Utils_getPaddedValue ${new_hour}]
+   #set currenTime "${timeHour}:00"
+   #Overview_setCurrentTime ${canvasW} ${currenTime}
+   Overview_setCurrentTime ${canvasW}
+
    ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}] DONE"
 }
 
@@ -1267,7 +1269,14 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
 proc Overview_launchExpFlow { exp_path datestamp } {
    ::log::log debug "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
-   global PROGRESS_REPORT_TXT
+   global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEXT
+
+   if { ! [info exists LAUNCH_XFLOW_MUTEXT] } {
+      set LAUNCH_XFLOW_MUTEXT [thread::mutex create]
+      ::log::log notice "Overview_launchExpFlow creating LAUNCH_XFLOW_MUTEXT"
+   }
+
+   thread::mutex lock $LAUNCH_XFLOW_MUTEXT
 
    xflow_init ${exp_path}
 
@@ -1340,12 +1349,16 @@ proc Overview_launchExpFlow { exp_path datestamp } {
       set ecode $::errorCode
       catch { destroy ${progressW} }
 
+      thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT}
+
       # report the error with original details
       return -code ${result} \
          -errorcode ${ecode} \
          -errorinfo ${einfo} \
          ${message}
    }
+
+   thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT}
 }
 
 # the end time happened prior to the x origin time,
@@ -1454,11 +1467,9 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
 
    if { [OverviewExpStatus_getLastStatusDateTime ${exp_path} ${datestamp}] >  [Overview_GraphGetXOriginDateTime] } {
       if { [winfo exists $canvas] } {
+         # launch the flow if needed... but not when the app is startup up
          set isStartupDone [SharedData_getMiscData STARTUP_DONE]
          if { $status == "begin" } {
-            # launch the flow if needed... but not when the app is startup up
-            # the SharedData_getExpStartupDone is to make sure that you don't
-            # trigger multiple begins when launching a flow with a datestamp that is currently not running
             if { [SharedData_getExpAutoLaunch ${exp_path}] == true && ${AUTO_LAUNCH} == "true" \
 	         && ${isStartupDone} == "true" } {
                ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
@@ -1494,7 +1505,7 @@ proc Overview_refreshExpLastStatus { exp_path datestamp } {
 # checks whether the time grid is too small to hold all exp boxes,
 # increase the grid if required
 proc Overview_checkGridLimit {} {
-   global expEntryHeight graphy
+   global expEntryHeight graphy defaultGraphY
    set displayGroups [ExpXmlReader_getGroups]
    set lastGroup [lindex ${displayGroups} end]
    if { ${lastGroup} != "" } {
@@ -1510,25 +1521,34 @@ proc Overview_checkGridLimit {} {
          if { ${maxGridY} <= ${maxExpBoxY} } {
             # grid is too small, increase it
             #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
-            # round out the value to the next grid value
             set graphy [expr ${maxExpBoxY} + [expr ${maxExpBoxY} % ${expEntryHeight}]]
-            # delete the grid
-            ${canvasW} delete grid_item
-            Overview_createGraph ${canvasW}
-            ${canvasW} lower grid_item
-            ${canvasW} lower canvas_bg_image
-            Overview_setCurrentTime ${canvasW}
-            Overview_setCanvasScrollArea ${canvasW}
-         }
+            Overview_redrawGrid
+         } elseif { ${graphy} > ${defaultGraphY} && ${graphy} >  ${maxExpBoxY} } {
+	    # shring the grid to default value
+	    set graphy ${defaultGraphY}
+            Overview_redrawGrid
+	 }
       }
    }
+}
+
+proc Overview_redrawGrid {} {
+   global expEntryHeight graphy defaultGraphY
+   set canvasW [Overview_getCanvas]
+   ${canvasW} delete grid_item
+   Overview_createGraph ${canvasW}
+   ${canvasW} lower grid_item
+   ${canvasW} lower canvas_bg_image
+   Overview_setCurrentTime ${canvasW}
+   Overview_setCanvasScrollArea ${canvasW}
 }
 
 # sets the scrolll area of the overview grid
 proc Overview_setCanvasScrollArea { canvasW } {
    global graphX graphStartX
 
-   foreach { x1 y1 x2 y2 } [${canvasW} bbox canvas_bg_image] { break }
+   # foreach { x1 y1 x2 y2 } [${canvasW} bbox canvas_bg_image] { break }
+   foreach { x1 y1 x2 y2 } [${canvasW} bbox grid_item] { break }
 
    ${canvasW} configure -scrollregion [list $x1 $y1 $x2 $y2] -yscrollincrement 5 -xscrollincrement 5
 }
@@ -1965,7 +1985,7 @@ proc Overview_getBoxLabelFont {} {
 # this function creates the time grid in the
 # specified canvas.
 proc Overview_createGraph { canvas } {
-   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX 
+   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX
 
    # adds horiz shaded grid
    set x1 $entryStartX
@@ -2099,7 +2119,7 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 
 proc Overview_init {} {
    global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF
-   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
+   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
    global expBoxLength startEndIconSize expBoxOutlineWidth
 
    set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
@@ -2116,8 +2136,8 @@ proc Overview_init {} {
    # hor size of graph
    set graphX 1225
    # vert size of graph
-   #set graphy 600
    set graphy 400
+   set defaultGraphY ${graphy}
    set graphStartX 200
    set graphStartY 50
    # x size of each hour
@@ -2131,7 +2151,6 @@ proc Overview_init {} {
    set entryStartY 70
    set entryStartX 20
 
-   #set startEndIconSize 8
    set startEndIconSize 10
 
    set expBoxOutlineWidth 1.5
@@ -2458,9 +2477,12 @@ proc Overview_createCanvas { _toplevelW } {
    ::autoscroll::autoscroll ${canvasFrame}.yscroll
    ::autoscroll::autoscroll ${canvasFrame}.xscroll
 
-   canvas ${canvasFrame}.canvas -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR] \
+   set canvasW ${canvasFrame}.canvas 
+   canvas ${canvasW} -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR] \
       -yscrollcommand [list ${canvasFrame}.yscroll set] -xscrollcommand [list ${canvasFrame}.xscroll set]
 
+   bind ${canvasW} <Configure> [list Overview_canvasConfigureCallback ${canvasW} %w %h]
+   
    grid ${canvasW} -row 0 -column 0 -sticky nsew
 
    # make the canvas expandable to right & bottom
@@ -2469,6 +2491,25 @@ proc Overview_createCanvas { _toplevelW } {
 
    grid ${canvasFrame} -row 2 -column 0 -sticky nsew
 
+}
+
+# this is called when a configure event is triggered on a widget to resize, iconified a window.
+# I need to redraw the bg image everytime the window is resized... however, this proc can 
+# be called about 10-15 times when the user drags the mouse to resize; I don't want
+# to redraw the bg 15 times... So let's put a delay and every call cancels the previous one unless the 
+# delay is passed; only the last one will live to execute the image redraw.
+proc Overview_canvasConfigureCallback { canvas width height } {
+   global RESIZE_AFTERID
+   # cancel the previous event
+   catch { after cancel [set RESIZE_AFTERID] }
+   # set the event to draw bg
+   set RESIZE_AFTERID [after 100 [list Overview_resizeWindowEvent ${canvas} ${width} ${height}]]
+}
+
+proc Overview_resizeWindowEvent {  canvas width height } {
+  Overview_addCanvasImage ${canvas} ${width} ${height}
+  Overview_setCanvasScrollArea ${canvas}
+  xflow_MouseWheelCheck ${canvas}
 }
 
 proc Overview_addCanvasImage { canvas width height } {
@@ -2511,8 +2552,9 @@ proc Overview_addCanvasImage { canvas width height } {
       set usedH [expr ${height} + 50]
     }
 
-    $tiledImage copy $sourceImage \
-        -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
+    # $tiledImage copy $sourceImage \
+    #    -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
+    $tiledImage copy $sourceImage -to 0 0 ${usedW} ${usedH}
  }
 
 proc Overview_setTitle { top_w time_value } {
@@ -2561,15 +2603,6 @@ proc Overview_soundbell {} {
    }
 }
 
-proc Overview_sizeGripButtonReleaseCallback { sizeGripWidget canvas } {
-  # add the canvas bg image... based the width and height  on the x and y of the sizegrip widget
-  set canvasW [winfo x $sizeGripWidget]
-  set canvasH [winfo y $sizeGripWidget]
-  Overview_addCanvasImage ${canvas} ${canvasW} ${canvasH}
-  Overview_setCanvasScrollArea ${canvas}
-  xflow_MouseWheelCheck ${canvas}
-}
-
 proc Overview_main {} {
    global MSG_CENTER_THREAD_ID env
    global DEBUG_TRACE
@@ -2610,8 +2643,6 @@ proc Overview_main {} {
    set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
    grid ${sizeGripWidget} -sticky se
 
-   bind ${sizeGripWidget} <ButtonRelease-1> [list Overview_sizeGripButtonReleaseCallback ${sizeGripWidget} ${topCanvas}]
-
    Overview_createGraph ${topCanvas}
 
    wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
@@ -2634,9 +2665,6 @@ proc Overview_main {} {
 
    wm geometry ${topOverview} =1500x600
    wm deiconify ${topOverview}
-
-   update
-   Overview_sizeGripButtonReleaseCallback ${sizeGripWidget} ${topCanvas}
 
    # start the reader for currently active logs
    ::thread::broadcast LogReader_readMonitorDatestamps
