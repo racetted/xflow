@@ -440,18 +440,13 @@ proc xflow_setAutoMsgDisplay {} {
 
 # this function creates the widgets for the node kill window
 # that is invoked from the xflow toolbar
+#
+#
 proc xflow_nodeKillDisplay { exp_path datestamp parent_w } {
 
    global env
    set shadowColor [SharedData_getColor SHADOW_COLOR]
    set bgColor [SharedData_getColor CANVAS_COLOR]
-   set id [clock seconds]
-   set tmpdir $env(TMPDIR)
-   set tmpfile "${tmpdir}/test$id"
-   set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
-   set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -listall > $tmpfile 2>&1"
-   ::log::log debug "xflow_nodeKillDisplay ksh -c $cmd"
-   catch { eval [exec ksh -c $cmd ] }
 
    ##set fullList [list showAllListings $node $type $canvas $canvas.list]
    if { $parent_w == "" } {
@@ -465,23 +460,32 @@ proc xflow_nodeKillDisplay { exp_path datestamp parent_w } {
     }
 
    toplevel $soloWindow
+   wm title ${soloWindow} "Kill Nodes"
    wm geometry ${soloWindow} +[winfo pointerx ${parent_w}]+[winfo pointery ${parent_w}]
    
    frame $soloWindow.frame -relief raised -bd 2 -bg $bgColor
    pack $soloWindow.frame -fill both -expand 1 
-   listbox $soloWindow.list -yscrollcommand "$soloWindow.yscroll set" \
+   set listboxW [ listbox $soloWindow.list -yscrollcommand "$soloWindow.yscroll set" \
 	  -xscrollcommand "$soloWindow.xscroll set"  \
-	  -height 10 -width 70 -selectmode extended -bg $bgColor -fg $shadowColor
+	  -height 10 -width 70 -selectmode extended -bg $bgColor -fg $shadowColor]
    scrollbar $soloWindow.yscroll -command "$soloWindow.list yview"  -bg $bgColor
    scrollbar $soloWindow.xscroll -command "$soloWindow.list xview" -orient horizontal -bg $bgColor
 
-   set cancelButton [button $soloWindow.cancel_button -text "Cancel" \
+   ::autoscroll::autoscroll ${soloWindow}.yscroll
+   ::autoscroll::autoscroll ${soloWindow}.xscroll
+
+   set cancelButton [button $soloWindow.cancel_button -text "Close" \
       -command [list destroy $soloWindow ]]
    tooltip::tooltip $cancelButton "Close this window"
    pack $cancelButton -side right -padx 4 -pady 2
 
+   set refreshButton [button $soloWindow.refresh_button -text "Refresh" \
+      -command [list xflow_populateKillAllNodeListbox ${exp_path} ${listboxW}]]
+   tooltip::tooltip $refreshButton "Refresh entries"
+   pack $refreshButton -side right -padx 2 -pady 2
+
    set killButton [button $soloWindow.kill_button -text "Kill Selected Jobs" \
-      -command [list xflow_killNode ${exp_path} ${datestamp} $soloWindow.list ]]
+      -command [list xflow_killNode ${exp_path} ${datestamp} "" $soloWindow.list ]]
    tooltip::tooltip $killButton "Send kill signals to selected job_ID"
    pack $killButton -side right -pady 2
 
@@ -489,21 +493,52 @@ proc xflow_nodeKillDisplay { exp_path datestamp parent_w } {
    pack $soloWindow.yscroll -side right -fill y -in $soloWindow.frame
    pack $soloWindow.list -expand 1 -fill both -padx 1m -side left -in $soloWindow.frame
 
+   xflow_populateKillAllNodeListbox ${exp_path} ${listboxW}
+}
+
+proc xflow_populateKillAllNodeListbox { exp_path listbox_w } {
+   global env
+   set id [clock seconds]
+   set tmpdir $env(TMPDIR)
+   set tmpfile "${tmpdir}/test$id"
+   set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
+   set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -listall > $tmpfile 2>&1"
+   ::log::log debug "xflow_nodeKillDisplay ksh -c $cmd"
+   catch { eval [exec ksh -c $cmd ] }
+
    set resultingFile [open $tmpfile] 
 
+   ${listbox_w} delete 0 end
+
+   set separator "->"
    while { [gets $resultingFile line ] >= 0 } {
-         $soloWindow.list insert end $line 
+      set listEntryValue [ split ${line} " " ]
+      set separatorIndex [lsearch ${listEntryValue} ${separator}]
+      if { ${separatorIndex} != -1 } {
+	 set dateIndex [expr ${separatorIndex} -3]
+         set nodeIndex [expr ${separatorIndex} -1]
+         set cellIndex [expr ${separatorIndex} +1]
+	 set nodeLeafIndex [expr ${separatorIndex} +2]
+	 set nodeBase [string trimleft [file dirname [lindex ${listEntryValue} ${nodeIndex}]] . ]
+
+         set date "[lrange ${listEntryValue} ${dateIndex} [expr ${dateIndex} + 1]]"
+	 set nodeFullPath ${nodeBase}/[lindex  ${listEntryValue} ${nodeLeafIndex}]
+	 set jobAndCell "[file tail [lindex ${listEntryValue} ${nodeIndex}]] -> [lindex ${listEntryValue} ${cellIndex}]"
+
+         ${listbox_w} insert end "${date} ${nodeFullPath} ${jobAndCell}"
+      }
    }
 
    catch {[exec rm -f $tmpfile]}
-
 }
 
 # this function retrieves the selected entries from
 # the node kill window and attempts to kill the running
 # jobs by invoking the maestro-utils nodekill executable.
-proc xflow_killNode { exp_path datestamp list_widget } {
+proc xflow_killNode { exp_path datestamp node list_widget } {
 
+   ::log::log debug "xflow_killNode  exp_path:${exp_path} datestamp:${datestamp} widget:${list_widget}"
+   puts "xflow_killNode  exp_path:${exp_path} datestamp:${datestamp} widget:${list_widget}"
    set indexlist [ $list_widget curselection ]
    ::log::log debug "xflow_killNode list_widget:$list_widget indexlist:$indexlist"
    set listOfNodes ""
@@ -513,20 +548,26 @@ proc xflow_killNode { exp_path datestamp list_widget } {
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill
    set numOfEntries [llength $listOfNodes]
 
+   set separator "->"
    for {set iterator 0} {$iterator < $numOfEntries} {incr iterator} {
+      set foundId false
       set listEntryValue [ split [ lindex $listOfNodes $iterator ] " " ]
-      set jobFullPath [lindex $listEntryValue 8]
-      if { [string first "/sequencing/jobinfo/" ${jobFullPath}] != -1 } {
-         set jobStartIndex [expr [string first "/sequencing/jobinfo/" ${jobFullPath}] + [string length "/sequencing/jobinfo/"] - 1]
-         set jobPath [string range ${jobFullPath} ${jobStartIndex} end]
-         set nodeID [file tail ${jobPath}]
-         set node [file dirname ${jobPath}]/[lindex $listEntryValue end]
+      set separatorIndex [lsearch ${listEntryValue} ${separator}]
+      if { ${separatorIndex} != -1 } {
+         if { ${node} == "" } {
+	    # called from kill nodes... node must be fetched from listbox entry
+	    set node [lindex $listEntryValue [expr ${separatorIndex} - 2]]
+	 }
+         set nodeID [lindex $listEntryValue [expr ${separatorIndex} - 1]]
+	 set foundId true
          ::log::log debug "xflow_killNode command: $seqExec  -n $node -job_id $nodeID"
          Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec "Node Kill [file tail $node]" top -n $node -job_id $nodeID
-      } else {
+      }
+      if { ${foundId} == false } {
          Utils_raiseError [winfo toplevel ${list_widget}] "Kill Node" "Application Error: Unable to retrieve Task Id."
       }
    }
+
 }
 
 proc xflow_populateDatestamp { exp_path datestamp date_frame } {
@@ -1488,33 +1529,71 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node canvas caller_menu } {
     }
 
    toplevel $soloWindow
+   set winTitle "Kill Node - [file tail ${node}] (${node})"
+   wm title ${soloWindow} ${winTitle}
 
    frame $soloWindow.frame -relief raised -bd 2 -bg $bgColor
    pack $soloWindow.frame -fill both -expand 1 
-   listbox $soloWindow.list -yscrollcommand "$soloWindow.yscroll set" \
+   set listboxW [listbox $soloWindow.list -yscrollcommand "$soloWindow.yscroll set" \
 	  -xscrollcommand "$soloWindow.xscroll set"  \
-	  -height 10 -width 70 -selectmode extended -bg $bgColor -fg $shadowColor
+	  -height 10 -width 70 -selectmode extended -bg $bgColor -fg $shadowColor]
    scrollbar $soloWindow.yscroll -command "$soloWindow.list yview"  -bg $bgColor
    scrollbar $soloWindow.xscroll -command "$soloWindow.list xview" -orient horizontal -bg $bgColor
 
-   set cancelButton [button $soloWindow.cancel_button -text "Cancel" \
+   set cancelButton [button $soloWindow.cancel_button -text "Close" \
       -command [list destroy $soloWindow ]]
    tooltip::tooltip $cancelButton "Close this window"
-   pack $cancelButton -side right
+   pack $cancelButton -side right -padx 2 -pady 2
+
+   set refreshButton [button $soloWindow.refresh_button -text "Refresh" \
+      -command [list xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${listboxW}]]
+   tooltip::tooltip $refreshButton "Refresh entries"
+   pack $refreshButton -side right -padx 2 -pady 2
 
    set killButton [button $soloWindow.kill_button -text "Kill Selected Jobs" \
-      -command [list xflow_killNode ${exp_path} ${datestamp} $soloWindow.list ]]
+      -command [list xflow_killNode ${exp_path} ${datestamp} ${node} $soloWindow.list ]]
    tooltip::tooltip $killButton "Send kill signals to selected job_ID"
-   pack $killButton -side right
+   pack $killButton -side right -padx 2 -pady 2
 
    pack $soloWindow.xscroll -fill x -side bottom -in $soloWindow.frame
    pack $soloWindow.yscroll -side right -fill y -in $soloWindow.frame
    pack $soloWindow.list -expand 1 -fill both -padx 1m -side left -in $soloWindow.frame
 
+   ::autoscroll::autoscroll ${soloWindow}.yscroll
+   ::autoscroll::autoscroll ${soloWindow}.xscroll
+
+   xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${listboxW}
+}
+
+proc xflow_populateKillNodeListbox { exp_path datestamp node listbox_w } {
+   global env
+   set tmpdir $env(TMPDIR)
+   set id [clock seconds]
+   set tmpdir $env(TMPDIR)
+   set tmpfile "${tmpdir}/test$id"
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+
+   set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
+   set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -n $seqNode -list > $tmpfile 2>&1"
+   ::log::log debug "xflow_populateKillNodeListbox ksh -c $cmd"
+   catch { eval [exec ksh -c $cmd ] }
+
+   ${listbox_w} delete 0 end
    set resultingFile [open $tmpfile] 
 
-   while { [gets $resultingFile line ] >= 0 } {
-         $soloWindow.list insert end $line 
+   set separator "->"
+   while { [gets ${resultingFile} line ] >= 0 } {
+      set listEntryValue [ split ${line} " " ]
+      set separatorIndex [lsearch ${listEntryValue} ${separator}]
+      if { ${separatorIndex} != -1 } {
+	 set dateIndex [expr ${separatorIndex} -3]
+         set cellIndex [expr ${separatorIndex} +1]
+         set jobIndex [expr ${separatorIndex} -1]
+         set date "[lrange ${listEntryValue} ${dateIndex} [expr ${dateIndex} + 1]]"
+	 set jobAndCell "[lindex ${listEntryValue} ${jobIndex}] -> [lindex ${listEntryValue} ${cellIndex}]"
+
+         ${listbox_w} insert end "${date} ${jobAndCell}"
+      }
    }
 
    catch {[exec rm -f $tmpfile]}
@@ -3021,6 +3100,8 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # for each exp in history mode.
 proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    global env XFLOW_STANDALONE PROGRESS_REPORT_TXT   
+   puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp}"
+
    ::log::log debug "xflow_displayFlow thread id:[thread::id] datestamp:${datestamp}"
    ::log::log notice "xflow_displayFlow thread id:[thread::id] exp_path:${exp_path} datestamp:${datestamp}"
    set topLevel [xflow_getToplevel ${exp_path} ${datestamp}]
@@ -3062,6 +3143,7 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    xflow_toFront [winfo toplevel  ${topFrame}]
 
    ::log::log notice "xflow_displayFlow ${exp_path} thread id:[thread::id] done datestamp:${datestamp}"
+   puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
 
 # Position the flow windows relative to the main overview window.
@@ -3213,9 +3295,12 @@ proc xflow_parseCmdOptions {} {
       SharedData_setExpThreadId ${expPath} ${newestDatestamp} [thread::id]
       LogReader_startExpLogReader ${expPath} ${newestDatestamp} all true
       SharedData_setMiscData STARTUP_DONE true
+      puts "xflow_displayFlow ${expPath} ${newestDatestamp}"
       xflow_displayFlow ${expPath} ${newestDatestamp}
+      puts "Sending MsgCenterThread_startupDone..."
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone" SendDone
       vwait SendDone
+      puts "LogReader_readMonitorDatestamps..."
       # start monitoring datestamps for new log entries
       LogReader_readMonitorDatestamps
    }
@@ -3313,6 +3398,11 @@ proc xflow_setWidgetNames {} {
    }
 }
 
+proc xflow_msgCenterThreadReady {} {
+   global MSG_CENTER_READY
+   set MSG_CENTER_READY 1
+}
+
 proc xflow_init { {exp_path ""} } {
    global env DEBUG_TRACE XFLOW_STANDALONE
    global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF
@@ -3327,7 +3417,7 @@ proc xflow_init { {exp_path ""} } {
       Utils_createTmpDir
       SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 
-      set SHADOW_STATUS 0
+      set SHADOW_STATUS 
       SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
       if { ! [info exists AUTO_MSG_DISPLAY] } {
          set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
@@ -3341,6 +3431,7 @@ proc xflow_init { {exp_path ""} } {
       set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
       set NODE_DISPLAY_PREF  [SharedData_getMiscData NODE_DISPLAY_PREF]
       set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
+      vwait MSG_CENTER_READY
 
       puts "xflow_init() Utils_logInit..."
       Utils_logInit

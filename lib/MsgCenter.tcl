@@ -487,6 +487,7 @@ proc MsgCenter_getThread {} {
    set threadID [SharedData_getMsgCenterThreadId]
    if { ${threadID} == "" } {
       ::log::log debug "MsgCenter_getThread Creating new thread..."
+      puts "MsgCenter_getThread Creating new thread..."
       set threadID [thread::create {
          global env this_id
          set lib_dir $env(SEQ_XFLOW_BIN)/../lib
@@ -494,7 +495,9 @@ proc MsgCenter_getThread {} {
 
          set this_id [thread::id]
          SharedData_setMsgCenterThreadId ${this_id}
+         puts "MsgCenter_getThread calling MsgCenter_init"
          MsgCenter_init
+         puts "MsgCenter_getThread calling MsgCenter_init DONE"
 
          tk appname "Message Center"
 
@@ -548,11 +551,17 @@ proc MsgCenter_getThread {} {
          }
 
          # enter event loop
+         puts "MsgCenter_getThread entering event loop" 
+         if { [SharedData_getMiscData OVERVIEW_MODE] == false } {
+	    thread::send -async [SharedData_getMiscData XFLOW_THREAD_ID] "set MSG_CENTER_READY 1" 
+	 }
+
          thread::wait
       }]
    }
 
    ::log::log debug "MsgCenter_getThread returning id: ${threadID}"
+   puts "MsgCenter_getThread returning id: ${threadID}"
    return ${threadID}
 }
 
@@ -635,8 +644,9 @@ proc MsgCenter_init {} {
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
-   puts "MsgCenter_init Utils_logInit"
+   puts "MsgCenter_init() Utils_logInit"
    Utils_logInit
+   puts "MsgCenter_init() Utils_logInit done"
 
    # this variable is true when a new message comes in
    # and we need to warn the user about it
