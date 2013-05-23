@@ -274,6 +274,23 @@ proc xflow_showColorLegend { caller_w } {
    }
 }
 
+proc xflow_newDatestampFound { exp_path datestamp } {
+   set currentDatestamp [LogReader_getSingleDatestamp ${exp_path}]
+   set newDatestampLaunch [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH]
+
+   if { ${currentDatestamp} != "" && ${newDatestampLaunch} == "main" } {
+      set topLevelW [xflow_getToplevel ${exp_path} ${currentDatestamp}]
+      Utils_busyCursor ${topLevelW}
+      xflow_closeExpDatestamp ${exp_path} ${currentDatestamp}
+   }
+   set topLevelW [xflow_getToplevel ${exp_path} ${datestamp}]
+   Utils_busyCursor ${topLevelW}
+   SharedData_setExpThreadId ${exp_path} ${datestamp} [thread::id]
+   LogReader_startExpLogReader ${exp_path} ${datestamp} all true
+   xflow_displayFlow ${exp_path} ${datestamp}
+   Utils_normalCursor ${topLevelW}
+}
+
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
 proc xflow_addDatestampWidget { exp_path datestamp parent_widget } {
@@ -304,14 +321,10 @@ proc xflow_addDatestampWidget { exp_path datestamp parent_widget } {
       -command [list xflow_populateDatestamp ${exp_path} ${datestamp} ${dtFrame}]]
    tooltip::tooltip $refreshButton "Reloads the current experiment datestamp value."
 
-   if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
-      set newWindButton [button ${buttonFrame}.new_win_button -relief flat -image ${buttonFrame}.new_win_image \
-         -command [list xflow_launchFlowNewWindow ${exp_path} ${datestamp} ]]
-      tooltip::tooltip ${newWindButton} "Launch flow in new window."
-      pack $setButton $refreshButton ${newWindButton} -side left -pady 2 -padx 2
-   } else {
-      pack $setButton $refreshButton -side left -pady 2 -padx 2
-   }
+   set newWindButton [button ${buttonFrame}.new_win_button -relief flat -image ${buttonFrame}.new_win_image \
+      -command [list xflow_launchFlowNewWindow ${exp_path} ${datestamp} ]]
+   tooltip::tooltip ${newWindButton} "Launch flow in new window."
+   pack $setButton $refreshButton ${newWindButton} -side left -pady 2 -padx 2
 
    pack ${dateEntryCombo} -side left -pady 2 -padx 2
    pack $buttonFrame -pady 2 -side left
@@ -592,7 +605,11 @@ proc xflow_launchFlowNewWindow { exp_path datestamp } {
    set datestampRealValue [Utils_getRealDatestampValue ${datestampEntryValue}]
    # do nothing if selected value is empty or is already current flow
    if { ${datestampEntryValue} != "" && ${datestampRealValue} != ${datestamp} } {
-      Overview_launchExpFlow ${exp_path} ${datestampRealValue}
+      if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
+         Overview_launchExpFlow ${exp_path} ${datestampRealValue}
+      } else {
+         xflow_newDatestampFound ${exp_path} ${datestampRealValue}
+      }
       # reset to existing value in current flow
       ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp}]
    }
@@ -2884,6 +2901,11 @@ proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
          }
       }
    }
+
+   if {  [SharedData_getMiscData OVERVIEW_MODE] == false } {
+      LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}
+   }
+
    ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp} DONE"
 }
 
@@ -2901,7 +2923,11 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       xflow_closeExpDatestamp ${exp_path} ${datestamp} ${from_overview}
    } else {
       # standalone mode
-      exit
+      if { [LogReader_isLastDatestamp ${exp_path} ${datestamp}] == false } {
+         xflow_closeExpDatestamp ${exp_path} ${datestamp}
+      } else {
+         exit
+      }
    }
 }
 
@@ -2919,23 +2945,26 @@ proc xflow_isWindowActive { exp_path datestamp } {
 
 # this function is only used in xflow standalone mode
 # it is called by the msg center thread to notify the xflow
-# of new messages available. It will maily update the msg center
+# of new messages available. It will mainly update the msg center
 # icon to a new message state.
 proc xflow_newMessageCallback { exp_path visible_datestamp has_new_msg } {
    global env
    ::log::log debug "xflow_newMessageCallback has_new_msg:$has_new_msg"
-   set datestamp [Utils_getRealDatestampValue ${visible_datestamp}]
-   set msgCenterWidget [xflow_getWidgetName ${exp_path} ${datestamp} msgcenter_button]
-   set noNewMsgImage [xflow_getWidgetName ${exp_path} ${datestamp} msg_center_img]
-   set hasNewMsgImage [xflow_getWidgetName ${exp_path} ${datestamp} msg_center_new_img]
-   if { [winfo exists ${msgCenterWidget}] } {
-      set normalBgColor [option get ${msgCenterWidget} background Button]
-      set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
-      set currentImage [${msgCenterWidget} cget -image]
-      if { ${has_new_msg} == "true" && ${currentImage} != ${hasNewMsgImage} } {
-         ${msgCenterWidget} configure -image ${hasNewMsgImage} -bg ${newMsgBgColor} -bd 1
-      } elseif { ${has_new_msg} == "false" && ${currentImage} != ${noNewMsgImage} } {
-         ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor} -bd 1
+   set datestamps [LogReader_getMonitorDatestamps ${exp_path}]
+   # set datestamp [Utils_getRealDatestampValue ${visible_datestamp}]
+   foreach datestamp ${datestamps} {
+      set msgCenterWidget [xflow_getWidgetName ${exp_path} ${datestamp} msgcenter_button]
+      set noNewMsgImage [xflow_getWidgetName ${exp_path} ${datestamp} msg_center_img]
+      set hasNewMsgImage [xflow_getWidgetName ${exp_path} ${datestamp} msg_center_new_img]
+      if { [winfo exists ${msgCenterWidget}] } {
+         set normalBgColor [option get ${msgCenterWidget} background Button]
+         set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+         set currentImage [${msgCenterWidget} cget -image]
+         if { ${has_new_msg} == "true" && ${currentImage} != ${hasNewMsgImage} } {
+            ${msgCenterWidget} configure -image ${hasNewMsgImage} -bg ${newMsgBgColor} -bd 1
+         } elseif { ${has_new_msg} == "false" && ${currentImage} != ${noNewMsgImage} } {
+            ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor} -bd 1
+         }
       }
    }
 }
@@ -3118,6 +3147,7 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
       }
    }
 
+   puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} xflow_setDatestampVars() "
    xflow_setDatestampVars ${exp_path} ${datestamp}
    set displayName [ExpOptions_getDisplayName ${exp_path}]
    xflow_setExpLabel ${exp_path} ${displayName} ${datestamp}
@@ -3128,6 +3158,7 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    # resource will only be loaded if needed
    xflow_nodeResourceCallback ${exp_path} ${datestamp}
 
+   puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} xflow_populateDatestamp() "
    xflow_populateDatestamp ${exp_path} ${datestamp} [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_frame]
 
    xflow_initDatestampEntry ${exp_path} ${datestamp}
@@ -3303,6 +3334,12 @@ proc xflow_parseCmdOptions {} {
       puts "LogReader_readMonitorDatestamps..."
       # start monitoring datestamps for new log entries
       LogReader_readMonitorDatestamps
+
+      if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
+         # monitor for new log datestamps
+         LogMonitor_setLastCheckTime ${expPath} [clock seconds]
+         LogMonitor_checkOneExpNewLogFiles ${expPath}
+      }
    }
 }
 

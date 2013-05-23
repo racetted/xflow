@@ -390,6 +390,42 @@ proc LogReader_getAvailableDates { exp_path } {
    return $expLogs
 }
 
+# for xflow using one active datestamp
+proc LogReader_getSingleDatestamp { exp_path } {
+   global LogReader_Datestamps
+   foreach { key value } [array get LogReader_Datestamps] {
+      set foundExpPath [lindex ${value} 0]
+      if { ${foundExpPath} == ${exp_path} } {
+         set datestamp [lindex ${value} 1]
+	 return ${datestamp}
+      }
+   }
+   return ""
+}
+
+# for standalone xflow using multiple datestamps
+# to know when to close the whole app
+proc LogReader_isLastDatestamp { exp_path datestamp } {
+   global LogReader_Datestamps
+   if { [array size LogReader_Datestamps] == 1 } {
+      return true
+   }
+   return false
+}
+
+proc LogReader_getMonitorDatestamps { exp_path } {
+   global LogReader_Datestamps
+
+   set result {}
+   foreach { key value } [array get LogReader_Datestamps] {
+      set foundExpPath [lindex ${value} 0]
+      set datestamp [lindex ${value} 1]
+      if { ${foundExpPath} == ${exp_path} } {
+         lappend result ${datestamp}
+      }
+   }
+   return ${result}
+}
 
 proc LogReader_printMonitorDatestamps {} {
    global LogReader_Datestamps

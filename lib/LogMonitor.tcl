@@ -28,7 +28,6 @@ proc LogMonitor_checkNewLogFiles {} {
          set checkDir ${expPath}/logs/
          if { [file readable ${checkDir}] } {
             # puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
-            # set lastCheckedTime [SharedData_getExpData ${expPath} LAST_CHECKED_TIME]
 	    set lastCheckedFile [LogMonitor_getLastCheckFile ${expPath}]
             set lastCheckedTime [file mtime ${lastCheckedFile}]
             set newLastChecked [clock seconds]
@@ -80,6 +79,64 @@ proc LogMonitor_checkNewLogFiles {} {
    }
 
    after ${nextCheckTime} [list LogMonitor_checkNewLogFiles]
+}
+
+# look for new log files created under SEQ_EXP_HOME/logs
+# for one exp only... used to check multiple concurrent datestamps
+# within standalone xflow
+proc LogMonitor_checkOneExpNewLogFiles { _exp_path } {
+   global LogMonitorOneExpDatestamps
+   ::log::log debug "LogMonitor_checkOneExpNewLogFiles"
+   # check every 5 secs
+   set nextCheckTime 5000
+
+   set checkDir ${_exp_path}/logs/
+   if { [file readable ${checkDir}] } {
+      # puts "LogMonitor_checkNewLogFiles checking ${checkDir}"
+      set lastCheckedFile [LogMonitor_getLastCheckFile ${_exp_path}]
+      set lastCheckedTime [file mtime ${lastCheckedFile}]
+      set newLastChecked [clock seconds]
+      catch { exec ls ${checkDir} > /dev/null }
+      set modifiedFiles ""
+      if { [ catch {
+         set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
+      } errMsg] } {
+	 ::log::log notice "ERROR: LogMonitor_checkOneExpNewLogFiles() $errMsg"
+	 puts "ERROR: LogMonitor_checkOneExpNewLogFiles() $errMsg"
+      }
+      foreach modifiedFile ${modifiedFiles} {
+         ::log::log debug  "LogMonitor_checkOneExpNewLogFiles processing ${_exp_path} ${modifiedFile}..."
+         set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
+         if { [Utils_validateRealDatestamp ${seqDatestamp}] == true } {
+            # see if we have monitored this datestamp already
+            if { [LogMonitor_addOneExpDatestamp ${_exp_path} ${seqDatestamp}] == true } {
+	       thread::send [thread::id] "xflow_newDatestampFound ${_exp_path} ${seqDatestamp}"
+            }
+         } else {
+            ::log::log notice "ERROR: LogMonitor_checkOneExpNewLogFiles():Found invalid log file format: ${_exp_path} ${modifiedFile}"
+         }
+      }
+      if { [expr ${newLastChecked} - ${lastCheckedTime}] > 300 } {
+         # to go around nfs latency, I only change the checked time every 5 minutes
+	 LogMonitor_setLastCheckTime ${_exp_path} ${newLastChecked}
+      }
+   }
+
+   after ${nextCheckTime} [list LogMonitor_checkOneExpNewLogFiles ${_exp_path}]
+}
+
+proc LogMonitor_addOneExpDatestamp { _exp_path _datestamp } {
+   global LogMonitorOneExpDatestamps
+   set isAdded false
+   if { ! [info exists LogMonitorOneExpDatestamps] } {
+      set LogMonitorOneExpDatestamps [list ${_datestamp}]
+      set isAdded true
+   } elseif { [lsearch ${LogMonitorOneExpDatestamps} ${_datestamp}] == -1 } {
+      # add new datestamp to beginning
+      set LogMonitorOneExpDatestamps [linsert ${LogMonitorOneExpDatestamps} 0 ${_datestamp}]
+      set isAdded true
+   }
+   return ${isAdded}
 }
 
 # process log *_nodelog files that have been modified within the _deltaTime window.
