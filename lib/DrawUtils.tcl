@@ -229,15 +229,21 @@ proc ::DrawUtils::drawFamily { node canvas } {
 }
 
 proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill outline fill binder drawshadow shadowColor} {
+   global FLOW_SCALE_${exp_path}_${datestamp}
+   set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    variable constants
-   set newtx1 [expr ${tx1} + 30]
+   if { ${flowScale} != "1" } {
+      set text "   "
+   }
+
+   set newtx1 [expr ${tx1} + 30/${flowScale}]
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
       -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
    set boxArea [$canvas bbox ${binder}.text]
-   set nx1 [expr [lindex $boxArea 0] -30]
+   set nx1 [expr [lindex $boxArea 0] -30/${flowScale}]
    set nx2 [lindex $boxArea 0]
-   set nx3 [expr [lindex $boxArea 2] +30]
+   set nx3 [expr [lindex $boxArea 2] +30/${flowScale}]
    set nx4 [lindex $boxArea 2]
 
    set ny1 [expr [lindex $boxArea 3] +5]
@@ -246,6 +252,9 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    set ny4 $ny1
    $canvas create polygon ${nx1} ${ny1} ${nx2} ${ny2} ${nx3} ${ny3} ${nx4} ${ny4} \
          -outline $outline -fill $fill -tags "flow_element $binder ${binder}.losange"
+   set maximX ${nx2}
+   set maximY ${ny3}
+   set nextY  [expr $ny4 + 10]
 
    $canvas lower ${binder}.losange ${binder}.text
 
@@ -262,11 +271,11 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
        $canvas create polygon ${sx1} ${sy1} ${sx2} ${sy2} ${sx3} ${sy3} ${sx4} ${sy4} -width $constants(border_width) \
                -fill $shadowColor  -tags "flow_element ${binder} ${binder}.shadow"
        $canvas lower ${binder}.shadow ${binder}.losange
+       set maximX ${sx2}
+       set maximY ${sy3}
+       set nextY  [expr $sy4 + 10]
    }
 
-   set maximX ${sx2}
-   set maximY ${sy3}
-   set nextY  [expr $sy4 + 10]
    SharedData_setExpDisplayData ${exp_path} ${datestamp} $canvas ${nextY} ${maximX} ${maximY}
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
 }
