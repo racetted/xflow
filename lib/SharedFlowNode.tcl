@@ -187,7 +187,7 @@ proc SharedFlowNode_searchSubmitNode { exp_path node datestamp submitted_node } 
       } else {
          foreach childName ${currentList} {
             set childSubmitNode ${node}/${childName}
-	    # ::log::debug "SharedFlowNode_searchSubmitNode submitted_node:${submitted_node} childSubmitNode:${childSubmitNode}"
+	    ::log::debug "SharedFlowNode_searchSubmitNode submitted_node:${submitted_node} childSubmitNode:${childSubmitNode}"
 	    if { [SharedFlowNode_isNodeExist ${exp_path} ${childSubmitNode} ${datestamp}] == true } {
                set childeSubmitNodeType [SharedFlowNode_getNodeType ${exp_path} ${childSubmitNode} ${datestamp}]
                if { ${childeSubmitNodeType} == "task" || ${childeSubmitNodeType} == "npass_task" } {
@@ -341,7 +341,7 @@ proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } 
       # the dislpays_infos is only iniated once throught he init
       tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos {}
    }
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses {} current latest
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses {} stats_info {} current latest
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member ""
 
    if { ${nodeType} == "npass_task" || ${nodeType} == "loop" } {
@@ -351,6 +351,11 @@ proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } 
    if { ${nodeType} == "switch_case" && 
         [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "datestamp_hour" } {
       tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current +[Utils_getHourFromDatestamp ${datestamp}]
+   }
+   
+   if { ${nodeType} == "switch_case" && 
+        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "day_of_week" } {
+        tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current +[Utils_getDayOfWeekFromDatestamp ${datestamp}]
    }
 
    # puts "SharedFlowNode_initNodeDatestamp done" 
@@ -456,7 +461,10 @@ proc SharedFlowNode_getMemberStatus { exp_path node datestamp member } {
 
 # sets the status of a node. Generic procedure used for all type of nodes
 # called by LogReader
-proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status timestamp {is_recursive false} } {
+# difference between status orig_status:
+# status=end, begin
+# orig_status=end or endx, begin or beginx
+proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig_status timestamp {is_recursive false} } {
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
       # puts "SharedFlowNode_setMemberStatus SharedFlowNode_initNodeDatestamp"
       SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp} 
@@ -512,6 +520,8 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status time
       tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses "${values}"
    }
 
+   SharedFlowNode_setStatInfo ${exp_path} ${node} ${datestamp} ${member} ${orig_status} ${timestamp}
+
    if { ${is_recursive} } {
       set submits [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} submits]
       if { ${submits} != "" } {
@@ -521,6 +531,76 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status time
          }
       }
    }
+}
+
+# add to statistic info list... calculation of exec time
+proc SharedFlowNode_setStatInfo { exp_path node datestamp member status timestamp } {
+   if { [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == "" } {
+      tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info {}
+   }
+
+   array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+
+   if { [info exists statsinfo($member)] } {
+      set memberInfoList $statsinfo($member)
+      set foundIndex [lsearch ${memberInfoList} ${status}]
+      if { ${foundIndex} == -1 } {
+         # status is new
+         lappend memberInfoList ${status} ${timestamp}
+      } else {
+         # update with new info
+         set memberInfoList [lreplace ${memberInfoList} ${foundIndex} [expr ${foundIndex} + 1] ${status} ${timestamp}]
+      }
+      set statsinfo($member) ${memberInfoList}
+   } else {
+      set statsinfo($member) [list ${status} ${timestamp}]
+   }
+
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info "[array get statsinfo]"
+}
+
+proc SharedFlowNode_getStatInfo { exp_path node datestamp member } {
+   # puts "SharedFlowNode_getStatInfo exp_path:$exp_path node:$node datestamp:$datestamp member:$member"
+   set result ""
+   if { ${member} == "" } {
+      set member null
+   }
+   if { [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      if { [info exists statsinfo($member)] } {
+         set result $statsinfo($member)
+      }
+   }
+   return ${result}
+}
+
+proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
+   puts "SharedFlowNode_getExecTime exp_path:$exp_path node:$node datestamp:$datestamp member:$member"
+   if { ${member} == "" } {
+      set member null
+   }
+   set execTime ""
+   set timestampFormat {%Y%m%d.%H:%M:%S}
+   set timeDisplayFormat {%H:%M:%S}
+   set beginStatus begin
+   set endStatus end
+
+   if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
+        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      if { [info exists statsinfo($member)] } {
+         set memberInfoList $statsinfo($member)
+         set beginIndex [lsearch -exact ${memberInfoList} ${beginStatus}]
+         set endIndex [lsearch -exact ${memberInfoList} ${endStatus}]
+	 if { ${beginIndex} != -1 && ${endIndex} != -1 } {
+	    set beginTime [lindex ${memberInfoList} [expr ${beginIndex} + 1]]
+	    set endTime [lindex ${memberInfoList} [expr ${endIndex} + 1]]
+	    set execTimeString [expr [clock scan ${endTime} -format ${timestampFormat}] -  [clock scan ${beginTime} -format ${timestampFormat}] ]
+	    set execTime [clock format ${execTimeString} -format ${timeDisplayFormat}]
+	 }
+      }
+   }
+   return ${execTime}
 }
 
 proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status timestamp {is_recursive false}} {
@@ -1201,6 +1281,10 @@ proc SharedFlowNode_getSwitchingInfo { exp_path node datestamp } {
 	    set hour [Utils_getHourFromDatestamp ${datestamp}]
 	    # set value "\[dshour-${hour}\]"
 	    set value "\[dshour]"
+         }
+         day_of_week {
+	    # set value "\[dshour-${hour}\]"
+	    set value "\[dow]"
 	 }
 	 default {
 	 }
@@ -1242,6 +1326,23 @@ proc SharedFlowNode_printNodeStatus  { exp_path node datestamp} {
       }
       if { [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
          puts "   latest:[tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member]"
+      }
+   }
+}
+
+proc SharedFlowNode_printNodeMembers { exp_path node datestamp } {
+   if { [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp} ${node}] != "" } {
+      set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
+      array set statuses [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses]
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      if { [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}] != "" } {
+         foreach { member } [lsort -integer [array names statuses]] {
+            puts "   member:${member} status:$statuses($member) stats_info:$statsinfo($member)"
+         }
+      } else {
+         foreach { member status } [array get statuses] {
+            puts "   status:${status}"
+         }
       }
    }
 }

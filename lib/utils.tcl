@@ -251,8 +251,17 @@ proc Utils_getHourFromDatestamp { _datestamp } {
    return [string range ${_datestamp} 8 9]
 }
 
-proc Utils_getHourFromDatestamp { _datestamp } {
-   return [string range ${_datestamp} 8 9]
+#returns day of week from Sakamoto's algorithm
+proc Utils_getDayOfWeekFromDatestamp { _datestamp } {
+    set year [string range ${_datestamp} 0 3]
+    set month [string range ${_datestamp} 4 5]
+    set day [string range ${_datestamp} 6 7]
+    # Sakamoto's algorithm for day of week
+    set timelist { 0 3 2 5 0 3 5 1 4 6 2 4 }
+    if { $month < 3 } {
+       set year [expr $year - $month]    
+    }
+    return [expr ($year + $year/4 - $year/100 + $year/400 + [lindex $timelist [expr $month-1]] + $day) % 7 ]
 }
 
 proc Utils_launchShell { mach exp_path init_dir title {cmd ""} } {

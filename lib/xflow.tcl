@@ -66,7 +66,7 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
 
    $menuW add cascade -label "Node Display" -underline 5 -menu ${displayMenu}
    menu ${displayMenu} -tearoff 0
-   foreach item "normal catchup cpu machine_queue memory mpi wallclock" {
+   foreach item "normal catchup cpu machine_queue memory mpi wallclock exec-time" {
       set value ${item}
       ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} -value ${value} \
          -command [list xflow_redrawAllFlow ${exp_path} ${datestamp}]
@@ -287,7 +287,7 @@ proc xflow_newDatestampFound { exp_path datestamp } {
    Utils_busyCursor ${topLevelW}
    SharedData_setExpThreadId ${exp_path} ${datestamp} [thread::id]
    LogReader_startExpLogReader ${exp_path} ${datestamp} all true
-   xflow_displayFlow ${exp_path} ${datestamp}
+   xflow_displayFlow ${exp_path} ${datestamp} true
    Utils_normalCursor ${topLevelW}
 }
 
@@ -693,15 +693,15 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
       # SharedData_removeExpThreadId ${exp_path} ${previousRealDatestamp}
 
       xflow_createWidgets ${exp_path} ${seqDatestamp} ${currentx} ${currenty}
-      xflow_displayFlow ${exp_path} ${seqDatestamp}
+      xflow_displayFlow ${exp_path} ${seqDatestamp} true
    }
    Utils_normalCursor $top
 }
 
 # this function returns the resource information that needs to be displayed
 # besides the node name. Based on the user preferences View->"Node Display"
-proc xflow_getNodeDisplayPrefText { exp_path datestamp node } {
-   # puts "xflow_getNodeDisplayPrefText ${exp_path} ${datestamp} ${node}"
+proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
+   # puts "xflow_getNodeDisplayPrefText ${exp_path} ${datestamp} ${node} ${member}"
    set text ""
    set displayPref [xflow_getNodeDisplayPref ${exp_path} ${datestamp}]
    set attrName ${displayPref}
@@ -720,7 +720,9 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node } {
       set attrName "machine"
    }
    if { ${displayPref} != "normal" } {
-      if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
+      if { ${displayPref} == "exec-time" } {
+         set attrValue [SharedFlowNode_getExecTime ${exp_path} ${node} ${datestamp} ${member}]
+      } elseif { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
             set attrValue "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} ${attrName}]"
             if { ${displayPref} == "machine_queue" } {
                set queue [SharedFlowNode_getQueue ${exp_path} ${node} ${datestamp}]
@@ -744,6 +746,7 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node } {
       }
    }
 
+   # puts "xflow_getNodeDisplayPrefText ${exp_path} ${datestamp} ${node} ${member}"
    return $text
 }
 
@@ -901,7 +904,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    if { !((${submits} == "none") ||  (${submits} == "")) && $isCollapsed == 1} {
       set text ${text}+
    }
-   set dispPref [xflow_getNodeDisplayPrefText ${exp_path} ${datestamp} ${node}]
+   set dispPref [xflow_getNodeDisplayPrefText ${exp_path} ${datestamp} ${node} ${nodeExtension}]
    if { $dispPref != "" } {
       set text "${text}\n${dispPref}"
    }
@@ -3001,6 +3004,7 @@ proc xflow_setDatestampVars { exp_path datestamp } {
 
 proc xflow_cleanDatestampVars { exp_path datestamp } {
    catch { xflow_canvasDestroyCallback ${exp_path} ${datestamp} }
+   trace remove variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} \"${datestamp}\""
    foreach variableKey { NODE_DISPLAY_PREF FLOW_SCALE TITLE_AFTER_ID \
                          XFLOW_FIND_AFTER_ID LOOP_RESOURCES_DONE \
 			 NODE_RESOURCE_DONE FLOW_RESIZED REFRESH_MODE FLOW_RESIZED \
@@ -3129,7 +3133,7 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # for each exp in history mode.
 proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    global env XFLOW_STANDALONE PROGRESS_REPORT_TXT   
-   puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp}"
+   puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} initial_display:${initial_display}"
 
    ::log::log debug "xflow_displayFlow thread id:[thread::id] datestamp:${datestamp}"
    ::log::log notice "xflow_displayFlow thread id:[thread::id] exp_path:${exp_path} datestamp:${datestamp}"
@@ -3148,7 +3152,9 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
    }
 
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} xflow_setDatestampVars() "
-   xflow_setDatestampVars ${exp_path} ${datestamp}
+   if { ${initial_display} == true } {
+      xflow_setDatestampVars ${exp_path} ${datestamp}
+   }
    set displayName [ExpOptions_getDisplayName ${exp_path}]
    xflow_setExpLabel ${exp_path} ${displayName} ${datestamp}
    ::log::log debug "xflow_displayFlow exp_path ${exp_path}"
@@ -3327,7 +3333,7 @@ proc xflow_parseCmdOptions {} {
       LogReader_startExpLogReader ${expPath} ${newestDatestamp} all true
       SharedData_setMiscData STARTUP_DONE true
       puts "xflow_displayFlow ${expPath} ${newestDatestamp}"
-      xflow_displayFlow ${expPath} ${newestDatestamp}
+      xflow_displayFlow ${expPath} ${newestDatestamp} true
       puts "Sending MsgCenterThread_startupDone..."
       thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone" SendDone
       vwait SendDone
@@ -3337,6 +3343,7 @@ proc xflow_parseCmdOptions {} {
 
       if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
          # monitor for new log datestamps
+	 LogMonitor_addOneExpDatestamp ${expPath} ${newestDatestamp}
          LogMonitor_setLastCheckTime ${expPath} [clock seconds]
          LogMonitor_checkOneExpNewLogFiles ${expPath}
       }

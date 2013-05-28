@@ -569,7 +569,7 @@ proc MsgCenter_setTitle { top_w } {
    global env
    set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
    if { [SharedData_getMiscData OVERVIEW_MODE] == false } {
-      set winTitle "Message Center - Exp=$env(SEQ_EXP_HOME) User=$env(USER) Host=[exec hostname] Time=${current_time}"
+      set winTitle "[file tail $env(SEQ_EXP_HOME)] - Message Center - Exp=$env(SEQ_EXP_HOME) User=$env(USER) Host=[exec hostname] Time=${current_time}"
    } else {
       set winTitle "Message Center - User=$env(USER) Host=[exec hostname] Time=${current_time}"
    }
