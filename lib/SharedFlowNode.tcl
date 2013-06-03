@@ -187,7 +187,7 @@ proc SharedFlowNode_searchSubmitNode { exp_path node datestamp submitted_node } 
       } else {
          foreach childName ${currentList} {
             set childSubmitNode ${node}/${childName}
-	    ::log::debug "SharedFlowNode_searchSubmitNode submitted_node:${submitted_node} childSubmitNode:${childSubmitNode}"
+	    ::log::log debug "SharedFlowNode_searchSubmitNode submitted_node:${submitted_node} childSubmitNode:${childSubmitNode}"
 	    if { [SharedFlowNode_isNodeExist ${exp_path} ${childSubmitNode} ${datestamp}] == true } {
                set childeSubmitNodeType [SharedFlowNode_getNodeType ${exp_path} ${childSubmitNode} ${datestamp}]
                if { ${childeSubmitNodeType} == "task" || ${childeSubmitNodeType} == "npass_task" } {
@@ -335,13 +335,12 @@ proc SharedFlowNode_clearAllNodes { exp_path datestamp } {
 }
 
 proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } {
-   # puts "SharedFlowNode_initNodeDatestamp $exp_path $node $datestamp "
    set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
       # the dislpays_infos is only iniated once throught he init
       tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos {}
    }
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses {} stats_info {} current latest
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses {} current latest
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member ""
 
    if { ${nodeType} == "npass_task" || ${nodeType} == "loop" } {
@@ -527,7 +526,7 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig
       if { ${submits} != "" } {
          foreach submitName ${submits} {
             set submitNode ${node}/${submitName}
-            SharedFlowNode_setMemberStatus ${exp_path} ${submitNode} ${datestamp} ${member} ${status} ${timestamp} 1
+            SharedFlowNode_setMemberStatus ${exp_path} ${submitNode} ${datestamp} ${member} ${status} ${orig_status} ${timestamp} 1
          }
       }
    }
@@ -535,30 +534,63 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig
 
 # add to statistic info list... calculation of exec time
 proc SharedFlowNode_setStatInfo { exp_path node datestamp member status timestamp } {
-   if { [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == "" } {
-      tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info {}
-   }
+   # puts "node:$node member:$member status:$status"
+   array set statsinfo {}
+      
+   # puts "node:$node member:$member status:$status here"
+   catch { array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info] }
 
-   array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
-
+   # puts "node:$node member:$member get statsinfo:[array get statsinfo]"
    if { [info exists statsinfo($member)] } {
       set memberInfoList $statsinfo($member)
       set foundIndex [lsearch ${memberInfoList} ${status}]
+
+      # for containers, we keep the first endx, if an endx is found, don't save the new one
+      if { ! [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] &&
+             ${foundIndex} != -1 } {
+         # puts "node:$node member:$member container endx already found: not updating..."
+	 return
+      }
+
       if { ${foundIndex} == -1 } {
          # status is new
+	 # puts "node:$node member:$member new status:$status"
          lappend memberInfoList ${status} ${timestamp}
       } else {
          # update with new info
+	 switch ${status} {
+	    begin {
+	       # delete any abort or end status
+	       set abortIndexes [ lreverse [lsearch -all ${memberInfoList} abort]]
+	       # puts "node:$node member:$member abortIndexes:$abortIndexes"
+	       foreach deleteIndex ${abortIndexes} {
+	          set memberInfoList [lreplace  ${memberInfoList} ${deleteIndex} ${deleteIndex}]
+	       }
+	       set endIndexes [lreverse [lsearch -all ${memberInfoList} end]]
+	       # puts "node:$node member:$member endIndexes:$endIndexes"
+	       foreach deleteIndex ${endIndexes} {
+	          set memberInfoList [lreplace  ${memberInfoList} ${deleteIndex} ${deleteIndex}]
+	       }
+	    }
+	    default {
+	    }
+	 }
          set memberInfoList [lreplace ${memberInfoList} ${foundIndex} [expr ${foundIndex} + 1] ${status} ${timestamp}]
       }
       set statsinfo($member) ${memberInfoList}
+      # puts "node:$node member:$member memberInfoList:$memberInfoList"
    } else {
+      # initialise status
       set statsinfo($member) [list ${status} ${timestamp}]
+      # puts "node:$node member:$member set [list ${status} ${timestamp}]"
    }
-
+   # puts "node:$node member:$member set statsinfo:[array get statsinfo]"
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info "[array get statsinfo]"
 }
 
+# for loop, member could be the member iteration (+24) or "all" for the
+# status of the loop itself
+# for non loop nodes, member is "null"
 proc SharedFlowNode_getStatInfo { exp_path node datestamp member } {
    # puts "SharedFlowNode_getStatInfo exp_path:$exp_path node:$node datestamp:$datestamp member:$member"
    set result ""
@@ -575,7 +607,7 @@ proc SharedFlowNode_getStatInfo { exp_path node datestamp member } {
 }
 
 proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
-   puts "SharedFlowNode_getExecTime exp_path:$exp_path node:$node datestamp:$datestamp member:$member"
+   # puts "SharedFlowNode_getExecTime exp_path:$exp_path node:$node datestamp:$datestamp member:$member"
    if { ${member} == "" } {
       set member null
    }
@@ -583,7 +615,13 @@ proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
    set timestampFormat {%Y%m%d.%H:%M:%S}
    set timeDisplayFormat {%H:%M:%S}
    set beginStatus begin
-   set endStatus end
+   if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
+      # tasks node
+      set endStatus end
+   } else {
+      # container node
+      set endStatus endx
+   }
 
    if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
         [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
@@ -601,6 +639,90 @@ proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
       }
    }
    return ${execTime}
+}
+
+proc SharedFlowNode_getBeginTime { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   set beginTime ""
+   set timestampFormat {%Y%m%d.%H:%M:%S}
+   set timeDisplayFormat {%H:%M:%S}
+   set beginStatus begin
+
+   if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
+        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      if { [info exists statsinfo($member)] } {
+         set memberInfoList $statsinfo($member)
+         set beginIndex [lsearch -exact ${memberInfoList} ${beginStatus}]
+	 if { ${beginIndex} != -1 } {
+	    set beginTimeValue [lindex ${memberInfoList} [expr ${beginIndex} + 1]]
+	    set beginTimeString [clock scan ${beginTimeValue} -format ${timestampFormat}]
+	    set beginTime [clock format ${beginTimeString} -format ${timeDisplayFormat}]
+	 }
+      }
+   }
+   return ${beginTime}
+}
+
+proc SharedFlowNode_getEndTime { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   set endTime ""
+   set timestampFormat {%Y%m%d.%H:%M:%S}
+   set timeDisplayFormat {%H:%M:%S}
+   if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
+      # tasks node
+      set endStatus end
+   } else {
+      # container node
+      set endStatus endx
+   }
+
+   if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
+        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      if { [info exists statsinfo($member)] } {
+         set memberInfoList $statsinfo($member)
+         set endIndex [lsearch -exact ${memberInfoList} ${endStatus}]
+	 if { ${endIndex} != -1 } {
+	    set endTimeValue [lindex ${memberInfoList} [expr ${endIndex} + 1]]
+	    set endTimeString [clock scan ${endTimeValue} -format ${timestampFormat}]
+	    set endTime [clock format ${endTimeString} -format ${timeDisplayFormat}]
+	 }
+      }
+   }
+   return ${endTime}
+}
+
+proc SharedFlowNode_getSubmitDelay { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   set submitDelay ""
+   set timestampFormat {%Y%m%d.%H:%M:%S}
+   set timeDisplayFormat {%H:%M:%S}
+   set submitStatus submit
+   set beginStatus begin
+
+   if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
+        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      if { [info exists statsinfo($member)] } {
+         set memberInfoList $statsinfo($member)
+         set beginIndex [lsearch -exact ${memberInfoList} ${beginStatus}]
+         set submitIndex [lsearch -exact ${memberInfoList} ${submitStatus}]
+	 if { ${beginIndex} != -1 && ${submitIndex} != -1 } {
+	    set submitTime [lindex ${memberInfoList} [expr ${submitIndex} + 1]]
+	    set beginTime [lindex ${memberInfoList} [expr ${beginIndex} + 1]]
+	    set delayTimeString [expr [clock scan ${beginTime} -format ${timestampFormat}] -  [clock scan ${submitTime} -format ${timestampFormat}] ]
+	    set submitDelay [clock format ${delayTimeString} -format ${timeDisplayFormat}]
+	 }
+      }
+   }
+   return ${submitDelay}
 }
 
 proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status timestamp {is_recursive false}} {

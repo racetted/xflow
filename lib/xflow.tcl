@@ -66,7 +66,16 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
 
    $menuW add cascade -label "Node Display" -underline 5 -menu ${displayMenu}
    menu ${displayMenu} -tearoff 0
-   foreach item "normal catchup cpu machine_queue memory mpi wallclock exec-time" {
+   foreach item "normal catchup cpu machine_queue memory mpi wallclock" { 
+      set value ${item}
+      ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} -value ${value} \
+         -command [list xflow_redrawAllFlow ${exp_path} ${datestamp}]
+   }
+
+   ${displayMenu} add separator
+
+   set itemList [list "Execution Time" "Begin Time" "End Time" "Submission Delay"]
+   foreach item ${itemList} {
       set value ${item}
       ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} -value ${value} \
          -command [list xflow_redrawAllFlow ${exp_path} ${datestamp}]
@@ -719,10 +728,29 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
    if { ${displayPref} == "machine_queue" } {
       set attrName "machine"
    }
-   if { ${displayPref} != "normal" } {
-      if { ${displayPref} == "exec-time" } {
+
+   switch ${displayPref} {
+      "normal" {
+      }
+      
+      "Execution Time" {
          set attrValue [SharedFlowNode_getExecTime ${exp_path} ${node} ${datestamp} ${member}]
-      } elseif { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
+      }
+
+      "Begin Time" {
+         set attrValue [SharedFlowNode_getBeginTime ${exp_path} ${node} ${datestamp} ${member}]
+      }
+
+      "End Time" {
+         set attrValue [SharedFlowNode_getEndTime ${exp_path} ${node} ${datestamp} ${member}]
+      }
+
+      "Submission Delay" {
+         set attrValue [SharedFlowNode_getSubmitDelay ${exp_path} ${node} ${datestamp} ${member}]
+      }
+
+      default {
+         if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
             set attrValue "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} ${attrName}]"
             if { ${displayPref} == "machine_queue" } {
                set queue [SharedFlowNode_getQueue ${exp_path} ${node} ${datestamp}]
@@ -730,11 +758,7 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
                   set attrValue "${attrValue}:${queue}"
                }
             }
-      } else {
-         # for containers, only catchup, memory and machine are relevant
-         #if { ${displayPref} == "catchup" || ${displayPref} == "machine_queue" || ${displayPref} == "memory" } {
-         #   set attrValue "[$node cget -${attrName}]"
-         #}
+         }
       }
    }
 
@@ -2483,7 +2507,7 @@ proc xflow_nodeResourceCallback { exp_path datestamp {name1 ""} {name2 ""} {op "
    global NODE_RESOURCE_DONE_${exp_path}_${datestamp}
    global nodeResourceText
    # we only load the resources once
-   if { [xflow_getNodeDisplayPref ${exp_path} ${datestamp}] != "normal" } {
+   if { [xflow_isNodePrefResourceRequired ${exp_path} ${datestamp}] == true } {
       if { ! [info exists NODE_RESOURCE_DONE_${exp_path}_${datestamp}] || [set NODE_RESOURCE_DONE_${exp_path}_${datestamp}] == "false" } {
          if { ${exp_path} != "" } {
             set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
@@ -3217,6 +3241,17 @@ proc xflow_toFront { toplevel_w } {
       }
    }
    raise ${toplevel_w}
+}
+
+proc xflow_isNodePrefResourceRequired { exp_path datestamp } {
+   set notRequiredList {normal "Execution Time" "Begin Time" "End Time" "Submission Delay"}
+   set currentPref [xflow_getNodeDisplayPref ${exp_path} ${datestamp}]
+   set value false
+   if { [lsearch -exact ${notRequiredList} ${currentPref}] == -1 } {
+      # not found in non required list so yes we need resource
+      set value true
+   }
+   return ${value}
 }
 
 proc xflow_getNodeDisplayPref { exp_path datestamp } {
