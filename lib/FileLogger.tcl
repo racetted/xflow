@@ -10,9 +10,14 @@ proc FileLogger_createThread { logfile } {
       source $env(SEQ_XFLOW_BIN)/../lib/SharedData.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/FileLogger.tcl
 
+      if {  [SharedData_getMiscData OVERVIEW_MODE] == true } {
+         puts "FileLoggerCreated set FileLoggerCreated true"
+         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID]  "set FileLoggerCreated true"
+      }
       # enter event loop
       thread::wait
    }]
+   puts "FileLoggerCreated thread creation done ..."
    return ${threadID}
 }
 

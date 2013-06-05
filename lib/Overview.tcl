@@ -2605,7 +2605,7 @@ proc Overview_soundbell {} {
 
 proc Overview_main {} {
    global MSG_CENTER_THREAD_ID env
-   global DEBUG_TRACE
+   global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
@@ -2616,6 +2616,8 @@ proc Overview_main {} {
       puts "Using application log file: ${appLogFile}"
       set loggerThreadId [FileLogger_createThread ${appLogFile}]
       SharedData_setMiscData FILE_LOGGER_THREAD ${loggerThreadId}
+      puts "waiting for FileLoggerCreated..."
+      vwait FileLoggerCreated
 
       puts "xflow_overview loggerThreadId:${loggerThreadId}"
       ::log::log notice "xflow_overview Application startup user=$env(USER) real user:[SharedData_getMiscData REAL_USER] host:[exec hostname]"
