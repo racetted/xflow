@@ -23,7 +23,7 @@ fi
 [[ -f "${SEQ_XFLOW_BIN}/../etc/check_deprecation" ]] && . "${SEQ_XFLOW_BIN}/../etc/check_deprecation"
 
 arguments=$*
-eval `cclargs_lite -D "" $0 "[maestro gui]" \
+eval `cclargs -D "" $0 "[maestro gui]" \
   -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
   -rc ""        ""      "[maestrorc preferrence file]" \
   -debug        "0"     "1"     "[debug message]" \

@@ -16,7 +16,8 @@ else
 fi
 
 arguments=$*
-eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
+# cclargs_lite
+eval `cclargs -D "" $0 "[starts the overview gui]" \
   -as 		"" 	"" 	"[start application as another user]" \
   -display 	"" 	"$DISPLAY" 	"[X windows display]" \
   -debug 	"0" 	"1"	"[debug message]" \
