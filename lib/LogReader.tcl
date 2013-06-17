@@ -160,12 +160,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
          close $f_logfile
 
       } else {
-         if { [file writable ${exp_path}/logs/] } {
-            ::log::log notice "LogReader_readFile $logfile file does not exists! Creating it..."
-            catch { close [open $logfile a] }
-         } else {
-            puts "LogReader_readFile $logfile file does not exists!"
-         }
+         puts "LogReader_readFile $logfile file does not exists!"
       }
    }
 
