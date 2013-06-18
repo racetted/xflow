@@ -135,11 +135,12 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
             if { ${lastStatusTime} != "" } {
                Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
-               Overview_checkGridLimit 
             }
          }
       }
    }
+
+   Overview_checkGridLimit 
 
    # refresh current Time 
    #set timeHour [Utils_getPaddedValue ${new_hour}]
@@ -1521,11 +1522,13 @@ proc Overview_checkGridLimit {} {
          if { ${maxGridY} <= ${maxExpBoxY} } {
             # grid is too small, increase it
             #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
-            set graphy [expr ${maxExpBoxY} + [expr ${maxExpBoxY} % ${expEntryHeight}]]
+            set graphy [expr ${maxExpBoxY} + ${expEntryHeight}]
+            ::log::log debug "Overview_checkGridLimit expanding grid to graphy:$graphy"
             Overview_redrawGrid
-         } elseif { ${graphy} > ${defaultGraphY} && ${graphy} >  ${maxExpBoxY} } {
+         } elseif { ${graphy} > ${defaultGraphY} && ${graphy} >  [expr ${maxExpBoxY} + ${expEntryHeight}] } {
 	    # shring the grid to default value
-	    set graphy ${defaultGraphY}
+            ::log::log debug "Overview_checkGridLimit reducing grid to graphy:$graphy"
+	    set graphy [expr ${defaultGraphY} + ${expEntryHeight}]
             Overview_redrawGrid
 	 }
       }
@@ -2200,6 +2203,7 @@ proc Overview_quit {} {
 
    catch { 
       exec rm -fr ${SESSION_TMPDIR}
+      puts "exec rm -fr ${SESSION_TMPDIR}"
    }
    
    ::log::log notice "xflow_overview exited normally..."
