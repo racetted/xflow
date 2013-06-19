@@ -20,7 +20,7 @@ proc MsgCenter_setTkOptions {} {
 
 proc MsgCenter_createMenus {} {
    global MsgCenterMainGridRowMap
-   set topFrame .topframe
+   set topFrame [MsgCenter_getToplevel].topframe
    frame ${topFrame} -relief [SharedData_getMiscData MENU_RELIEF]
    MsgCenter_addFileMenu ${topFrame}
    MsgCenter_addPrefMenu ${topFrame}
@@ -73,10 +73,12 @@ proc MsgCenter_addHelpMenu { parent } {
 
 proc MsgCenter_createToolbar { table_w_ } {
    global MsgCenterMainGridRowMap
-   set toolbarW .toolbar
+   set toolbarW [MsgCenter_getToplevel].toolbar
    set bellW ${toolbarW}.button_bell
    set ackW ${toolbarW}.button_ack
    set clearW ${toolbarW}.button_clear
+   set submitW ${toolbarW}.button_submit
+   set submitStopW ${toolbarW}.button_submit_stop
    set closeW ${toolbarW}.button_close
    frame ${toolbarW}
 
@@ -93,6 +95,14 @@ proc MsgCenter_createToolbar { table_w_ } {
    button ${clearW} -image ${toolbarW}.clear_msg -relief flat -command [list MsgCenter_clearMessages ${clearW} ${table_w_}]
    ::tooltip::tooltip ${clearW} "Clear all messages."
 
+   image create photo ${toolbarW}.bulk_submit -file /users/dor/afsi/sul/Downloads/bulk_submit.png
+   button ${submitW} -image ${toolbarW}.bulk_submit -relief flat -command [list MsgCenter_submitNodes ${table_w_}]
+   ::tooltip::tooltip ${submitW} "Submit & flow continue."
+
+   image create photo ${toolbarW}.bulk_submit_stop -file /users/dor/afsi/sul/Downloads/bulk_submit_stop.png
+   button ${submitStopW} -image ${toolbarW}.bulk_submit_stop -relief flat -command [list MsgCenter_submitNodes ${table_w_} stop]
+   ::tooltip::tooltip ${submitStopW} "Submit & flow stop."
+
    image create photo ${toolbarW}.close -file ${imageDir}/cancel.gif
    button ${closeW} -image ${toolbarW}.close -relief flat -command [list MsgCenter_close]
    ::tooltip::tooltip ${closeW} "Close Message Center."
@@ -105,20 +115,129 @@ proc MsgCenter_createToolbar { table_w_ } {
          thread::send -async ${overviewThreadId} "Overview_toFront"
       }
       ::tooltip::tooltip ${overviewW} "Show Overview Window."
-      grid ${bellW} ${ackW} ${clearW} ${overviewW} ${closeW} -padx 2 -sticky w
+      grid ${bellW} ${ackW} ${clearW} ${submitW} ${submitStopW} ${overviewW} ${closeW} -padx 2 -sticky w
    } else {
-      grid ${bellW} ${ackW} ${clearW} ${closeW} -padx 2 -sticky w
+      grid ${bellW} ${ackW} ${clearW} ${submitW} ${submitStopW} ${closeW} -padx 2 -sticky w
    }
 
    grid ${toolbarW} -row $MsgCenterMainGridRowMap(Toolbar) -column 0 -sticky ew -padx 2 -pady 2
    grid columnconfigure ${toolbarW} ${closeW} -weight 1
 }
 
+proc MsgCenter_submitNodes { table_widget {flow continue}} {
+   global env MsgTableColMap
+
+   Utils_busyCursor [winfo toplevel ${table_widget}]
+
+   set result [ catch {
+
+   set resultList {}
+   set selections [${table_widget} curselection]
+   foreach selectedRow ${selections} {
+      set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
+      set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
+      set nodeWithouthExt [SharedFlowNode_getNodeFromDisplayFormat ${convertedNode}]
+      set extension [SharedFlowNode_getExtFromDisplayFormat ${convertedNode}]
+
+      set expPath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
+      set visibleDatestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
+      set datestamp [Utils_getRealDatestampValue ${visibleDatestamp}]
+
+      # puts "MsgCenter_submitNodes expPath:${expPath} node:${nodeWithouthExt} extension:${extension} datestamp:${datestamp}"
+
+      # append to the list in order
+      lappend resultList [list "${expPath}" "${nodeWithouthExt}" "${datestamp}" "${extension}"] 
+   }
+
+   # sort the list to get rid of duplicate entries
+   set resultList [lsort -unique ${resultList}]
+
+   set nofItems [llength ${resultList}]
+   set count 0
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   while { ${count} < ${nofItems} } {
+      foreach { expPath node datestamp extension } [lindex  ${resultList} ${count}] { break }
+      puts "MsgCenter_submitNodes expPath:${expPath} node:${node} datestamp:${datestamp} ext:${extension}"
+
+      set flowNode [SharedData_getExpNodeMapping ${expPath} ${datestamp} ${node}]
+      if { [SharedFlowNode_getNodeType ${expPath} ${flowNode} ${datestamp}] == "npass_task" } {
+         set loopIndex ""
+	 set nptIndex ""
+         # npt task could well be within loop nodes... split between loop part and npt part
+         set lastIndex [string last + ${extension}]
+         if { ${lastIndex} == 0 } {
+            # no loop index
+	    set nptIndex ${extension}
+         } else {
+            # split the two
+	    set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
+	    set nptIndex [string range ${extension} ${lastIndex} end]
+         }
+         puts "MsgCenter_submitNodes SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}"
+         set seqLoopArgs [SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}]
+      } else {
+         set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${flowNode} ${datestamp} ${extension}]
+      }
+
+      puts "MsgCenter_submitNodes ${seqExec} -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
+      Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} [winfo toplevel ${table_widget}] ${seqExec} "submit [file tail ${node}] ${seqLoopArgs}" top \
+         -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}
+
+      update idletasks
+
+      incr count
+   }
+
+   foreach selectedRow ${selections} {
+      MsgCenter_addSubmitAction ${table_widget} ${selectedRow} ${flow}
+   }
+      Utils_normalCursor [winfo toplevel ${table_widget}]
+
+   } message ]
+
+   # any errors, put the cursor back to normal state
+   if { ${result} != 0  } {
+
+      set einfo $::errorInfo
+      set ecode $::errorCode
+      Utils_normalCursor [info toplevel ${table_widget}]
+      # report the error with original details
+      return -code ${result} \
+         -errorcode ${ecode} \
+         -errorinfo ${einfo} \
+         ${message}
+   }
+}
+
+proc MsgCenter_addSubmitAction { table_widget row action } {
+   global SubmitImgIcon SubmitStopImgIcon
+   global MsgTableColMap
+   if { ! [info exists SubmitImgIcon] } {
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      set SubmitImgIcon [image create photo -file ${imageDir}/bulk_submit_small.png]
+      set SubmitStopImgIcon [image create photo -file ${imageDir}/bulk_submit_stop_small.png]
+   }
+
+   if { ${action} == "continue" } {
+      set actionImg ${SubmitImgIcon}
+   } else {
+      set actionImg ${SubmitStopImgIcon}
+   }
+
+   ${table_widget} cellconfigure ${row},$MsgTableColMap(ActionColNumber) -image ${actionImg}
+}
+
 proc MsgCenter_createWidgets {} {
    global MSG_ACTIVE_TABLE 
    global MsgCenterMainGridRowMap MsgTableColMap
 
-   set tableW .table
+   
+   set topLevelW [MsgCenter_getToplevel]
+   if { ! [winfo exists ${topLevelW}] } {
+      toplevel ${topLevelW}
+   }
+
+   set tableW ${topLevelW}.table
    if { ! [winfo exists ${tableW}] } {
       MsgCenter_createMenus
       MsgCenter_createToolbar ${tableW}
@@ -127,14 +246,15 @@ proc MsgCenter_createWidgets {} {
          TimestampColNumber 0
          DatestampColNumber 1
          TypeColNumber 2
-         NodeColNumber 3
-         MessageColNumber 4
-         SuiteColNumber 5
-         UnackColNumber 6
+         ActionColNumber 3
+         NodeColNumber 4
+         MessageColNumber 5
+         SuiteColNumber 6
+         UnackColNumber 7
       }
 
-      set yscrollW .sy
-      set xscrollW .sx
+      set yscrollW ${topLevelW}.sy
+      set xscrollW ${topLevelW}.sx
       set rowFgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
       set tableBgColor [SharedData_getColor DEFAULT_BG]
       set headerBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
@@ -145,12 +265,13 @@ proc MsgCenter_createWidgets {} {
       set columns [list 0 Timestamp ${defaultAlign} \
                         0 Datestamp ${defaultAlign} \
                         0 Type ${defaultAlign} \
+                        0 "" ${defaultAlign} \
                         0 Node ${defaultAlign} \
                         0 Message ${defaultAlign} \
                         0 Suite ${defaultAlign} \
                         0 Unack ${defaultAlign}]
 
-      tablelist::tablelist ${tableW} -columns ${columns} \
+      tablelist::tablelist ${tableW} -selectmode extended -columns ${columns} \
          -arrowcolor white -spacing 1 -resizablecolumns 1 \
          -stretch all -relief flat -labelrelief flat -showseparators 0 -borderwidth 0 -listvariable  MSG_ACTIVE_TABLE \
          -bg ${normalBgColor} -fg ${rowFgColor} \
@@ -190,11 +311,11 @@ proc MsgCenter_initialSort { _tableW } {
 }
 
 proc MsgCenter_getTableWidget {} {
-   return .table
+   return .msgCenter.table
 }
 
 proc MsgCenter_getToplevel {} {
-   return .
+   return .msgCenter
 }
 
 # sets the color of the table headers.
@@ -300,7 +421,7 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
       # show only first 10 digits of datestamp
       set displayedDatestamp [string range ${datestamp_} 0 9]
       incr MSG_ACTIVE_COUNTER
-      lappend MSG_ACTIVE_TABLE [list ${displayedTimestamp} ${displayedDatestamp} ${type_} ${displayedNodeText} ${msg_} ${exp_} 1]
+      lappend MSG_ACTIVE_TABLE [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} 1]
    }
 
    return ${isMsgActive}
@@ -464,6 +585,8 @@ proc MsgCenter_show {} {
          wm deiconify ${topW}
       }
    }
+   catch { wm withdraw . }
+
    if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
       raise ${topW}
    }
@@ -500,6 +623,7 @@ proc MsgCenter_getThread {} {
          puts "MsgCenter_getThread calling MsgCenter_init DONE"
 
          tk appname "Message Center"
+         wm withdraw .
 
          #
          # From here to the 'thread::wait' statement, define the procedure(s)
@@ -582,17 +706,17 @@ proc MsgCenter_setTitle { top_w } {
 ########################################
 # callback procedures
 ########################################
-proc MsgCenter_DoubleClickCallback { table_widget } {
+proc MsgCenter_doubleClickCallback { table_widget } {
    global MsgTableColMap
 
-   ::log::log debug "MsgCenter_DoubleClickCallback widget:${table_widget}"
+   ::log::log debug "MsgCenter_doubleClickCallback widget:${table_widget}"
    set selectedRow [${table_widget} curselection]
    # retrieve needed information
    set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
    set expPath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
    set datestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
    set realDatestamp [Utils_getRealDatestampValue ${datestamp}]
-   ::log::log debug "MsgCenter_DoubleClickCallback node:${node} expPath:${expPath} ${datestamp}"
+   ::log::log debug "MsgCenter_doubleClickCallback node:${node} expPath:${expPath} ${datestamp}"
 
    if { ${node} == "" || ${expPath} == "" } {
       return
@@ -635,6 +759,58 @@ proc MsgCenter_DoubleClickCallback { table_widget } {
    }
 }
 
+proc MsgCenter_rightClickCallback { table_widget w x y } {
+   global MsgTableColMap
+
+   ::log::log debug "MsgCenter_rightClickCallback widget:${w} x:$x y:$y"
+
+   # convert screen coords to widget coords
+   foreach {mytable myx myy} \
+    [tablelist::convEventFields ${w} ${x} ${y}] {}
+
+   # get the row on which the right was done
+   set nearestCell [${mytable} containingcell ${myx} ${myy}]
+   set nearestRow ""
+   catch { set nearestRow [lindex [split ${nearestCell} ,] 0] }
+
+   if { ${nearestRow} > -1 } {
+      # clear and select 
+      ${mytable} selection clear top bottom
+      ${mytable} select set ${nearestRow}
+
+      set selectedRow ${nearestRow}
+
+      # retrieve needed information
+      set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
+      set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
+      set nodeWithouthExt [SharedFlowNode_getNodeFromDisplayFormat ${convertedNode}]
+      set extensionPart [SharedFlowNode_getExtFromDisplayFormat ${convertedNode}]
+
+      set expPath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
+      set datestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
+      set realDatestamp [Utils_getRealDatestampValue ${datestamp}]
+
+      set flowNode [SharedData_getExpNodeMapping ${expPath} ${realDatestamp} ${nodeWithouthExt}]
+      puts "MsgCenter_rightClickCallback node:${nodeWithouthExt} ext:${extensionPart} expPath:${expPath} datestamp:${realDatestamp} flowNode:${flowNode}"
+
+      set winx [expr [winfo rootx ${table_widget}] + ${x}]
+      set winy [expr [winfo rooty ${table_widget}] + ${y}]
+      
+      # MsgCenter_nodeMenu ${expPath} ${nodeWithouthExt} ${extensionPart} ${realDatestamp} ${winx} ${winy}
+      # everything here is to allow the same node menu as xflow to be called from msg center
+      set xflowToplevel [xflow_getToplevel ${expPath} ${realDatestamp}]
+      if { ! [winfo exists ${xflowToplevel} ] } {
+         # dummy window
+         toplevel ${xflowToplevel}; wm withdraw ${xflowToplevel}
+      }
+      global XFLOW_STANDALONE
+      set XFLOW_STANDALONE false
+     puts "MsgCenter_rightClickCallback calling xflow_modeMenu..."
+      xflow_setWidgetNames
+      xflow_nodeMenu ${expPath} ${realDatestamp} [MsgCenter_getToplevel] ${flowNode} ${extensionPart} ${winx} ${winy}
+   }
+}
+
 ########################################
 # end callback procedures
 ########################################
@@ -648,10 +824,9 @@ proc MsgCenter_init {} {
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
-   puts "MsgCenter_init() Utils_logInit"
    Utils_logInit
-   puts "MsgCenter_init() Utils_logInit done"
-
+   Utils_createTmpDir
+ 
    # this variable is true when a new message comes in
    # and we need to warn the user about it
    set MSG_ALARM_ON false
@@ -689,8 +864,8 @@ proc MsgCenter_init {} {
       set MSG_CENTER_USE_BELL false
    }
 
-   set topLevelW .
-   set tableW .table
+   set topLevelW [MsgCenter_getToplevel]
+   set tableW ${topLevelW}.table
    
    if { ! [winfo exists ${tableW}] } {
       array set MsgCenterMainGridRowMap {
@@ -709,7 +884,11 @@ proc MsgCenter_init {} {
       wm protocol ${topLevelW} WM_DELETE_WINDOW [list MsgCenter_close]
       
       # point the node in its respective flow on double click
-      bind [${tableW} bodytag] <Double-Button-1> [ list MsgCenter_DoubleClickCallback ${tableW}]
+      bind [${tableW} bodytag] <Double-Button-1> [ list MsgCenter_doubleClickCallback ${tableW}]
+
+      # active menu on right-click
+      # bind [${tableW} bodytag] <Button-3> [list MsgCenter_rightClickCallback ${tableW} %W %x %y]
+      bind [${tableW} bodypath] <Button-3> [list MsgCenter_rightClickCallback ${tableW} %W %x %y]
       
       MsgCenter_setTitle ${topLevelW}
 

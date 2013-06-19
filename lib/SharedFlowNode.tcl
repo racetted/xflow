@@ -634,7 +634,7 @@ proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
 	    set beginTime [lindex ${memberInfoList} [expr ${beginIndex} + 1]]
 	    set endTime [lindex ${memberInfoList} [expr ${endIndex} + 1]]
 	    set execTimeString [expr [clock scan ${endTime} -format ${timestampFormat}] -  [clock scan ${beginTime} -format ${timestampFormat}] ]
-	    set execTime [clock format ${execTimeString} -format ${timeDisplayFormat}]
+	    set execTime [clock format ${execTimeString} -timezone :UTC -format ${timeDisplayFormat}]
 	 }
       }
    }
@@ -1238,7 +1238,7 @@ proc SharedFlowNode_getListingNodeExtension { exp_path current_node datestamp {f
 # sequencer for loop arguments
 # it builds the loop arguments for all loops
 # contained in the node loops attribute
-proc SharedFlowNode_getLoopArgs { exp_path node datestamp } {
+proc ________SharedFlowNode_getLoopArgs { exp_path node datestamp } {
    set args ""
    set count 0
    set loopList [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}]
@@ -1263,12 +1263,54 @@ proc SharedFlowNode_getLoopArgs { exp_path node datestamp } {
    return $args
 }
 
+
+# returns the input arguments as expected by the
+# sequencer for loop arguments
+# it builds the loop arguments for all loops
+# contained in the node loops attribute
+# 
+# exts sample: +2+4 for outer_loop index +2 and inner loop index +4
+proc SharedFlowNode_getLoopArgs { exp_path node datestamp exts} {
+   set args ""
+   set count 0
+   set loopList [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}]
+   if { ${exts} != "" } {
+      set exts [split ${exts} +]
+      set exts [lrange ${exts} 1 end]
+   }
+   if { [llength $loopList] > 0 } {
+      foreach loopNode $loopList {
+         if { ${exts} == "" } {
+	    # retrieve from xflow selection
+            set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${loopNode} ${datestamp}]
+	 } else {
+	    # get from given list
+            set currentExt [lindex ${exts} ${count}]
+	 }
+         if { ${currentExt} == "latest" } {
+            return ""
+	 } elseif { ${currentExt} != "" } {
+            # remove the + sign before extension
+            set currentExt [string trim ${currentExt} +]
+            set nodeName [SharedFlowNode_getName ${exp_path} ${loopNode} ${datestamp}]
+            if { $count == 0 } {
+               set args "-l ${nodeName}=${currentExt}"
+            } else {
+               set args "${args},${nodeName}=${currentExt}"
+            }
+         }
+         incr count
+      }
+   }
+   return $args
+}
+
 # npass_index argument is used when user is provided manual
 # the index value at submission time
-proc SharedFlowNode_getNptArgs { exp_path node datestamp {npass_index ""} } {
+proc SharedFlowNode_getNptArgs { exp_path node datestamp {loop_index ""} {npass_index ""} } {
    set args ""
 
-   set parentLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp}]
+   set parentLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${loop_index}]
    if { ${parentLoopArgs} != "" } {
       set parentLoopArgs "${parentLoopArgs},"
    } elseif { [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
@@ -1281,7 +1323,7 @@ proc SharedFlowNode_getNptArgs { exp_path node datestamp {npass_index ""} } {
    if { ${npass_index} != "" } {
       # if npass_index is passed use it...
       # means user has provided it manually
-      set args "${parentLoopArgs}${nodeName}=${npass_index}"
+      set args "${parentLoopArgs}${nodeName}=[string trim ${npass_index} +]"
    } else {
       set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${node} ${datestamp}]
       if { ${currentExt} == "latest" } {
@@ -1289,7 +1331,7 @@ proc SharedFlowNode_getNptArgs { exp_path node datestamp {npass_index ""} } {
          return $args
       } else {
          # remove the + sign before extension
-         set currentExt [string range ${currentExt} 1 end]
+         set currentExt [string trim ${currentExt} +]
          set args "${parentLoopArgs}${nodeName}=${currentExt}"
       }
    }
