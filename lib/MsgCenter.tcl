@@ -180,7 +180,8 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
       }
 
       puts "MsgCenter_submitNodes ${seqExec} -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
-      Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} [winfo toplevel ${table_widget}] ${seqExec} "submit [file tail ${node}] ${seqLoopArgs}" top \
+      set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
+      Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} [winfo toplevel ${table_widget}] ${seqExec} ${winTitle} top \
          -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}
 
       update idletasks

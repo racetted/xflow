@@ -1519,7 +1519,7 @@ proc Overview_checkGridLimit {} {
       set maxGridCoords [${canvasW} coords grid_max_y]
       if { ${maxGridCoords} != "" } {
          set maxGridY [lindex ${maxGridCoords} 1]
-         if { ${maxGridY} <= ${maxExpBoxY} } {
+         if { ${maxGridY} <= [expr ${maxExpBoxY} + ${expEntryHeight}] } {
             # grid is too small, increase it
             #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
             set graphy [expr ${maxExpBoxY} + ${expEntryHeight}]
