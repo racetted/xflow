@@ -131,67 +131,68 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
 
    set result [ catch {
 
-   set resultList {}
-   set selections [${table_widget} curselection]
-   foreach selectedRow ${selections} {
-      set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
-      set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
-      set nodeWithouthExt [SharedFlowNode_getNodeFromDisplayFormat ${convertedNode}]
-      set extension [SharedFlowNode_getExtFromDisplayFormat ${convertedNode}]
+      set resultList {}
+      set selections [${table_widget} curselection]
+      foreach selectedRow ${selections} {
+         set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
+         set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
+         set nodeWithouthExt [SharedFlowNode_getNodeFromDisplayFormat ${convertedNode}]
+         set extension [SharedFlowNode_getExtFromDisplayFormat ${convertedNode}]
 
-      set expPath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
-      set visibleDatestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
-      set datestamp [Utils_getRealDatestampValue ${visibleDatestamp}]
+         set expPath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
+         set visibleDatestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
+         set datestamp [Utils_getRealDatestampValue ${visibleDatestamp}]
 
-      # puts "MsgCenter_submitNodes expPath:${expPath} node:${nodeWithouthExt} extension:${extension} datestamp:${datestamp}"
+         # puts "MsgCenter_submitNodes expPath:${expPath} node:${nodeWithouthExt} extension:${extension} datestamp:${datestamp}"
 
-      # append to the list in order
-      lappend resultList [list "${expPath}" "${nodeWithouthExt}" "${datestamp}" "${extension}"] 
-   }
-
-   # sort the list to get rid of duplicate entries
-   set resultList [lsort -unique ${resultList}]
-
-   set nofItems [llength ${resultList}]
-   set count 0
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
-   while { ${count} < ${nofItems} } {
-      foreach { expPath node datestamp extension } [lindex  ${resultList} ${count}] { break }
-      puts "MsgCenter_submitNodes expPath:${expPath} node:${node} datestamp:${datestamp} ext:${extension}"
-
-      set flowNode [SharedData_getExpNodeMapping ${expPath} ${datestamp} ${node}]
-      if { [SharedFlowNode_getNodeType ${expPath} ${flowNode} ${datestamp}] == "npass_task" } {
-         set loopIndex ""
-	 set nptIndex ""
-         # npt task could well be within loop nodes... split between loop part and npt part
-         set lastIndex [string last + ${extension}]
-         if { ${lastIndex} == 0 } {
-            # no loop index
-	    set nptIndex ${extension}
-         } else {
-            # split the two
-	    set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	    set nptIndex [string range ${extension} ${lastIndex} end]
-         }
-         puts "MsgCenter_submitNodes SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}"
-         set seqLoopArgs [SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}]
-      } else {
-         set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${flowNode} ${datestamp} ${extension}]
+         # append to the list in order
+         lappend resultList [list "${expPath}" "${nodeWithouthExt}" "${datestamp}" "${extension}"] 
       }
 
-      puts "MsgCenter_submitNodes ${seqExec} -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
-      set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
-      Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} [winfo toplevel ${table_widget}] ${seqExec} ${winTitle} top \
-         -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}
+      # sort the list to get rid of duplicate entries
+      set resultList [lsort -unique ${resultList}]
 
-      update idletasks
+      set nofItems [llength ${resultList}]
+      set count 0
+      set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+      while { ${count} < ${nofItems} } {
+         foreach { expPath node datestamp extension } [lindex  ${resultList} ${count}] { break }
+         ::log::log debug "MsgCenter_submitNodes expPath:${expPath} node:${node} datestamp:${datestamp} ext:${extension}"
 
-      incr count
-   }
+         set flowNode [SharedData_getExpNodeMapping ${expPath} ${datestamp} ${node}]
+         if { [SharedFlowNode_getNodeType ${expPath} ${flowNode} ${datestamp}] == "npass_task" } {
+            set loopIndex ""
+	    set nptIndex ""
+            # npt task could well be within loop nodes... split between loop part and npt part
+            set lastIndex [string last + ${extension}]
+            if { ${lastIndex} == 0 } {
+               # no loop index
+	       set nptIndex ${extension}
+            } else {
+               # split the two
+	       set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
+	       set nptIndex [string range ${extension} ${lastIndex} end]
+            }
+            ::log::log debug "MsgCenter_submitNodes SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}"
+            set seqLoopArgs [SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}]
+         } else {
+            set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${flowNode} ${datestamp} ${extension}]
+         }
 
-   foreach selectedRow ${selections} {
-      MsgCenter_addSubmitAction ${table_widget} ${selectedRow} ${flow}
-   }
+         ::log::log debug "MsgCenter_submitNodes ${seqExec} -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
+         set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
+         Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} [winfo toplevel ${table_widget}] ${seqExec} ${winTitle} top \
+            -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}
+
+         update idletasks
+
+         incr count
+      }
+      # end while
+
+      foreach selectedRow ${selections} {
+         MsgCenter_addSubmitAction ${table_widget} ${selectedRow} ${flow}
+      }
       Utils_normalCursor [winfo toplevel ${table_widget}]
 
    } message ]
@@ -210,6 +211,8 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
    }
 }
 
+# adds an image icon next to the given row base on the
+# the given action
 proc MsgCenter_addSubmitAction { table_widget row action } {
    global SubmitImgIcon SubmitStopImgIcon
    global MsgTableColMap
