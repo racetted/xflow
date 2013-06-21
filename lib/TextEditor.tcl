@@ -1,10 +1,10 @@
-proc tw_bottom {w} {
+proc TextEditor_bottom {w} {
     scan [$w.text index end] %d numlines
     $w.text yview -pickplace $numlines
 
 }
 
-proc tw_linewrap {w} {
+proc TextEditor_linewrap {w} {
   
    global LINEWRAP
    if { $LINEWRAP($w) == 1 } {
@@ -14,23 +14,7 @@ proc tw_linewrap {w} {
    }
 }
 
-proc tw_reset {w} {
-   global TEXTSEARCH_OFFSET SEARCHSTRING
-   set TEXTSEARCH_OFFSET($w) 1.0
-   set SEARCHSTRING($w) ""
-   if { [winfo exists $w.text] } {
-      $w.text xview moveto 0
-   }
-}
-
-proc getImageDir {} {
-   global env
-   set value $env(SEQ_XFLOW_BIN)/../etc/images
-   return $value
-}
-
-
-proc tw_search {w new_search} {
+proc TextEditor_search {w new_search} {
 
    global TEXTSEARCH_OFFSET SEARCHSTRING
 
@@ -42,11 +26,11 @@ proc tw_search {w new_search} {
    }
 
    if { $new_search } {
-      ::log::log debug "tw_search resetting search offset"
+      ::log::log debug "TextEditor_search resetting search offset"
       set TEXTSEARCH_OFFSET($w) 1.0
       set offset $TEXTSEARCH_OFFSET($w)
    } else {
-      ::log::log debug "tw_search NOT resetting search offset"
+      ::log::log debug "TextEditor_search NOT resetting search offset"
       set offset $TEXTSEARCH_OFFSET($w)
    }
 
@@ -86,11 +70,12 @@ proc tw_search {w new_search} {
                            -relief raised -borderwidth 2
 }
 
-proc create_text_window {title tmpfile {position top} {calling_widget .}} {
+proc TextEditor_createWindow {title tmpfile {position top} {calling_widget .}} {
 
    global TEXTSEARCH_OFFSET SEARCHSTRING LINEWRAP DEFAULT_COLORS FONTS
    global LEFT_ARROW_IMG RIGHT_ARROW_IMG LEFT_ENDARROW_IMG RIGHT_ENDARROW_IMG
-   ::log::log debug "create_text_window title:$title"
+   ::log::log debug "TextEditor_createWindow title:$title tmpfile:${tmpfile}"
+
    #example: change the title from 'iclogj -h 36 {{e1up168_00_1  }}' to 'iclogj -h 36 e1up168_00_1  '
    regsub -all "\{\{" $title {} title
    regsub -all "\}\}" $title {} title
@@ -137,12 +122,12 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
    
    label $w.mbar.search.label -text "Search String:"
    entry $w.mbar.search.entry -width 20 -relief sunken -bd 2 -textvariable SEARCHSTRING($w)
-   button $w.mbar.next -text Next -command [list tw_search $w 0]
+   button $w.mbar.next -text Next -command [list TextEditor_search $w 0]
    
    # "linewrap" checkbutton allows the user to toggle linewrap on/off
    checkbutton $w.mbar.linewrap -text "linewrap" \
       -variable LINEWRAP($w) -onvalue 1 -offvalue 0 \
-      -command [list tw_linewrap $w]
+      -command [list TextEditor_linewrap $w]
 
    # "top" button positions the text widget so that the first line
    # is visible
@@ -150,13 +135,13 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
 
    # "bottom" button positions the text widget so that the last line
    # is visible
-   button $w.mbar.bottom -text Bottom -command [list tw_bottom $w]
+   button $w.mbar.bottom -text Bottom -command [list TextEditor_bottom $w]
    pack $w.mbar.search.label -side left
    pack $w.mbar.search.entry -side left -expand 1 -fill x 
    pack $w.mbar.next $w.mbar.linewrap $w.mbar.top $w.mbar.bottom -side left -padx 1m
    
    # Set a <return> binding to accept the search string
-   bind $w.mbar.search.entry <Return> [list tw_search $w 1]
+   bind $w.mbar.search.entry <Return> [list TextEditor_search $w 1]
    
    # set the focus to the entry widget
    focus $w.mbar.search.entry
@@ -169,6 +154,9 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
       -xscrollcommand [list $w.txt_xscroll set] -undo 0 -wrap none
    scrollbar $w.txt_yscroll -command "$w.text yview"
    scrollbar $w.txt_xscroll -command "$w.text xview" -orient horizontal
+   ::autoscroll::autoscroll $w.txt_yscroll
+   ::autoscroll::autoscroll $w.txt_xscroll
+
    pack $w.txt_yscroll -side left -fill y -in $w.tframe
 
    pack $w.text -side left -fill both -expand yes -in $w.tframe
@@ -201,7 +189,7 @@ proc create_text_window {title tmpfile {position top} {calling_widget .}} {
          set LEFT_ARROW_IMG .left_arrow_image
          set RIGHT_ARROW_IMG .right_arrow_image
 
-         set imageDir [getImageDir]
+	 set imageDir [SharedData_getMiscData IMAGE_DIR]
          image create photo $DOWN_ENDARROW_IMG -file ${imageDir}/endarrow.small.down.ppm
          image create photo $UP_ENDARROW_IMG -file ${imageDir}/endarrow.small.up.ppm
          image create photo $LEFT_ENDARROW_IMG -file ${imageDir}/endarrow.small.left.ppm

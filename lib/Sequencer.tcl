@@ -39,7 +39,7 @@ proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command titl
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
    Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
-   create_text_window "$title" ${tmpfile} ${position} ${parent_top}
+   TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
    catch {[exec rm -f ${tmpfile}}
 }
 
@@ -52,7 +52,7 @@ proc Sequencer_runCommandLogAndWindow { exp_path datestamp parent_top command ti
    Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
    ::log::log notice "${command} [join ${args}]"
    Utils_logFileContent notice ${tmpfile}
-   create_text_window "$title" ${tmpfile} ${position} ${parent_top}
+   TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
    catch {[exec rm -f ${tmpfile}}
 }
 

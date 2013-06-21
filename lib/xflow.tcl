@@ -1077,8 +1077,7 @@ proc xflow_nodeMenuUnmapCallback { exp_path datestamp } {
 # It will display a popup menu for the current node.
 proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    global ignoreDep 
-   puts "xflow_nodeMenu exp_path:$exp_path datestamp:$datestamp canvas:$canvas node:$node extension:$extension "
-   ::log::log debug "xflow_nodeMenu() node:$node"
+   ::log::log debug "xflow_nodeMenu exp_path:$exp_path datestamp:$datestamp canvas:$canvas node:$node extension:$extension "
 
    # highlights the selected node
    catch { ::DrawUtils::highLightNode ${exp_path} ${node} ${datestamp} ${canvas} }
@@ -1125,6 +1124,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    } else {
 
       ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+      ${infoMenu} add command -label "Node Dependencies" -command [list xflow_nodeDepCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
       ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
 
       set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
@@ -1200,8 +1200,8 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
    set submitNoDependMenu ${popmenu_w}.submit_nodep_menu
    set miscMenu ${popmenu_w}.misc_menu
 
-   ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${infoMenu} add command -label "Node Dependencies" -command [list xflow_nodeDepCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${extension} ${popmenu_w}]
    ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
@@ -1261,8 +1261,8 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
    set submitNoDependMenu ${popmenu_w}.submit_nodep_menu
    set miscMenu ${popmenu_w}.misc_menu
 
-   ${infoMenu} add command -label "Node History" -command [list xflow_historyCallback ${exp_path} ${datestamp} $node ${extension} $canvas]
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${infoMenu} add command -label "Node Dependencies" -command [list xflow_nodeDepCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
    ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
@@ -1384,14 +1384,7 @@ proc xflow_historyCallback { exp_path datestamp node extension canvas {history 4
 # shows the node information and is invoked from the "Node Info" menu item.
 proc xflow_nodeInfoCallback { exp_path datestamp node extension canvas } {
    global env
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
-   set expName [SharedFlowNode_getName ${exp_path} ${node} ${datestamp}]
-   set nodeTail [file tail $node]
-   set infoWidget [string tolower .${expName}_${nodeTail}_nodeInfo]
 
-   if { [winfo exists $infoWidget] } {
-      destroy $infoWidget
-   }
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
@@ -1402,7 +1395,7 @@ proc xflow_nodeInfoCallback { exp_path datestamp node extension canvas } {
          set nptIndex  ""
          if { [winfo exists ${indexListW}] } {
             set nptIndex  [${indexListW} get]
-            ::log::log debug "xflow_submitNpassTaskCallback nptIndex :$nptIndex "
+            ::log::log debug "xflow_nodeInfoCallback nptIndex :$nptIndex "
          }
       } else {
          # npt task could well be within loop nodes... split between loop part and npt part
@@ -1424,9 +1417,47 @@ proc xflow_nodeInfoCallback { exp_path datestamp node extension canvas } {
    } else {
       set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
    }
-   puts "xflow_nodeInfoCallback: extension:$extension seqLoopArgs:$seqLoopArgs"
    set winTitle "Node Info ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
    Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] ${nodeInfoExec} ${winTitle} top -n $seqNode  ${seqLoopArgs}
+}
+
+proc xflow_nodeDepCallback { exp_path datestamp node extension canvas } {
+   global env
+
+   set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
+      set loopIndex ""
+      # retrieve index value from widget
+      if { ${extension} == "" } {
+         set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
+         set nptIndex  ""
+         if { [winfo exists ${indexListW}] } {
+            set nptIndex  [${indexListW} get]
+            ::log::log debug "xflow_nodeDepCallback nptIndex :$nptIndex "
+         }
+      } else {
+         # npt task could well be within loop nodes... split between loop part and npt part
+         set lastIndex [string last + ${extension}]
+         if { ${lastIndex} == 0 } {
+            # no loop index
+	    set loopIndex ""
+	    set nptIndex ${extension}
+         } else {
+            # split the two
+	    set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
+	    set nptIndex [string range ${extension} ${lastIndex} end]
+         }
+      }
+      set seqLoopArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
+      if { ${seqLoopArgs} == "-1" } {
+         set seqLoopArgs ""
+      }
+   } else {
+      set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
+   }
+   set winTitle "Node Dependencies ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
+   Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] ${nodeInfoExec} ${winTitle} top -n $seqNode  ${seqLoopArgs} -f dep
 }
 
 # this command is invoked from the Misc->initbranch menu item
@@ -1803,7 +1834,7 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
    Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
-      create_text_window ${winTitle} ${outputfile} top .
+      TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
       set editorCmd "${textViewer} ${outputfile}"
       ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
@@ -1829,7 +1860,7 @@ proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
    Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
-      create_text_window ${winTitle} ${outputfile} top .
+      TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
       set editorCmd "${textViewer} ${outputfile}"
       ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
@@ -1943,7 +1974,7 @@ proc xflow_goEvalConfig { exp_path datestamp node extension toplevel_w } {
    Utils_normalCursor ${toplevel_w}
 
    if { ${textViewer} == "default" } {
-      create_text_window ${winTitle} ${outputfile} top .
+      TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
       set editorCmd "${textViewer} ${outputfile}"
       ::log::log debug "xflow_goEvalConfig running ${defaultConsole} ${editorCmd}"
@@ -1969,7 +2000,7 @@ proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
    Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd}
 
    if { ${textViewer} == "default" } {
-      create_text_window ${winTitle} ${outputfile} top .
+      TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
       set editorCmd "${textViewer} ${outputfile}"
       ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
@@ -1996,7 +2027,7 @@ proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu } {
    Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
 
    if { ${textViewer} == "default" } {
-      create_text_window ${winTitle} ${outputfile} top .
+      TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
       set editorCmd "${textViewer} ${outputfile}"
       ::log::log debug "xflow_resourceCallback running ${defaultConsole} ${editorCmd}"
@@ -2042,7 +2073,7 @@ proc xflow_batchCallback { exp_path datestamp node extension canvas {full_loop 0
       Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
    
       if { ${textViewer} == "default" } {
-         create_text_window ${winTitle} ${outputfile} top .
+         TextEditor_createWindow ${winTitle} ${outputfile} top .
       } else {
          set editorCmd "${textViewer} ${outputfile}"
          ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
@@ -2221,7 +2252,7 @@ proc xflow_viewOutputFile { exp_path datestamp node output_file } {
    set winTitle "Node Output ${seqNode}${nodeExt}- Exp=${exp_path}"
 
    if { ${listingViewer} == "default" } {
-      create_text_window ${winTitle} ${output_file} top .
+      TextEditor_createWindow ${winTitle} ${output_file} top .
    } else {
       set editorCmd "${listingViewer} ${output_file}"
       TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
@@ -2271,7 +2302,7 @@ proc xflow_listingCallback { exp_path datestamp node extension canvas {full_loop
       Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
 
       if { ${listingViewer} == "default" } {
-         create_text_window ${winTitle} ${outputfile} top .
+         TextEditor_createWindow ${winTitle} ${outputfile} top .
       } else {
          set editorCmd "${listingViewer} ${outputfile}"
          TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
@@ -2379,7 +2410,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
          set seqCmd "${listingExec} -f $listingFile@$mach"
          Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
          if { ${listingViewer} == "default" } {
-            create_text_window ${winTitle} ${outputfile} top .
+            TextEditor_createWindow ${winTitle} ${outputfile} top .
          } else {
             set editorCmd "${listingViewer} ${outputfile}"
             TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
@@ -2429,7 +2460,7 @@ proc xflow_abortListingCallback { exp_path datestamp node extension canvas {full
       Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
 
       if { ${listingViewer} == "default" } {
-         create_text_window ${winTitle} ${outputfile} top .
+         TextEditor_createWindow ${winTitle} ${outputfile} top .
       } else {
          set editorCmd "${listingViewer} ${outputfile}"
          TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
