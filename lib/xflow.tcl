@@ -162,7 +162,7 @@ proc xflow_maestroCmds { parent } {
 }
 
 proc xflow_createToolbar { exp_path datestamp parent } {
-   ::log::log debug "xflow_createToolbar ${parent}"
+   ::log::log debug "xflow_createToolbar exp_path:${exp_path} datestamp:${datestamp} parent:${parent} "
    global MSG_CENTER_THREAD_ID
 
    set msgCenterW [xflow_getWidgetName ${exp_path} ${datestamp} msgcenter_button]
@@ -3097,7 +3097,7 @@ proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
 
    # clean images used by this flow
    set images [image names]
-   set myImageIndexes [lsearch -all ${images} ${toplevelW}*]
+   set myImageIndexes [lsearch -all ${images} ${toplevelW}.*]
    foreach myImageIndex ${myImageIndexes} {
       image delete [lindex ${images} ${myImageIndex}]
       ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp} deleting [lindex ${images} ${myImageIndex}]"
@@ -3143,13 +3143,6 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
    } else {
       # standalone mode
       exit
-      proc out {} {
-      if { [LogReader_isLastDatestamp ${exp_path} ${datestamp}] == false } {
-         xflow_closeExpDatestamp ${exp_path} ${datestamp}
-      } else {
-         exit
-      }
-      }
    }
 }
 
