@@ -2259,6 +2259,7 @@ proc Overview_parseCmdOptions {} {
          }
 
          SharedData_readProperties $params(rc)
+	 SharedData_setDerivedColors
 
 	 set logDir [SharedData_getMiscData APP_LOG_DIR]
          if { $params(logfile) == "" && ${logDir} != "" } {

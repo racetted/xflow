@@ -3559,7 +3559,11 @@ proc xflow_parseCmdOptions {} {
       }
 
       SharedData_readProperties ${rcFile}
+      SharedData_setDerivedColors
+
       xflow_init
+      ::DrawUtils::initStatusImages
+
       set expPath [xflow_validateExp]
       ExpOptions_read ${expPath}
 

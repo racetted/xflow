@@ -867,15 +867,30 @@ proc  ::DrawUtils::delPointNode { canvas } {
     }
 }
 
+proc ::DrawUtils::initStatusImages {} {
+   set dummyImg [image create photo -width 17 -height 9]
+   foreach status [list begin init submit abort end catchup wait discret] {
+      set statusImage .${status}_set_image
+      global STATUS_IMG_${status}
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      if { ! [info exists STATUS_IMG_${status}] } {
+         if { [SharedData_getColor [string toupper COLOR_STATUS_${status}]] == [SharedData_getColor [string toupper ORIG_COLOR_STATUS_${status}]] } {
+	    # load from predefined images
+            set STATUS_IMG_${status} [image create photo ${statusImage} -file ${imageDir}/status_${status}_icon.ppm]
+	 } else {
+	    # user defined colors... generate on the fly
+            set bgColor [::DrawUtils::getBgStatusColor $status]
+            set STATUS_IMG_${status} [image create photo ${statusImage} -height 9 -width 17 -data [${dummyImg} data -background ${bgColor} -format ppm]]
+         }
+      }
+   }
+   image delete ${dummyImg}
+}
+
 proc ::DrawUtils::getStatusImage { status } {
    set statusImage .${status}_set_image
    global STATUS_IMG_${status}
 
-   if { ! [info exists STATUS_IMG_${status}] } {
-      set imageDir [SharedData_getMiscData IMAGE_DIR]
-      image create photo ${statusImage} -file ${imageDir}/status_${status}_icon.ppm
-      set STATUS_IMG_${status} ${statusImage}
-   }
    return ${statusImage}
 }
 

@@ -530,8 +530,6 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    set autoMsgDisplay [SharedData_getMiscData AUTO_MSG_DISPLAY]
 
    # flash
-   set alarmBgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
-   set normalFgColor [SharedData_getColor DEFAULT_HEADER_FG]
    set raiseAlarm false
 
    # I don't start the alarm counter until the gui is up
