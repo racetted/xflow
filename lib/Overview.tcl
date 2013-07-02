@@ -254,6 +254,23 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
 }
 
+# returns the x coordinate of the current timeline
+proc Overview_getCurrentTimeX {} {
+   set canvas [Overview_getCanvas]
+   set coords [${canvas} coords current_timeline]
+   set currentTimex [lindex ${coords} 0]
+   return ${currentTimex}
+}
+
+# returns the x coordinate of the 00Z time grid
+proc Overview_getZeroHourX {} {
+   set canvas [Overview_getCanvas]
+   set hourTag [Overview_getGridTagHour 00 ]
+   set coords [${canvas} coords ${hourTag}]
+   set zeroHourX [lindex ${coords} 0]
+   return ${zeroHourX}
+}
+
 #
 #
 # this function process the exp box logic when the root experiment node
@@ -1225,6 +1242,7 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
 proc Overview_boxMenu { canvas exp_path datestamp x y } {
    global env
    ::log::log debug "Overview_boxMenu() exp_path:$exp_path datestamp:${datestamp}"
+   set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
    if { [string match "default*" ${datestamp}] } {
       set datestamp ""
    }
@@ -1236,7 +1254,7 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
    menu $popMenu
    $popMenu add command -label "History" \
       -command [list Overview_historyCallback $canvas $exp_path ${datestamp} $popMenu]
-   $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $exp_path ${datestamp}]
+   $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $exp_path ${datestamp} ${datestampHour}]
    $popMenu add command -label "Shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
    # $popMenu add command -label "Support" -command [list Overview_showSupportCallback $exp_path ${datestamp} [winfo toplevel ${canvas}]]
    $popMenu add command -label "Support" -command [list ExpOptions_showSupportCallback ${exp_path} ${datestamp} [Overview_getToplevel]]
@@ -1265,9 +1283,41 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
    Sequencer_runCommandWithWindow $exp_path ${datestamp} [Overview_getToplevel] $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
 }
 
+# this proc returns the datestamp that should be used for a run
+# based on the reference start time of the run and the current date & time,
+# It is used to assign a datestamp to a flow that is selected by the user
+# when the run has not been executed yet...
+proc Overview_getReferenceDatestamp { exp_path datestamp datestamp_hour } {
+   set canvas [Overview_getCanvas]
+   set expBoxCoords [Overview_getRunBoxBoundaries ${canvas} ${exp_path} default_${datestamp_hour}]
+   if { ${expBoxCoords} != "" } {
+      set myx [lindex ${expBoxCoords} 0]
+   }
+
+   set currentTimeX [Overview_getCurrentTimeX]
+   set zeroHourX [Overview_getZeroHourX]
+   set deltaDay 0
+   # when we have the grid movable, we'll need to add a delta with respect to the
+   # current zero hour but for now we don't need to
+   if { ${currentTimeX} < ${zeroHourX} } {
+      # 00z is to the right of current time
+      if { ${myx} >= ${zeroHourX} } {
+         set deltaDay 1
+      }
+   } else {
+      # 00z is to the left of current time
+      if { ${myx} < ${zeroHourX} } {
+         set deltaDay -1 
+      }
+   }
+
+   set refDatestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
+   return ${refDatestamp}
+}
+
 # this function is called to launch an exp window
 # It sends the request to the exp thread to care of it.
-proc Overview_launchExpFlow { exp_path datestamp } {
+proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    ::log::log debug "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEXT
@@ -1275,6 +1325,14 @@ proc Overview_launchExpFlow { exp_path datestamp } {
    if { ! [info exists LAUNCH_XFLOW_MUTEXT] } {
       set LAUNCH_XFLOW_MUTEXT [thread::mutex create]
       ::log::log notice "Overview_launchExpFlow creating LAUNCH_XFLOW_MUTEXT"
+   }
+
+   if { ${datestamp} == "" && ${datestamp_hour} != "" } {
+      # user launched a flow without datestamp but with reference hour
+      # We need to calculate the reference datestamp based on the
+      # current date & time and the reference time of the run
+      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp} ${datestamp_hour}]
+      ::log::log debug "Overview_launchExpFlow got reference datestamp:${datestamp}"
    }
 
    thread::mutex lock $LAUNCH_XFLOW_MUTEXT

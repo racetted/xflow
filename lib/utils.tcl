@@ -174,10 +174,6 @@ proc Utils_getCurrentTime {} {
    set currentTime [clock format [clock seconds] -format "%H:%M" -gmt 1]
 }
 
-proc Utils_getCurrentTime {} {
-   set currentTime [clock format [clock seconds] -format "%H:%M" -gmt 1]
-}
-
 # input hh:mm:ss
 # returns mm, if mm=08 returns 8
 proc Utils_getMinuteFromTime { timevalue { keep_zero "no" } } {
@@ -244,6 +240,19 @@ proc Utils_getRealDatestampValue { _datestamp } {
 # returns hour value from yyyymmddhh*
 proc Utils_getHourFromDatestamp { _datestamp } {
    return [string range ${_datestamp} 8 9]
+}
+
+# returns a datestamp in the form yyymmddhh0000 
+# the hh value is the given datestamp_hour
+# the delta_day is a positive or negative number of days
+# relative to the current date.
+# If I want tomorrow's datestamp, delta_day is 1
+# If I want today's datestamp, delta_day is 0
+# If I want yesterday's datestamp, delta_day is -1
+proc Utils_getDatestamp { datestamp_hour delta_day } {
+   set dateTime [clock add [clock seconds] ${delta_day} days]
+   set formattedDatestamp [clock format ${dateTime} -format {%Y%m%d}]${datestamp_hour}0000
+   return ${formattedDatestamp}
 }
 
 #returns day of week from Sakamoto's algorithm

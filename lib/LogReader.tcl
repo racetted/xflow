@@ -160,7 +160,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
          close $f_logfile
 
       } else {
-         puts "LogReader_readFile $logfile file does not exists!"
+         ::log::log debug "LogReader_readFile $logfile file does not exists!"
       }
    }
 
