@@ -53,9 +53,13 @@ proc SharedData_setExpDatestampData { exp_path datestamp key value } {
 }
 
 proc SharedData_removeExpDatestampData { exp_path datestamp } {
-   tsv::lock SharedData_${exp_path}_${datestamp} {
-      catch { tsv::unset SharedData_${exp_path}_${datestamp} }
-   }
+    ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
+      
+    catch { tsv::reset SharedData_${exp_path}_${datestamp} }
+    ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} reset done"
+
+    catch { tsv::unset SharedData_${exp_path}_${datestamp} }
+    ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset done"
 }
 
 # retrieve experiment data based on the exp_path and the key
@@ -144,15 +148,6 @@ proc SharedData_getExpRootNode { _exp_path _datestamp } {
    return ${rootNode}
 }
 
-
-proc SharedData_setExpStartupDone { _exp_path _datestamp _startupDone } {
-   SharedData_setExpDatestampData ${_exp_path} ${_datestamp} startup ${_startupDone}
-}
-
-proc SharedData_getExpStartupDone { _exp_path _datestamp } {
-   SharedData_getExpDatestampData ${_exp_path} ${_datestamp} startup
-}
-
 proc SharedData_getExpGroupDisplay { _exp_path } {
    set groupDisplay [SharedData_getExpData ${_exp_path} groupdisplay]
    return ${groupDisplay}
@@ -231,6 +226,15 @@ proc SharedData_setExpUpdatedNodes { _exp_path _datestamp _nodeList } {
 proc SharedData_getExpUpdatedNodes { _exp_path _datestamp} {
    set nodeList [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} updated_nodes]
    return ${nodeList}
+}
+
+proc SharedData_setExpFlowSize { _exp_path _datestamp _flow_size } {
+   SharedData_setExpDatestampData ${_exp_path} ${_datestamp} flow_size ${_flow_size}
+}
+
+proc SharedData_getExpFlowSize { _exp_path _datestamp} {
+   set flow_size [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} flow_size]
+   return ${flow_size}
 }
 
 proc SharedData_addExpNodeMapping { _exp_path _datestamp _real_node _flow_node } {
@@ -444,6 +448,11 @@ proc SharedData_initColors {} {
       SharedData_setColor COLOR_STATUS_DISCRET "white #913b9c #913b9c"
       SharedData_setColor COLOR_STATUS_UNKNOWN "white black black"
 
+      # storing original values so I can detect which ones are different
+      foreach status [list BEGIN INIT SUBMIT ABORT END CATCHUP WAIT DISCRET] {
+         SharedData_setColor ORIG_COLOR_STATUS_${status} [SharedData_getColor COLOR_STATUS_${status}]
+      }
+
       SharedData_setColor STATUS_SHADOW "white black black"
    }
 }
@@ -483,6 +492,13 @@ proc SharedData_getRippleStatusMap { status } {
    if { [info exists RIPPLE_STATUS_MAP(${status})] } {
       set foundStatus $RIPPLE_STATUS_MAP(${status})
    }
+}
+
+# colors that are derived from others
+# this proc needs to be called after the maestrorc has been read... caused
+# some of the source colors could be defined by the user
+proc SharedData_setDerivedColors {} {
+   SharedData_setColor COLOR_MSG_CENTER_MAIN [lindex [SharedData_getColor COLOR_STATUS_ABORT] 1]
 }
 
 proc SharedData_init {} {

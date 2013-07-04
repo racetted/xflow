@@ -174,10 +174,6 @@ proc Utils_getCurrentTime {} {
    set currentTime [clock format [clock seconds] -format "%H:%M" -gmt 1]
 }
 
-proc Utils_getCurrentTime {} {
-   set currentTime [clock format [clock seconds] -format "%H:%M" -gmt 1]
-}
-
 # input hh:mm:ss
 # returns mm, if mm=08 returns 8
 proc Utils_getMinuteFromTime { timevalue { keep_zero "no" } } {
@@ -231,11 +227,6 @@ proc Utils_getVisibleDatestampValue { date } {
    return ${newValue}
 }
 
-#proc Utils_getRealDatestampValue { date } {
-#   set newValue ${date}0000
-#   return ${newValue}
-#}
-
 proc Utils_getRealDatestampValue { _datestamp } { 
    set newDateStamp ${_datestamp}
    # the format of the log file is 14 digits
@@ -251,8 +242,30 @@ proc Utils_getHourFromDatestamp { _datestamp } {
    return [string range ${_datestamp} 8 9]
 }
 
-proc Utils_getHourFromDatestamp { _datestamp } {
-   return [string range ${_datestamp} 8 9]
+# returns a datestamp in the form yyymmddhh0000 
+# the hh value is the given datestamp_hour
+# the delta_day is a positive or negative number of days
+# relative to the current date.
+# If I want tomorrow's datestamp, delta_day is 1
+# If I want today's datestamp, delta_day is 0
+# If I want yesterday's datestamp, delta_day is -1
+proc Utils_getDatestamp { datestamp_hour delta_day } {
+   set dateTime [clock add [clock seconds] ${delta_day} days]
+   set formattedDatestamp [clock format ${dateTime} -format {%Y%m%d}]${datestamp_hour}0000
+   return ${formattedDatestamp}
+}
+
+#returns day of week from Sakamoto's algorithm
+proc Utils_getDayOfWeekFromDatestamp { _datestamp } {
+    set year [string range ${_datestamp} 0 3]
+    set month [string range ${_datestamp} 4 5]
+    set day [string trimleft [string range ${_datestamp} 6 7] 0]
+    # Sakamoto's algorithm for day of week
+    set timelist { 0 3 2 5 0 3 5 1 4 6 2 4 }
+    if { $month < 3 } {
+       set year [expr $year - $month]    
+    }
+    return [expr ($year + $year/4 - $year/100 + $year/400 + [lindex $timelist [expr $month-1]] + $day) % 7 ]
 }
 
 proc Utils_launchShell { mach exp_path init_dir title {cmd ""} } {
@@ -360,7 +373,7 @@ proc Utils_getBackEndHost { _parentW } {
    set backEndHost spica
    set overrideFile $env(HOME)/.suites/overrides.def
    if { [file readable ${overrideFile}] } {
-      set backEndHost [exec grep "^BACKEND=" ${overrideFile} | cut -d = -f 2]
+      catch { set backEndHost [exec grep "^BACKEND=" ${overrideFile} | cut -d = -f 2] }
       if { ${backEndHost} != "" } {
          set backEndHost ${backEndHost}
       }

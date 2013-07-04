@@ -10,15 +10,18 @@ proc FileLogger_createThread { logfile } {
       source $env(SEQ_XFLOW_BIN)/../lib/SharedData.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/FileLogger.tcl
 
-      SharedData_setMiscData FILE_LOGGER_THREAD [thread::id]
-
+      if {  [SharedData_getMiscData OVERVIEW_MODE] == true } {
+         puts "FileLoggerCreated set FileLoggerCreated true"
+         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID]  "set FileLoggerCreated true"
+      }
       # enter event loop
       thread::wait
    }]
+   puts "FileLoggerCreated thread creation done ..."
+   return ${threadID}
 }
 
 proc FileLogger_log { _level args } {
-   # puts "_level:$_level args:$args"
    set threadID [SharedData_getMiscData FILE_LOGGER_THREAD]
    if { ${threadID} != "" } {
       if { ${threadID} != [thread::id] } {
@@ -38,5 +41,7 @@ proc FileLogger_log { _level args } {
             }
          }
       }
+   } else {
+      puts "FileLogger_log ERROR: Cannot find FileLogger thread id."
    }
 }

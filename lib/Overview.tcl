@@ -73,11 +73,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
    set canvasW [Overview_getCanvas]
 
-   # refresh current Time 
-   set timeHour [Utils_getPaddedValue ${new_hour}]
-   set currenTime "${timeHour}:00"
-   Overview_setCurrentTime ${canvasW} ${currenTime}
-
    # delete first hour tag, the one at the far-left of the grid
    set mostLeftHour [Overview_GraphGetXOriginHour]
 
@@ -103,8 +98,11 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
       
-         # move the default ones if exists (init state, waiting to be submitted, usually right side of current time line
-         Overview_advanceExpDefaultBox ${canvasW} ${exp}
+         # delete all exp boxes
+         Overview_removeAllExpBoxes ${canvasW} ${exp}
+
+         # create default boxes
+         Overview_addExpDefaultBoxes ${canvasW} ${exp}
 
          set datestamps [OverviewExpStatus_getDatestamps ${exp}]
 
@@ -137,11 +135,19 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
             if { ${lastStatusTime} != "" } {
                Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
-               Overview_checkGridLimit 
             }
          }
       }
    }
+
+   Overview_checkGridLimit 
+
+   # refresh current Time 
+   #set timeHour [Utils_getPaddedValue ${new_hour}]
+   #set currenTime "${timeHour}:00"
+   #Overview_setCurrentTime ${canvasW} ${currenTime}
+   Overview_setCurrentTime ${canvasW}
+
    ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}] DONE"
 }
 
@@ -215,6 +221,10 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
    ::log::log debug "setCurrentTime canvas:$canvas current_time:${current_time}"
    $canvas delete current_timeline
 
+   if { [info exists TimeAfterId] } {
+      after cancel ${TimeAfterId}
+   }
+
    # setting current time
    if { ${current_time} == "" } {
       set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
@@ -242,6 +252,23 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
    Overview_setTitle [winfo toplevel ${canvas}] ${current_time}
 
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
+}
+
+# returns the x coordinate of the current timeline
+proc Overview_getCurrentTimeX {} {
+   set canvas [Overview_getCanvas]
+   set coords [${canvas} coords current_timeline]
+   set currentTimex [lindex ${coords} 0]
+   return ${currentTimex}
+}
+
+# returns the x coordinate of the 00Z time grid
+proc Overview_getZeroHourX {} {
+   set canvas [Overview_getCanvas]
+   set hourTag [Overview_getGridTagHour 00 ]
+   set coords [${canvas} coords ${hourTag}]
+   set zeroHourX [lindex ${coords} 0]
+   return ${zeroHourX}
 }
 
 #
@@ -924,22 +951,6 @@ proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
    }
 }
 
-proc Overview_advanceExpDefaultBox { canvas exp_path } {
-   global graphHourX
-
-   set refTimings [SharedData_getExpTimings ${exp_path}]
-
-   if { ${refTimings} == "" } {
-      Overview_updateExpBox ${canvas} ${exp_path} default init
-   } else {
-      foreach refTiming ${refTimings} {
-         foreach { hour startTime endTime } ${refTiming} {
-            Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init
-         }
-      }
-   }
-}
-
 proc Overview_removeExpBox { canvas exp_path datestamp status } {
 
    # puts "Overview_removeExpBox $canvas $exp_path datestamp:$datestamp status:$status"
@@ -962,6 +973,10 @@ proc Overview_removeExpBox { canvas exp_path datestamp status } {
       ${canvas} delete ${expBoxTag}.end
       ${canvas} delete ${expBoxTag}.late_line
    }
+}
+
+proc Overview_removeAllExpBoxes { canvas exp_path } {
+   ${canvas} delete ${exp_path}
 }
 
 proc Overview_isDefaultBoxActive { canvas exp_path datestamp } {
@@ -1174,6 +1189,7 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
          }
       }
       if { ${isOverlap} } {
+         ::log::log debug "Overview_resolveOverlap FOUND OVERLAP? YES expBoxTag:$expBoxTag currentExpBoxTag:$currentExpBoxTag exp_path:$exp_path  $x1 $y1 $x2 $y2 $xx1 $yy1 $xx2 $yy2"
          # try to display the box in the next row
          set newy1 [expr ${y1} + ${expEntryHeight}]
          set newy2 [expr ${y2} + ${expEntryHeight}]
@@ -1204,6 +1220,7 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
                ::log::log debug "Overview_resolveOverlap FOUND OVERLAP? $isOverlap"
             }
             if { ${isOverlap} } {
+               ::log::log debug "Overview_resolveOverlap FOUND OVERLAP? YES exp:$exp testedExpBox:$testedExpBox with $exp_path"
                # try to display the box in the next row
                set newy1 [expr ${y1} + ${expEntryHeight}]
                set newy2 [expr ${y2} + ${expEntryHeight}]
@@ -1225,6 +1242,7 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
 proc Overview_boxMenu { canvas exp_path datestamp x y } {
    global env
    ::log::log debug "Overview_boxMenu() exp_path:$exp_path datestamp:${datestamp}"
+   set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
    if { [string match "default*" ${datestamp}] } {
       set datestamp ""
    }
@@ -1236,7 +1254,7 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
    menu $popMenu
    $popMenu add command -label "History" \
       -command [list Overview_historyCallback $canvas $exp_path ${datestamp} $popMenu]
-   $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $exp_path ${datestamp}]
+   $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $exp_path ${datestamp} ${datestampHour}]
    $popMenu add command -label "Shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
    # $popMenu add command -label "Support" -command [list Overview_showSupportCallback $exp_path ${datestamp} [winfo toplevel ${canvas}]]
    $popMenu add command -label "Support" -command [list ExpOptions_showSupportCallback ${exp_path} ${datestamp} [Overview_getToplevel]]
@@ -1265,12 +1283,59 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
    Sequencer_runCommandWithWindow $exp_path ${datestamp} [Overview_getToplevel] $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
 }
 
+# this proc returns the datestamp that should be used for a run
+# based on the reference start time of the run and the current date & time,
+# It is used to assign a datestamp to a flow that is selected by the user
+# when the run has not been executed yet...
+proc Overview_getReferenceDatestamp { exp_path datestamp datestamp_hour } {
+   set canvas [Overview_getCanvas]
+   set expBoxCoords [Overview_getRunBoxBoundaries ${canvas} ${exp_path} default_${datestamp_hour}]
+   if { ${expBoxCoords} != "" } {
+      set myx [lindex ${expBoxCoords} 0]
+   }
+
+   set currentTimeX [Overview_getCurrentTimeX]
+   set zeroHourX [Overview_getZeroHourX]
+   set deltaDay 0
+   # when we have the grid movable, we'll need to add a delta with respect to the
+   # current zero hour but for now we don't need to
+   if { ${currentTimeX} < ${zeroHourX} } {
+      # 00z is to the right of current time
+      if { ${myx} >= ${zeroHourX} } {
+         set deltaDay 1
+      }
+   } else {
+      # 00z is to the left of current time
+      if { ${myx} < ${zeroHourX} } {
+         set deltaDay -1 
+      }
+   }
+
+   set refDatestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
+   return ${refDatestamp}
+}
+
 # this function is called to launch an exp window
 # It sends the request to the exp thread to care of it.
-proc Overview_launchExpFlow { exp_path datestamp } {
+proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    ::log::log debug "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
-   global PROGRESS_REPORT_TXT
+   global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEXT
+
+   if { ! [info exists LAUNCH_XFLOW_MUTEXT] } {
+      set LAUNCH_XFLOW_MUTEXT [thread::mutex create]
+      ::log::log notice "Overview_launchExpFlow creating LAUNCH_XFLOW_MUTEXT"
+   }
+
+   if { ${datestamp} == "" && ${datestamp_hour} != "" } {
+      # user launched a flow without datestamp but with reference hour
+      # We need to calculate the reference datestamp based on the
+      # current date & time and the reference time of the run
+      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp} ${datestamp_hour}]
+      ::log::log debug "Overview_launchExpFlow got reference datestamp:${datestamp}"
+   }
+
+   thread::mutex lock $LAUNCH_XFLOW_MUTEXT
 
    xflow_init ${exp_path}
 
@@ -1293,6 +1358,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
             return
          }
          set isNewThread true
+         puts "Overview_launchExpFlow SharedData_setExpThreadId exp_path:${exp_path} datestamp:${datestamp} threadid:${expThreadId}"
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
       } else {
          puts "Overview_launchExpFlow got existing thread..."
@@ -1315,7 +1381,7 @@ proc Overview_launchExpFlow { exp_path datestamp } {
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
-             ::log::log notice "Overview_launchExpFlow new exp thread calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
+             ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
             thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow" LogReaderDone
 	    vwait LogReaderDone
          }
@@ -1342,12 +1408,16 @@ proc Overview_launchExpFlow { exp_path datestamp } {
       set ecode $::errorCode
       catch { destroy ${progressW} }
 
+      thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT}
+
       # report the error with original details
       return -code ${result} \
          -errorcode ${ecode} \
          -errorinfo ${einfo} \
          ${message}
    }
+
+   thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT}
 }
 
 # the end time happened prior to the x origin time,
@@ -1456,28 +1526,26 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
 
    if { [OverviewExpStatus_getLastStatusDateTime ${exp_path} ${datestamp}] >  [Overview_GraphGetXOriginDateTime] } {
       if { [winfo exists $canvas] } {
+         # launch the flow if needed... but not when the app is startup up
          set isStartupDone [SharedData_getMiscData STARTUP_DONE]
          if { $status == "begin" } {
-            # launch the flow if needed... but not when the app is startup up
-      # the SharedData_getExpStartupDone is to make sure that you don't
-      # trigger multiple begins when launching a flow with a datestamp that is currently not running
             if { [SharedData_getExpAutoLaunch ${exp_path}] == true && ${AUTO_LAUNCH} == "true" \
-	         && ${isStartupDone} == "true"  && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+	         && ${isStartupDone} == "true" } {
                ::log::log notice "exp begin detected for ${exp_path} datestamp:${datestamp} timestamp:${timestamp}"
                ::log::log notice "exp launching xflow window ${exp_path} datestamp:${datestamp}"
                Overview_launchExpFlow ${exp_path} ${datestamp}
-      }
+            }
          } else {
             # change the exp colors
             Overview_refreshBoxStatus ${exp_path} ${datestamp}
          }
-         if { ${isStartupDone} == "true" && [SharedData_getExpStartupDone ${exp_path} ${datestamp}] == true } {
+         if { ${isStartupDone} == "true" } {
 
             # check for box overlapping, auto-refresh, etc
             Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${status} ${timeValue}
-         ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
+            ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
             Overview_checkGridLimit
-         ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
+            ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
          }
       } else {
          ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
@@ -1496,7 +1564,7 @@ proc Overview_refreshExpLastStatus { exp_path datestamp } {
 # checks whether the time grid is too small to hold all exp boxes,
 # increase the grid if required
 proc Overview_checkGridLimit {} {
-   global expEntryHeight graphy
+   global expEntryHeight graphy defaultGraphY
    set displayGroups [ExpXmlReader_getGroups]
    set lastGroup [lindex ${displayGroups} end]
    if { ${lastGroup} != "" } {
@@ -1509,36 +1577,49 @@ proc Overview_checkGridLimit {} {
       set maxGridCoords [${canvasW} coords grid_max_y]
       if { ${maxGridCoords} != "" } {
          set maxGridY [lindex ${maxGridCoords} 1]
-         if { ${maxGridY} <= ${maxExpBoxY} } {
+         if { ${maxGridY} <= [expr ${maxExpBoxY} + ${expEntryHeight}] } {
             # grid is too small, increase it
             #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
-            # round out the value to the next grid value
-            set graphy [expr ${maxExpBoxY} + [expr ${maxExpBoxY} % ${expEntryHeight}]]
-            # delete the grid
-            ${canvasW} delete grid_item
-            Overview_createGraph ${canvasW}
-            ${canvasW} lower grid_item
-            ${canvasW} lower canvas_bg_image
-            Overview_setCurrentTime ${canvasW}
-            Overview_setCanvasScrollArea ${canvasW}
-         }
+            set graphy [expr ${maxExpBoxY} + ${expEntryHeight}]
+            ::log::log debug "Overview_checkGridLimit expanding grid to graphy:$graphy"
+            Overview_redrawGrid
+         } elseif { ${graphy} > ${defaultGraphY} && ${graphy} >  [expr ${maxExpBoxY} + ${expEntryHeight}] } {
+	    # shring the grid to default value
+            ::log::log debug "Overview_checkGridLimit reducing grid to graphy:$graphy"
+	    set graphy [expr ${defaultGraphY} + ${expEntryHeight}]
+            Overview_redrawGrid
+	 }
       }
    }
+}
+
+proc Overview_redrawGrid {} {
+   global expEntryHeight graphy defaultGraphY
+   set canvasW [Overview_getCanvas]
+   ${canvasW} delete grid_item
+   Overview_createGraph ${canvasW}
+   ${canvasW} lower grid_item
+   ${canvasW} lower canvas_bg_image
+   Overview_setCurrentTime ${canvasW}
+   Overview_setCanvasScrollArea ${canvasW}
 }
 
 # sets the scrolll area of the overview grid
 proc Overview_setCanvasScrollArea { canvasW } {
    global graphX graphStartX
 
-   set x1 0
-   set y1 0
-   set x2 [expr ${graphStartX} + ${graphX} + 60]
-   set footerCoords [${canvasW} coords grid_footer]
-   set y2 [expr [lindex ${footerCoords} 3] + 120]
+   # foreach { x1 y1 x2 y2 } [${canvasW} bbox canvas_bg_image] { break }
+   foreach { x1 y1 x2 y2 } [${canvasW} bbox grid_item] { break }
 
-   # the scroll area is determined by the grid
-   # puts "Overview_setCanvasScrollArea -scrollregion $x1 $y1 $x2 $y2"
    ${canvasW} configure -scrollregion [list $x1 $y1 $x2 $y2] -yscrollincrement 5 -xscrollincrement 5
+}
+
+proc Overview_addStartupProgressMax { numberToAdd } {
+   set progressWidget .overview_progress
+   if { [winfo exists ${progressWidget}] } {
+      set currentMax [${progressWidget} cget -maximum]
+      ${progressWidget} configure -maximum [expr ${currentMax} + ${numberToAdd}]
+   }
 }
 
 # this function is called to add a new experiment to be monitored by the overview
@@ -1555,6 +1636,8 @@ proc Overview_addExp { display_group canvas exp_path } {
    # create startup threads to process log datestamps
    # get the list of datestamps visible from the left side of the overview for this exp
    set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [expr -14*60] ]
+   Overview_addStartupProgressMax [llength ${visibleDatestamps}]
+
    ::log::log debug "Overview_addExp exp_path:$exp_path visibleDatestamps:$visibleDatestamps"
 
    if [ catch { ExpOptions_read ${exp_path} } message ] {
@@ -1851,7 +1934,7 @@ proc Overview_addGroup { canvas displayGroup } {
 # the values of the labels are read from an exp list
 proc Overview_addGroups { canvas } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
-   global STARTUP_PROGRESS_VALUE STARTUP_PROGRESS_TXT
+   global STARTUP_PROGRESS_VALUE STARTUP_PROGRESS_TXT STARTUP_MAX
    set displayGroups [ExpXmlReader_getGroups]
 
    set groupEntryCurrentY $entryStartY
@@ -1867,6 +1950,7 @@ proc Overview_addGroups { canvas } {
    }
    # startup progress bar
    set STARTUP_PROGRESS_VALUE 0
+   set STARTUP_MAX 0
    set progressBar [ProgressDlg .overview_progress \
     -title "Xflow_overview - Loading Experiments Data" -maximum ${expNumber} \
     -variable STARTUP_PROGRESS_VALUE -textvariable STARTUP_PROGRESS_TXT]
@@ -1881,7 +1965,6 @@ proc Overview_addGroups { canvas } {
       foreach exp $expList {
          set currentTime [clock seconds]
          Overview_addExp $displayGroup $canvas $exp
-         # SharedData_setExpData ${exp} LAST_CHECKED_TIME ${currentTime}
          LogMonitor_setLastCheckTime ${exp} ${currentTime}
       }
    }
@@ -1963,7 +2046,7 @@ proc Overview_getBoxLabelFont {} {
 # this function creates the time grid in the
 # specified canvas.
 proc Overview_createGraph { canvas } {
-   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX 
+   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX
 
    # adds horiz shaded grid
    set x1 $entryStartX
@@ -2097,7 +2180,7 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 
 proc Overview_init {} {
    global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF
-   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
+   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
    global expBoxLength startEndIconSize expBoxOutlineWidth
 
    set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
@@ -2110,13 +2193,12 @@ proc Overview_init {} {
    Utils_logInit
    Utils_createTmpDir
 
-   ::log::log notice "xflow_overview Application startup user=$env(USER) real user:[SharedData_getMiscData REAL_USER] host:[exec hostname]"
 
    # hor size of graph
    set graphX 1225
    # vert size of graph
-   #set graphy 600
    set graphy 400
+   set defaultGraphY ${graphy}
    set graphStartX 200
    set graphStartY 50
    # x size of each hour
@@ -2130,7 +2212,6 @@ proc Overview_init {} {
    set entryStartY 70
    set entryStartX 20
 
-   #set startEndIconSize 8
    set startEndIconSize 10
 
    set expBoxOutlineWidth 1.5
@@ -2180,8 +2261,10 @@ proc Overview_quit {} {
 
    catch { 
       exec rm -fr ${SESSION_TMPDIR}
+      puts "exec rm -fr ${SESSION_TMPDIR}"
    }
    
+   ::log::log notice "xflow_overview exited normally..."
    # destroy $top
    exit 0
 }
@@ -2213,10 +2296,6 @@ proc Overview_parseCmdOptions {} {
          SharedData_init
          SharedData_setMiscData OVERVIEW_MODE true
 
-         if { $params(logfile) != "" } {
-            puts "Overview_parseCmdOptions writing to log file: $params(logfile)"
-            SharedData_setMiscData APP_LOG_FILE $params(logfile)
-         } 
 
          SharedData_setMiscData REAL_USER $env(USER)
          if { $params(user) != "" } {
@@ -2238,6 +2317,20 @@ proc Overview_parseCmdOptions {} {
          }
 
          SharedData_readProperties $params(rc)
+	 SharedData_setDerivedColors
+
+	 set logDir [SharedData_getMiscData APP_LOG_DIR]
+         if { $params(logfile) == "" && ${logDir} != "" } {
+	    if { ! [file writable ${logDir}] } {
+	       puts "ERROR: cannot create application log file in directory ${logDir}!"
+	       puts "   Check the APP_LOG_DIR entry from your maestrorc file."
+	       exit 0
+	    }
+	    # log in given log directory
+            SharedData_setMiscData APP_LOG_FILE [SharedData_getMiscData APP_LOG_DIR]/xflow_overview_log.[exec hostname].[pid]
+         } else {
+            SharedData_setMiscData APP_LOG_FILE $params(logfile)
+	 }
 
          if { ! ($params(suites) == "") } {
             # command line arguments overwrites maestrorc file
@@ -2447,11 +2540,12 @@ proc Overview_createCanvas { _toplevelW } {
    ::autoscroll::autoscroll ${canvasFrame}.yscroll
    ::autoscroll::autoscroll ${canvasFrame}.xscroll
 
-   canvas ${canvasFrame}.canvas -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR] \
+   set canvasW ${canvasFrame}.canvas 
+   canvas ${canvasW} -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR] \
       -yscrollcommand [list ${canvasFrame}.yscroll set] -xscrollcommand [list ${canvasFrame}.xscroll set]
 
-   Utils_bindMouseWheel ${canvasW} 5
-
+   bind ${canvasW} <Configure> [list Overview_canvasConfigureCallback ${canvasW} %w %h]
+   
    grid ${canvasW} -row 0 -column 0 -sticky nsew
 
    # make the canvas expandable to right & bottom
@@ -2462,11 +2556,28 @@ proc Overview_createCanvas { _toplevelW } {
 
 }
 
-proc Overview_addCanvasImage { canvas } {
+# this is called when a configure event is triggered on a widget to resize, iconified a window.
+# I need to redraw the bg image everytime the window is resized... however, this proc can 
+# be called about 10-15 times when the user drags the mouse to resize; I don't want
+# to redraw the bg 15 times... So let's put a delay and every call cancels the previous one unless the 
+# delay is passed; only the last one will live to execute the image redraw.
+proc Overview_canvasConfigureCallback { canvas width height } {
+   global RESIZE_AFTERID
+   # cancel the previous event
+   catch { after cancel [set RESIZE_AFTERID] }
+   # set the event to draw bg
+   set RESIZE_AFTERID [after 100 [list Overview_resizeWindowEvent ${canvas} ${width} ${height}]]
+}
 
+proc Overview_resizeWindowEvent {  canvas width height } {
+  Overview_addCanvasImage ${canvas} ${width} ${height}
+  Overview_setCanvasScrollArea ${canvas}
+  xflow_MouseWheelCheck ${canvas}
+}
+
+proc Overview_addCanvasImage { canvas width height } {
+   global FLOW_BG_SOURCE_IMG OVERVIEW_TILED_IMG
    set boxCoords [${canvas} bbox all]
-   set imageBg ${canvas}.bg_image
-   set tiledImage [image create photo]
    if { [SharedData_getMiscData BACKGROUND_IMAGE] != "" } {
       set imageFile [SharedData_getMiscData BACKGROUND_IMAGE]
    } else {
@@ -2474,33 +2585,39 @@ proc Overview_addCanvasImage { canvas } {
       set imageFile [SharedData_getMiscData IMAGE_DIR]/artist-canvas_2.gif
    }
 
-   ${canvas} delete canvas_bg_image
-   image create photo ${imageBg} -file ${imageFile}
-   #${canvas} create image 0 0 -anchor nw -image ${imageBg} -tags canvas_bg_image
-   ${canvas} create image 0 0 -anchor nw -image ${tiledImage} -tags canvas_bg_image
+   if { ! [info exists FLOW_BG_SOURCE_IMG] } {
+      set FLOW_BG_SOURCE_IMG [image create photo -file ${imageFile}]
+   }
+
+   if { [${canvas} gettags canvas_bg_image] != "" } {
+      image delete ${OVERVIEW_TILED_IMG}
+      ${canvas} delete canvas_bg_image
+   }
+   set OVERVIEW_TILED_IMG [image create photo]
+   ${canvas} create image 0 0 -anchor nw -image ${OVERVIEW_TILED_IMG} -tags canvas_bg_image
    
-    bind $canvas <Configure> [list Overview_tileBgImage ${canvas} ${imageBg} ${tiledImage}]
-    Overview_tileBgImage $canvas ${imageBg} ${tiledImage}
+   Overview_tileBgImage $canvas ${FLOW_BG_SOURCE_IMG} ${OVERVIEW_TILED_IMG} ${width} ${height}
    ${canvas} lower canvas_bg_image
 }
 
- proc Overview_tileBgImage { canvas sourceImage tiledImage } {
+ proc Overview_tileBgImage { canvas sourceImage tiledImage width height } {
     set canvasBox [${canvas} bbox all]
     set canvasItemsW [lindex ${canvasBox} 2]
     set canvasItemsH [lindex ${canvasBox} 3]
     set canvasW [winfo width ${canvas}]
     set canvasH [winfo height ${canvas}]
     set usedW ${canvasItemsW}
-    if { ${canvasW} > ${canvasItemsW} } {
-      set usedW ${canvasW}
+    if { ${width} > ${canvasItemsW} } {
+      set usedW [expr ${width} + 50]
     }
     set usedH ${canvasItemsH}
-    if { ${canvasH} > ${canvasItemsH} } {
-      set usedH ${canvasH}
+    if { ${height} > ${canvasItemsH} } {
+      set usedH [expr ${height} + 50]
     }
 
-    $tiledImage copy $sourceImage \
-        -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
+    # $tiledImage copy $sourceImage \
+    #    -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
+    $tiledImage copy $sourceImage -to 0 0 ${usedW} ${usedH}
  }
 
 proc Overview_setTitle { top_w time_value } {
@@ -2549,10 +2666,9 @@ proc Overview_soundbell {} {
    }
 }
 
-
 proc Overview_main {} {
-   global MSG_CENTER_THREAD_ID
-   global DEBUG_TRACE
+   global MSG_CENTER_THREAD_ID env
+   global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
@@ -2560,7 +2676,14 @@ proc Overview_main {} {
    Overview_init
    set appLogFile [SharedData_getMiscData APP_LOG_FILE]
    if { ${appLogFile} != "" } {
-      FileLogger_createThread ${appLogFile}
+      puts "Using application log file: ${appLogFile}"
+      set loggerThreadId [FileLogger_createThread ${appLogFile}]
+      SharedData_setMiscData FILE_LOGGER_THREAD ${loggerThreadId}
+      puts "waiting for FileLoggerCreated..."
+      vwait FileLoggerCreated
+
+      puts "xflow_overview loggerThreadId:${loggerThreadId}"
+      ::log::log notice "xflow_overview Application startup user=$env(USER) real user:[SharedData_getMiscData REAL_USER] host:[exec hostname]"
    }
 
    set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
@@ -2587,7 +2710,6 @@ proc Overview_main {} {
 
    Overview_createGraph ${topCanvas}
 
-
    wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
 
    # create pool of threads to parse and launch exp flows
@@ -2596,12 +2718,9 @@ proc Overview_main {} {
    # set thread error handler for async calls
    thread::errorproc Overview_threadErrorCallback
 
-   puts "Overview calling addGroups: [exec date]"
    Overview_addGroups ${topCanvas}
-   puts "Overview after calling addGroups: [exec date]"
-   Overview_setCanvasScrollArea ${topCanvas}
    Overview_setCurrentTime ${topCanvas}
-   Overview_addCanvasImage ${topCanvas}
+
    # check if we need to release obsolete data
    OverviewExpStatus_checkObseleteDatestamps
    Overview_GridAdvanceHour
@@ -2616,6 +2735,7 @@ proc Overview_main {} {
    ::thread::broadcast LogReader_readMonitorDatestamps
    # run a periodic monitor to look for new log files to process
    LogMonitor_checkNewLogFiles
+
 }
 
 Overview_parseCmdOptions

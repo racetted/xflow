@@ -16,7 +16,8 @@ else
 fi
 
 arguments=$*
-eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
+# cclargs_lite
+eval `cclargs -D "" $0 "[starts the overview gui]" \
   -as 		"" 	"" 	"[start application as another user]" \
   -display 	"" 	"$DISPLAY" 	"[X windows display]" \
   -debug 	"0" 	"1"	"[debug message]" \
@@ -26,12 +27,6 @@ eval `cclargs_lite -D "" $0 "[starts the overview gui]" \
   -rc ""	""	"[maestrorc preferrence file]" \
   -user ""	""	"[real user]" \
   ++ $arguments`
-
-if [[ "${SEQ_XFLOW_BIN}" = "" ]] ; then
-   echo "xflow_overview getting maestro env from /home/binops/afsi/ssm/domain2"
-   eval "`ssmuse sh -d /home/binops/afsi/ssm/domain2`"
-   echo "which xflow_overview? $(which xflow_overview)"
-fi
 
 # setting the display properly
 if [[ "${display}" = "" ]] ; then 
@@ -75,8 +70,6 @@ fi
 
 logfile_opt=""
 [[ ${logfile} != "" ]] && logfile_opt="-logfile ${logfile}"
-[[ "${USER}" = "afsiops" && "${logfile}" = "" ]] && logfile_opt="-logfile /cnfs/ops/production/log/xflow_overview_log.$$"
-[[ "${USER}" = "afsipar" && "${logfile}" = "" ]] && logfile_opt="-logfile /cnfs/ops/production/log/par/xflow_overview_log.$$"
 
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 suites_opt=""

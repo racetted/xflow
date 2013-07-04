@@ -28,6 +28,14 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
 	       set returnedValue ${switchItemNode}
 	    }
          }
+         day_of_week {
+            set dow [Utils_getDayOfWeekFromDatestamp ${datestamp}]
+	    if { ${dow} != "" } {
+               set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${dow}\]]
+	       # puts "GOT switchItemNode name:[${switchItemNode} getAttribute name]"
+	       set returnedValue ${switchItemNode}
+	    }
+         }
 	 default {
             ::log::log notice "ERROR: FlowXml_getSwitchingItemNode() INVALID switch type:${switchType} exp_path:${exp_path} datestamp:${datestamp}" 
 	 }
@@ -191,8 +199,8 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
       "SWITCH" {
          set newParentNode [FlowXml_createNodeFromXml ${exp_path}  ${datestamp} ${parent_flow_node} ${current_xml_node}]
          set switchType [${current_xml_node} getAttribute type "datestamp_hour"]
+	 #puts "FlowXml_parseNode got SWITCH: newParentNode:${newParentNode} switchType:${switchType}"
 	 SharedFlowNode_setSwitchingData  ${exp_path} ${newParentNode} ${datestamp} ${switchType}
-	 puts "FlowXml_parseNode got SWITCH: newParentNode:${newParentNode} switchType:${switchType}"
       }
       "DEPENDS_ON" -
       "SUBMITS" -
