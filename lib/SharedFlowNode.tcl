@@ -557,6 +557,10 @@ proc SharedFlowNode_setStatInfo { exp_path node datestamp member status timestam
 	 # puts "node:$node member:$member new status:$status"
          lappend memberInfoList ${status} ${timestamp}
       } else {
+         if { ${status} == "submit" } {
+	    # flush previous data
+	    array set statsinfo {}
+	 }
          # update with new info
 	 switch ${status} {
 	    begin {
@@ -641,6 +645,17 @@ proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
    return ${execTime}
 }
 
+proc SharedFlowNode_isStatsInfoExists {  exp_path node datestamp } {
+   set isExists false
+   catch {
+      set keys [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}]
+      if { [lsearch ${keys} stats_info] != -1 } {
+         set isExists true
+      }
+   }
+   return ${isExists}
+}
+
 proc SharedFlowNode_getBeginTime { exp_path node datestamp member } {
    if { ${member} == "" } {
       set member null
@@ -650,8 +665,12 @@ proc SharedFlowNode_getBeginTime { exp_path node datestamp member } {
    set timeDisplayFormat {%H:%M:%S}
    set beginStatus begin
 
-   if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
-        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
+   set currentStatus [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}]
+   if { ${currentStatus} == "submit" || ${currentStatus} == "init" || ${currentStatus} == "wait" || ${currentStatus} == "discret" } {
+	return ""
+   }
+
+   if { [SharedFlowNode_isStatsInfoExists ${exp_path} ${node} ${datestamp}] == true } {
       array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
       if { [info exists statsinfo($member)] } {
          set memberInfoList $statsinfo($member)
@@ -707,8 +726,12 @@ proc SharedFlowNode_getSubmitDelay { exp_path node datestamp member } {
    set submitStatus submit
    set beginStatus begin
 
-   if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
-        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
+   set currentStatus [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}]
+   if { ${currentStatus} == "submit" || ${currentStatus} == "init" || ${currentStatus} == "wait" || ${currentStatus} == "discret" } {
+	return ""
+   }
+
+   if { [SharedFlowNode_isStatsInfoExists ${exp_path} ${node} ${datestamp}] == true } {
       array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
       if { [info exists statsinfo($member)] } {
          set memberInfoList $statsinfo($member)
