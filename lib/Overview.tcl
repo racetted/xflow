@@ -2192,6 +2192,7 @@ proc Overview_init {} {
    puts "Overview_init Utils_logInit"
    Utils_logInit
    Utils_createTmpDir
+   ::DrawUtils::initStatusImages
 
 
    # hor size of graph
@@ -2318,6 +2319,7 @@ proc Overview_parseCmdOptions {} {
 
          SharedData_readProperties $params(rc)
 	 SharedData_setDerivedColors
+
 
 	 set logDir [SharedData_getMiscData APP_LOG_DIR]
          if { $params(logfile) == "" && ${logDir} != "" } {
@@ -2674,6 +2676,7 @@ proc Overview_main {} {
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    ::DrawUtils::init
    Overview_init
+
    set appLogFile [SharedData_getMiscData APP_LOG_FILE]
    if { ${appLogFile} != "" } {
       puts "Using application log file: ${appLogFile}"
