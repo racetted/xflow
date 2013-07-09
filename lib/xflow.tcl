@@ -583,12 +583,16 @@ proc xflow_killNode { exp_path datestamp node list_widget } {
             if { ${node} == "" } {
 	       # called from kill nodes... node must be fetched from listbox entry
 	       set node [lindex $listEntryValue [expr ${separatorIndex} - 2]]
+	       if { [string first . ${node}] != -1 } {
+	          set node [string range ${node} 0 [expr [string first . ${node}] -1]]
+	       }
+	       puts "xflow_killNode foud node: ${node}"
 	    }
             set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
             set nodeID [lindex $listEntryValue [expr ${separatorIndex} - 1]]
 	    set foundId true
             ::log::log debug "xflow_killNode command: $seqExec  -n $seqNode -job_id $nodeID"
-            set winTitle "Node Kill ${seqNode} - Exp=${exp_path}"
+            set winTitle "Node Kill ${seqNode} ID=${nodeID} Exp=${exp_path}"
             Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top -n ${seqNode} -job_id $nodeID
          }
          if { ${foundId} == false } {
@@ -1182,7 +1186,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
       ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
    }
 
-   ${miscMenu} add command -label "Kill Node" -command [list xflow_killNodeFromDropdown ${exp_path} ${datestamp} $node $canvas $popMenu]
+   ${miscMenu} add command -label "Kill Node" -command [list xflow_killNodeFromDropdown ${exp_path} ${datestamp} $node ${extension} $canvas]
 
    $popMenu add separator
    $popMenu add command -label "Close"
@@ -1680,7 +1684,7 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
 # this function is invoked from the "Kill Node" menu item.
 # It displays the available jobids of currently running tasks
 # for the user to kill.
-proc xflow_killNodeFromDropdown { exp_path datestamp node canvas caller_menu } {
+proc xflow_killNodeFromDropdown { exp_path datestamp node extension source_w {all_node_instances false} } {
    ::log::log debug "xflow_killNodeFromDropdown  exp_path:${exp_path} node:${node} datestamp:${datestamp}"
 
    global env
@@ -1690,22 +1694,27 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node canvas caller_menu } {
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   if { ${all_node_instances} == true } {
+      set seqLoopArgs ""
+   } else {
+      set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
+   }
 
    set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
-   set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -n $seqNode -list > $tmpfile 2>&1"
-   ::log::log debug "xflow_killNodeFromDropdown ksh -c $cmd"
-   catch { eval [exec ksh -c $cmd ] }
 
-
-   set soloWindow $canvas.nodekill 
+   set soloWindow ${source_w}_${node}_nodekill
+   regsub -all "/" ${soloWindow} _ ${soloWindow}
 
    if { [winfo exists $soloWindow] } {
         destroy $soloWindow
     }
 
+    puts "xflow_killNodeFromDropdown soloWindow:$soloWindow"
+
    toplevel $soloWindow
-   set winTitle "Kill Node - ${seqNode} Exp=${exp_path}"
+   set winTitle "Kill Node - ${seqNode} ${seqLoopArgs} Exp=${exp_path}"
    wm title ${soloWindow} ${winTitle}
+   Utils_positionWindow ${soloWindow} ${source_w}
 
    frame $soloWindow.frame -relief raised -bd 2 -bg $bgColor
    pack $soloWindow.frame -fill both -expand 1 
@@ -1721,7 +1730,7 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node canvas caller_menu } {
    pack $cancelButton -side right -padx 2 -pady 2
 
    set refreshButton [button $soloWindow.refresh_button -text "Refresh" \
-      -command [list xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${listboxW}]]
+      -command [list xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${extension} ${listboxW} ${all_node_instances}]]
    tooltip::tooltip $refreshButton "Refresh entries"
    pack $refreshButton -side right -padx 2 -pady 2
 
@@ -1730,6 +1739,10 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node canvas caller_menu } {
    tooltip::tooltip $killButton "Send kill signals to selected job_ID"
    pack $killButton -side right -padx 2 -pady 2
 
+   set allButton [button $soloWindow.all_button -text "All Node Instances" \
+      -command [list xflow_killNodeFromDropdown ${exp_path} ${datestamp} ${node} "" ${source_w} true]]
+   pack $allButton -side right -padx 2 -pady 2
+
    pack $soloWindow.xscroll -fill x -side bottom -in $soloWindow.frame
    pack $soloWindow.yscroll -side right -fill y -in $soloWindow.frame
    pack $soloWindow.list -expand 1 -fill both -padx 1m -side left -in $soloWindow.frame
@@ -1737,10 +1750,10 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node canvas caller_menu } {
    ::autoscroll::autoscroll ${soloWindow}.yscroll
    ::autoscroll::autoscroll ${soloWindow}.xscroll
 
-   xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${listboxW}
+   xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${extension} ${listboxW} ${all_node_instances}
 }
 
-proc xflow_populateKillNodeListbox { exp_path datestamp node listbox_w } {
+proc xflow_populateKillNodeListbox { exp_path datestamp node extension listbox_w {all_node_instances false} } {
    global env
    set tmpdir $env(TMPDIR)
    set id [clock seconds]
@@ -1750,8 +1763,15 @@ proc xflow_populateKillNodeListbox { exp_path datestamp node listbox_w } {
    ::log::log debug "xflow_populateKillNodeListbox exp_path:${exp_path} datestamp:${datestamp} seqNode:${seqNode} node:${node}"
 
    set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
-   set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -n $seqNode -list > $tmpfile 2>&1"
+   if { ${all_node_instances} == true } {
+      set seqLoopArgs ""
+   } else {
+      set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
+   }
+
+   set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -n $seqNode ${seqLoopArgs} -list > $tmpfile 2>&1"
    ::log::log debug "xflow_populateKillNodeListbox ksh -c $cmd"
+   puts "xflow_populateKillNodeListbox ksh -c $cmd"
    catch { eval [exec ksh -c $cmd ] }
 
    ${listbox_w} delete 0 end
@@ -1765,10 +1785,11 @@ proc xflow_populateKillNodeListbox { exp_path datestamp node listbox_w } {
 	 set dateIndex [expr ${separatorIndex} -3]
          set cellIndex [expr ${separatorIndex} +1]
          set jobIndex [expr ${separatorIndex} -1]
+         set jobAndExt [lindex ${listEntryValue} end]
          set date "[lrange ${listEntryValue} ${dateIndex} [expr ${dateIndex} + 1]]"
 	 set jobAndCell "[lindex ${listEntryValue} ${jobIndex}] -> [lindex ${listEntryValue} ${cellIndex}]"
 
-         ${listbox_w} insert end "${date} ${jobAndCell}"
+         ${listbox_w} insert end "${date} ${jobAndCell} ${jobAndExt}"
       }
    }
 
@@ -3250,6 +3271,7 @@ proc xflow_validateExp {} {
 proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
 
    ::log::log debug "xflow_createWidgets"
+   puts "xflow_createWidgets  ${exp_path} ${datestamp}..."
    set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
    if { ! [winfo exists ${toplevelW}] } {
       toplevel ${toplevelW}
@@ -3257,10 +3279,12 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
          wm geometry ${toplevelW} +${topx}+${topy}
       }
    }
+   puts "xflow_createWidgets  ${exp_path} ${datestamp} setting window delete behavior"
    wm protocol ${toplevelW} WM_DELETE_WINDOW "xflow_quit ${exp_path} \"${datestamp}\""
    wm iconify ${toplevelW}
 
    set topFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp} top_frame]]
+   puts "xflow_createWidgets  ${exp_path} ${datestamp} creating menus..."
    xflow_addFileMenu ${exp_path} ${datestamp} $topFrame
    xflow_addViewMenu ${exp_path} ${datestamp} $topFrame
    xflow_addHelpMenu ${exp_path} ${datestamp} $topFrame
