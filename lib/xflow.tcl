@@ -561,7 +561,6 @@ proc xflow_populateKillAllNodeListbox { exp_path listbox_w } {
 proc xflow_killNode { exp_path datestamp node list_widget } {
 
    ::log::log debug "xflow_killNode  exp_path:${exp_path} datestamp:${datestamp} widget:${list_widget}"
-   puts "xflow_killNode  exp_path:${exp_path} datestamp:${datestamp} node:${node} widget:${list_widget}"
    Utils_busyCursor [winfo toplevel ${list_widget}]
    set result [ catch {
 
@@ -580,15 +579,17 @@ proc xflow_killNode { exp_path datestamp node list_widget } {
          set listEntryValue [ split [ lindex $listOfNodes $iterator ] " " ]
          set separatorIndex [lsearch ${listEntryValue} ${separator}]
          if { ${separatorIndex} != -1 } {
+	    set killNode ${node}
+            set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${killNode} ${datestamp}]
+
             if { ${node} == "" } {
 	       # called from kill nodes... node must be fetched from listbox entry
-	       set node [lindex $listEntryValue [expr ${separatorIndex} - 2]]
-	       if { [string first . ${node}] != -1 } {
-	          set node [string range ${node} 0 [expr [string first . ${node}] -1]]
+	       set killNode [lindex $listEntryValue [expr ${separatorIndex} - 2]]
+	       if { [string first . ${killNode}] != -1 } {
+	          set killNode [string range ${killNode} 0 [expr [string first . ${killNode}] -1]]
 	       }
-	       puts "xflow_killNode foud node: ${node}"
+	       set seqNode ${killNode}
 	    }
-            set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
             set nodeID [lindex $listEntryValue [expr ${separatorIndex} - 1]]
 	    set foundId true
             ::log::log debug "xflow_killNode command: $seqExec  -n $seqNode -job_id $nodeID"
