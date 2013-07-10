@@ -1354,6 +1354,40 @@ proc xflow_getNodeHistoryOptions {} {
    return ${NODE_HIST_OPTIONS}
 }
 
+proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w } {
+   if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
+      set loopIndex ""
+      # retrieve index value from widget
+      if { ${extension} == "" } {
+         # in this case source_w must be canvas
+         set indexListW [::DrawUtils::getIndexWidgetName $node ${source_w}]
+         set nptIndex  ""
+         if { [winfo exists ${indexListW}] } {
+            set nptIndex  [${indexListW} get]
+         }
+      } else {
+         # npt task could well be within loop nodes... split between loop part and npt part
+         set lastIndex [string last + ${extension}]
+         if { ${lastIndex} == 0 } {
+            # no loop index
+	    set loopIndex ""
+	    set nptIndex ${extension}
+         } else {
+            # split the two
+	    set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
+	    set nptIndex [string range ${extension} ${lastIndex} end]
+         }
+      }
+      set seqLoopArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
+      if { ${seqLoopArgs} == "-1" } {
+         set seqLoopArgs ""
+      }
+   } else {
+      set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
+   }
+   return ${seqLoopArgs}
+}
+
 # this function is called to show the history of a node
 # By default, the middle mouse on a node shows the history for the last 48 hours.
 # The "Node History" from the Info menu on the node shows only the current datestamp
@@ -1698,7 +1732,7 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node extension source_w {al
    if { ${all_node_instances} == true } {
       set seqLoopArgs ""
    } else {
-      set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
+      set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${source_w}]
    }
 
    set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
@@ -1731,7 +1765,7 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node extension source_w {al
    pack $cancelButton -side right -padx 2 -pady 2
 
    set refreshButton [button $soloWindow.refresh_button -text "Refresh" \
-      -command [list xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${extension} ${listboxW} ${all_node_instances}]]
+      -command [list xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${seqLoopArgs} ${listboxW} ]]
    tooltip::tooltip $refreshButton "Refresh entries"
    pack $refreshButton -side right -padx 2 -pady 2
 
@@ -1751,10 +1785,12 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node extension source_w {al
    ::autoscroll::autoscroll ${soloWindow}.yscroll
    ::autoscroll::autoscroll ${soloWindow}.xscroll
 
-   xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${extension} ${listboxW} ${all_node_instances}
+   xflow_populateKillNodeListbox ${exp_path} ${datestamp} ${node} ${seqLoopArgs} ${listboxW}
 }
 
-proc xflow_populateKillNodeListbox { exp_path datestamp node extension listbox_w {all_node_instances false} } {
+
+
+proc xflow_populateKillNodeListbox { exp_path datestamp node seqLoopArgs listbox_w } {
    global env
    set tmpdir $env(TMPDIR)
    set id [clock seconds]
@@ -1764,15 +1800,9 @@ proc xflow_populateKillNodeListbox { exp_path datestamp node extension listbox_w
    ::log::log debug "xflow_populateKillNodeListbox exp_path:${exp_path} datestamp:${datestamp} seqNode:${seqNode} node:${node}"
 
    set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
-   if { ${all_node_instances} == true } {
-      set seqLoopArgs ""
-   } else {
-      set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
-   }
 
    set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -n $seqNode ${seqLoopArgs} -list > $tmpfile 2>&1"
    ::log::log debug "xflow_populateKillNodeListbox ksh -c $cmd"
-   puts "xflow_populateKillNodeListbox ksh -c $cmd"
    catch { eval [exec ksh -c $cmd ] }
 
    ${listbox_w} delete 0 end
