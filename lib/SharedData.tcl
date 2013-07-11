@@ -550,6 +550,10 @@ proc SharedData_init {} {
    # 8-9 is daetstamp hour
    SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE "8 9"
 
+   # by default the visible datestamp length is 10 (yyymmddhh) but
+   # is customizable in the maestrorc
+   SharedData_setMiscData DATESTAMP_VISIBLE_LEN 10
+
    SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 

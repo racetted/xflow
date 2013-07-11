@@ -307,7 +307,8 @@ proc xflow_addDatestampWidget { exp_path datestamp parent_widget } {
    set dateEntryCombo [xflow_getWidgetName ${exp_path} ${datestamp}  exp_date_entry]
    set buttonFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_button_frame]
 
-   labelframe ${dtFrame} -text "Exp Datestamp (yyyymmddhh)"
+   set displayFormat [Utils_getDatestampFormat [SharedData_getMiscData DATESTAMP_VISIBLE_LEN] "display"]
+   labelframe ${dtFrame} -text "Exp Datestamp (${displayFormat})"
    tooltip::tooltip ${dtFrame} "Current Datestamp"
 
    ttk::combobox ${dateEntryCombo}
@@ -622,13 +623,14 @@ proc xflow_populateDatestamp { exp_path datestamp date_frame } {
 
    set dateList [LogReader_getAvailableDates ${exp_path}]
    set dateEntryCombo [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
-  
+ 
+   set visibleLen [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]
    set values ""
    foreach date $dateList {
-      set values "$values [Utils_getVisibleDatestampValue ${date}]"
+      set values "$values [Utils_getVisibleDatestampValue ${date} ${visibleLen}]"
    }
    ${dateEntryCombo} configure -values $values 
-   ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp}]
+   ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp} ${visibleLen}]
 }
 
 # Only called in xflow overview mode.
@@ -646,7 +648,7 @@ proc xflow_launchFlowNewWindow { exp_path datestamp } {
          xflow_newDatestampFound ${exp_path} ${datestampRealValue}
       }
       # reset to existing value in current flow
-      ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp}]
+      ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
    }
 }
 
@@ -660,8 +662,8 @@ proc xflow_readFlowXml { exp_path datestamp } {
 proc xflow_initDatestampEntry { exp_path datestamp } {
    set dateEntry [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
    set hiddenDate [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_hidden]
-   $dateEntry set [Utils_getVisibleDatestampValue ${datestamp}]
-   ${hiddenDate} configure -text [Utils_getVisibleDatestampValue ${datestamp}]
+   $dateEntry set [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
+   ${hiddenDate} configure -text [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
 }
 
 # this function is called when the user sets a new datestamp in the
@@ -677,15 +679,18 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
 
    set newDatestamp [${dateEntryCombo} get]
 
-   if { [Utils_validateVisibleDatestamp ${newDatestamp}] == false } {
+   set visibleDatestampLen [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]
+   if { [Utils_validateVisibleDatestamp ${newDatestamp} ${visibleDatestampLen} ] == false } {
       tk_messageBox -title "Datestamp Error" -parent ${parent_w} -type ok -icon error \
-         -message "Invalid datestamp value: ${newDatestamp}. Format must be yyyymmddhh."
+         -message "Invalid datestamp value: ${newDatestamp}. Format must be [Utils_getDatestampFormat ${visibleDatestampLen} display]."
       return
    }
 
    set values [${dateEntryCombo} cget -values]
    # ask for a confirmation if the date is in the future and the date is set for the first time by the user.
-   if { [lsearch -exact ${values} ${newDatestamp}] == -1 && [clock scan ${newDatestamp} -format "%Y%m%d%H"] >= [clock scan tomorrow] } {
+   if { [lsearch -exact ${values} ${newDatestamp}] == -1 && 
+        [clock scan ${newDatestamp} -format [Utils_getDatestampFormat ${visibleDatestampLen} "scan"]] >= [clock scan tomorrow] } {
+
       set answer [tk_messageBox -title "Datestamp Confirmation" -parent ${parent_w} -type okcancel -icon question \
          -message "The entered datestamp is beyond today's date, are you sure you want to set the date?" ]
       if { ${answer} == "cancel" } {
@@ -704,6 +709,10 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
    if { ${previousDatestamp} != ${newDatestamp} } {
       # SharedFlowNode_resetNodeStatus ${exp_path} [SharedData_getExpRootNode ${exp_path} ${datestamp}] ${seqDatestamp}
 
+      if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
+         # add the datestamp so the monitor does not try to launch the xflow again
+         LogMonitor_addOneExpDatestamp ${exp_path} ${newDatestamp}
+      }
       LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
       SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
 
@@ -1354,7 +1363,22 @@ proc xflow_getNodeHistoryOptions {} {
    return ${NODE_HIST_OPTIONS}
 }
 
-proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w } {
+# returns the loop arguments as needed by the maestro sequencer binaries
+# like nodeinfo or maestro i.e. "-l gem_loop=3,transfer=001"
+#
+# the "extension" can be passed so that the extension is directly used
+# instead of getting from the flow... this is mainly when the procedure
+# is called from msg center with an abort where the extension is already specified.
+# 
+# 
+# input arguments:
+# extension is "+3+001" from the above example
+# source_w must be reference to flow canvas if "extension" is ""
+# raise_no_index_error if this value is true and the latest iteration is selected
+#                      by the user, the proc will return -1 so that the caller can
+#                      handle the error properly
+# 
+proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w {raise_no_index_error false}} {
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
       set loopIndex ""
       # retrieve index value from widget
@@ -1364,6 +1388,9 @@ proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w } {
          set nptIndex  ""
          if { [winfo exists ${indexListW}] } {
             set nptIndex  [${indexListW} get]
+            if { ${nptIndex} == "latest" } {
+               set seqLoopArgs -1
+	    }
          }
       } else {
          # npt task could well be within loop nodes... split between loop part and npt part
@@ -1603,7 +1630,7 @@ proc xflow_endNpasssTaskCallback { exp_path datestamp node extension canvas } {
       set nptIndex  ""
       if { [winfo exists ${indexListW}] } {
          set nptIndex  [${indexListW} get]
-         ::log::log debug "xflow_submitNpassTaskCallback nptIndex :$nptIndex "
+         ::log::log debug "xflow_endNpasssTaskCallback nptIndex :$nptIndex "
       }
    } else {
       # npt task could well be within loop nodes... split between loop part and npt part
@@ -1652,7 +1679,7 @@ proc xflow_abortNpasssTaskCallback { exp_path datestamp node extension canvas } 
       set nptIndex  ""
       if { [winfo exists ${indexListW}] } {
          set nptIndex  [${indexListW} get]
-         ::log::log debug "xflow_submitNpassTaskCallback nptIndex :$nptIndex "
+         ::log::log debug "xflow_abortNpasssTaskCallback nptIndex :$nptIndex "
       }
    } else {
       # npt task could well be within loop nodes... split between loop part and npt part
@@ -2818,7 +2845,6 @@ proc xflow_getNodeResources { exp_path node datestamp {is_recursive 0} } {
 proc xflow_getAllLoopResourcesCallback { exp_path node datestamp} {
    global LOOP_RESOURCES_DONE_${exp_path}_${datestamp}
    if { ${datestamp} != "" } {
-
       if { ! [info exists LOOP_RESOURCES_DONE_${exp_path}_${datestamp}] || [set LOOP_RESOURCES_DONE_${exp_path}_${datestamp}] == "false" } {
          ::log::log debug "xflow_getAllLoopResourcesCallback getting resources..."
          xflow_getAllLoopResources ${exp_path} ${node} ${datestamp}
@@ -3180,6 +3206,19 @@ proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
    ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp} DONE"
 }
 
+proc xflow_getXflowInstances { exp_path } {
+   set winStartName [xlfow_getToplevelStartName ${exp_path}]
+   set wins [winfo children .]
+   set count 0
+   foreach win ${wins} {
+      if { [string first ${winStartName} ${win}] != -1 } {
+         incr count
+      }
+   }
+   ::log::log debug "xflow_getXflowInstances count:${count}"
+   return ${count}
+}
+
 # function called when user quits the application.
 # In overview mode, this is also called by the overview for exp thread cleanup
 # if required.
@@ -3194,7 +3233,11 @@ proc xflow_quit { exp_path datestamp {from_overview false} } {
       xflow_closeExpDatestamp ${exp_path} ${datestamp} ${from_overview}
    } else {
       # standalone mode
-      exit
+      if { [xflow_getXflowInstances ${exp_path}] > 1 } {
+         xflow_closeExpDatestamp ${exp_path} ${datestamp}
+      } else {
+         exit
+      }
    }
 }
 
@@ -3672,6 +3715,13 @@ proc xflow_getToplevel { exp_path {datestamp ""} } {
    set topLevel [regsub -all "/" ${topLevel} _]
    set topLevel [regsub -all {[\.]} ${topLevel} _]
    return .${topLevel}_${datestamp}
+}
+
+proc xlfow_getToplevelStartName { exp_path } {
+   set topLevel [regsub -all " " ${exp_path} _]
+   set topLevel [regsub -all "/" ${topLevel} _]
+   set topLevel [regsub -all {[\.]} ${topLevel} _]
+   return .${topLevel}_
 }
 
 # adds the name of widgets in an array. The widget names are

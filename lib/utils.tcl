@@ -202,8 +202,8 @@ proc Utils_getPaddedValue { value } {
 }
 
 # must be 10 digits values yyyymmddhh
-proc Utils_validateVisibleDatestamp { _datestamp } {
-   if { [string length ${_datestamp}] != 10 } {
+proc Utils_validateVisibleDatestamp { _datestamp {_visibleLen 10} } {
+   if { [string length ${_datestamp}] != ${_visibleLen} } {
       return false
    }
    if [ catch { clock scan ${_datestamp} } message ] {
@@ -222,8 +222,48 @@ proc Utils_validateRealDatestamp { _datestamp } {
    return true
 }
 
-proc Utils_getVisibleDatestampValue { date } {
-   set newValue [string range $date 0 9]
+# retrieves datestamp format based on visible length
+# datestampVisibleLen: length of visible datestamp
+# what:                if what = scan, returns scan format as needed by "clock scan"
+#                      if what = display, returns format as seen by user i.e. yyyymmdd
+#
+proc Utils_getDatestampFormat { datestampVisibleLen what } {
+   set value ""
+   set defaultScanFormat "%Y%m%d%H"
+   set defaultDisplayFormat "yyyymmddhh"
+   switch ${datestampVisibleLen} {
+      10 {
+         set scanFormat ${defaultScanFormat}
+	 set displayFormat ${defaultDisplayFormat}
+      }
+      12 {
+         set scanFormat "%Y%m%d%H%M"
+	 set displayFormat "yyyymmddhhMM"
+      }
+      14 {
+         set scanFormat "%Y%m%d%H%M%S"
+	 set displayFormat "yyyymmddhhMMSS"
+      }
+      default {
+         set scanFormat ${defaultScanFormat}
+	 set displayFormat ${defaultDisplayFormat}
+      }
+   }
+
+   switch ${what} {
+      scan {
+         set value ${scanFormat}
+      }
+      display {
+         set value ${displayFormat}
+      }
+   }
+
+   return ${value}
+}
+
+proc Utils_getVisibleDatestampValue { date {length 10} } {
+   set newValue [string range $date 0 [expr ${length} -1]]
    return ${newValue}
 }
 

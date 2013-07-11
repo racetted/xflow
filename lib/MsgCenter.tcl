@@ -423,7 +423,7 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
       # add 2 spaces between date and time
       set displayedTimestamp [join [split ${timestamp_} .] "  "]
       # show only first 10 digits of datestamp
-      set displayedDatestamp [string range ${datestamp_} 0 9]
+      set displayedDatestamp [Utils_getVisibleDatestampValue ${datestamp_} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
       incr MSG_ACTIVE_COUNTER
       lappend MSG_ACTIVE_TABLE [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} 1]
    }

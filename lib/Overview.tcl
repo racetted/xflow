@@ -1343,7 +1343,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    set extraMsg ""
    if { ${datestamp} != "" } {
       set progressWidth 40
-      set extraMsg "datestamp=[Utils_getVisibleDatestampValue ${datestamp}]"
+      set extraMsg "datestamp=[Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]"
    }
    set result [ catch {
 
@@ -1799,7 +1799,7 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
    }
 
    if { ${datestamp} != "" && ! [string match "default*" ${datestamp}] } {
-      append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue ${datestamp}]"
+      append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]"
    }
    if { ${refStartTime} != "" } {
       append tooltipText "\nref.begin: ${refStartTime}"
