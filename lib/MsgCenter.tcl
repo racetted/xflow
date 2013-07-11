@@ -160,24 +160,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
          ::log::log debug "MsgCenter_submitNodes expPath:${expPath} node:${node} datestamp:${datestamp} ext:${extension}"
 
          set flowNode [SharedData_getExpNodeMapping ${expPath} ${datestamp} ${node}]
-         if { [SharedFlowNode_getNodeType ${expPath} ${flowNode} ${datestamp}] == "npass_task" } {
-            set loopIndex ""
-	    set nptIndex ""
-            # npt task could well be within loop nodes... split between loop part and npt part
-            set lastIndex [string last + ${extension}]
-            if { ${lastIndex} == 0 } {
-               # no loop index
-	       set nptIndex ${extension}
-            } else {
-               # split the two
-	       set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	       set nptIndex [string range ${extension} ${lastIndex} end]
-            }
-            ::log::log debug "MsgCenter_submitNodes SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}"
-            set seqLoopArgs [SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}]
-         } else {
-            set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${flowNode} ${datestamp} ${extension}]
-         }
+	 set seqLoopArgs [xflow_getSeqLoopArgs ${expPath} ${datestamp} ${flowNode} ${extension} ${table_widget} true]
 
          ::log::log debug "MsgCenter_submitNodes ${seqExec} -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
          set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
@@ -202,7 +185,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
 
       set einfo $::errorInfo
       set ecode $::errorCode
-      Utils_normalCursor [info toplevel ${table_widget}]
+      Utils_normalCursor [winfo toplevel ${table_widget}]
       # report the error with original details
       return -code ${result} \
          -errorcode ${ecode} \
