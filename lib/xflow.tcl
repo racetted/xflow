@@ -2481,7 +2481,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
          set listingFile [lindex $splittedArgs end-1]
          set splittedFile [split [file tail $listingFile] .]
 
-         set winTitle "[file tail ${exp_path} - ${list_type} Listing [file tail ${listingFile}]"
+         set winTitle "[file tail ${exp_path}] - ${list_type} Listing [file tail ${listingFile}]"
          regsub -all " " ${winTitle} _ tempfile
          regsub -all "/" ${tempfile} _ tempfile
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
