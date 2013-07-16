@@ -711,7 +711,7 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
 
       if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
          # add the datestamp so the monitor does not try to launch the xflow again
-         LogMonitor_addOneExpDatestamp ${exp_path} ${newDatestamp}
+         LogMonitor_addOneExpDatestamp ${exp_path} ${seqDatestamp}
       }
       LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
       SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
