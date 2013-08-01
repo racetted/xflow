@@ -1320,7 +1320,7 @@ proc Overview_getReferenceDatestamp { exp_path datestamp datestamp_hour } {
 proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    ::log::log debug "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
-   global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEXT
+   global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEXT OVERVIEW_LAUNCH_EXP_AFTER_ID
 
    if { ! [info exists LAUNCH_XFLOW_MUTEXT] } {
       set LAUNCH_XFLOW_MUTEXT [thread::mutex create]
@@ -1364,12 +1364,17 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          puts "Overview_launchExpFlow got existing thread..."
       }
 
-      ::log::log notice "Overview_launchExpFlow launching progess bar..."
+      ::log::log notice "Overview_launchExpFlow launching progress bar..."
+      # set a 60 seconds timeout to kill the dialog in case it fails to grab the focus
+      set OVERVIEW_LAUNCH_EXP_AFTER_ID [after 20000 [list Overview_launchExpTimeout ${exp_path} ${datestamp} ${datestamp_hour} ${isNewThread}]]
       set progressW .pd
       if { ! [winfo exists ${progressW}] } {
-         ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT -width ${progressWidth} -stop stop
+         ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT \
+	    -width ${progressWidth} -stop cancel -command [list Overview_cancelLaunchExp ${exp_path} ${datestamp} ${isNewThread}]
       }
 
+      ::log::log notice "Overview_launchExpFlow launching progress bar DONE"
+      catch { after cancel ${OVERVIEW_LAUNCH_EXP_AFTER_ID} }
       set PROGRESS_REPORT_TXT "Launching [file tail ${exp_path}] ${extraMsg}"
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
@@ -1386,14 +1391,17 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
 	    vwait LogReaderDone
          }
       }
-
-      if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {
-         ::log::log debug "Overview_launchExpFlow flow window already exists exp_path:${exp_path} datestamp: ${datestamp}"
-         xflow_toFront [xflow_getToplevel ${exp_path} ${datestamp}]
-      } else {
-         ::log::log debug "Overview_launchExpFlow calling xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp}"
-         xflow_displayFlow ${exp_path} ${datestamp} true
-         ::log::log notice "Overview_launchExpFlow xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp} done"
+ 
+      # launch flow only if user has not cancelled
+      if { [winfo exists ${progressW}] } {
+         if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {
+            ::log::log debug "Overview_launchExpFlow flow window already exists exp_path:${exp_path} datestamp: ${datestamp}"
+            xflow_toFront [xflow_getToplevel ${exp_path} ${datestamp}]
+         } else {
+            ::log::log debug "Overview_launchExpFlow calling xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp}"
+            xflow_displayFlow ${exp_path} ${datestamp} true
+            ::log::log notice "Overview_launchExpFlow xflow_displayFlow exp_path:${exp_path} datestamp: ${datestamp} done"
+         }
       }
 
       destroy ${progressW}
@@ -1408,7 +1416,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       set ecode $::errorCode
       catch { destroy ${progressW} }
 
-      thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT}
+      catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
 
       # report the error with original details
       return -code ${result} \
@@ -1416,8 +1424,34 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          -errorinfo ${einfo} \
          ${message}
    }
+   catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
+}
 
-   thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT}
+proc Overview_launchExpTimeout { exp_path datestamp datestamp_hour is_new_thread } {
+
+   ::log::log notice "Overview_launchExpTimeout exp_path:${exp_path} datestamp: ${datestamp}"
+
+   Overview_cancelLaunchExp ${exp_path} ${datestamp} ${is_new_thread}
+   Overview_launchExpFlow ${exp_path} ${datestamp} ${datestamp_hour}
+   ::log::log notice "Overview_launchExpTimeout relaunching exp_path:${exp_path} datestamp: ${datestamp}"
+   ::log::log notice "Overview_launchExpTimeout exp_path:${exp_path} datestamp: ${datestamp} DONE"
+}
+
+proc Overview_cancelLaunchExp { exp_path datestamp is_new_thread } {
+   global OVERVIEW_LAUNCH_EXP_AFTER_ID
+   global LAUNCH_XFLOW_MUTEXT
+   ::log::log notice "Overview_cancelLaunchExp exp_path:${exp_path} datestamp:${datestamp}"
+
+   set topLevelWindow .pd
+   # SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
+   catch { after cancel ${OVERVIEW_LAUNCH_EXP_AFTER_ID} }
+   catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
+   catch { grab release ${topLevelWindow} }
+   catch { destroy  ${topLevelWindow} }
+   if { ${is_new_thread} == true } {
+       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
+       Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
+   }
 }
 
 # the end time happened prior to the x origin time,
@@ -1444,7 +1478,8 @@ proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
 proc Overview_releaseLoggerThread { exp_thread_id exp_path datestamp } {
    if { ${exp_thread_id} != "" } {
       ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp}"
-      ::thread::send -async ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
+      # ::thread::send -async ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
+      ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
       if { [SharedData_getMiscData STARTUP_DONE] == false } {
          ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
       }
