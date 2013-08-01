@@ -287,7 +287,7 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
          }
             # 1 - first we take care of setting the node status
             if { [string tolower ${_type}] == "init" } {
-               if { ${nodeType} == "loop" } {
+               if { ${nodeType} == "loop" || ${nodeType} == "npass_task" } {
                   if { ${_loopExt} != "" } {
                      SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} 1
                   } else {

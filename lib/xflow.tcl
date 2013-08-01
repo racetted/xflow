@@ -711,7 +711,7 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
 
       if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
          # add the datestamp so the monitor does not try to launch the xflow again
-         LogMonitor_addOneExpDatestamp ${exp_path} ${newDatestamp}
+         LogMonitor_addOneExpDatestamp ${exp_path} ${seqDatestamp}
       }
       LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
       SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
@@ -1319,7 +1319,7 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
 
    # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback ${exp_path} ${datestamp} $node $canvas ]
-   ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${miscMenu} add command -label "End" -command [list xflow_endNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${miscMenu} add command -label "Abort" -command [list xflow_abortNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
 }
@@ -1559,6 +1559,27 @@ proc xflow_abortCallback { exp_path datestamp node extension canvas } {
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp}  [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
          -n $seqNode -s abort -f continue $seqLoopArgs
       ::log::log notice "${seqExec} -n $seqNode -s abort -f continue $seqLoopArgs (datestamp=${datestamp})"
+   }
+}
+
+proc xflow_initnodeNpassTaskCallback { exp_path datestamp node extension canvas } {
+   if { ${datestamp} == "" } {
+      Utils_raiseError $canvas "node init" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
+
+   if { ${seqLoopArgs} == "-1" } {
+      Utils_raiseError $canvas "Npass_Task init" [xflow_getErroMsg NO_INDEX_SELECT]
+   } else {
+      ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
+         set winTitle "init ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
+         Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+            -n $seqNode -s initnode ${seqLoopArgs}
+         ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
+         ::log::log notice "${seqExec} -n $seqNode -s initnode ${seqLoopArgs} (datestamp=${datestamp})"
    }
 }
 
@@ -2645,11 +2666,12 @@ proc xflow_nodeResourceCallback { exp_path datestamp {name1 ""} {name2 ""} {op "
       if { ! [info exists NODE_RESOURCE_DONE_${exp_path}_${datestamp}] || [set NODE_RESOURCE_DONE_${exp_path}_${datestamp}] == "false" } {
          if { ${exp_path} != "" } {
             set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
-            set destroProgessCmd ""
+            set destroyProgressCmd  ""
             if { [wm state ${toplevelW}] == "normal" } {
+	       puts "xflow_nodeResourceCallback $exp_path $datestamp  progress bar ..."
                set progressW [ProgressDlg .node_res_pd -parent ${toplevelW} -title "Node Display Preferrences" -textvariable nodeResourceText]
                # Utils_positionWindow ${progressW}
-               set destroProgessCmd "destroy ${progressW}"
+               set destroyProgressCmd  "destroy ${progressW}"
             }
 
             set nodeResourceText "Loading node resources ..."
@@ -2659,7 +2681,7 @@ proc xflow_nodeResourceCallback { exp_path datestamp {name1 ""} {name2 ""} {op "
             set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
             xflow_getNodeResources ${exp_path} ${rootNode} ${datestamp} 1
             set NODE_RESOURCE_DONE_${exp_path}_${datestamp} true
-            eval ${destroProgessCmd}
+            eval ${destroyProgressCmd}
             unset nodeResourceText
          }
       }
