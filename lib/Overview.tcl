@@ -1586,6 +1586,7 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
          ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
       }
    }
+   ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
 }
 
 proc Overview_refreshExpLastStatus { exp_path datestamp } {

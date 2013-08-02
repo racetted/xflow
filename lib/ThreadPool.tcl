@@ -6,7 +6,7 @@
 # Each thread can monitor multiple log datestamps.
 # An active log file is one that has been modified within the last hour.
 proc ThreadPool_init { nof_thread } {
-   global PoolId count
+   global PoolId
    set done false
    set count 0
    ::log::log notice "ThreadPool_init(): creating ${nof_thread} threads..."
