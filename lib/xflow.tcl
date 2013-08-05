@@ -1319,9 +1319,9 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
 
    # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback ${exp_path} ${datestamp} $node $canvas ]
-   ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
-   ${miscMenu} add command -label "End" -command [list xflow_endNpasssTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
-   ${miscMenu} add command -label "Abort" -command [list xflow_abortNpasssTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${miscMenu} add command -label "Initnode" -command [list xflow_initnodeNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${miscMenu} add command -label "End" -command [list xflow_endNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${miscMenu} add command -label "Abort" -command [list xflow_abortNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
 }
 
 # returns a list of menu items to be shown in the node history menu
@@ -1379,6 +1379,7 @@ proc xflow_getNodeHistoryOptions {} {
 #                      handle the error properly
 # 
 proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w {raise_no_index_error false}} {
+   set seqLoopArgs ""
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
       set loopIndex ""
       # retrieve index value from widget
@@ -1388,7 +1389,7 @@ proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w {raise_n
          set nptIndex  ""
          if { [winfo exists ${indexListW}] } {
             set nptIndex  [${indexListW} get]
-            if { ${nptIndex} == "latest" } {
+            if { ${nptIndex} == "latest" && ${raise_no_index_error} == true } {
                set seqLoopArgs -1
 	    }
          }
@@ -1405,12 +1406,15 @@ proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w {raise_n
 	    set nptIndex [string range ${extension} ${lastIndex} end]
          }
       }
-      set seqLoopArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
-      if { ${seqLoopArgs} == "-1" } {
-         set seqLoopArgs ""
+
+      if { ${seqLoopArgs} != -1 } {
+         set seqLoopArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
       }
    } else {
       set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
+   }
+   if { ${seqLoopArgs} == "-1" && ${raise_no_index_error} == false } {
+      set seqLoopArgs ""
    }
    return ${seqLoopArgs}
 }
@@ -1453,36 +1457,7 @@ proc xflow_nodeInfoCallback { exp_path datestamp node extension canvas } {
 
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
-   if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
-      set loopIndex ""
-      # retrieve index value from widget
-      if { ${extension} == "" } {
-         set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
-         set nptIndex  ""
-         if { [winfo exists ${indexListW}] } {
-            set nptIndex  [${indexListW} get]
-            ::log::log debug "xflow_nodeInfoCallback nptIndex :$nptIndex "
-         }
-      } else {
-         # npt task could well be within loop nodes... split between loop part and npt part
-         set lastIndex [string last + ${extension}]
-         if { ${lastIndex} == 0 } {
-            # no loop index
-	    set loopIndex ""
-	    set nptIndex ${extension}
-         } else {
-            # split the two
-	    set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	    set nptIndex [string range ${extension} ${lastIndex} end]
-         }
-      }
-      set seqLoopArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
-      if { ${seqLoopArgs} == "-1" } {
-         set seqLoopArgs ""
-      }
-   } else {
-      set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
-   }
+   set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas}]
    set winTitle "Node Info ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
    Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] ${nodeInfoExec} ${winTitle} top -n $seqNode  ${seqLoopArgs}
 }
@@ -1492,36 +1467,8 @@ proc xflow_nodeDepCallback { exp_path datestamp node extension canvas } {
 
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
-   if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
-      set loopIndex ""
-      # retrieve index value from widget
-      if { ${extension} == "" } {
-         set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
-         set nptIndex  ""
-         if { [winfo exists ${indexListW}] } {
-            set nptIndex  [${indexListW} get]
-            ::log::log debug "xflow_nodeDepCallback nptIndex :$nptIndex "
-         }
-      } else {
-         # npt task could well be within loop nodes... split between loop part and npt part
-         set lastIndex [string last + ${extension}]
-         if { ${lastIndex} == 0 } {
-            # no loop index
-	    set loopIndex ""
-	    set nptIndex ${extension}
-         } else {
-            # split the two
-	    set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	    set nptIndex [string range ${extension} ${lastIndex} end]
-         }
-      }
-      set seqLoopArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
-      if { ${seqLoopArgs} == "-1" } {
-         set seqLoopArgs ""
-      }
-   } else {
-      set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
-   }
+   set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas}]
+
    set winTitle "Node Dependencies ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
    Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] ${nodeInfoExec} ${winTitle} top -n $seqNode  ${seqLoopArgs} -f dep
 }
@@ -1615,101 +1562,66 @@ proc xflow_abortCallback { exp_path datestamp node extension canvas } {
    }
 }
 
-proc xflow_endNpasssTaskCallback { exp_path datestamp node extension canvas } {
+proc xflow_initnodeNpassTaskCallback { exp_path datestamp node extension canvas } {
+   if { ${datestamp} == "" } {
+      Utils_raiseError $canvas "node init" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
+   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
+
+   if { ${seqLoopArgs} == "-1" } {
+      Utils_raiseError $canvas "Npass_Task init" [xflow_getErroMsg NO_INDEX_SELECT]
+   } else {
+      ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
+         set winTitle "init ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
+         Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+            -n $seqNode -s initnode ${seqLoopArgs}
+         ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
+         ::log::log notice "${seqExec} -n $seqNode -s initnode ${seqLoopArgs} (datestamp=${datestamp})"
+   }
+}
+
+proc xflow_endNpassTaskCallback { exp_path datestamp node extension canvas } {
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
 
-   set loopIndex ""
-   # retrieve index value from widget
-   if { ${extension} == "" } {
-      set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
-      set nptIndex  ""
-      if { [winfo exists ${indexListW}] } {
-         set nptIndex  [${indexListW} get]
-         ::log::log debug "xflow_endNpasssTaskCallback nptIndex :$nptIndex "
-      }
-   } else {
-      # npt task could well be within loop nodes... split between loop part and npt part
-      set lastIndex [string last + ${extension}]
-      if { ${lastIndex} == 0 } {
-         # no loop index
-	 set loopIndex ""
-	 set nptIndex ${extension}
-      } else {
-         # split the two
-	 set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	 set nptIndex [string range ${extension} ${lastIndex} end]
-      }
-   }
-
-   if { ${nptIndex} == "latest" } {
+   if { ${seqLoopArgs} == "-1" } {
       Utils_raiseError $canvas "Npass_Task end" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
-      set seqNpassTaskArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
-   
-      if { $seqNpassTaskArgs == "-1" } {
-         Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
-      } else {
-         ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
-         set winTitle "end ${seqNode} ${seqNpassTaskArgs} - Exp=${exp_path}"
+      ::log::log debug "xflow_endNpassTaskCallback ${seqLoopArgs}"
+         set winTitle "end ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
          Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
-            -n $seqNode -s end $seqNpassTaskArgs
-         ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
-         ::log::log notice "${seqExec} -n $seqNode -s end $seqNpassTaskArgs (datestamp=${datestamp})"
-      }
+            -n $seqNode -s end ${seqLoopArgs}
+         ::log::log debug "xflow_endNpassTaskCallback ${seqLoopArgs}"
+         ::log::log notice "${seqExec} -n $seqNode -s end ${seqLoopArgs} (datestamp=${datestamp})"
    }
 }
 
-proc xflow_abortNpasssTaskCallback { exp_path datestamp node extension canvas } {
+proc xflow_abortNpassTaskCallback { exp_path datestamp node extension canvas } {
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
 
-   set loopIndex ""
-   # retrieve index value from widget
-   if { ${extension} == "" } {
-      set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
-      set nptIndex  ""
-      if { [winfo exists ${indexListW}] } {
-         set nptIndex  [${indexListW} get]
-         ::log::log debug "xflow_abortNpasssTaskCallback nptIndex :$nptIndex "
-      }
+   if { ${seqLoopArgs} == "-1" } {
+      Utils_raiseError $canvas "Npass_Task abort" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
-      # npt task could well be within loop nodes... split between loop part and npt part
-      set lastIndex [string last + ${extension}]
-      if { ${lastIndex} == 0 } {
-         # no loop index
-	 set loopIndex ""
-	 set nptIndex ${extension}
-      } else {
-         # split the two
-	 set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	 set nptIndex [string range ${extension} ${lastIndex} end]
-      }
-   }
-
-   if { ${nptIndex} == "latest" } {
-      Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
-   } else {
-      set seqNpassTaskArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
-   
-      if { $seqNpassTaskArgs == "-1" } {
-         Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
-      } else {
-         ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
-         set winTitle "submit ${seqNode} ${seqNpassTaskArgs} - Exp=${exp_path}"
+      ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
+         set winTitle "abort ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
          Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
-            -n $seqNode -s abort $seqNpassTaskArgs
-         ::log::log debug "xflow_abortNpasssTaskCallback $seqNpassTaskArgs"
-         ::log::log notice "${seqExec} -n $seqNode -s abort $seqNpassTaskArgs (datestamp=${datestamp})"
-      }
+            -n $seqNode -s abort ${seqLoopArgs}
+         ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
+         ::log::log notice "${seqExec} -n $seqNode -s abort ${seqLoopArgs} (datestamp=${datestamp})"
    }
 }
 
@@ -2227,43 +2139,15 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node extension canvas  f
    set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
-   set loopIndex ""
-   # retrieve index value from widget
-   if { ${extension} == "" } {
-      set indexListW [::DrawUtils::getIndexWidgetName $node $canvas]
-      set nptIndex  ""
-      if { [winfo exists ${indexListW}] } {
-         set nptIndex  [${indexListW} get]
-         ::log::log debug "xflow_submitNpassTaskCallback nptIndex :$nptIndex "
-      }
-   } else {
-      # npt task could well be within loop nodes... split between loop part and npt part
-      set lastIndex [string last + ${extension}]
-      if { ${lastIndex} == 0 } {
-         # no loop index
-	 set loopIndex ""
-	 set nptIndex ${extension}
-      } else {
-         # split the two
-	 set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	 set nptIndex [string range ${extension} ${lastIndex} end]
-      }
-   }
-   if { ${nptIndex} == "latest" } {
+   set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
+
+   if { ${seqLoopArgs} == "-1" } {
       Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
    } else {
-      ::log::log debug "xflow_submitNpassTaskCallback SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]"
-      set seqNpassTaskArgs [SharedFlowNode_getNptArgs ${exp_path} ${node} ${datestamp} ${loopIndex} ${nptIndex}]
-   
-      if { $seqNpassTaskArgs == "-1" } {
-         Utils_raiseError $canvas "Npass_Task submit" [xflow_getErroMsg NO_INDEX_SELECT]
-      } else {
-         ::log::log debug "xflow_submitNpassTaskCallback $seqNpassTaskArgs"
-         set winTitle "submit ${seqNode} ${seqNpassTaskArgs} - Exp=${exp_path}"
-         Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
-            -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqNpassTaskArgs
-
-      }
+      ::log::log debug "xflow_submitNpassTaskCallback ${seqLoopArgs}"
+      set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
+      Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+         -n $seqNode -s submit -f $flow ${ignoreDepFlag} ${seqLoopArgs}
    }
 }
 
@@ -2551,16 +2435,16 @@ proc xflow_abortListingCallback { exp_path datestamp node extension canvas {full
 # listbox. It redraws the flow starting from the selected widget
 proc xflow_indexedNodeSelectionCallback { exp_path node datestamp canvas combobox_w} {
    ::log::log debug "xflow_indexedNodeSelectionCallback ${exp_path} node:${node} datestamp:${datestamp} canvas:${canvas} $combobox_w"
-
    set member [${combobox_w} get]
 
    if { $member != "latest" && [lindex $member 0] != "+" } {
       set member +${member}
    }
-   #puts "xflow_indexedNodeSelectionCallback SharedFlowNode_setCurrentExt ${exp_path} ${node} ${datestamp} ${member}"
+
+   # puts "xflow_indexedNodeSelectionCallback SharedFlowNode_setCurrentExt ${exp_path} ${node} ${datestamp} ${member}"
    SharedFlowNode_setCurrentExt ${exp_path} ${node} ${datestamp} ${member}
 
-   #puts "xflow_indexedNodeSelectionCallback xflow_redrawNodes ${exp_path} ${datestamp} ${node} ${canvas}"
+   # puts "xflow_indexedNodeSelectionCallback xflow_redrawNodes ${exp_path} ${datestamp} ${node} ${canvas}"
    xflow_redrawNodes ${exp_path} ${datestamp} ${node} ${canvas}
 }
 
@@ -2782,11 +2666,12 @@ proc xflow_nodeResourceCallback { exp_path datestamp {name1 ""} {name2 ""} {op "
       if { ! [info exists NODE_RESOURCE_DONE_${exp_path}_${datestamp}] || [set NODE_RESOURCE_DONE_${exp_path}_${datestamp}] == "false" } {
          if { ${exp_path} != "" } {
             set toplevelW [xflow_getToplevel ${exp_path} ${datestamp}]
-            set destroProgessCmd ""
+            set destroyProgressCmd  ""
             if { [wm state ${toplevelW}] == "normal" } {
+	       puts "xflow_nodeResourceCallback $exp_path $datestamp  progress bar ..."
                set progressW [ProgressDlg .node_res_pd -parent ${toplevelW} -title "Node Display Preferrences" -textvariable nodeResourceText]
                # Utils_positionWindow ${progressW}
-               set destroProgessCmd "destroy ${progressW}"
+               set destroyProgressCmd  "destroy ${progressW}"
             }
 
             set nodeResourceText "Loading node resources ..."
@@ -2796,7 +2681,7 @@ proc xflow_nodeResourceCallback { exp_path datestamp {name1 ""} {name2 ""} {op "
             set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
             xflow_getNodeResources ${exp_path} ${rootNode} ${datestamp} 1
             set NODE_RESOURCE_DONE_${exp_path}_${datestamp} true
-            eval ${destroProgessCmd}
+            eval ${destroyProgressCmd}
             unset nodeResourceText
          }
       }

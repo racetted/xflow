@@ -297,8 +297,8 @@ proc Utils_getDatestamp { datestamp_hour delta_day } {
 
 #returns day of week from Sakamoto's algorithm
 proc Utils_getDayOfWeekFromDatestamp { _datestamp } {
-    set year [string range ${_datestamp} 0 3]
-    set month [string range ${_datestamp} 4 5]
+    set year [string trimleft [string range ${_datestamp} 0 3] 0]
+    set month [string trimleft [string range ${_datestamp} 4 5] 0]
     set day [string trimleft [string range ${_datestamp} 6 7] 0]
     # Sakamoto's algorithm for day of week
     set timelist { 0 3 2 5 0 3 5 1 4 6 2 4 }

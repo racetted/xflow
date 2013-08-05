@@ -41,6 +41,7 @@ proc MsgCenter_addFileMenu { parent } {
 }
 
 proc MsgCenter_addPrefMenu { parent } {
+   global SHOW_ABORT_TYPE SHOW_EVENT_TYPE SHOW_INFO_TYPE
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
 
@@ -53,12 +54,36 @@ proc MsgCenter_addPrefMenu { parent } {
    menu $msgTypeMenuW -tearoff 0
    $msgTypeMenuW add checkbutton -label "Abort" -variable SHOW_ABORT_TYPE \
       -onvalue true -offvalue false -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
+   trace add variable SHOW_ABORT_TYPE write [list MsgCenter_filterCallback ${parent} Abort]
    $msgTypeMenuW add checkbutton -label "Event" -variable SHOW_EVENT_TYPE \
       -onvalue true -offvalue false -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
+   trace add variable SHOW_EVENT_TYPE write [list MsgCenter_filterCallback ${parent} Event]
    $msgTypeMenuW add checkbutton -label "Info" -variable SHOW_INFO_TYPE \
       -onvalue true -offvalue false -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
+   trace add variable SHOW_INFO_TYPE write [list MsgCenter_filterCallback ${parent} Info]
 
    pack $menuButtonW -side left -padx 2
+}
+
+# adds a confirmation for message type filtering out
+proc MsgCenter_filterCallback { _sourceW _messageType {_name1 ""} {_name2 ""} {_op ""} } {
+   set msgTypeToVariableMapping { Abort SHOW_ABORT_TYPE Event SHOW_EVENT_TYPE Info SHOW_INFO_TYPE }
+
+   set globalVarName [string map ${msgTypeToVariableMapping} ${_messageType}]
+   if { ${globalVarName} != "" } {
+      global ${globalVarName}
+      if { [info exists ${globalVarName}] && [set ${globalVarName}] == false } {
+         set answer [tk_messageBox -parent ${_sourceW} -type okcancel \
+             -title "Message Center Notification" -icon warning \
+	     -message "Are you sure you want to filter out all [string toupper ${_messageType}] messages?" ]
+
+         if { $answer == "cancel" } {
+	    set ${globalVarName} true
+            return
+         }
+      }
+      ::log::log notice "Message Center message type filter change: type=${_messageType} value:[set ${globalVarName}]"
+   }
 }
 
 proc MsgCenter_addHelpMenu { parent } {
@@ -160,24 +185,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
          ::log::log debug "MsgCenter_submitNodes expPath:${expPath} node:${node} datestamp:${datestamp} ext:${extension}"
 
          set flowNode [SharedData_getExpNodeMapping ${expPath} ${datestamp} ${node}]
-         if { [SharedFlowNode_getNodeType ${expPath} ${flowNode} ${datestamp}] == "npass_task" } {
-            set loopIndex ""
-	    set nptIndex ""
-            # npt task could well be within loop nodes... split between loop part and npt part
-            set lastIndex [string last + ${extension}]
-            if { ${lastIndex} == 0 } {
-               # no loop index
-	       set nptIndex ${extension}
-            } else {
-               # split the two
-	       set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	       set nptIndex [string range ${extension} ${lastIndex} end]
-            }
-            ::log::log debug "MsgCenter_submitNodes SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}"
-            set seqLoopArgs [SharedFlowNode_getNptArgs ${expPath} ${flowNode} ${datestamp} ${loopIndex} ${nptIndex}]
-         } else {
-            set seqLoopArgs [SharedFlowNode_getLoopArgs ${expPath} ${flowNode} ${datestamp} ${extension}]
-         }
+	 set seqLoopArgs [xflow_getSeqLoopArgs ${expPath} ${datestamp} ${flowNode} ${extension} ${table_widget} true]
 
          ::log::log debug "MsgCenter_submitNodes ${seqExec} -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
          set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
@@ -202,7 +210,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
 
       set einfo $::errorInfo
       set ecode $::errorCode
-      Utils_normalCursor [info toplevel ${table_widget}]
+      Utils_normalCursor [winfo toplevel ${table_widget}]
       # report the error with original details
       return -code ${result} \
          -errorcode ${ecode} \
