@@ -103,9 +103,7 @@ proc TextEditor_createWindow {title tmpfile {position top} {calling_widget .}} {
 
    wm minsize $w 500 100
    wm title $w $title
-   set posx [winfo rootx $calling_widget]
-   set posy [expr [winfo rooty $calling_widget] + [winfo height $calling_widget]]
-   wm geometry $w +${posx}+${posy}
+   Utils_positionWindow ${w} ${calling_widget}
    
    # menubar widget
    frame $w.mbar -relief raised -bd 2
