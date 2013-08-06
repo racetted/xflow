@@ -163,7 +163,6 @@ proc xflow_maestroCmds { parent } {
 
 proc xflow_createToolbar { exp_path datestamp parent } {
    ::log::log debug "xflow_createToolbar exp_path:${exp_path} datestamp:${datestamp} parent:${parent} "
-   global MSG_CENTER_THREAD_ID
 
    set msgCenterW [xflow_getWidgetName ${exp_path} ${datestamp} msgcenter_button]
    set nodeKillW [xflow_getWidgetName ${exp_path} ${datestamp} nodekill_button]
@@ -194,9 +193,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    #image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
    image create photo ${parent}.shell_img -file ${imageDir}/terminal.ppm
 
-   button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command {
-      thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
-   } -relief flat
+   button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command MsgCenter_show -relief flat
    ::tooltip::tooltip ${msgCenterW} "Show Message Center."
 
    button ${nodeKillW} -image ${parent}.node_kill_img -command [list xflow_nodeKillDisplay ${exp_path} ${datestamp} ${parent} ] -relief flat
@@ -671,7 +668,6 @@ proc xflow_initDatestampEntry { exp_path datestamp } {
 # - Resets flow node status
 # - redraw the flow
 proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
-   global MSG_CENTER_THREAD_ID
    ::log::log debug "xflow_setDatestampCallback exp_path:$exp_path datestamp:$exp_path parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
    set dateEntry [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
@@ -714,7 +710,7 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
          LogMonitor_addOneExpDatestamp ${exp_path} ${seqDatestamp}
       }
       LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
-      SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
+      # SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
 
       ::log::log debug "xflow_setDatestampCallback exp_path:${exp_path} seqDatestamp:${seqDatestamp}"
 
@@ -731,7 +727,7 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
 	 vwait LogReaderDone
          SharedData_setExpThreadId ${exp_path} ${seqDatestamp} ${expThreadId}
       } else {
-         thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_clearAllMessages"
+	 MsgCenter_clearAllMessages
          SharedData_setExpThreadId ${exp_path} ${seqDatestamp} [thread::id]
          SharedData_setMiscData STARTUP_DONE false
          LogReader_startExpLogReader ${exp_path} ${seqDatestamp} no_overview
@@ -2541,7 +2537,7 @@ proc xflow_refreshFlow { exp_path datestamp } {
 
       SharedFlowNode_clearAllNodes ${exp_path} ${datestamp}
 
-      SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
+      # SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
       if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
          LogReader_startExpLogReader ${exp_path} ${datestamp} no_overview
       } else {
@@ -3486,7 +3482,7 @@ proc out {} {
 }
 
 proc xflow_parseCmdOptions {} {
-   global env argv XFLOW_STANDALONE AUTO_MSG_DISPLAY MSG_CENTER_THREAD_ID APP_LOGFILE
+   global env argv XFLOW_STANDALONE AUTO_MSG_DISPLAY APP_LOGFILE
    set rcFile ""
    if { [info exists argv] } {
       set options {
@@ -3549,9 +3545,7 @@ proc xflow_parseCmdOptions {} {
       SharedData_setMiscData STARTUP_DONE true
       puts "xflow_displayFlow ${expPath} ${newestDatestamp}"
       xflow_displayFlow ${expPath} ${newestDatestamp} true
-      puts "Sending MsgCenterThread_startupDone..."
-      thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone" SendDone
-      vwait SendDone
+      MsgCenter_startupDone
       puts "LogReader_readMonitorDatestamps..."
       # start monitoring datestamps for new log entries
       LogReader_readMonitorDatestamps
@@ -3672,7 +3666,7 @@ proc xflow_msgCenterThreadReady {} {
 proc xflow_init { {exp_path ""} } {
    global env DEBUG_TRACE XFLOW_STANDALONE
    global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF
-   global SHADOW_STATUS MSG_CENTER_THREAD_ID
+   global SHADOW_STATUS
    global SESSION_TMPDIR FLOW_SCALE
 
    set SHADOW_STATUS 0
@@ -3696,12 +3690,13 @@ proc xflow_init { {exp_path ""} } {
 
       set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
       set NODE_DISPLAY_PREF  [SharedData_getMiscData NODE_DISPLAY_PREF]
-      set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
-      vwait MSG_CENTER_READY
+      # vwait MSG_CENTER_READY
 
       puts "xflow_init() Utils_logInit..."
       Utils_logInit
       puts "xflow_init() Utils_logInit done" 
+
+      MsgCenter_init
    }
 
    xflow_setWidgetNames 

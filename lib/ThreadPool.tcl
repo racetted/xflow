@@ -37,6 +37,7 @@ proc ThreadPool_createThread { {is_init false} } {
       source $env(SEQ_XFLOW_BIN)/../lib/SharedData.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/SharedFlowNode.tcl
 
+      Utils_logInit
       thread::wait
    }]
 
@@ -69,9 +70,11 @@ proc ThreadPool_getThread { {wait false} } {
       if { ${foundId} == "" } { 
          if { ${wait} == true } {
             ::log::log notice "ThreadPool_getThread(): all threads are busy.. waiting for one"
+            ::log::log debug "ThreadPool_getThread(): all threads are busy.. waiting for one"
             vwait THREAD_RELEASE_EVENT
             ::log::log notice "ThreadPool_getThread(): got new thread"
          } else {
+            ::log::log debug "ThreadPool_getThread(): all threads are busy.. creating new one"
             ::log::log notice "ThreadPool_getThread(): all threads are busy.. creating new one"
             set threadId [ThreadPool_createThread]
          }

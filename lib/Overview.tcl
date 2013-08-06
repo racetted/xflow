@@ -6,6 +6,8 @@ namespace import ::tooltip::tooltip
 namespace import ::struct::record::record
 package require keynav
 package require log
+package require img::png
+package require autoscroll
 
 global env
 if { ! [info exists env(SEQ_XFLOW_BIN) ] } {
@@ -528,11 +530,7 @@ proc Overview_processEndStatus { canvas exp_path datestamp {status end} } {
 }
 
 proc Overview_cleanExpMsgDatestamp { exp_path datestamp } {
-   global MSG_CENTER_THREAD_ID
-   if { ${MSG_CENTER_THREAD_ID} != "" } {
-      puts "Overview_cleanExpMsgDatestamp $exp_path $datestamp"
-      catch { thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_removeDatestamp ${exp_path} ${datestamp}" }
-   }
+   MsgCenter_removeMessages ${exp_path} ${datestamp}
 }
 
 # this function process the exp box logic when the root experiment node
@@ -1366,7 +1364,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
 
       ::log::log notice "Overview_launchExpFlow launching progress bar..."
       # set a 60 seconds timeout to kill the dialog in case it fails to grab the focus
-      set OVERVIEW_LAUNCH_EXP_AFTER_ID [after 20000 [list Overview_launchExpTimeout ${exp_path} ${datestamp} ${datestamp_hour} ${isNewThread}]]
+      set OVERVIEW_LAUNCH_EXP_AFTER_ID [after 60000 [list Overview_launchExpTimeout ${exp_path} ${datestamp} ${datestamp_hour} ${isNewThread}]]
       set progressW .pd
       if { ! [winfo exists ${progressW}] } {
          ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT \
@@ -1383,7 +1381,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
 
          puts "Overview_launchExpFlow force datestamp offset to 0"
          # force reread of log file from start
-         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
+         # SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
              ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
@@ -1443,7 +1441,6 @@ proc Overview_cancelLaunchExp { exp_path datestamp is_new_thread } {
    ::log::log notice "Overview_cancelLaunchExp exp_path:${exp_path} datestamp:${datestamp}"
 
    set topLevelWindow .pd
-   # SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
    catch { after cancel ${OVERVIEW_LAUNCH_EXP_AFTER_ID} }
    catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
    catch { grab release ${topLevelWindow} }
@@ -1701,7 +1698,7 @@ proc Overview_readExpLogs {} {
    set keyList [array names EXP_THREAD_STARTUP_DONE]
    foreach key ${keyList} {
       foreach {exp_path datestamp} [split $EXP_THREAD_STARTUP_DONE($key)] {}
-      puts "Overview_readExpLogs value:[split $EXP_THREAD_STARTUP_DONE($key)] exp_path:${exp_path} datestamp:${datestamp}"
+      ::log::log debug "Overview_readExpLogs value:[split $EXP_THREAD_STARTUP_DONE($key)] exp_path:${exp_path} datestamp:${datestamp}"
       if { [Utils_validateRealDatestamp ${datestamp}] == true } {
          # get a thread from the pool... at startup the call waits if all threads are busy
 	 # processing other logs
@@ -1709,6 +1706,7 @@ proc Overview_readExpLogs {} {
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
          OverviewExpStatus_addStatusDatestamp ${exp_path} ${datestamp}
 
+         ::log::log debug "Overview_readExpLogs  thread::send -async ${expThreadId} \"LogReader_startExpLogReader ${exp_path} ${datestamp} all true\""
          thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
       }
    }
@@ -2275,7 +2273,7 @@ proc Overview_readExperiments {} {
 }
 
 proc Overview_quit {} {
-   global TimeAfterId MSG_CENTER_THREAD_ID SESSION_TMPDIR
+   global TimeAfterId SESSION_TMPDIR
    ::log::log debug "Overview_quit"
    if { [info exists TimeAfterId] } {
       after cancel $TimeAfterId
@@ -2506,7 +2504,6 @@ proc Overview_flowScaleCallback {} {
 }
 
 proc Overview_createToolbar { _toplevelW } {
-   global MSG_CENTER_THREAD_ID
    set toolbarW ${_toplevelW}.toolbar
    set mesgCenterW ${toolbarW}.button_msgcenter
    set closeW ${toolbarW}.button_close
@@ -2519,9 +2516,7 @@ proc Overview_createToolbar { _toplevelW } {
    image create photo ${toolbarW}.msg_center_new_img -file ${imageDir}/open_mail_new.gif
    image create photo ${toolbarW}.color_legend_img -file ${imageDir}/color_legend.gif
 
-   button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command {
-      thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_showWindow"
-   } -relief flat
+   button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command MsgCenter_show -relief flat
 
    ::tooltip::tooltip ${mesgCenterW} "Show Message Center."
 
@@ -2705,7 +2700,7 @@ proc Overview_soundbell {} {
 }
 
 proc Overview_main {} {
-   global MSG_CENTER_THREAD_ID env
+   global env
    global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
 
@@ -2725,7 +2720,8 @@ proc Overview_main {} {
       ::log::log notice "xflow_overview Application startup user=$env(USER) real user:[SharedData_getMiscData REAL_USER] host:[exec hostname]"
    }
 
-   set MSG_CENTER_THREAD_ID [MsgCenter_getThread]
+   MsgCenter_init
+
    set topOverview [Overview_getToplevel]
    set topCanvas [Overview_getCanvas]
    toplevel ${topOverview}
@@ -2765,7 +2761,7 @@ proc Overview_main {} {
    Overview_GridAdvanceHour
 
    SharedData_setMiscData STARTUP_DONE true
-   thread::send -async ${MSG_CENTER_THREAD_ID} "MsgCenterThread_startupDone"
+   MsgCenter_startupDone
 
    wm geometry ${topOverview} =1500x600
    wm deiconify ${topOverview}
