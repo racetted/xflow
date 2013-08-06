@@ -51,11 +51,14 @@ proc LogReader_readMonitorDatestamps {} {
 # read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
 proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup false} } {
    global MSG_CENTER_THREAD_ID
-
-   if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
-      puts "LogReader_startExpLogReader Utils_logInit $exp_path $datestamp"
-      Utils_logInit
-      set MSG_CENTER_THREAD_ID [SharedData_getMsgCenterThreadId]
+   ::log::log debug "LogReader_startExpLogReader  $exp_path $datestamp"
+   if { ! [info exists MSG_CENTER_THREAD_ID] } {
+      if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
+         # Utils_logInit
+         set MSG_CENTER_THREAD_ID [SharedData_getMiscData OVERVIEW_THREAD_ID]
+      } else {
+         set MSG_CENTER_THREAD_ID [thread::id]
+      }
    }
 
    if [ catch { 
@@ -71,6 +74,9 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
    }
 
    if { ${datestamp} != "" } {
+      # force reread from beginning
+      SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
+
       # first do a full first pass read of the log file
       LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} first pass read DONE."
@@ -233,7 +239,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
                set msgNode ${node}
             }
             thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenterThread_newMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} \"${msg}\""
+               "MsgCenter_processNewMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} \"${msg}\""
          }
       }
 

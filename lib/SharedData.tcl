@@ -457,19 +457,6 @@ proc SharedData_initColors {} {
    }
 }
 
-proc SharedData_getMsgCenterThreadId {} {
-   if { [tsv::exists threads MSG_CENTER] } {
-      set value [tsv::set threads MSG_CENTER]
-   } else {
-      set value ""
-   }
-   return ${value}
-}
-
-proc SharedData_setMsgCenterThreadId { thread_id } {
-   tsv::set threads MSG_CENTER ${thread_id}
-}
-
 proc SharedData_getRippleStatusMap { status } {
    global RIPPLE_STATUS_MAP
    if { ! [info exists RIPPLE_STATUS_MAP] } {
