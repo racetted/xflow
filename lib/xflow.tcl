@@ -1518,7 +1518,7 @@ proc xflow_initnodeCallback { exp_path datestamp node extension canvas  } {
 # It sends an initbranch signal to the maestro sequencer for the
 # current loop node. It deletes all sequencer related node status files for
 # the current loop node and all its child iteration nodes.
-proc xflow_initbranchLoopCallback { exp_path datestamp node extension canvas  } {
+proc xflow_initbranchLoopCallback { exp_path datestamp node canvas  } {
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "init branch" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
