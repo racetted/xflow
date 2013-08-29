@@ -568,61 +568,57 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig
 
 # add to statistic info list... calculation of exec time
 proc SharedFlowNode_setStatInfo { exp_path node datestamp member status timestamp } {
-   # puts "node:$node member:$member status:$status"
    array set statsinfo {}
-      
-   # puts "node:$node member:$member status:$status here"
+   # puts "SharedFlowNode_setStatInfo node:$node member:$member status:$status timestamp:$timestamp "
+
    catch { array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info] }
 
-   # puts "node:$node member:$member get statsinfo:[array get statsinfo]"
-   if { [info exists statsinfo($member)] } {
-      set memberInfoList $statsinfo($member)
-      set foundIndex [lsearch ${memberInfoList} ${status}]
+   if { ${status} != "submit" && [info exists statsinfo($member)] } {
+         set memberInfoList $statsinfo($member)
+         set foundIndex [lsearch ${memberInfoList} ${status}]
 
-      # for containers, we keep the first endx, if an endx is found, don't save the new one
-      if { ! [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] &&
-             ${foundIndex} != -1 } {
-         # puts "node:$node member:$member container endx already found: not updating..."
-	 return
-      }
+         # for containers, we keep the first endx, if an endx is found, don't save the new one
+         if { ! [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] 
+              && ${status} == "endx" && ${foundIndex} != -1 } {
+            # puts "SharedFlowNode_setStatInfo node:$node member:$member container endx already found: not updating..."
+            # puts "SharedFlowNode_setStatInfo node:$node member:$member $memberInfoList"
+	    return
+         }
 
-      if { ${foundIndex} == -1 } {
-         # status is new
-	 # puts "node:$node member:$member new status:$status"
-         lappend memberInfoList ${status} ${timestamp}
-      } else {
-         if { ${status} == "submit" } {
-	    # flush previous data
-	    array set statsinfo {}
-	 }
-         # update with new info
-	 switch ${status} {
-	    begin {
-	       # delete any abort or end status
-	       set abortIndexes [ lreverse [lsearch -all ${memberInfoList} abort]]
-	       # puts "node:$node member:$member abortIndexes:$abortIndexes"
-	       foreach deleteIndex ${abortIndexes} {
-	          set memberInfoList [lreplace  ${memberInfoList} ${deleteIndex} ${deleteIndex}]
+         if { ${foundIndex} == -1 } {
+            # status is new, store the new status
+	    # puts "SharedFlowNode_setStatInfo node:$node member:$member new status:$status"
+            lappend memberInfoList ${status} ${timestamp}
+         } else {
+            # update status with new info
+	    switch ${status} {
+	       begin {
+	          # delete any abort or end status
+	          set abortIndexes [ lreverse [lsearch -all ${memberInfoList} abort]]
+	          # puts "node:$node member:$member abortIndexes:$abortIndexes"
+	          foreach deleteIndex ${abortIndexes} {
+	             set memberInfoList [lreplace  ${memberInfoList} ${deleteIndex} ${deleteIndex}]
+	          }
+	          set endIndexes [lreverse [lsearch -all ${memberInfoList} end]]
+	          # puts "node:$node member:$member endIndexes:$endIndexes"
+	          foreach deleteIndex ${endIndexes} {
+	             set memberInfoList [lreplace  ${memberInfoList} ${deleteIndex} ${deleteIndex}]
+	          }
 	       }
-	       set endIndexes [lreverse [lsearch -all ${memberInfoList} end]]
-	       # puts "node:$node member:$member endIndexes:$endIndexes"
-	       foreach deleteIndex ${endIndexes} {
-	          set memberInfoList [lreplace  ${memberInfoList} ${deleteIndex} ${deleteIndex}]
+	       default {
 	       }
 	    }
-	    default {
-	    }
-	 }
-         set memberInfoList [lreplace ${memberInfoList} ${foundIndex} [expr ${foundIndex} + 1] ${status} ${timestamp}]
-      }
-      set statsinfo($member) ${memberInfoList}
-      # puts "node:$node member:$member memberInfoList:$memberInfoList"
+            set memberInfoList [lreplace ${memberInfoList} ${foundIndex} [expr ${foundIndex} + 1] ${status} ${timestamp}]
+         }
+         set statsinfo($member) ${memberInfoList}
+         # puts "node:$node member:$member memberInfoList:$memberInfoList"
    } else {
+      # puts "SharedFlowNode_setStatInfo node:$node member:$member initialising..."
       # initialise status
+      array set statsinfo {}
       set statsinfo($member) [list ${status} ${timestamp}]
-      # puts "node:$node member:$member set [list ${status} ${timestamp}]"
    }
-   # puts "node:$node member:$member set statsinfo:[array get statsinfo]"
+   # puts "SharedFlowNode_setStatInfo node:$node member:$member set statsinfo:[array get statsinfo]"
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info "[array get statsinfo]"
 }
 
