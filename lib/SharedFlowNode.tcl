@@ -339,7 +339,15 @@ proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } 
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
       # the dislpays_infos is only iniated once throught he init
       tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos {}
+   } else {
+      # delete all member keys
+      foreach key [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] {
+         if { [string first latest_member_ ${key}] != -1 } {
+            tsv::keyldel SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} ${key}
+         }
+      }
    }
+
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses {} current latest
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member ""
 
@@ -419,9 +427,34 @@ proc SharedFlowNode_setCurrentExt { exp_path node datestamp value } {
 proc SharedFlowNode_getLatestExt { exp_path node datestamp } {
    set value ""
    if { [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
-      set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member]
+      set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
+
+      if { ${nodeType} == "npass_task" } {
+         set parentExt [SharedFlowNode_getParentLoopExt ${exp_path} ${node} ${datestamp}]
+	 if { ${parentExt} != "" && ${parentExt} != "latest" } {
+	      set latestMemberKey latest_member_${parentExt}
+              if { [SharedFlowNode_isRuntimeKeyExist ${exp_path} ${node} ${datestamp} ${latestMemberKey}] == true }  {
+	         set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} ${latestMemberKey}]
+	      }
+	 } else {
+            set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member]
+	 }
+      } else {
+         set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member]
+      }
    }
    return ${value}
+}
+
+proc SharedFlowNode_isRuntimeKeyExist {  exp_path node datestamp key } {
+   set found false
+   catch {
+      set keys [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}]
+      if { [lsearch -exact ${keys} ${key}] != -1 } {
+         set found true
+      }
+   }
+   return ${found}
 }
 
 # see getMaxExtValue
@@ -464,6 +497,7 @@ proc SharedFlowNode_getMemberStatus { exp_path node datestamp member } {
 # status=end, begin
 # orig_status=end or endx, begin or beginx
 proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig_status timestamp {is_recursive false} } {
+   # puts "SharedFlowNode_setMemberStatus ${exp_path} ${node} ${datestamp} ${member} ${status}"
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
       # puts "SharedFlowNode_setMemberStatus SharedFlowNode_initNodeDatestamp"
       SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp} 
@@ -765,6 +799,8 @@ proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status t
    # how many index separator do I have from the given member
    set nofSeparators [expr [llength [split ${member} +]] - 1]
 
+   set parentLoopExt [SharedFlowNode_getParentLoopExt ${exp_path} ${node} ${datestamp}]
+
    if { ${nofParentLoops} != "" } {
       if { ${nofSeparators} == ${nofParentLoops} && ${status} == "init" } {
          # whole loop iteration
@@ -778,13 +814,26 @@ proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status t
          catch { unset statuses($member) }
          # reset the latest reference if needed
          set latestMember [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} statuses]
+
          if { [string match ${member}+* ${latestMember}] } {
             tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member ""
          }
+
+         set baseExt [SharedFlowNode_getBasePart ${member}]
+	 set latestMemberKey latest_member_${baseExt}
+         if { [SharedFlowNode_isRuntimeKeyExist ${exp_path} ${node} ${datestamp} ${latestMemberKey}] == true }  {
+	    tsv::keyldel SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} ${latestMemberKey}
+	 }
+
       } elseif { [expr ${nofSeparators} > ${nofParentLoops}] } {
          # changing one npt index only
          set statuses($member) "${status} ${timestamp}"
+         set baseExt [SharedFlowNode_getBasePart ${member}]
          tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member $member
+	 if { ${baseExt} != "" } {
+	    set latestMemberKey latest_member_${baseExt}
+            tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} ${latestMemberKey} $member
+	 }
       } elseif { [expr ${nofSeparators} < ${nofParentLoops}] } {
          # not for myself
          return
@@ -1261,36 +1310,6 @@ proc SharedFlowNode_getListingNodeExtension { exp_path current_node datestamp {f
 # sequencer for loop arguments
 # it builds the loop arguments for all loops
 # contained in the node loops attribute
-proc ________SharedFlowNode_getLoopArgs { exp_path node datestamp } {
-   set args ""
-   set count 0
-   set loopList [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}]
-   if { [llength $loopList] > 0 } {
-      foreach loopNode $loopList {
-         set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${loopNode} ${datestamp}]
-         if { ${currentExt} == "latest" } {
-            return ""
-         } else {
-            # remove the + sign before extension
-            set currentExt [string range ${currentExt} 1 end]
-            set nodeName [SharedFlowNode_getName ${exp_path} ${loopNode} ${datestamp}]
-            if { $count == 0 } {
-               set args "-l ${nodeName}=${currentExt}"
-            } else {
-               set args "${args},${nodeName}=${currentExt}"
-            }
-         }
-         incr count
-      }
-   }
-   return $args
-}
-
-
-# returns the input arguments as expected by the
-# sequencer for loop arguments
-# it builds the loop arguments for all loops
-# contained in the node loops attribute
 # 
 # exts sample: +2+4 for outer_loop index +2 and inner loop index +4
 proc SharedFlowNode_getLoopArgs { exp_path node datestamp exts} {
@@ -1393,6 +1412,25 @@ proc SharedFlowNode_getParentLoopArgs { exp_path node datestamp } {
    return $args
 }
 
+# input +2+3 returns +2
+# input +2+3+4 returns +2+3
+# input +2 returns ""
+proc SharedFlowNode_getBasePart { value } {
+   set returnVal ""
+   switch [llength [split ${value} +]] {
+      0 -
+      2 {
+         set returnVal ""
+      }
+
+      default {
+         set returnVal [string range ${value} 0 [expr [string last + ${value}] - 1]]
+      }
+   }
+
+   return ${returnVal}
+}
+
 # this function is used to know whether we should redisplay
 # a node branch when an update to a node is detected from
 # the exp log file. To minimize the number of updates done
@@ -1400,6 +1438,7 @@ proc SharedFlowNode_getParentLoopArgs { exp_path node datestamp } {
 # of nodes are being redrawned. For instance, if you are viewing a loop iteration
 # of 1 and updates are on another iteration, the data is updated but the gui is not
 proc SharedFlowNode_isRefreshNeeded { exp_path flow_node datestamp current_ext } {
+   # puts "SharedFlowNode_isRefreshNeeded $exp_path $flow_node $datestamp current_ext:$current_ext"
    set refreshNeeded true
    set nodeType [SharedFlowNode_getNodeType ${exp_path} ${flow_node} ${datestamp}]
    if { [SharedFlowNode_getLoops ${exp_path} ${flow_node} ${datestamp}] != "" } {
@@ -1409,20 +1448,39 @@ proc SharedFlowNode_isRefreshNeeded { exp_path flow_node datestamp current_ext }
       # nodeExt is the value of the current loop and any parent loop
       set nodeExt [SharedFlowNode_getNodeExtension ${exp_path} ${flow_node} ${datestamp}]
 
-      if { ${nodeType} == "loop" } {
-         # current is the value of current loop listbox selection
-         set currentLoopSelection [SharedFlowNode_getCurrentExt ${exp_path} ${flow_node} ${datestamp}]
-         if { ${parentLoopExt} == "" || ${parentLoopExt} != "latest" } {
-            if { ${currentLoopSelection} != "latest" && ${nodeExt} != ${current_ext} } {
-               # we don't refresh the current update if the user is currently viewing
-               # a specific iteration and the update is not on that iteration
+      switch ${nodeType} {
+         loop {
+            # current is the value of current loop listbox selection
+            set currentLoopSelection [SharedFlowNode_getCurrentExt ${exp_path} ${flow_node} ${datestamp}]
+            if { ${parentLoopExt} == "" || ${parentLoopExt} != "latest" } {
+               if { ${currentLoopSelection} != "latest" && ${nodeExt} != ${current_ext} } {
+                  # we don't refresh the current update if the user is currently viewing
+                  # a specific iteration and the update is not on that iteration
+                  set refreshNeeded false
+               }
+            }
+	 }
+         npass_task {
+            # current is the value of current listbox selection
+            set currentIterationSelection [SharedFlowNode_getCurrentExt ${exp_path} ${flow_node} ${datestamp}]
+            if { ${parentLoopExt} != "latest" && ${currentIterationSelection} == "latest" } {
+	       # parent loop is latest, so only update if npt iteration belongs to parent loop
+	       if { [string first ${parentLoopExt} ${current_ext}] != 0 } {
+                  set refreshNeeded false
+	       }
+	    } elseif { ${parentLoopExt} == "" || ${parentLoopExt} != "latest" } {
+               if { ${currentLoopSelection} != "latest" && ${nodeExt} != ${current_ext} } {
+                  # we don't refresh the current update if the user is currently viewing
+                  # a specific iteration and the update is not on that iteration
+                  set refreshNeeded false
+               }
+            }
+	 }
+         default {
+            # non indexed nodes part of a loop container
+            if { ${parentLoopExt} != "latest" && ${nodeExt} != ${current_ext} } {
                set refreshNeeded false
             }
-         }
-      } else {
-         # non indexed nodes part of a loop container
-         if { ${parentLoopExt} != "latest" && ${nodeExt} != ${current_ext} } {
-            set refreshNeeded false
          }
       }
    }
