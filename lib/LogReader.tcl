@@ -35,7 +35,7 @@ proc LogReader_readMonitorDatestamps {} {
    # puts "LogReader_readMonitorDatestamps called from thread: [thread::id]"
    global READ_LOG_AFTER_ID LogReader_Datestamps
 
-   catch { after cancel [ ${READ_LOG_AFTER_ID} ] }
+   catch { after cancel ${READ_LOG_AFTER_ID} }
 
    foreach { key value } [array get LogReader_Datestamps] {
       # puts "LogReader_readMonitorDatestamps [thread::id] found key:${key} value:${value}"
@@ -45,7 +45,7 @@ proc LogReader_readMonitorDatestamps {} {
       LogReader_readFile ${expPath} ${datestamp} all
    }
 
-   set READ_LOG_AFTER_ID [after 4000 [list LogReader_readMonitorDatestamps]]
+   set READ_LOG_AFTER_ID [after 4000 LogReader_readMonitorDatestamps]
 }
 
 # read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
