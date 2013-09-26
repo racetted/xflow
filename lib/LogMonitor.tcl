@@ -47,6 +47,10 @@ proc LogMonitor_checkNewLogFiles {} {
                if { [Utils_validateRealDatestamp ${seqDatestamp}] == true } {
                   # look see if we have a thread monitoring this log file, if not create one
                   set expThreadId [SharedData_getExpThreadId ${expPath} ${seqDatestamp}]
+
+		  # wake the datestamp in case it is an old one being rerun
+		  OverviewExpStatus_reactivateDatestamp ${expPath} ${seqDatestamp}
+
                   if { ${expThreadId} == "" } {
                      ::log::log notice "LogMonitor_checkNewLogFiles(): getting thread for ${expPath} ${seqDatestamp}"
                      # if there is already a thread for this datestamp, we don't do anything

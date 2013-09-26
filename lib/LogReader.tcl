@@ -78,7 +78,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
       SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
       # first do a full first pass read of the log file
-      LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
+      # LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
+      LogReader_readFile ${exp_path} ${datestamp} ${read_type} false
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} first pass read DONE."
 
       if { [SharedData_getMiscData STARTUP_DONE] == false && [SharedData_getMiscData OVERVIEW_MODE] == true } {
@@ -176,6 +177,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
       # let gui knows that he needs to redraw the flow
       if { ${isOverviewMode} == true } {
          ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
+	 # puts "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
          thread::send -async ${overviewThreadId} "xflow_redrawNodesEvent ${exp_path} ${datestamp}" SendDone
 	 vwait SendDone
          ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp} DONE"
@@ -259,9 +261,13 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
                if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
                   ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
                   ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
+		  # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
+		  # sends the command in async mode to avoid potential deadlock... however the vwait ensures that it waits for the
+		  # command to be finished before going further
                   thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
                      "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\"" SendDone
 		  vwait SendDone
+		  # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\" DONE"
                }
             }
          }
@@ -271,6 +277,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
 }
 
 proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp {_firstRead false}} {
+  #  puts " LogReader_processFlowLine _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} _firstRead:${_firstRead}"
    # node & signal is mandatory to be processed
    # else the line is ignored
    set loopInfoDisplay ""
@@ -341,6 +348,7 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
 # level..
 proc LogReader_updateNodes { exp_path datestamp node } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} 
+   ::log::log debug "LogReader_updateNodes exp_path:${exp_path} datestamp:${datestamp} node=${node}"
    if { ! [info exists LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] } {
       set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} ${node}
    } else {
@@ -377,6 +385,7 @@ proc LogReader_updateNodes { exp_path datestamp node } {
          }
       }
       set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} ${updatedNodeList}
+      ::log::log debug "LogReader_updateNodes exp_path:${exp_path} datestamp:${datestamp} node=${node} DONE"
    }
 
 }

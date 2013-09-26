@@ -43,6 +43,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    global graphHourX graphX graphStartX graphStartY
    global CHECK_EXP_IDLE
 
+
    set currentClock [clock seconds]
    ::log::log debug "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
    ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
@@ -1074,6 +1075,7 @@ proc Overview_isDefaultBoxActive { canvas exp_path datestamp } {
 # if an exp is executing (begin state), this function is called every minute
 # to update the exp status
 proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } } {
+   puts "Overview_updateExpBox exp_path:$exp_path datestamp:$datestamp status:$status time:$timevalue"
    global startEndIconSize
    after cancel [SharedData_getExpOverviewUpdateAfterId ${exp_path} ${datestamp}]
    set continueStatus ""
@@ -1117,6 +1119,8 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
 	 OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}
          # OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp}
          set datestamp [file tail [Overview_getExpBoxTag ${exp_path} ${datestamp} default false]]
+
+	 set continueStatus ""
       } else {
          ${statusProc} ${canvas} ${exp_path} ${datestamp} ${status}
       }
@@ -1139,6 +1143,7 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
          SharedData_setExpOverviewUpdateAfterId ${exp_path} ${datestamp} ${afterId}
       }
    }
+   puts "Overview_updateExpBox exp_path:$exp_path datestamp:$datestamp status:$status time:$timevalue DONE"
 }
 
 # this function places exp run boxes on the same y slot if there is enough space for it
@@ -1368,8 +1373,7 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
 # based on the reference start time of the run and the current date & time,
 # It is used to assign a datestamp to a flow that is selected by the user
 # when the run has not been executed yet...
-proc Overview_getReferenceDatestamp { exp_path datestamp_hour } {
-   puts "Overview_getReferenceDatestamp exp_path:$exp_path datestamp_hour:$datestamp_hour"
+proc Overview_getReferenceDatestamp { exp_path datestamp datestamp_hour } {
    set canvas [Overview_getCanvas]
    set expBoxCoords [Overview_getRunBoxBoundaries ${canvas} ${exp_path} default_${datestamp_hour}]
    if { ${expBoxCoords} != "" } {
@@ -1402,25 +1406,32 @@ proc Overview_getReferenceDatestamp { exp_path datestamp_hour } {
 proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    ::log::log debug "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
+   puts "Overview_launchExpFlow exp_path:${exp_path} datestamp:${datestamp} "
+   
    global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEXT OVERVIEW_LAUNCH_EXP_AFTER_ID
+
+   if { ! [info exists LAUNCH_XFLOW_MUTEXT] } {
+       set LAUNCH_XFLOW_MUTEXT [thread::mutex create -recursive]
+       ::log::log notice "Overview_launchExpFlow creating LAUNCH_XFLOW_MUTEXT"
+   }
+
+   # lock execution of this proc... seems like this proc could be executed in multiple
+   # instances at the same time even though it is only send/invoked within the main thread...
+   # Since it is using global vars need to make sure the block below is ecxcuted in serial
+   thread::mutex lock $LAUNCH_XFLOW_MUTEXT
+   puts "Overview_launchExpFlow LOCKED exp_path:${exp_path} datestamp:${datestamp} "
 
    # make sure overview is visible
    wm deiconify [Overview_getToplevel]
 
-   if { ! [info exists LAUNCH_XFLOW_MUTEXT] } {
-      set LAUNCH_XFLOW_MUTEXT [thread::mutex create]
-      ::log::log notice "Overview_launchExpFlow creating LAUNCH_XFLOW_MUTEXT"
-   }
 
    if { ${datestamp} == "" && ${datestamp_hour} != "" } {
       # user launched a flow without datestamp but with reference hour
       # We need to calculate the reference datestamp based on the
       # current date & time and the reference time of the run
-      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp_hour}]
+      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp} ${datestamp_hour}]
       ::log::log debug "Overview_launchExpFlow got reference datestamp:${datestamp}"
    }
-
-   thread::mutex lock $LAUNCH_XFLOW_MUTEXT
 
    xflow_init ${exp_path}
 
@@ -1435,7 +1446,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       set isNewThread false
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
       if { ${expThreadId} == "" } {
-         puts "Overview_launchExpFlow ThreadPool_getThread..."
+         puts "Overview_launchExpFlow ThreadPool_getThread...  exp_path:${exp_path} datestamp:${datestamp}"
 	 set expThreadId [ThreadPool_getNextThread]
          if { ${expThreadId} == "" } {
             tk_messageBox -title "Launch Exp Flow Error" -parent [Overview_getToplevel] -type ok -icon error \
@@ -1446,27 +1457,30 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          puts "Overview_launchExpFlow SharedData_setExpThreadId exp_path:${exp_path} datestamp:${datestamp} threadid:${expThreadId}"
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
       } else {
-         puts "Overview_launchExpFlow got existing thread..."
+         puts "Overview_launchExpFlow got existing thread.. exp_path:${exp_path} datestamp:${datestamp}."
       }
 
-      Utils_busyCursor [Overview_getToplevel] 
+      ::log::log notice "Overview_launchExpFlow launching progress bar..."
       # set a 60 seconds timeout to kill the dialog in case it fails to grab the focus
       set OVERVIEW_LAUNCH_EXP_AFTER_ID [after 60000 [list Overview_launchExpTimeout ${exp_path} ${datestamp} ${datestamp_hour} ${isNewThread}]]
       set progressW .pd
+
       if { ! [winfo exists ${progressW}] } {
-         ::log::log notice "Overview_launchExpFlow launching progress bar..."
          ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT \
- 	    -width ${progressWidth} -stop cancel -command [list Overview_cancelLaunchExp ${exp_path} ${datestamp} ${isNewThread}]
-         ::log::log notice "Overview_launchExpFlow launching progress bar DONE"
+	    -width ${progressWidth} -stop cancel -command [list Overview_cancelLaunchExp ${exp_path} ${datestamp} ${isNewThread}]
       }
 
+      ::log::log notice "Overview_launchExpFlow launching progress bar DONE"
       catch { after cancel ${OVERVIEW_LAUNCH_EXP_AFTER_ID} }
       set PROGRESS_REPORT_TXT "Launching [file tail ${exp_path}] ${extraMsg}"
-
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
 
       if { ${isNewThread} == true } {
+
+         # puts "Overview_launchExpFlow force datestamp offset to 0"
+         # force reread of log file from start
+         # SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
              ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
@@ -1487,8 +1501,10 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          }
       }
 
-      Utils_normalCursor [Overview_getToplevel] 
-      destroy ${progressW}
+      catch { 
+         destroy ${progressW}
+	 update idletasks
+      }
 
    } message ]
 
@@ -1500,8 +1516,6 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       set ecode $::errorCode
       catch { destroy ${progressW} }
 
-      Utils_normalCursor [Overview_getToplevel] 
-
       catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
 
       # report the error with original details
@@ -1511,22 +1525,26 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          ${message}
    }
    catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
+   puts "Overview_launchExpFlow UNLOCKED exp_path:${exp_path} datestamp:${datestamp} "
+   puts "Overview_launchExpFlow exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
 
 proc Overview_launchExpTimeout { exp_path datestamp datestamp_hour is_new_thread } {
+
    ::log::log notice "Overview_launchExpTimeout exp_path:${exp_path} datestamp: ${datestamp}"
 
    Overview_cancelLaunchExp ${exp_path} ${datestamp} ${is_new_thread}
-
+   # Overview_launchExpFlow ${exp_path} ${datestamp} ${datestamp_hour}
+   # ::log::log notice "Overview_launchExpTimeout relaunching exp_path:${exp_path} datestamp: ${datestamp}"
+   ::log::log notice "Overview_launchExpTimeout exp_path:${exp_path} datestamp: ${datestamp} DONE"
 }
 
-proc Overview_cancelLaunchExp { exp_path datestamp is_new_thread {user_cancel false}} {
+proc Overview_cancelLaunchExp { exp_path datestamp is_new_thread } {
    global OVERVIEW_LAUNCH_EXP_AFTER_ID
    global LAUNCH_XFLOW_MUTEXT
    ::log::log notice "Overview_cancelLaunchExp exp_path:${exp_path} datestamp:${datestamp}"
 
    set topLevelWindow .pd
-
    catch { after cancel ${OVERVIEW_LAUNCH_EXP_AFTER_ID} }
    catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
    catch { grab release ${topLevelWindow} }
@@ -1622,7 +1640,8 @@ proc Overview_waitChildInitDone {} {
 # See LogReader.tcl
 proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
    global AUTO_LAUNCH
-   ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
+   puts "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
+   # ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    set canvas [Overview_getCanvas]
    # retrieve the date & time from the given time stamp
@@ -1670,6 +1689,7 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
       }
    }
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
+   puts "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
 }
 
 proc Overview_refreshExpLastStatus { exp_path datestamp } {
@@ -2315,7 +2335,7 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 }
 
 proc Overview_init {} {
-   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE
+   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE 
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
    global expBoxLength startEndIconSize expBoxOutlineWidth
 
@@ -2584,6 +2604,7 @@ proc Overview_createMenu { _toplevelW } {
 # should be automatically displayed on new messages
 proc Overview_setAutoMsgDisplay {} {
    global AUTO_MSG_DISPLAY
+   ::log::log notice "Overview change AUTO_MSG_DISPLAY new value: ${AUTO_MSG_DISPLAY}"
    SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
 }
 
@@ -2889,4 +2910,5 @@ proc Overview_main {} {
    Overview_checkExpSubmitLate 900000
 }
 
+#set tcl_traceExec 1
 Overview_parseCmdOptions
