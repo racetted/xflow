@@ -56,6 +56,8 @@ proc ThreadPool_createThread { {is_init false} } {
 #
 proc ThreadPool_getThread { {wait false} } {
    global PoolId THREAD_RELEASE_EVENT
+   thread::mutex lock [SharedData_getMiscData COMMON_MUTEX]
+
    set foundId ""
    set done false
    while { ${done} == false } {
@@ -83,6 +85,8 @@ proc ThreadPool_getThread { {wait false} } {
       }
       set done true
    }
+
+   thread::mutex unlock [SharedData_getMiscData COMMON_MUTEX]
 
    return ${foundId}
 }

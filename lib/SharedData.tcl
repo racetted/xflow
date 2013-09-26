@@ -38,49 +38,76 @@ proc SharedData_unsetExpData { exp_path key } {
    }
 }
 
-proc SharedData_setExpDatestampData { exp_path datestamp key value } {
-   if { [tsv::names SharedData_${exp_path}_${datestamp}] == "" } {
-      # does not exists... create it
-      set initValues [list ${key} ${value}]
-      tsv::array set SharedData_${exp_path}_${datestamp} ${initValues}
-   } else {
-      tsv::lock SharedData_${exp_path}_${datestamp} {
-         array set values [tsv::array get SharedData_${exp_path}_${datestamp}]
-         set values(${key}) ${value}
-         tsv::array set SharedData_${exp_path}_${datestamp} [array get values]
-      }
+proc SharedData_getExpDatestampMutex { exp_path datestamp } {
+   # puts "SharedData_getExpDatestampMutex ${exp_path}_${datestamp} called"
+   set mutexValue ""
+   foreach { key mutexValue } [tsv::array get SharedData_ExpMutex ${exp_path}_${datestamp}] {}
+   if { ${mutexValue} == "" } {
+       thread::mutex lock [SharedData_getMiscData COMMON_MUTEX]
+       # set mutexValue [thread::mutex create -recursive]
+       set mutexValue [thread::mutex create]
+       tsv::array set SharedData_ExpMutex ${exp_path}_${datestamp} ${mutexValue}
+       thread::mutex unlock [SharedData_getMiscData COMMON_MUTEX]
    }
+   # puts "SharedData_getExpDatestampMutex ${exp_path}_${datestamp} DONE"
+   return ${mutexValue}
+}
+
+proc SharedData_removeExpDatestampMutex { exp_path datestamp } {
+   catch { tsv::unset SharedData_ExpMutex ${exp_path}_${datestamp} }
+}
+
+proc SharedData_setExpDatestampData { exp_path datestamp key value } {
+   # puts "SharedData_setExpDatestampData ${exp_path}_${datestamp} called"
+   set expDatestampMutex [SharedData_getExpDatestampMutex ${exp_path} ${datestamp}]
+   thread::mutex lock ${expDatestampMutex}
+   # puts "SharedData_setExpDatestampData ${expDatestampMutex} locked"
+
+      tsv::keylset SharedData_${exp_path}_${datestamp} data ${key} ${value}
+
+   thread::mutex unlock ${expDatestampMutex}
+   # puts "SharedData_setExpDatestampData exp_path:${exp_path} datestamp:$datestamp key:$key value:$value DONE"
 }
 
 proc SharedData_removeExpDatestampData { exp_path datestamp } {
-    ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
-      
-    catch { tsv::array reset SharedData_${exp_path}_${datestamp} }
-    ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} reset done"
+   # ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
+   puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
+   catch { after cancel [SharedData_getExpOverviewUpdateAfterId ${exp_path} ${datestamp}] }
+   # ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} reset done"
 
-    catch { tsv::unset SharedData_${exp_path}_${datestamp} }
-    ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset done"
+   set expDatestampMutex [SharedData_getExpDatestampMutex ${exp_path} ${datestamp}]
+   puts "SharedData_removeExpDatestampData ${expDatestampMutex} locked"
+   thread::mutex lock ${expDatestampMutex}
+
+   puts "SharedData_removeExpDatestampData() unset exp_path:${exp_path} datestamp:${datestamp}"
+   catch { tsv::unset SharedData_${exp_path}_${datestamp} }
+
+   puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unlocking..."
+   thread::mutex unlock ${expDatestampMutex}
+   # ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset done"
+   # puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset done"
+   puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
 
 # retrieve experiment data based on the exp_path and the key
 proc SharedData_getExpDatestampData { exp_path datestamp key } {
+   # puts "SharedData_getExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} key:$key"
    set returnedValue ""
-   if { [tsv::exists SharedData_${exp_path}_${datestamp} ${key}] } {
-      array set values [tsv::array get SharedData_${exp_path}_${datestamp} ${key}]      
-      set returnedValue $values(${key})
+   set keys ""
+   catch { set keys [tsv::keylkeys SharedData_${exp_path}_${datestamp} data] }
+   if { [lsearch ${keys} ${key}] != -1 } {
+      # puts "SharedData_getExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} key:$key"
+      set returnedValue [tsv::keylget SharedData_${exp_path}_${datestamp} data ${key}]
    }
+   # puts "SharedData_getExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} key:$key DONE"
    return ${returnedValue}
 }
 
 # removes experiment data based on the exp_path and the key
 proc SharedData_unsetExpDatestampData { exp_path datestamp key } {
-   if { [tsv::exists SharedData_${exp_path}_${datestamp} ${key}] } {
-      tsv::lock SharedData_${exp_path}_${datestamp} {
-         array set values [tsv::array get SharedData_${exp_path}_${datestamp}]
-         array unset values ${key}
-         tsv::array reset SharedData_${exp_path}_${datestamp} [array get values]
-      }
-   }
+   puts "SharedData_unsetExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
+   catch { tsv::keyldel SharedData_${exp_path}_${datestamp} data ${key} }
+   puts "SharedData_unsetExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
 
 # retrieves the experiment thread id
@@ -121,10 +148,6 @@ proc SharedData_getExpDatestampOffset { _exp_path _datestamp } {
       set offset [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} offset]
    }
    return ${offset}
-}
-
-proc SharedData_removeExpDatestampOffset { exp_path datestamp {offset 0} } {
-   SharedData_unsetExpDatestampData ${exp_path} ${datestamp} offset
 }
 
 proc SharedData_setExpOverviewUpdateAfterId { _exp_path _datestamp _afterid } {
@@ -250,21 +273,24 @@ proc SharedData_getExpFlowSize { _exp_path _datestamp} {
 }
 
 proc SharedData_addExpNodeMapping { _exp_path _datestamp _real_node _flow_node } {
-   # puts "SharedData_addExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node;${_real_node} flow_node:${_flow_node}"
+ #  puts "SharedData_addExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node:${_real_node} flow_node:${_flow_node}"
    # ::log::log notice "SharedData_addExpNodeMapping()  exp_path:${_exp_path} datestamp:${_datestamp} real_node:${_real_node} flow_node:${_flow_node}"
+
    array set nodeMappings [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} node_mappings]
    set nodeMappings(${_real_node}) ${_flow_node}
+
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} node_mappings [array get nodeMappings]
 }
 
 proc SharedData_getExpNodeMapping { _exp_path _datestamp _real_node } {
-   # puts "SharedData_getExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node;${_real_node}"
+   # puts "SharedData_getExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node:${_real_node}"
    set flowNode ${_real_node}
-   array set nodeMapping [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} node_mappings]
-   if { [info exists nodeMapping(${_real_node})] } {
-      set flowNode $nodeMapping(${_real_node})
-   }
+      array set nodeMapping [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} node_mappings]
+      if { [info exists nodeMapping(${_real_node})] } {
+         set flowNode $nodeMapping(${_real_node})
+      }
 
+   # puts "SharedData_getExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node;${_real_node} flowNode:${flowNode}"
    return ${flowNode}
 }
 
@@ -503,6 +529,7 @@ proc SharedData_setDerivedColors {} {
 proc SharedData_init {} {
    SharedData_initColors
 
+   SharedData_setMiscData COMMON_MUTEX [ thread::mutex create ]
    SharedData_setMiscData CANVAS_BOX_WIDTH 90
    SharedData_setMiscData CANVAS_X_START 40
    SharedData_setMiscData CANVAS_Y_START 40
@@ -541,7 +568,7 @@ proc SharedData_init {} {
    SharedData_setMiscData USER_TMP_DIR default
 
    SharedData_setMiscData MENU_RELIEF flat
-   
+  
    # if true, will send notification if exp has been idle for more than 1 hour
    # idle means exp is not in end status and log has not been modified
    SharedData_setMiscData OVERVIEW_CHECK_EXP_IDLE false

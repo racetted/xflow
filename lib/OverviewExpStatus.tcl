@@ -183,6 +183,17 @@ proc OverviewExpStatus_printStatusDatestamp { _exp_path {_datestamp ""} } {
    }
 }
 
+proc OverviewExpStatus_reactivateDatestamp { _exp_path _datestamp } {
+   global obsolete_datestamps
+   if { [info exists obsolete_datestamps] } {
+      set key ${_exp_path}_${_datestamp}
+      if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
+         unset obsolete_datestamps($key)
+         ::log::log notice "OverviewExpStatus_reactivateObseleteDatestamps() reactivating exp_path:${exp_path} datestamp:${datestamp}"
+      }
+   }
+}
+
 proc OverviewExpStatus_addObsoleteDatestamp {  _exp_path _datestamp } {
    global obsolete_datestamps
    ::log::log notice "OverviewExpStatus_addObseleteDatestamps() ${_exp_path} ${_datestamp} started..."
@@ -212,18 +223,21 @@ proc OverviewExpStatus_checkObseleteDatestamps {} {
            set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
            Overview_releaseLoggerThread ${expThreadId} ${exp_path} ${datestamp}
 
-           ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() ShareData_removeExpDatestampData exp_path:${exp_path} datestamp:${datestamp}"
-           SharedData_removeExpDatestampData ${exp_path} ${datestamp}
            ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp}"
            OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp}
+           ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() ShareData_removeExpDatestampData exp_path:${exp_path} datestamp:${datestamp}"
+           SharedData_removeExpDatestampData ${exp_path} ${datestamp}
            ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() OverviewExpStatus_removeStatusDatestamp exp_path:${exp_path} datestamp:${datestamp} DONE"
 	   unset obsolete_datestamps($key)
            ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() exp_path:${exp_path} datestamp:${datestamp} unset obsolete_datestamps DONE."
+
+	   SharedData_removeExpDatestampMutex ${exp_path} ${datestamp}
 	}
      }
   }
   ::log::log notice "OverviewExpStatus_checkObseleteDatestamps() DONE"
 }
+
 
 
 
