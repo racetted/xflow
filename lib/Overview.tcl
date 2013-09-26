@@ -41,6 +41,7 @@ proc Overview_setTkOptions {} {
 # the next hour switch and then wake up every hour to perform the same task
 proc Overview_GridAdvanceHour { {new_hour ""} } {
    global graphHourX graphX graphStartX graphStartY
+   global CHECK_EXP_IDLE
 
    set currentClock [clock seconds]
    ::log::log debug "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
@@ -96,6 +97,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    # check if we need to release obsolete data
    OverviewExpStatus_checkObseleteDatestamps
 
+   set expIdleList {}
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
@@ -135,6 +137,10 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                set lastStatus init
             }
 
+	    if { ${CHECK_EXP_IDLE} == true && [Overview_isExpIdle ${exp} ${datestamp}] == true } {
+	       lappend expIdleList "${exp} ${datestamp}"
+            }
+
             if { ${lastStatusTime} != "" } {
                Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
             }
@@ -143,14 +149,91 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    }
 
    Overview_checkGridLimit 
-
-   # refresh current Time 
-   #set timeHour [Utils_getPaddedValue ${new_hour}]
-   #set currenTime "${timeHour}:00"
-   #Overview_setCurrentTime ${canvasW} ${currenTime}
    Overview_setCurrentTime ${canvasW}
-
+   Overview_processIdleExp ${expIdleList}
    ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}] DONE"
+}
+
+# checks exp submission late every 15 minutes
+proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
+   global CHECK_EXP_IDLE
+
+   puts "Overview_checkExpSubmitLate date:[exec date]"
+   if { ${CHECK_EXP_IDLE} == true } {
+
+      set displayGroups [ExpXmlReader_getGroups]
+      set canvasW [Overview_getCanvas]
+      set expLateList {}
+      set currentTime [clock seconds]
+
+      foreach displayGroup $displayGroups {
+         set expList [$displayGroup cget -exp_list]
+         foreach expPath $expList {
+            set checkList [Overview_getExpBoxTags ${canvasW} ${expPath}]
+	    set checkListIndex [lsearch -all ${checkList} default_*]
+	    foreach checkIndex ${checkListIndex} {
+	       set checkTag [lindex ${checkList} ${checkIndex}]
+               set refStartTime [Overview_getRefTimings ${expPath} [Utils_getHourFromDatestamp ${checkTag}] start]
+               if { [Overview_isExpStartPassed ${expPath} ${checkTag}] == true && ${refStartTime} != "" } {
+                  set refTimeLate [clock add [clock scan ${refStartTime}] 15 minute]
+	          if { ${currentTime} > ${refTimeLate} } {
+		     lappend expLateList "${expPath} ${checkTag}"
+	          }
+               }
+            }
+         }
+      }
+
+      foreach expLate ${expLateList} {
+         set expPath [lindex ${expLate} 0]
+         set expTag [lindex ${expLate} 1]
+         set hour [Utils_getHourFromDatestamp ${expTag}]
+         set datestamp [Overview_getReferenceDatestamp ${expPath} ${hour}]
+         set shortName [SharedData_getExpShortName ${expPath}]
+         set expLabel "${shortName}-${hour}"
+         ::log::log notice "Experiment ${expPath} ${datestamp} SUBMIT LATE." 
+         MessageDlg .submit_late_${expPath}_${datestamp} -icon warning -title "Exp Submit Late Warning" -type ok -aspect 400 \
+            -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" 
+      }
+   }
+
+   if { [string is integer -strict ${next_check_time}] } {
+      after ${next_check_time} [list Overview_checkExpSubmitLate ${next_check_time}]
+   }
+}
+
+proc Overview_isExpIdle { exp_path datestamp } {
+   puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
+   set lastStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
+   set lastStatusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
+   set isIdle false
+   if { ! [string match "default*" ${datestamp}] && ${lastStatus} != "end" && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
+      set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
+      if { ${refEndTime} != "" } {
+         set refTimeLate [clock add [clock scan ${refEndTime}] 1 hour]
+	 set currentTime [clock seconds]
+	 if { ${currentTime} > ${refTimeLate} } {
+	    set isIdle true
+	 }
+      }
+   }
+   puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
+   return ${isIdle}
+}
+
+# idle state is defined by an experiment that is not in end state, has a reference end time,
+# sends a notification when an exp/datestamp is in idle state... 
+# the reference end time has been passed by over one hour and the log file has not been modified in over
+# one hour
+proc Overview_processIdleExp { expIdleList } {
+   foreach { expIdle } ${expIdleList} {
+      set exp_path [lindex ${expIdle} 0]
+      set datestamp [lindex ${expIdle} 1]
+      puts "Overview_processIdleExp exp_path:$exp_path datestamp:$datestamp"
+      ::log::log notice "Experiment ${exp_path} ${datestamp} IDLE..."
+      MessageDlg .idle_${exp_path}_${datestamp} -icon warning -title "Exp Idle Warning" -type ok -aspect 400 \
+         -parent [Overview_getToplevel] -message "Experiment: ${exp_path} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" 
+   }
 }
 
 # this function returns a time value based on a grid x coordinate value
@@ -1285,7 +1368,8 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
 # based on the reference start time of the run and the current date & time,
 # It is used to assign a datestamp to a flow that is selected by the user
 # when the run has not been executed yet...
-proc Overview_getReferenceDatestamp { exp_path datestamp datestamp_hour } {
+proc Overview_getReferenceDatestamp { exp_path datestamp_hour } {
+   puts "Overview_getReferenceDatestamp exp_path:$exp_path datestamp_hour:$datestamp_hour"
    set canvas [Overview_getCanvas]
    set expBoxCoords [Overview_getRunBoxBoundaries ${canvas} ${exp_path} default_${datestamp_hour}]
    if { ${expBoxCoords} != "" } {
@@ -1320,6 +1404,9 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEXT OVERVIEW_LAUNCH_EXP_AFTER_ID
 
+   # make sure overview is visible
+   wm deiconify [Overview_getToplevel]
+
    if { ! [info exists LAUNCH_XFLOW_MUTEXT] } {
       set LAUNCH_XFLOW_MUTEXT [thread::mutex create]
       ::log::log notice "Overview_launchExpFlow creating LAUNCH_XFLOW_MUTEXT"
@@ -1329,7 +1416,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       # user launched a flow without datestamp but with reference hour
       # We need to calculate the reference datestamp based on the
       # current date & time and the reference time of the run
-      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp} ${datestamp_hour}]
+      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp_hour}]
       ::log::log debug "Overview_launchExpFlow got reference datestamp:${datestamp}"
    }
 
@@ -1362,26 +1449,24 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          puts "Overview_launchExpFlow got existing thread..."
       }
 
-      ::log::log notice "Overview_launchExpFlow launching progress bar..."
+      Utils_busyCursor [Overview_getToplevel] 
       # set a 60 seconds timeout to kill the dialog in case it fails to grab the focus
       set OVERVIEW_LAUNCH_EXP_AFTER_ID [after 60000 [list Overview_launchExpTimeout ${exp_path} ${datestamp} ${datestamp_hour} ${isNewThread}]]
       set progressW .pd
       if { ! [winfo exists ${progressW}] } {
+         ::log::log notice "Overview_launchExpFlow launching progress bar..."
          ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT \
-	    -width ${progressWidth} -stop cancel -command [list Overview_cancelLaunchExp ${exp_path} ${datestamp} ${isNewThread}]
+ 	    -width ${progressWidth} -stop cancel -command [list Overview_cancelLaunchExp ${exp_path} ${datestamp} ${isNewThread}]
+         ::log::log notice "Overview_launchExpFlow launching progress bar DONE"
       }
 
-      ::log::log notice "Overview_launchExpFlow launching progress bar DONE"
       catch { after cancel ${OVERVIEW_LAUNCH_EXP_AFTER_ID} }
       set PROGRESS_REPORT_TXT "Launching [file tail ${exp_path}] ${extraMsg}"
+
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
 
       if { ${isNewThread} == true } {
-
-         puts "Overview_launchExpFlow force datestamp offset to 0"
-         # force reread of log file from start
-         # SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
          if { [thread::exists ${expThreadId}] } {
              ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
@@ -1402,6 +1487,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          }
       }
 
+      Utils_normalCursor [Overview_getToplevel] 
       destroy ${progressW}
 
    } message ]
@@ -1413,6 +1499,8 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       set einfo $::errorInfo
       set ecode $::errorCode
       catch { destroy ${progressW} }
+
+      Utils_normalCursor [Overview_getToplevel] 
 
       catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
 
@@ -1426,21 +1514,19 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
 }
 
 proc Overview_launchExpTimeout { exp_path datestamp datestamp_hour is_new_thread } {
-
    ::log::log notice "Overview_launchExpTimeout exp_path:${exp_path} datestamp: ${datestamp}"
 
    Overview_cancelLaunchExp ${exp_path} ${datestamp} ${is_new_thread}
-   Overview_launchExpFlow ${exp_path} ${datestamp} ${datestamp_hour}
-   ::log::log notice "Overview_launchExpTimeout relaunching exp_path:${exp_path} datestamp: ${datestamp}"
-   ::log::log notice "Overview_launchExpTimeout exp_path:${exp_path} datestamp: ${datestamp} DONE"
+
 }
 
-proc Overview_cancelLaunchExp { exp_path datestamp is_new_thread } {
+proc Overview_cancelLaunchExp { exp_path datestamp is_new_thread {user_cancel false}} {
    global OVERVIEW_LAUNCH_EXP_AFTER_ID
    global LAUNCH_XFLOW_MUTEXT
    ::log::log notice "Overview_cancelLaunchExp exp_path:${exp_path} datestamp:${datestamp}"
 
    set topLevelWindow .pd
+
    catch { after cancel ${OVERVIEW_LAUNCH_EXP_AFTER_ID} }
    catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
    catch { grab release ${topLevelWindow} }
@@ -2130,6 +2216,22 @@ proc Overview_createGraph { canvas } {
    }
 }
 
+# checks if the starting point of an exp box in the overview
+# has passed (to the left side of) the current timeline
+proc Overview_isExpStartPassed { exp_path datestamp } {
+   set isPassed false
+   set canvasW [Overview_getCanvas]
+   set coords [Overview_getRunBoxBoundaries  ${canvasW} ${exp_path} ${datestamp}]
+   set timelineX [Overview_getCurrentTimeX]
+   if { ${coords} != "" } {
+      set coordX [lindex ${coords} 0]
+      if { ${coordX} <= ${timelineX} } {
+         set isPassed true
+      }
+   }
+   return ${isPassed}
+}
+
 # returns the date as an int value of the date and time
 # of the time hour displayed at x=0
 proc Overview_GraphGetXOriginDateTime {} {
@@ -2213,11 +2315,12 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 }
 
 proc Overview_init {} {
-   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF
+   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
    global expBoxLength startEndIconSize expBoxOutlineWidth
 
    set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
+   set CHECK_EXP_IDLE [SharedData_getMiscData OVERVIEW_CHECK_EXP_IDLE]
    set NODE_DISPLAY_PREF [SharedData_getMiscData NODE_DISPLAY_PREF]
    set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
@@ -2405,8 +2508,13 @@ proc Overview_toFront {} {
    raise ${topW}
 }
 
+proc Overview_changeSettings { varName {name1 ""} {name2 ""} {op ""} } {
+   global ${varName}
+   ::log::log notice "${varName} change to [set ${varName}]"
+}
+
 proc Overview_addPrefMenu { parent } {
-   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF
+   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
    menubutton $menuButtonW -text Preferences -underline 0 -menu $menuW
@@ -2414,13 +2522,20 @@ proc Overview_addPrefMenu { parent } {
 
    $menuW add checkbutton -label "Auto Launch" -variable AUTO_LAUNCH \
       -onvalue true -offvalue false
+   trace add variable AUTO_LAUNCH write [list Overview_changeSettings AUTO_LAUNCH]
 
    set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
    $menuW add checkbutton -label "Auto Message Display" -variable AUTO_MSG_DISPLAY \
       -command [list Overview_setAutoMsgDisplay] \
       -onvalue true -offvalue false
+   trace add variable AUTO_MSG_DISPLAY write [list Overview_changeSettings AUTO_MSG_DISPLAY]
    ::tooltip::tooltip $menuW -index 1 "Automatic launch of flow when experiment starts."
    ::tooltip::tooltip $menuW -index 2 "Automatic message window on new alarm."
+
+   $menuW add checkbutton -label "Check Exp Idle" -variable CHECK_EXP_IDLE \
+      -onvalue true -offvalue false
+   trace add variable CHECK_EXP_IDLE write [list Overview_changeSettings CHECK_EXP_IDLE]
+
 
    # Node Display submenu
    set displayMenu $menuW.displayMenu
@@ -2469,7 +2584,6 @@ proc Overview_createMenu { _toplevelW } {
 # should be automatically displayed on new messages
 proc Overview_setAutoMsgDisplay {} {
    global AUTO_MSG_DISPLAY
-   ::log::log notice "Overview change AUTO_MSG_DISPLAY new value: ${AUTO_MSG_DISPLAY}"
    SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
 }
 
@@ -2771,6 +2885,8 @@ proc Overview_main {} {
    # run a periodic monitor to look for new log files to process
    LogMonitor_checkNewLogFiles
 
+   # start a periodic check for late submission (every 15 minutes)
+   Overview_checkExpSubmitLate 900000
 }
 
 Overview_parseCmdOptions

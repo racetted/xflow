@@ -170,5 +170,18 @@ proc ExpXmlOptions_getAutoLaunch { _dom_doc _exp_path } {
    }
    return ${autoLaunchValue}
 }
+
+proc ExpXmlOptions_getCheckIdle { _dom_doc _exp_path } {
+   set checkIdleValue true
+   set root [${_dom_doc} documentElement root]
+
+   set query "/ExpOptions/MonitorInfo"
+   set monitorInfoNode [${root} selectNodes ${query}]
+   if { ${monitorInfoNode} != "" } {
+      set checkIdleValue  [${monitorInfoNode} getAttribute check_idle true]
+   }
+   return ${checkIdleValue}
+}
+#global env
 #global env
 #ExpXmlOptions_read $env(SEQ_EXP_HOME)/ExpOptions.xml

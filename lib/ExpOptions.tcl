@@ -100,6 +100,12 @@ proc ExpOptions_getShortName { _exp_path } {
    return ${shortName}
 }
 
+proc ExpOptions_getCheckIdle { _exp_path } {
+   set shortName [SharedData_getExpCheckIdle ${_exp_path}]
+
+   return ${shortName}
+}
+
 # returns list with start_time and end_time as {start_time end_time}
 # returns empty string if timings cannot be read
 proc ExpOptions_getRefTimings { _exp_path _hour } {
@@ -136,6 +142,8 @@ proc ExpOptions_read { _exp_path } {
       # get auto launch info
       set autoLaunchValue [ExpXmlOptions_getAutoLaunch ${domDoc} ${_exp_path}]
 
+      set checkIdleValue [ExpXmlOptions_getCheckIdle ${domDoc} ${_exp_path}]
+
       # close xml doc
       ExpXmlOptions_done ${domDoc}
 
@@ -145,6 +153,7 @@ proc ExpOptions_read { _exp_path } {
       SharedData_setExpShortName ${_exp_path} ${shortName}
       SharedData_setExpSupportInfo ${_exp_path} ${supportData}
       SharedData_setExpAutoLaunch ${_exp_path} ${autoLaunchValue}
+      SharedData_setExpCheckIdle ${_exp_path} ${checkIdleValue}
    } else {
       SharedData_setExpDisplayName ${_exp_path} [file tail ${_exp_path}]
       SharedData_setExpShortName ${_exp_path} [file tail ${_exp_path}]

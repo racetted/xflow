@@ -55,7 +55,7 @@ proc SharedData_setExpDatestampData { exp_path datestamp key value } {
 proc SharedData_removeExpDatestampData { exp_path datestamp } {
     ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
       
-    catch { tsv::reset SharedData_${exp_path}_${datestamp} }
+    catch { tsv::array reset SharedData_${exp_path}_${datestamp} }
     ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} reset done"
 
     catch { tsv::unset SharedData_${exp_path}_${datestamp} }
@@ -200,6 +200,18 @@ proc SharedData_getExpAutoLaunch { _exp_path } {
       set autoLaunchValue true
    }
    return ${autoLaunchValue}
+}
+
+proc SharedData_setExpCheckIdle { _exp_path _checkIdle } {
+   SharedData_setExpData ${_exp_path} checkidle ${_checkIdle}
+}
+
+proc SharedData_getExpCheckIdle { _exp_path } {
+   set checkIdleValue [SharedData_getExpData ${_exp_path} checkidle ]
+   if { ${checkIdleValue} == "" } {
+      set checkIdleValue true
+   }
+   return ${checkIdleValue}
 }
 
 proc SharedData_setExpModules { _exp_path _datestamp _modules } {
@@ -530,6 +542,10 @@ proc SharedData_init {} {
 
    SharedData_setMiscData MENU_RELIEF flat
    
+   # if true, will send notification if exp has been idle for more than 1 hour
+   # idle means exp is not in end status and log has not been modified
+   SharedData_setMiscData OVERVIEW_CHECK_EXP_IDLE false
+
    # number of threads created to process exp log datestamps
    SharedData_setMiscData OVERVIEW_NUM_THREADS 8
 
