@@ -2199,6 +2199,7 @@ proc xflow_getOutputFile { exp_path datestamp node } {
 }
 
 proc xflow_viewOutputFile { exp_path datestamp node output_file } {
+   ::log::log debug "exp_path: ${exp_path} datestamp:${datestamp} node:${node}"
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
@@ -2207,7 +2208,7 @@ proc xflow_viewOutputFile { exp_path datestamp node output_file } {
       set nodeExt ".${nodeExt}"
    }
    # title is used only for default viewer
-   #set winTitle "Node Output [file tail $node]${nodeExt}.${datestamp}"
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set winTitle "Node Output ${seqNode}${nodeExt}- Exp=${exp_path}"
 
    if { ${listingViewer} == "default" } {
