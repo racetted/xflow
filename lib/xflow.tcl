@@ -722,7 +722,7 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
       }
 
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
-         set expThreadId [ThreadPool_getThread]
+         set expThreadId [ThreadPool_getNextThread]
          thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${seqDatestamp} no_overview" LogReaderDone
 	 vwait LogReaderDone
          SharedData_setExpThreadId ${exp_path} ${seqDatestamp} ${expThreadId}
@@ -2544,7 +2544,7 @@ proc xflow_refreshFlow { exp_path datestamp } {
       } else {
          set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
 	 if { ${expThreadId} == "" } {
-	    set expThreadId [ThreadPool_getThread]
+	    set expThreadId [ThreadPool_getNextThread]
 	 }
          thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview" LogReaderDone
 	 vwait LogReaderDone

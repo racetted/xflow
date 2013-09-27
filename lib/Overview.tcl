@@ -1446,7 +1446,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       set isNewThread false
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
       if { ${expThreadId} == "" } {
-         puts "Overview_launchExpFlow ThreadPool_getThread...  exp_path:${exp_path} datestamp:${datestamp}"
+         puts "Overview_launchExpFlow ThreadPool_getNextThread...  exp_path:${exp_path} datestamp:${datestamp}"
 	 set expThreadId [ThreadPool_getNextThread]
          if { ${expThreadId} == "" } {
             tk_messageBox -title "Launch Exp Flow Error" -parent [Overview_getToplevel] -type ok -icon error \
