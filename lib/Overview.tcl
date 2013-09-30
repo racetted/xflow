@@ -1373,7 +1373,7 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
 # based on the reference start time of the run and the current date & time,
 # It is used to assign a datestamp to a flow that is selected by the user
 # when the run has not been executed yet...
-proc Overview_getReferenceDatestamp { exp_path datestamp datestamp_hour } {
+proc Overview_getReferenceDatestamp { exp_path datestamp_hour } {
    set canvas [Overview_getCanvas]
    set expBoxCoords [Overview_getRunBoxBoundaries ${canvas} ${exp_path} default_${datestamp_hour}]
    if { ${expBoxCoords} != "" } {
@@ -1429,7 +1429,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       # user launched a flow without datestamp but with reference hour
       # We need to calculate the reference datestamp based on the
       # current date & time and the reference time of the run
-      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp} ${datestamp_hour}]
+      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp_hour}]
       ::log::log debug "Overview_launchExpFlow got reference datestamp:${datestamp}"
    }
 
