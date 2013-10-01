@@ -2931,10 +2931,12 @@ proc xflow_canvasConfigureCallback { exp_path datestamp canvas width height } {
 }
 
 proc xflow_resizeWindowEvent {  exp_path datestamp canvas width height } {
-  xflow_addBgImage ${exp_path} ${datestamp} ${canvas} ${width} ${height}
-  set topLevel [winfo toplevel $canvas]
-  SharedData_setExpFlowSize ${exp_path} ${datestamp} [winfo width ${topLevel}]x[winfo height ${topLevel}]
-  xflow_MouseWheelCheck ${canvas}
+  if { [winfo exists ${canvas}] } {
+     xflow_addBgImage ${exp_path} ${datestamp} ${canvas} ${width} ${height}
+     set topLevel [winfo toplevel $canvas]
+     SharedData_setExpFlowSize ${exp_path} ${datestamp} [winfo width ${topLevel}]x[winfo height ${topLevel}]
+     xflow_MouseWheelCheck ${canvas}
+   }
 }
 
 proc xflow_clearCanvasFlow { _canvas } {
