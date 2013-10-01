@@ -665,7 +665,6 @@ proc MsgCenter_doubleClickCallback { table_widget } {
       xflow_findNode ${expPath} ${realDatestamp} ${convertedNode}
 
       Utils_normalCursor ${table_widget}
-
    } message ]
 
    # any errors, put the cursor back to normal state
@@ -713,9 +712,21 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
       set datestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
       set realDatestamp [Utils_getRealDatestampValue ${datestamp}]
 
-      set flowNode [SharedData_getExpNodeMapping ${expPath} ${realDatestamp} ${nodeWithouthExt}]
-      # puts "MsgCenter_rightClickCallback node:${nodeWithouthExt} ext:${extensionPart} expPath:${expPath} datestamp:${realDatestamp} flowNode:${flowNode}"
+      # here I need to check whether the the run data is still stored in memory
+      # if it is not, need to re-init the run data
+      set expThreadId [SharedData_getExpThreadId ${expPath} ${datestamp}]
+      if { ${expThreadId} == "" } {
+         Utils_busyCursor ${table_widget}
+         set result [ catch {
+               set expThreadId [ThreadPool_getNextThread]
+	       thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${realDatestamp}\" refresh_flow" LogReaderDone
+	       vwait LogReaderDone
+               Utils_normalCursor ${table_widget}
+         } message ]
 
+         Utils_normalCursor ${table_widget}
+      }
+      set flowNode [SharedData_getExpNodeMapping ${expPath} ${realDatestamp} ${nodeWithouthExt}]
       set winx [expr [winfo rootx ${table_widget}] + ${x}]
       set winy [expr [winfo rooty ${table_widget}] + ${y}]
       
@@ -726,6 +737,7 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
          # dummy window
          toplevel ${xflowToplevel}; wm withdraw ${xflowToplevel}
       }
+
       global XFLOW_STANDALONE
       set XFLOW_STANDALONE false
       # puts "MsgCenter_rightClickCallback calling xflow_modeMenu..."
