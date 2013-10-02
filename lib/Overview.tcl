@@ -159,7 +159,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
    global CHECK_EXP_IDLE
 
-   puts "Overview_checkExpSubmitLate date:[exec date]"
+   # puts "Overview_checkExpSubmitLate date:[exec date]"
    if { ${CHECK_EXP_IDLE} == true } {
 
       set displayGroups [ExpXmlReader_getGroups]
@@ -193,8 +193,13 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
          set shortName [SharedData_getExpShortName ${expPath}]
          set expLabel "${shortName}-${hour}"
          ::log::log notice "Experiment ${expPath} ${datestamp} SUBMIT LATE." 
-         MessageDlg .submit_late_${expPath}_${datestamp} -icon warning -title "Exp Submit Late Warning" -type ok -aspect 400 \
+         set topW ${expPath}_${datestamp}
+         set topW [regsub -all {[\.]} ${topW} _]
+         set answer [MessageDlg .submit_late_${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "ok launch_flow" -aspect 400 \
             -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" 
+         if { ${answer} == "1" } {
+            Overview_launchExpFlow ${expPath} ${datestamp}
+         }
       }
    }
 
@@ -204,7 +209,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
 }
 
 proc Overview_isExpIdle { exp_path datestamp } {
-   puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
+   # puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
    set lastStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    set lastStatusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
    set isIdle false
@@ -218,7 +223,7 @@ proc Overview_isExpIdle { exp_path datestamp } {
 	 }
       }
    }
-   puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
+   # puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
    return ${isIdle}
 }
 
@@ -228,12 +233,17 @@ proc Overview_isExpIdle { exp_path datestamp } {
 # one hour
 proc Overview_processIdleExp { expIdleList } {
    foreach { expIdle } ${expIdleList} {
-      set exp_path [lindex ${expIdle} 0]
+      set expPath [lindex ${expIdle} 0]
       set datestamp [lindex ${expIdle} 1]
-      puts "Overview_processIdleExp exp_path:$exp_path datestamp:$datestamp"
-      ::log::log notice "Experiment ${exp_path} ${datestamp} IDLE..."
-      MessageDlg .idle_${exp_path}_${datestamp} -icon warning -title "Exp Idle Warning" -type ok -aspect 400 \
-         -parent [Overview_getToplevel] -message "Experiment: ${exp_path} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" 
+      # puts "Overview_processIdleExp expPath:$expPath datestamp:$datestamp"
+      ::log::log notice "Experiment ${expPath} ${datestamp} IDLE..."
+      set topW ${expPath}_${datestamp}
+      set topW [regsub -all {[\.]} ${topW} _]
+      set answer [MessageDlg .idle_${topW} -icon warning -title "Exp Idle Warning" -type user -buttons "ok launch_flow" -aspect 400 \
+         -parent [Overview_getToplevel] -message "Experiment: ${expPath} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" ]
+      if { ${answer} == "1" } {
+          Overview_launchExpFlow ${expPath} ${datestamp}
+      }
    }
 }
 
