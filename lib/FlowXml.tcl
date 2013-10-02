@@ -15,16 +15,16 @@ proc FlowXml_parse { xml_file exp_path datestamp parent_flow_node } {
 # if no match, an empty string is returned
 proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
    set returnedValue ""
-   # puts "FlowXml_getSwitchingItemNode() exp_path:${exp_path} datestamp:${datestamp}"
-   if { [${xml_node} nodeName] == "SWITCH" } {
-      # puts "FlowXml_getSwitchingItemNode() got SWITCH"
+   ::log::log debug "FlowXml_getSwitchingItemNode() exp_path:${exp_path} datestamp:${datestamp}"
+   if { ${datestamp} != "" && [${xml_node} nodeName] == "SWITCH" } {
+      ::log::log debug "FlowXml_getSwitchingItemNode() got SWITCH"
       set switchType [${xml_node} getAttribute type "datestamp_hour"]
       switch ${switchType} {
          datestamp_hour {
             set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
 	    if { ${datestampHour} != "" } {
                set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${datestampHour}\]]
-	       # puts "GOT switchItemNode name:[${switchItemNode} getAttribute name]"
+	       ::log::log debug "GOT switchItemNode name:[${switchItemNode} getAttribute name]"
 	       set returnedValue ${switchItemNode}
 	    }
          }
@@ -32,11 +32,12 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
             set dow [Utils_getDayOfWeekFromDatestamp ${datestamp}]
 	    if { ${dow} != "" } {
                set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${dow}\]]
-	       # puts "GOT switchItemNode name:[${switchItemNode} getAttribute name]"
+	       ::log::log debug "GOT switchItemNode name:[${switchItemNode} getAttribute name]"
 	       set returnedValue ${switchItemNode}
 	    }
          }
 	 default {
+            puts "ERROR: FlowXml_getSwitchingItemNode() INVALID switch type:${switchType} exp_path:${exp_path} datestamp:${datestamp}" 
             ::log::log notice "ERROR: FlowXml_getSwitchingItemNode() INVALID switch type:${switchType} exp_path:${exp_path} datestamp:${datestamp}" 
 	 }
       }
@@ -140,11 +141,14 @@ proc FlowXml_createNodeFromXml { exp_path datestamp parent_flow_node xml_node } 
       }
    }
 
+   ::log::log debug "SharedData_searchSubmitLoops ${exp_path} $newFlowDirname ${datestamp} $newFlowDirname"
    # I'm storing the list of parent loops if there are any
    SharedFlowNode_searchSubmitLoops ${exp_path} $newFlowDirname ${datestamp} $newFlowDirname
 
    set newParentNode $newFlowDirname
+   ::log::log debug "SharedData_getSubmit  ${exp_path} ${datestamp} $newFlowDirname $xml_node"
    FlowXml_getSubmits ${exp_path} ${datestamp} $newFlowDirname $xml_node
+   ::log::log debug "SharedData_getDeps ${exp_path} ${datestamp} $newFlowDirname $xml_node"
    FlowXml_getDeps ${exp_path} ${datestamp} $newFlowDirname $xml_node
    ::log::log debug "FlowXml_createNodeFromXml() done returning newParentNode:$newParentNode"
    return $newParentNode

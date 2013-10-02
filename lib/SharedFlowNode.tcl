@@ -354,12 +354,12 @@ proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } 
    }
    set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
    if { ${nodeType} == "switch_case" && 
-        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "datestamp_hour" } {
+        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "datestamp_hour" && ${datestamp} != "" } {
       tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current +[Utils_getHourFromDatestamp ${datestamp}]
    }
    
    if { ${nodeType} == "switch_case" && 
-        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "day_of_week" } {
+        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "day_of_week" && ${datestamp} != "" } {
         tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current +[Utils_getDayOfWeekFromDatestamp ${datestamp}]
    }
 
