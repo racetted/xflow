@@ -6,20 +6,25 @@
 # Each thread can monitor multiple log datestamps.
 # An active log file is one that has been modified within the last hour.
 proc ThreadPool_init { nof_thread } {
-   global PoolId
    set done false
    set count 0
    ::log::log notice "ThreadPool_init(): creating ${nof_thread} threads..."
    while { ${done} == false } {
-      set threadId [ThreadPool_createThread true]
-      # puts "ThreadPool_init thread no: ${count} creation done..."
-      set PoolId(${threadId}) false
+      set threadId [ThreadPool_addNewThread]
       incr count
       if { ${count} == ${nof_thread} } {
          set done true
       }
    }
    ::log::log notice "ThreadPool_init(): creating ${nof_thread} threads done"
+}
+
+# create new thread and add to pool
+proc ThreadPool_addNewThread {} {
+   global PoolId
+   set threadId [ThreadPool_createThread]
+   set PoolId(${threadId}) false
+   ::log::log notice "ThreadPool_addNewThread(): adding thread:${threadId} to pool"
 }
 
 proc ThreadPool_createThread { {is_init false} } {
@@ -89,8 +94,10 @@ proc ThreadPool_getThread { {wait false} } {
    return ${foundId}
 }
 
+# assign a thread from the list of available pool
 proc ThreadPool_getNextThread {} {
    global PoolId ThreadPool_Counter
+
    if { ! [info exists ThreadPool_Counter] } {
       set ThreadPool_Counter 0
    }
@@ -117,6 +124,16 @@ proc ThreadPool_releaseThread { thread_id args } {
       set PoolId($thread_id) false
       set THREAD_RELEASE_EVENT true
    }
+}
+
+# destroys the thread and remove from pool
+proc ThreadPool_dropThread { thread_id } {
+   global PoolId
+   array unset PoolId ${thread_id}
+   if { [thread::exists ${thread_id}] } {
+      thread::release ${thread_id}
+   }
+   ::log::log notice "ThreadPool_dropThread(): thread::release ${thread_id}"
 }
 
 proc ThreadPool_showThreadStatus {} {

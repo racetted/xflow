@@ -3,14 +3,13 @@ package require log
 # this proc registers a datestamp to be monitored by the current thread
 proc LogReader_addMonitorDatestamp { exp_path datestamp } {
    global LogReader_Datestamps
+   ::log::log notice "LogReader_addMonitorDatestamp() ${exp_path} ${datestamp} called."
 
    if { ${exp_path} != "" && ${datestamp} != "" } {
-      if { ! [info exists LogReader_Datestamps] } {
-         array set LogReader_Datestamps {}
-      }
       set key ${exp_path}_${datestamp}
       set LogReader_Datestamps($key) "${exp_path} ${datestamp}"
    }
+   ::log::log notice "LogReader_addMonitorDatestamp() ${exp_path} ${datestamp} done."
 }
 
 # this proc removes a datestamp from being monitored by the current thread
@@ -19,12 +18,13 @@ proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
 
    ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} called."
    set key ${exp_path}_${datestamp}
-   if { [info exists LogReader_Datestamps($key)] } {
-      ::log::log notice "LogReader_removeMonitorDatestamp() removing datestamp ${exp_path} ${datestamp}"
-      array unset LogReader_Datestamps $key
-   }
+   array unset LogReader_Datestamps $key
    if { [info exists LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] } {
       unset LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
+   }
+   if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
+      # notify overview that run datestamp is no longer monitored
+      thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_removeMonitorDatestamp [thread::id] ${exp_path} ${datestamp}"
    }
    ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} done."
 }
@@ -163,9 +163,14 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
 	       }
 	    }
          }
-         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} [tell $f_logfile]
+	 set offset [tell $f_logfile]
+         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${offset}
          close $f_logfile
 
+         if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
+            # send heartbeat with the overview
+            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatMonitorDatestamp [thread::id] ${exp_path} ${datestamp} ${offset}"
+         }
       } else {
          ::log::log debug "LogReader_readFile $logfile file does not exists!"
       }
