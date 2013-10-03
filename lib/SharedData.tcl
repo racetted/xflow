@@ -574,7 +574,7 @@ proc SharedData_init {} {
    SharedData_setMiscData OVERVIEW_CHECK_EXP_IDLE false
 
    # number of threads created to process exp log datestamps
-   SharedData_setMiscData OVERVIEW_NUM_THREADS 8
+   SharedData_setMiscData OVERVIEW_NUM_THREADS 4
 
    # default datestamp range value visible in overview box
    # 8-9 is daetstamp hour
