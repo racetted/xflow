@@ -196,7 +196,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
          set topW ${expPath}_${datestamp}
          set topW [regsub -all {[\.]} ${topW} _]
          set answer [MessageDlg .submit_late_${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "ok launch_flow" -aspect 400 \
-            -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" 
+            -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" ]
          if { ${answer} == "1" } {
             Overview_launchExpFlow ${expPath} ${datestamp}
          }
@@ -1571,8 +1571,10 @@ proc Overview_cleanDatestamp { exp_path datestamp } {
 # it also cleans up flow related data
 proc Overview_releaseExpThread { exp_thread_id exp_path datestamp } {
    ::log::log notice "Overview_releaseExpThread exp_thread_id:${exp_thread_id} exp_path:${exp_path} datestamp:${datestamp}"
-   xflow_quit ${exp_path} ${datestamp} true
-   Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
+   if { ${exp_thread_id} != "" } {
+      xflow_quit ${exp_path} ${datestamp} true
+      Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
+   }
 }
 
 # stops monitoring the datestamp log
@@ -1580,7 +1582,10 @@ proc Overview_releaseLoggerThread { exp_thread_id exp_path datestamp } {
    if { ${exp_thread_id} != "" } {
       ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp}"
       # ::thread::send -async ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
+      # remove monitoring from the thread
       ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
+      # remove heartbeat monitoring
+      Overview_removeHeartbeatDatestamp ${exp_thread_id} ${exp_path} ${datestamp}
       if { [SharedData_getMiscData STARTUP_DONE] == false } {
          ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
       }
@@ -2837,32 +2842,34 @@ proc Overview_soundbell {} {
 # keeps track of which thread is monitoring what run datestamp
 # stores the current time that this proc is invoked and also the
 # current file offset of the datestamp log file
-proc Overview_heartbeatMonitorDatestamp { thread_id exp_path datestamp offset } {
-   # puts "Overview_heartbeatMonitorDatestamp $thread_id $exp_path $datestamp $offset"
-   global MonitoredDatestamps
+proc Overview_heartbeatDatestamp { thread_id exp_path datestamp offset } {
+   puts "Overview_heartbeatDatestamp $thread_id $exp_path $datestamp $offset"
+   global HeartbeatDatestamps
    if { ${exp_path} != "" && ${datestamp} != "" } {
       set key ${exp_path}_${datestamp}
-      set MonitoredDatestamps($key) "${exp_path} ${datestamp} ${thread_id} [clock seconds] ${offset}"
+      set HeartbeatDatestamps($key) "${exp_path} ${datestamp} ${thread_id} [clock seconds] ${offset}"
    }
 }
 
 # drops a run datestamp from the monitored list
-proc Overview_removeMonitorDatestamp { thread_id exp_path datestamp } {
-   global MonitoredDatestamps
+proc Overview_removeHeartbeatDatestamp { thread_id exp_path datestamp } {
+   global HeartbeatDatestamps
 
-   ::log::log notice "Overview_removeMonitorDatestamp() ${exp_path} ${datestamp} called."
+   ::log::log notice "Overview_removeHeartbeatDatestamp() ${exp_path} ${datestamp} called."
    set key ${exp_path}_${datestamp}
-   array unset MonitoredDatestamps $key
-   ::log::log notice "Overview_removeMonitorDatestamp() ${exp_path} ${datestamp} done."
+   array unset HeartbeatDatestamps $key
+   ::log::log notice "Overview_removeHeartbeatDatestamp() ${exp_path} ${datestamp} done."
 }
 
 # checks the heartbeats for each monitored run datestamp
 # if the last heartbeat is more than 60 seconds.. somethings wrong
 proc Overview_checkDatestampHeartbeats {} {
    # puts "[exec date] Overview_checkDatestampHeartbeats..."
-   global MonitoredDatestamps
+   global HeartbeatDatestamps
    set currentTime [clock seconds]
-   foreach { key data } [array get MonitoredDatestamps] {
+   foreach { key data } [array get HeartbeatDatestamps] {
+      set expPath [lindex ${data} 0]
+      set datestamp [lindex ${data} 1]
       set lastHeartbeat [lindex ${data} 3]
       set elapsed [expr ${currentTime} - ${lastHeartbeat}]
       # puts "Overview_checkDatestampHeartbeats key:${key} current time:${currentTime} last heatbeat: ${lastHeartbeat}"
@@ -2871,7 +2878,7 @@ proc Overview_checkDatestampHeartbeats {} {
          # no heartbeat received for the last 60 seconds...
 	 set threadId [lindex ${data} 2]
          # puts "Overview_checkDatestampHeartbeats key:${key} threadId:${threadId} SOMETHINGS WRONG!"
-         ::log::log notice "Thread Hearbeat: heartbeat not received from thread ${threadId} for more than 60 seconds... destroying thread..."
+         ::log::log notice "Thread Hearbeat: heartbeat not received from thread ${threadId} exp:${expPath} datestamp:${datestamp} for more than 60 seconds... destroying thread..."
 	 # we consider the tread unreachable and we need to destroy it
          Overview_processDeadThread ${threadId}
 	 break
@@ -2887,11 +2894,11 @@ proc Overview_checkDatestampHeartbeats {} {
 # 3) kill the problematic thread
 # 4) create a new thread to replace it in the pool
 proc Overview_processDeadThread { thread_id } {
-   global MonitoredDatestamps
+   global HeartbeatDatestamps
    # puts "Overview_processDeadThread thread_id:$thread_id"
    set affectedOnes {}
    # get info about every datestamp that the thread is monitoring
-   foreach { key data } [array get MonitoredDatestamps] {
+   foreach { key data } [array get HeartbeatDatestamps] {
       set checkThreadId [lindex ${data} 2]
       if { ${checkThreadId} == ${thread_id} } {
          set expPath [lindex ${data} 0]
@@ -2927,7 +2934,7 @@ proc Overview_processDeadThread { thread_id } {
       SharedData_setExpThreadId ${expPath} ${datestamp} ${expThreadId}
 
       # remove from the list of monitored datestamp... will be re-added later when it's reassigned
-      array unset MonitoredDatestamps ${expPath}_${datestamp}
+      array unset HeartbeatDatestamps ${expPath}_${datestamp}
 
       # thread should now monitor new datestamp
       thread::send -async ${expThreadId} "LogReader_addMonitorDatestamp ${expPath} ${datestamp}"
