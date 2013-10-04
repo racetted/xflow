@@ -24,7 +24,6 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
             set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
 	    if { ${datestampHour} != "" } {
                set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${datestampHour}\]]
-	       ::log::log debug "GOT switchItemNode name:[${switchItemNode} getAttribute name]"
 	       set returnedValue ${switchItemNode}
 	    }
          }
@@ -32,7 +31,6 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
             set dow [Utils_getDayOfWeekFromDatestamp ${datestamp}]
 	    if { ${dow} != "" } {
                set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${dow}\]]
-	       ::log::log debug "GOT switchItemNode name:[${switchItemNode} getAttribute name]"
 	       set returnedValue ${switchItemNode}
 	    }
          }
@@ -42,6 +40,7 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
 	 }
       }
    }
+    ::log::log debug "FlowXml_getSwitchingItemNode returnedValue:${returnedValue}"
    return ${returnedValue}
 }
 
