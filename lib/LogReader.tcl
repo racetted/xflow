@@ -22,10 +22,6 @@ proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
    if { [info exists LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] } {
       unset LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    }
-   if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
-      # notify overview that run datestamp is no longer monitored
-      thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_removeMonitorDatestamp [thread::id] ${exp_path} ${datestamp}"
-   }
    ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} done."
 }
 
@@ -43,6 +39,11 @@ proc LogReader_readMonitorDatestamps {} {
       set datestamp [lindex ${value} 1]
       # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
       LogReader_readFile ${expPath} ${datestamp} all
+      set offset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
+      if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
+         # send heartbeat with the overview
+         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatDatestamp [thread::id] ${expPath} ${datestamp} ${offset}"
+      }
    }
 
    set READ_LOG_AFTER_ID [after 4000 LogReader_readMonitorDatestamps]
@@ -63,7 +64,6 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
 
    if [ catch { 
       FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
-      # ::log::log debug "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
@@ -165,12 +165,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
          }
 	 set offset [tell $f_logfile]
          SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${offset}
-         close $f_logfile
-
-         if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
-            # send heartbeat with the overview
-            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatMonitorDatestamp [thread::id] ${exp_path} ${datestamp} ${offset}"
-         }
+         catch { close $f_logfile }
       } else {
          ::log::log debug "LogReader_readFile $logfile file does not exists!"
       }
