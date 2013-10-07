@@ -2843,7 +2843,7 @@ proc Overview_soundbell {} {
 # stores the current time that this proc is invoked and also the
 # current file offset of the datestamp log file
 proc Overview_heartbeatDatestamp { thread_id exp_path datestamp offset } {
-   puts "Overview_heartbeatDatestamp $thread_id $exp_path $datestamp $offset"
+   # puts "Overview_heartbeatDatestamp $thread_id $exp_path $datestamp $offset"
    global HeartbeatDatestamps
    if { ${exp_path} != "" && ${datestamp} != "" } {
       set key ${exp_path}_${datestamp}

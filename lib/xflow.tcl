@@ -705,6 +705,7 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
    if { ${previousDatestamp} != ${newDatestamp} } {
       # SharedFlowNode_resetNodeStatus ${exp_path} [SharedData_getExpRootNode ${exp_path} ${datestamp}] ${seqDatestamp}
 
+      MsgCenter_clearAllMessages
       if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
          # add the datestamp so the monitor does not try to launch the xflow again
          LogMonitor_addOneExpDatestamp ${exp_path} ${seqDatestamp}
