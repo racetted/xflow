@@ -105,9 +105,9 @@ proc SharedData_getExpDatestampData { exp_path datestamp key } {
 
 # removes experiment data based on the exp_path and the key
 proc SharedData_unsetExpDatestampData { exp_path datestamp key } {
-   puts "SharedData_unsetExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
+   # puts "SharedData_unsetExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
    catch { tsv::keyldel SharedData_${exp_path}_${datestamp} data ${key} }
-   puts "SharedData_unsetExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} DONE"
+   # puts "SharedData_unsetExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
 
 # retrieves the experiment thread id

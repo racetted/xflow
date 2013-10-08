@@ -40,10 +40,10 @@ proc LogReader_readMonitorDatestamps {} {
       # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
       LogReader_readFile ${expPath} ${datestamp} all
       set offset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
-      if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
+      # if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
          # send heartbeat with the overview
-         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatDatestamp [thread::id] ${expPath} ${datestamp} ${offset}"
-      }
+     #    thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatDatestamp [thread::id] ${expPath} ${datestamp} ${offset}"
+     # }
    }
 
    set READ_LOG_AFTER_ID [after 4000 LogReader_readMonitorDatestamps]

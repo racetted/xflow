@@ -1085,7 +1085,7 @@ proc Overview_isDefaultBoxActive { canvas exp_path datestamp } {
 # if an exp is executing (begin state), this function is called every minute
 # to update the exp status
 proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } } {
-   puts "Overview_updateExpBox exp_path:$exp_path datestamp:$datestamp status:$status time:$timevalue"
+   ::log::log debug "Overview_updateExpBox exp_path:$exp_path datestamp:$datestamp status:$status time:$timevalue"
    global startEndIconSize
    after cancel [SharedData_getExpOverviewUpdateAfterId ${exp_path} ${datestamp}]
    set continueStatus ""
@@ -1153,7 +1153,7 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
          SharedData_setExpOverviewUpdateAfterId ${exp_path} ${datestamp} ${afterId}
       }
    }
-   puts "Overview_updateExpBox exp_path:$exp_path datestamp:$datestamp status:$status time:$timevalue DONE"
+   ::log::log debug "Overview_updateExpBox exp_path:$exp_path datestamp:$datestamp status:$status time:$timevalue DONE"
 }
 
 # this function places exp run boxes on the same y slot if there is enough space for it
@@ -1585,7 +1585,7 @@ proc Overview_releaseLoggerThread { exp_thread_id exp_path datestamp } {
       # remove monitoring from the thread
       ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
       # remove heartbeat monitoring
-      Overview_removeHeartbeatDatestamp ${exp_thread_id} ${exp_path} ${datestamp}
+      # Overview_removeHeartbeatDatestamp ${exp_thread_id} ${exp_path} ${datestamp}
       if { [SharedData_getMiscData STARTUP_DONE] == false } {
          ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
       }
@@ -1645,7 +1645,7 @@ proc Overview_waitChildInitDone {} {
 # See LogReader.tcl
 proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
    global AUTO_LAUNCH
-   puts "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
+   ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    # ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    set canvas [Overview_getCanvas]
@@ -1694,7 +1694,7 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
       }
    }
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
-   puts "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
+   ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
 }
 
 proc Overview_refreshExpLastStatus { exp_path datestamp } {
@@ -3019,7 +3019,7 @@ proc Overview_main {} {
    Overview_checkExpSubmitLate 900000
 
    # hearbeats for threads
-   after 30000 Overview_checkDatestampHeartbeats
+   # after 30000 Overview_checkDatestampHeartbeats
 }
 
 #set tcl_traceExec 1
