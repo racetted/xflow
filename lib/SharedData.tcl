@@ -70,23 +70,23 @@ proc SharedData_setExpDatestampData { exp_path datestamp key value } {
 }
 
 proc SharedData_removeExpDatestampData { exp_path datestamp } {
-   # ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
-   puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
+   ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
+   # puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp}"
    catch { after cancel [SharedData_getExpOverviewUpdateAfterId ${exp_path} ${datestamp}] }
    # ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} reset done"
 
    set expDatestampMutex [SharedData_getExpDatestampMutex ${exp_path} ${datestamp}]
-   puts "SharedData_removeExpDatestampData ${expDatestampMutex} locked"
+   # puts "SharedData_removeExpDatestampData ${expDatestampMutex} locked"
    thread::mutex lock ${expDatestampMutex}
 
-   puts "SharedData_removeExpDatestampData() unset exp_path:${exp_path} datestamp:${datestamp}"
+   # puts "SharedData_removeExpDatestampData() unset exp_path:${exp_path} datestamp:${datestamp}"
    catch { tsv::unset SharedData_${exp_path}_${datestamp} }
 
-   puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unlocking..."
+   # puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unlocking..."
    thread::mutex unlock ${expDatestampMutex}
-   # ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset done"
+   ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset done"
    # puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset done"
-   puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} DONE"
+   # puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
 
 # retrieve experiment data based on the exp_path and the key
@@ -292,6 +292,16 @@ proc SharedData_getExpNodeMapping { _exp_path _datestamp _real_node } {
 
    # puts "SharedData_getExpNodeMapping exp_path:${_exp_path} datestamp:${_datestamp} real_node;${_real_node} flowNode:${flowNode}"
    return ${flowNode}
+}
+
+proc SharedData_isExpNodeMappingExists { _exp_path _datestamp } {
+  set isExist false
+   catch {
+      if { [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} node_mappings] != "" } {
+         set isExist true
+      }
+   }
+   return ${isExist}
 }
 
 proc SharedData_resetExpDisplayData { _exp_path _datestamp _canvas } {

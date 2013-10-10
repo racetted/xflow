@@ -712,18 +712,25 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
       set datestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
       set realDatestamp [Utils_getRealDatestampValue ${datestamp}]
 
-      # here I need to check whether the the run data is still stored in memory
-      # if it is not, need to re-init the run data
-      set expThreadId [SharedData_getExpThreadId ${expPath} ${datestamp}]
-      if { ${expThreadId} == "" } {
+      # here I need to check whether the node mapping is still stored in memory
+      # if it is not, need to fetch it.
+      # The node mapping is cleaned when the run goes out of the overview visibility
+      # window
+      if { [SharedData_isExpNodeMappingExists ${expPath} ${realDatestamp}] == false } {
+         ::log::log debug "MsgCenter_rightClickCallback exp_path:${expPath} datestamp:${realDatestamp} loading NODE MAPPING"
          Utils_busyCursor ${table_widget}
-         set result [ catch {
-               set expThreadId [ThreadPool_getNextThread]
-	       thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${realDatestamp}\" refresh_flow" LogReaderDone
-	       vwait LogReaderDone
-               Utils_normalCursor ${table_widget}
-         } message ]
-
+         if [ catch {
+	    # parse the flow.xml file to get the node mappings
+            FlowXml_parse ${expPath}/EntryModule/flow.xml ${expPath} ${realDatestamp} ""
+         } message ] {
+            set errMsg "Error Parsing flow.xml file ${expPath}:\n$message"
+            puts "ERROR: MsgCenter_rightClickCallback Parsing flow.xml file exp_path:${expPath} datestamp:${realDatestamp}\n$message"
+            ::log::log notice "ERROR: MsgCenter_rightClickCallback Parsing flow.xml file ${expPath}:\n$message."
+            error ${message}
+            return
+         }
+         # register the mapping data to be collected later on i.e. every hour
+	 after 5000 [list OverviewExpStatus_addObsoleteDatestamp ${expPath} ${realDatestamp}]
          Utils_normalCursor ${table_widget}
       }
       set flowNode [SharedData_getExpNodeMapping ${expPath} ${realDatestamp} ${nodeWithouthExt}]

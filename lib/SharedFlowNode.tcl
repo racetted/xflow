@@ -479,9 +479,11 @@ proc SharedFlowNode_getMemberStatus { exp_path node datestamp member } {
       if { $member == "latest" } {
          set member [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} latest_member]
       }
-      array set statuses [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses]
-      if { [info exists statuses($member)] } {
-         set values $statuses($member)
+      catch {
+         array set statuses [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses]
+         if { [info exists statuses($member)] } {
+            set values $statuses($member)
+         }
       }
       set value [lindex ${values} 0]
    }
@@ -873,10 +875,12 @@ proc SharedFlowNode_getNptExtensions { exp_path node datestamp } {
 proc SharedFlowNode_isCollapsed { exp_path node datestamp canvas } {
    set value 0
    if { [tsv::exists SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == 1 } {
-      array set displayInfoList [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
-      if { [info exists displayInfoList($canvas)] } {
-         set displayInfo $displayInfoList($canvas)
-         set value [lindex $displayInfo 0]
+      catch {
+         array set displayInfoList [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+         if { [info exists displayInfoList($canvas)] } {
+            set displayInfo $displayInfoList($canvas)
+            set value [lindex $displayInfo 0]
+         }
       }
    }
    return $value

@@ -195,10 +195,13 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
          ::log::log notice "Experiment ${expPath} ${datestamp} SUBMIT LATE." 
          set topW ${expPath}_${datestamp}
          set topW [regsub -all {[\.]} ${topW} _]
-         set answer [MessageDlg .submit_late_${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "ok launch_flow" -aspect 400 \
-            -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" ]
-         if { ${answer} == "1" } {
-            Overview_launchExpFlow ${expPath} ${datestamp}
+         set topW .submit_late_${topW}
+         if { [winfo exists ${topW}] == false } {
+            set answer [MessageDlg ${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "ok launch_flow" -aspect 400 \
+               -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" ]
+            if { ${answer} == "1" } {
+               Overview_launchExpFlow ${expPath} ${datestamp}
+            }
          }
       }
    }
@@ -239,10 +242,13 @@ proc Overview_processIdleExp { expIdleList } {
       ::log::log notice "Experiment ${expPath} ${datestamp} IDLE..."
       set topW ${expPath}_${datestamp}
       set topW [regsub -all {[\.]} ${topW} _]
-      set answer [MessageDlg .idle_${topW} -icon warning -title "Exp Idle Warning" -type user -buttons "ok launch_flow" -aspect 400 \
-         -parent [Overview_getToplevel] -message "Experiment: ${expPath} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" ]
-      if { ${answer} == "1" } {
-          Overview_launchExpFlow ${expPath} ${datestamp}
+      set topW .idle_${topW}
+      if { [winfo exists ${topW}] == 0 } {
+         set answer [MessageDlg ${topW} -icon warning -title "Exp Idle Warning" -type user -buttons "ok launch_flow" -aspect 400 \
+            -parent [Overview_getToplevel] -message "Experiment: ${expPath} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" ]
+         if { ${answer} == "1" } {
+             Overview_launchExpFlow ${expPath} ${datestamp}
+         }
       }
    }
 }
