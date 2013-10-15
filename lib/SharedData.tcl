@@ -171,6 +171,15 @@ proc SharedData_getExpRootNode { _exp_path _datestamp } {
    return ${rootNode}
 }
 
+proc SharedData_setExpHeartbeat { _exp_path _datestamp _threadId _timeSeconds _offset } {
+   SharedData_setExpDatestampData ${_exp_path} ${_datestamp} heartbeat "${_threadId} ${_timeSeconds} ${_offset}"
+}
+
+proc SharedData_getExpHeartbeat { _exp_path _datestamp } {
+   set heartbeatData [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} heartbeat]
+   return ${heartbeatData}
+}
+
 proc SharedData_getExpGroupDisplay { _exp_path } {
    set groupDisplay [SharedData_getExpData ${_exp_path} groupdisplay]
    return ${groupDisplay}
