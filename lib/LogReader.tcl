@@ -33,17 +33,23 @@ proc LogReader_readMonitorDatestamps {} {
 
    catch { after cancel ${READ_LOG_AFTER_ID} }
 
-   foreach { key value } [array get LogReader_Datestamps] {
-      # puts "LogReader_readMonitorDatestamps [thread::id] found key:${key} value:${value}"
-      set expPath [lindex ${value} 0]
-      set datestamp [lindex ${value} 1]
-      # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
-      LogReader_readFile ${expPath} ${datestamp} all
-      set offset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
-      # if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
-         # send heartbeat with the overview
-     #    thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatDatestamp [thread::id] ${expPath} ${datestamp} ${offset}"
-     # }
+   if [ catch {
+
+      foreach { key value } [array get LogReader_Datestamps] {
+         if [ catch {
+            # puts "LogReader_readMonitorDatestamps [thread::id] found key:${key} value:${value}"
+            set expPath [lindex ${value} 0]
+            set datestamp [lindex ${value} 1]
+            # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
+            LogReader_readFile ${expPath} ${datestamp} all
+            set offset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
+         } message ] {
+            ::log::log notice "ERROR in LogReader_readMonitorDatestamps: key:${key} ${message}"
+         }
+      }
+
+   } message ] {
+      ::log::log notice "ERROR in LogReader_readMonitorDatestamps: ${message}"
    }
 
    set READ_LOG_AFTER_ID [after 4000 LogReader_readMonitorDatestamps]

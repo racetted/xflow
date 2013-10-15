@@ -43,31 +43,39 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    global graphHourX graphX graphStartX graphStartY
    global CHECK_EXP_IDLE
 
+   if [ catch {
 
-   set currentClock [clock seconds]
-   ::log::log debug "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
-   ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
-   set advanceGrid true
-   if { ${new_hour} == "" } {
-      # first time called, calculate the time to sleep before the hour
-      set advanceGrid false
-      set new_hour [Utils_getNonPaddedValue [clock format ${currentClock} -format %H -gmt 1]]
-      set elapsedMin [Utils_getNonPaddedValue [clock format ${currentClock} -format %M]]
-      set elapsedSeconds [Utils_getNonPaddedValue [clock format ${currentClock} -format %S]]
-      set elapsedInMilliSec [expr ${elapsedMin} * 60000 + ${elapsedSeconds} * 1000]
-      set sleepTime [expr 3600000 - ${elapsedInMilliSec}]
-   } else {
       # wake-up in an hour
       set sleepTime 3600000
-   }
-   if { ${new_hour} == "24" } {
-      set nextHour 1
-   } else {
-      set nextHour [expr ${new_hour} + 1]
-   }
+      set nextHour ""
 
-   ::log::log debug "Overview_GridAdvanceHour sleeping for ${sleepTime} msecs before hour ${nextHour}"
-   after ${sleepTime} [list Overview_GridAdvanceHour ${nextHour}]
+      set currentClock [clock seconds]
+
+      ::log::log debug "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
+      ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}]"
+      set advanceGrid true
+      if { ${new_hour} == "" } {
+         # first time called, calculate the time to sleep before the hour
+         set advanceGrid false
+         set new_hour [Utils_getNonPaddedValue [clock format ${currentClock} -format %H -gmt 1]]
+         set elapsedMin [Utils_getNonPaddedValue [clock format ${currentClock} -format %M]]
+         set elapsedSeconds [Utils_getNonPaddedValue [clock format ${currentClock} -format %S]]
+         set elapsedInMilliSec [expr ${elapsedMin} * 60000 + ${elapsedSeconds} * 1000]
+         set sleepTime [expr 3600000 - ${elapsedInMilliSec}]
+      }
+
+      if { ${new_hour} == "24" } {
+         set nextHour 1
+      } else {
+         set nextHour [expr ${new_hour} + 1]
+      }
+
+      ::log::log debug "Overview_GridAdvanceHour sleeping for ${sleepTime} msecs before hour ${nextHour}"
+  } message ] {
+      ::log::log notice "ERROR in Overview_GridAdvanceHour message:${message}"
+  }
+
+  after ${sleepTime} [list Overview_GridAdvanceHour ${nextHour}]
 
    if { ${advanceGrid} == false } {
       return
