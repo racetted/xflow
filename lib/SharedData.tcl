@@ -225,10 +225,12 @@ proc SharedData_getExpAutoLaunch { _exp_path } {
    return ${autoLaunchValue}
 }
 
+# sets the check idle flag for the exp, this value comes from the ExpOptions.xml
 proc SharedData_setExpCheckIdle { _exp_path _checkIdle } {
    SharedData_setExpData ${_exp_path} checkidle ${_checkIdle}
 }
 
+# gets the check idle flag for the exp, this value comes from the ExpOptions.xml
 proc SharedData_getExpCheckIdle { _exp_path } {
    set checkIdleValue [SharedData_getExpData ${_exp_path} checkidle ]
    if { ${checkIdleValue} == "" } {
@@ -261,6 +263,41 @@ proc SharedData_setExpUpdatedNodes { _exp_path _datestamp _nodeList } {
 proc SharedData_getExpUpdatedNodes { _exp_path _datestamp} {
    set nodeList [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} updated_nodes]
    return ${nodeList}
+}
+
+# value of _checkIdleFlag is 1 or 0 to indicate user has
+# does not want more warnings for exp idle
+# 0 is the default value when not set i.e. means want warnings
+# 1 means no more warnings
+# This value is for each run datesamp as the user can change the value
+proc SharedData_setExpStopCheckIdle { _exp_path _datestamp _checkIdleFlag } {
+   SharedData_setExpDatestampData ${_exp_path} ${_datestamp} stop_check_idle ${_checkIdleFlag}
+}
+
+proc SharedData_getExpStopCheckIdle { _exp_path _datestamp} {
+   set checkIdleFlag 0
+   catch { set checkIdleFlag [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} stop_check_idle] }
+   if { ${checkIdleFlag} == "" } {
+      set checkIdleFlag 0
+   }
+   return ${checkIdleFlag}
+}
+
+# value of _checkSubmitLateFlag is 1 or 0 to indicate user has
+# does not want more warnings for submit late
+# 0 is the default value when not set i.e. means want warnings
+# 1 means no more warnings
+proc SharedData_setExpStopCheckSubmitLate { _exp_path _datestamp _checkSubmitLateFlag } {
+   SharedData_setExpDatestampData ${_exp_path} ${_datestamp} stop_check_submit_late ${_checkSubmitLateFlag}
+}
+
+proc SharedData_getExpStopCheckSubmitLate { _exp_path _datestamp} {
+   set checkSubmitLateFlag 0
+   catch { set checkSubmitLateFlag [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} stop_check_submit_late] }
+   if { ${checkSubmitLateFlag} == "" } {
+      set checkSubmitLateFlag 0
+   }
+   return ${checkSubmitLateFlag}
 }
 
 proc SharedData_setExpFlowSize { _exp_path _datestamp _flow_size } {

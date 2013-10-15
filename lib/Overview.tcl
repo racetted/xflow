@@ -138,7 +138,8 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                set lastStatus init
             }
 
-	    if { ${CHECK_EXP_IDLE} == true && [Overview_isExpIdle ${exp} ${datestamp}] == true } {
+	    if { ${CHECK_EXP_IDLE} == true && [ExpOptions_getCheckIdle ${exp}] == true 
+	         && [Overview_isExpIdle ${exp} ${datestamp}] == true } {
 	       lappend expIdleList "${exp} ${datestamp}"
             }
 
@@ -170,16 +171,18 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
       foreach displayGroup $displayGroups {
          set expList [$displayGroup cget -exp_list]
          foreach expPath $expList {
-            set checkList [Overview_getExpBoxTags ${canvasW} ${expPath}]
-	    set checkListIndex [lsearch -all ${checkList} default_*]
-	    foreach checkIndex ${checkListIndex} {
-	       set checkTag [lindex ${checkList} ${checkIndex}]
-               set refStartTime [Overview_getRefTimings ${expPath} [Utils_getHourFromDatestamp ${checkTag}] start]
-               if { [Overview_isExpStartPassed ${expPath} ${checkTag}] == true && ${refStartTime} != "" } {
-                  set refTimeLate [clock add [clock scan ${refStartTime}] 15 minute]
-	          if { ${currentTime} > ${refTimeLate} } {
-		     lappend expLateList "${expPath} ${checkTag}"
-	          }
+	    if { [ExpOptions_getCheckIdle ${expPath}] } {
+               set checkList [Overview_getExpBoxTags ${canvasW} ${expPath}]
+	       set checkListIndex [lsearch -all ${checkList} default_*]
+	       foreach checkIndex ${checkListIndex} {
+	          set checkTag [lindex ${checkList} ${checkIndex}]
+                  set refStartTime [Overview_getRefTimings ${expPath} [Utils_getHourFromDatestamp ${checkTag}] start]
+                  if { [Overview_isExpStartPassed ${expPath} ${checkTag}] == true && ${refStartTime} != "" } {
+                     set refTimeLate [clock add [clock scan ${refStartTime}] 15 minute]
+	             if { ${currentTime} > ${refTimeLate} } {
+		        lappend expLateList "${expPath} ${checkTag}"
+	             }
+                  }
                }
             }
          }
@@ -196,12 +199,17 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
          set topW ${expPath}_${datestamp}
          set topW [regsub -all {[\.]} ${topW} _]
          set topW .submit_late_${topW}
-         if { [winfo exists ${topW}] == false } {
-            set answer [MessageDlg ${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "ok launch_flow" -aspect 400 \
+         if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckSubmitLate ${expPath} ${datestamp}] == "0" } {
+            set answer [MessageDlg ${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "Ok \"Launch Flow\" \"Do Not Show Again!\"" -aspect 800 \
                -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" ]
             if { ${answer} == "1" } {
                Overview_launchExpFlow ${expPath} ${datestamp}
-            }
+            } elseif { ${answer} == "2" } {
+	       SharedData_setExpStopCheckSubmitLate ${expPath} ${datestamp} 1
+               ::log::log notice "Experiment ${expPath} ${datestamp} CHECK SUBMIT LATE turned OFF." 
+	    }
+         } else {
+            puts "Overview_checkSubmitLate NOT SENDING warning for ${expPath} ${datestamp}"
          }
       }
    }
@@ -243,12 +251,17 @@ proc Overview_processIdleExp { expIdleList } {
       set topW ${expPath}_${datestamp}
       set topW [regsub -all {[\.]} ${topW} _]
       set topW .idle_${topW}
-      if { [winfo exists ${topW}] == 0 } {
-         set answer [MessageDlg ${topW} -icon warning -title "Exp Idle Warning" -type user -buttons "ok launch_flow" -aspect 400 \
+      if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckIdle  ${expPath} ${datestamp}] == "0" } {
+         set answer [MessageDlg ${topW} -icon warning -title "Exp Idle Warning" -type user -buttons "Ok \"Launch Flow\" \"Do Not Show Again\"" -aspect 800 \
             -parent [Overview_getToplevel] -message "Experiment: ${expPath} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" ]
          if { ${answer} == "1" } {
              Overview_launchExpFlow ${expPath} ${datestamp}
-         }
+         } elseif { ${answer} == "2" } {
+	    SharedData_setExpStopCheckIdle  ${expPath} ${datestamp} 1
+            ::log::log notice "Experiment ${expPath} ${datestamp} CHECK EXP IDLE turned OFF." 
+	 }
+      } else {
+         puts "Overview_processIdleExp NOT SENDING warning for ${expPath} ${datestamp}"
       }
    }
 }
