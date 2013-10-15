@@ -16,13 +16,13 @@ proc LogReader_addMonitorDatestamp { exp_path datestamp } {
 proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
    global LogReader_Datestamps LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
 
-   ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} called."
+   ::log::log notice "Thread:[thread::id] LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} called."
    set key ${exp_path}_${datestamp}
    array unset LogReader_Datestamps $key
    if { [info exists LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] } {
       unset LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    }
-   ::log::log notice "LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} done."
+   ::log::log notice "Thread:[thread::id] LogReader_removeMonitorDatestamp() ${exp_path} ${datestamp} done."
 }
 
 # once initiated, this proc monitors all the datestamp that  is registered
@@ -40,10 +40,15 @@ proc LogReader_readMonitorDatestamps {} {
       # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
       LogReader_readFile ${expPath} ${datestamp} all
       set offset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
-      # if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
-         # send heartbeat with the overview
-     #    thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatDatestamp [thread::id] ${expPath} ${datestamp} ${offset}"
-     # }
+      if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
+        # send heartbeat with the overview
+        # It could be that the key was modified while I'm processing this loop so before
+	# I resend the heartbeat I re-check that the key still exists
+	if { [array get LogReader_Datestamps ${key}] != "" } {
+           # thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatDatestamp [thread::id] ${expPath} ${datestamp} ${offset}"
+	   SharedData_setExpHeartbeat ${expPath} ${datestamp} [thread::id] [clock seconds] ${offset}
+        }
+     }
    }
 
    set READ_LOG_AFTER_ID [after 4000 LogReader_readMonitorDatestamps]
@@ -91,6 +96,13 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
       # register the log to be monitor by this thread
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} added to monitor list"
       LogReader_addMonitorDatestamp ${exp_path} ${datestamp}
+
+      # send first heartbeat
+      if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
+         set offset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
+         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_addHeartbeatDatestamp ${exp_path} ${datestamp}"
+	 SharedData_setExpHeartbeat ${exp_path} ${datestamp} [thread::id] [clock seconds] ${offset}
+      }
    }
 }
 
