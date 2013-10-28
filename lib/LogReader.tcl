@@ -262,8 +262,10 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
             } else {
                set msgNode ${node}
             }
+	    # send msg variable in between brackets so no expansion is being made
+	    # in case it contains dollar signs
             thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenter_processNewMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} \"${msg}\""
+               "MsgCenter_processNewMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} {${msg}}"
          }
       }
 
