@@ -1668,7 +1668,7 @@ proc Overview_addExp { display_group canvas exp_path } {
 
    # create startup threads to process log datestamps
    # get the list of datestamps visible from the left side of the overview for this exp
-   set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [expr -14*60] ]
+   set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [expr -[SharedData_getMiscData LOG_SPAN_IN_HOURS]*60] ]
    Overview_addStartupProgressMax [llength ${visibleDatestamps}]
 
    ::log::log debug "Overview_addExp exp_path:$exp_path visibleDatestamps:$visibleDatestamps"
@@ -2317,6 +2317,7 @@ proc Overview_parseCmdOptions {} {
          {suites.arg "" "suites definition file"}
          {user.arg "" "real user (before switching -as)"}
          {rc.arg "" "maestrorc preferrence file"}
+         {logspan.arg "" "read the past ARGUMENT hours of logs, default is 14"}
       }
    
       set usage "\[options] \noptions:"
@@ -2340,6 +2341,12 @@ proc Overview_parseCmdOptions {} {
 
          if { $params(noautomsg) } {
             SharedData_setMiscData AUTO_MSG_DISPLAY false
+         } 
+
+         if { $params(logspan) != "" } {
+            SharedData_setMiscData LOG_SPAN_IN_HOURS $params(logspan)
+         } else { 
+            SharedData_setMiscData LOG_SPAN_IN_HOURS 14
          } 
 
          if { $params(debug) } {
