@@ -26,6 +26,7 @@ eval `cclargs -D "" $0 "[starts the overview gui]" \
   -logfile ""  ""  "[application log file]" \
   -rc ""	""	"[maestrorc preferrence file]" \
   -user ""	""	"[real user]" \
+  -logspan ""	""	"[log reading span in hours]" \
   ++ $arguments`
 
 # setting the display properly
@@ -96,6 +97,11 @@ if [[ "${user}" != "" ]] ; then
    user_opt="-user ${user}"
 fi
 
+logspan_opt=""
+if [[ "${logspan}" != "" ]] ; then
+   logspan_opt="-logspan ${logspan}"
+fi
+
 export NO_STOP_MESSAGE=on
 print "\n$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}"
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl -main ${automsg_opt} ${suites_opt} ${logfile_opt} ${debug_opt} ${rc_opt} ${user_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl -main ${automsg_opt} ${suites_opt} ${logfile_opt} ${debug_opt} ${rc_opt} ${user_opt} ${logspan_opt}
