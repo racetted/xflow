@@ -47,10 +47,9 @@ proc LogReader_readMonitorDatestamps {} {
               # send heartbeat with the overview
               # It could be that the key was modified while I'm processing this loop so before
 	      # I resend the heartbeat I re-check that the key still exists
-	      if { [array get LogReader_Datestamps ${key}] != "" } {
-                 # thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_heartbeatDatestamp [thread::id] ${expPath} ${datestamp} ${offset}"
-	         SharedData_setExpHeartbeat ${expPath} ${datestamp} [thread::id] [clock seconds] ${offset}
-              }
+	      # if { [array get LogReader_Datestamps ${key}] != "" } {
+	         # SharedData_setExpHeartbeat ${expPath} ${datestamp} [thread::id] [clock seconds] ${offset}
+              # }
            }
          } message ] {
             ::log::log notice "ERROR in LogReader_readMonitorDatestamps: key:${key} ${message}"
@@ -110,8 +109,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
       # send first heartbeat
       if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
          set offset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
-         thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_addHeartbeatDatestamp ${exp_path} ${datestamp}"
-	 SharedData_setExpHeartbeat ${exp_path} ${datestamp} [thread::id] [clock seconds] ${offset}
+         # thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_addHeartbeatDatestamp ${exp_path} ${datestamp}"
+	 # SharedData_setExpHeartbeat ${exp_path} ${datestamp} [thread::id] [clock seconds] ${offset}
       }
    }
 }

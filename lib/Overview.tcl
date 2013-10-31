@@ -1613,7 +1613,7 @@ proc Overview_releaseLoggerThread { exp_thread_id exp_path datestamp } {
       ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
 
       # remove heartbeat monitoring
-      Overview_removeHeartbeatDatestamp ${exp_thread_id} ${exp_path} ${datestamp}
+      # Overview_removeHeartbeatDatestamp ${exp_thread_id} ${exp_path} ${datestamp}
       if { [SharedData_getMiscData STARTUP_DONE] == false } {
          ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
       }
@@ -1645,7 +1645,7 @@ proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
       ::log::log debug "Overview_childInitDone Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}"
       Overview_releaseLoggerThread ${exp_thread_id} ${exp_path} ${datestamp}
    } else {
-      Overview_addHeartbeatDatestamp ${exp_path} ${datestamp}
+      # Overview_addHeartbeatDatestamp ${exp_path} ${datestamp}
    }
 
    # check if all startup threads are done reading
@@ -2079,7 +2079,7 @@ proc Overview_addGroup { canvas displayGroup } {
    set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
 
    $canvas itemconfigure displayGroup_${tagName} -font $newFont
-   ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
+   # ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
 
    $displayGroup configure -x [expr $graphStartX + 20]
    DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
@@ -2883,12 +2883,13 @@ proc Overview_addHeartbeatDatestamp { exp_path datestamp } {
 # stores the current time that this proc is invoked and also the
 # current file offset of the datestamp log file
 proc Overview_heartbeatDatestamp { thread_id exp_path datestamp offset } {
-   # puts "Overview_heartbeatDatestamp $thread_id $exp_path $datestamp $offset"
+   ::log::log debug "Overview_heartbeatDatestamp $thread_id $exp_path $datestamp $offset"
    global HeartbeatDatestamps
    if { ${exp_path} != "" && ${datestamp} != "" } {
       set key ${exp_path}_${datestamp}
       set HeartbeatDatestamps($key) "${exp_path} ${datestamp} ${thread_id} [clock seconds] ${offset}"
    }
+   ::log::log debug "Overview_heartbeatDatestamp $thread_id $exp_path $datestamp $offset DONE"
 }
 
 # drops a run datestamp from the monitored list
@@ -2902,7 +2903,7 @@ proc Overview_removeHeartbeatDatestamp { thread_id exp_path datestamp } {
 }
 
 proc Overview_checkDatestampHeartbeats {} {
-   # puts "[exec date] Overview_checkDatestampHeartbeats..."
+   ::log::log debug "[exec date] Overview_checkDatestampHeartbeats..."
    global HeartbeatDatestamps
    set currentTime [clock seconds]
    foreach { key data } [array get HeartbeatDatestamps] {
@@ -2929,6 +2930,8 @@ proc Overview_checkDatestampHeartbeats {} {
    }
    # execute every minute
    after 60000 Overview_checkDatestampHeartbeats
+
+   ::log::log debug "[exec date] Overview_checkDatestampHeartbeats DONE"
 }
 
 # get rid of an unreachable thread
@@ -3063,8 +3066,8 @@ proc Overview_main {} {
    Overview_checkExpSubmitLate 900000
 
    # hearbeats for threads
-   after 30000 Overview_checkDatestampHeartbeats
+   # after 30000 Overview_checkDatestampHeartbeats
 }
 
-#set tcl_traceExec 1
+set tcl_traceExec 1
 Overview_parseCmdOptions
