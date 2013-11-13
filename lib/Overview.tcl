@@ -2692,6 +2692,7 @@ proc Overview_createPluginToolbar { _toplevelW } {
    set errorMsg ""
    set icon ""
    set helptext ""
+   set terminal "1"
    
    #read files for list of plugins and icons 
    set pluginFileList [split [SharedData_getMiscData OVERVIEW_PLUGIN_LIST] ":"] 
@@ -2730,7 +2731,7 @@ proc Overview_createPluginToolbar { _toplevelW } {
          if { [info exists icon] && [file exists ${icon}] && [info exists script] && [info exists helptext] } {
              set pluginButton ${toolbarW}.plugin$count
              image create photo ${pluginButton}_img -file $icon 
-             button $pluginButton -image  ${pluginButton}_img  -command [ list Overview_runPluginCommandCallback $script ] -relief flat 
+             button $pluginButton -image  ${pluginButton}_img  -command [ list Overview_runPluginCommandCallback $script $terminal ] -relief flat 
              ::tooltip::tooltip ${pluginButton} $helptext
 	          set pluginWidgets "${pluginWidgets} ${pluginButton}"
              incr count
@@ -2952,14 +2953,14 @@ proc Overview_testBellCallback { source_w } {
    set TEST_BELL_VAR 0
 }
 
-proc Overview_runPluginCommandCallback { command } {
+proc Overview_runPluginCommandCallback { command terminal } {
 
    global env
    set id [clock seconds]
    set init_dir $env(TMPDIR)
    set mach  $env(HOST) 
    if { $command != "" } {
-  	    set userCmd "$command"
+       set userCmd "$command"
    } else {
        set userCmd ""
    }
@@ -2969,9 +2970,13 @@ proc Overview_runPluginCommandCallback { command } {
    set title $userCmd
    puts "cmd=$command"
    ::log::log debug "Overview_runPluginCommandCallback ksh -c $userCmd"
-   puts "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; cd ${init_dir}; ${userCmd}; bash --login -i\"" 
-   exec ksh -c "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; cd ${init_dir}; ${userCmd}; bash --login -i\" " & 
-
+   if { $terminal > 0 } {
+       set cmd_str "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; export TMPDIR=${init_dir}; cd ${init_dir}; ${userCmd}; bash --login -i\""
+   } else {
+       set cmd_str "export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; export TMPDIR=${init_dir}; cd ${init_dir}; ${userCmd} 2>&1"
+   }
+   puts $cmd_str
+   exec ksh -c $cmd_str &
 }
 
 
