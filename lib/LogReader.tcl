@@ -316,6 +316,11 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
 
          set flowNode [SharedData_getExpNodeMapping ${_exp_path} ${_datestamp} ${_node}]
          ::log::log debug "LogReader_processFlowLine node=${_node} flowNode:$flowNode loopExt:${_loopExt} type=${_type}"
+	 if { [SharedFlowNode_isNodeExist ${_exp_path} ${flowNode} ${_datestamp}] == false } {
+            puts "WARNING: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} Node might not exists in flow.xml"
+            ::log::log notice "WARNIGN: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} Node might not exists in flow.xml"
+	    return
+	 }
          if [ catch { set nodeType [SharedFlowNode_getNodeType ${_exp_path} ${flowNode} ${_datestamp}] } message ] {
             puts "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} message: ${message}"
             ::log::log notice "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} message: ${message}"
