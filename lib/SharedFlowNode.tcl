@@ -318,6 +318,74 @@ proc SharedFlowNode_isFlowModified { exp_path datestamp } {
    return ${isModified}
 }
 
+# loop_args = "outer_Loop=2,inner_Loop=3"
+# returns +2+3 if node exists
+#
+# returns "" on errors
+proc SharedFlowNode_getLoopExtFromLoopArgs { exp_path node datestamp loop_args } {
+   if { [SharedFlowNode_isNodeExist ${exp_path} ${node} ${datestamp}] == false } {
+      puts "ERROR: retrieving loop... node ${node} does not exists!"
+      return ""
+   }
+
+   set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
+
+   # get parent loop containers
+   set loops [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}]
+
+   # remove = sign and comma from arg values.. out of this
+   # I get a list of [loop_one value_one loop_two value_two]
+   set splittedLoopArgs [join [split [split ${loop_args} = ] , ]]
+
+   # validate loop arg values
+   set count 0
+   foreach splittedLoopArg ${splittedLoopArgs} {
+      # the loop names is at odd indexes
+      if { [expr ${count} % 2] == 1 } {
+         # even position, go to next
+         incr count
+      } else {
+         set found false
+	 # validate the argument loop is found in the list of parent loops
+         foreach loopNode ${loops} {
+            if { [file tail ${loopNode}] == ${splittedLoopArg} } {
+	       set found true
+	    }
+         }
+
+         # check if argument belongs to nptask
+         if { ${found} == false && ${nodeType} == "npass_task" && [file tail ${node}] == ${splittedLoopArg} } {
+	    set found true
+	 }
+
+         # if not found, outputs an error and return
+         if { ${found} == false } {
+            puts "ERROR: Invalid loop argument: ${splittedLoopArg}"
+	    return ""
+         }
+
+         incr count
+      }
+   }
+
+   # get the iterations in order in case the loop arguments are in the wrong loop order
+   set loopExt ""
+   foreach loopNode ${loops} {
+      set foundIndex [lsearch ${splittedLoopArgs} [file tail ${loopNode}]]
+      if { ${foundIndex} != -1 } {
+         set loopExt ${loopExt}+[lindex ${splittedLoopArgs} [expr $foundIndex + 1]]
+      }
+   }
+   if { ${nodeType} == "npass_task" } {
+      set foundIndex [lsearch ${splittedLoopArgs} [file tail ${node}]]
+      if { ${foundIndex} != -1 } {
+         set loopExt ${loopExt}+[lindex ${splittedLoopArgs} [expr $foundIndex + 1]]
+      }
+   }
+
+   return ${loopExt}
+}
+
 ################################################################################################3
 #
 # The part here relates to runtime status for nodes running within a datestamp value

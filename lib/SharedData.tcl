@@ -658,6 +658,7 @@ proc SharedData_readProperties { {rc_file ""} } {
 
    if { [file exists ${fileName}] } {
       set propertiesFile [open ${fileName} r]
+      SharedData_setMiscData "RC_FILE" ${fileName}
 
       while {[gets ${propertiesFile} line] >= 0 && ${errorMsg} == "" } {
          #puts "SharedData_readProperties processing line: ${line}"

@@ -2655,9 +2655,9 @@ proc Overview_setAutoMsgDisplay {} {
 # The overview highlights the msg center icon in the toolbar
 proc Overview_newMessageCallback { has_new_msg } {
    ::log::log debug "Overview_newMessageCallback has_new_msg:$has_new_msg"
-   set msgCenterWidget .overview_top.toolbar.button_msgcenter
-   set noNewMsgImage .overview_top.toolbar.msg_center_img
-   set hasNewMsgImage .overview_top.toolbar.msg_center_new_img
+   set msgCenterWidget .overview_top.toolbar.core.button_msgcenter
+   set noNewMsgImage .overview_top.toolbar.core.msg_center_img
+   set hasNewMsgImage .overview_top.toolbar.core.msg_center_new_img
    set normalBgColor [option get ${msgCenterWidget} background Button]
    set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    if { [winfo exists ${msgCenterWidget}] } {
@@ -2680,11 +2680,91 @@ proc Overview_flowScaleCallback {} {
    SharedData_setMiscData FLOW_SCALE ${FLOW_SCALE}
 }
 
+proc Overview_createPluginToolbar { _toplevelW } {
+
+   # get the main toolbar
+   set mainToolbarW ${_toplevelW}.toolbar
+
+   # plugin is child of main toolbar frame
+   set toolbarW ${mainToolbarW}.plugintoolbar
+
+   frame ${toolbarW} -bd 1
+   set errorMsg ""
+   set icon ""
+   set helptext ""
+   
+   #read files for list of plugins and icons 
+   set pluginFileList [split [SharedData_getMiscData OVERVIEW_PLUGIN_LIST] ":"] 
+   set count 0
+   set pluginWidgets ""
+   foreach plugin $pluginFileList {
+      if { [file exists ${plugin}] } {
+         set pluginContent [open ${plugin} r]
+         while {[gets ${pluginContent} line] >= 0 && ${errorMsg} == "" } {
+            #puts "SharedData_readProperties processing line: ${line}"
+            if { [string index ${line} 0] != "#" && [string length ${line}] > 0 } {
+               #puts "SharedData_readProperties found data line: ${line}"
+               # the = sign is used to separate between the key and the value.
+               # spaces around the values are trimmed
+               set splittedList [split ${line} =]
+
+               # if the list does not contain 2 elements, something's not right
+               # output the error message
+               if { [llength ${splittedList}] != 2 } {
+                  # error "ERROR: While reading ${fileName}\nInvalid property syntax: ${line}"
+                  set errorMsg "While reading ${plugin}\n\nInvalid property syntax: ${line}.\n"
+               } else {
+                  set propertyName  [string trim [lindex $splittedList 0]] 
+                  set propertyValue [string trim [lindex $splittedList 1]]
+                  #set propertyName as an actual variable
+                  set [string trim [lindex $splittedList 0]] [string trim [lindex $splittedList 1]]
+               }
+            }
+         }
+         catch { close ${plugin} }
+
+         if { ${errorMsg} != "" } {
+            puts "Warning: ${errorMsg}"
+         }
+         #validate properties extracted from plugin, then use if existing
+         if { [info exists icon] && [file exists ${icon}] && [info exists script] && [info exists helptext] } {
+             set pluginButton ${toolbarW}.plugin$count
+             image create photo ${pluginButton}_img -file $icon 
+             button $pluginButton -image  ${pluginButton}_img  -command [ list Overview_runPluginCommandCallback $script ] -relief flat 
+             ::tooltip::tooltip ${pluginButton} $helptext
+	          set pluginWidgets "${pluginWidgets} ${pluginButton}"
+             incr count
+         } else {
+            puts "Warning: Icon $icon does not exist, or script or text properties are not defined in $plugin. Not loading it." 
+         }
+      }
+   }
+  
+   if { ${pluginWidgets} != "" } {
+      eval grid ${pluginWidgets} -sticky w -padx 2 
+   }
+
+   # the main toolbar frame contains 2 different toolbars
+   # the plugin toolbar sits in column 1.. the core toolbar sits on column 0
+   grid ${toolbarW} -row 0 -column 1 -sticky nsew -padx 2
+
+}
+
 proc Overview_createToolbar { _toplevelW } {
-   set toolbarW ${_toplevelW}.toolbar
+   # create the frame to hold the core icons and plugin icons
+   set mainToolbarW ${_toplevelW}.toolbar
+   
+   # core icons is childe of main toolbar frame
+   set toolbarW ${mainToolbarW}.core
+
    set mesgCenterW ${toolbarW}.button_msgcenter
    set closeW ${toolbarW}.button_close
    set colorLegendW ${toolbarW}.button_colorlegend
+   
+   # create frame main toolbar
+   frame ${mainToolbarW} -bd 1
+
+   # create frame core toolbar
    frame ${toolbarW} -bd 1
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
@@ -2723,8 +2803,13 @@ proc Overview_createToolbar { _toplevelW } {
 
    eval grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${testBellW} ${closeW} -sticky w -padx 2 
 
-   grid ${toolbarW} -row 1 -column 0 -sticky nsew -padx 2
+   # core toolbar stis on column 0 
+   grid ${toolbarW} -row 0 -column 0 -sticky nsew
+
+   # place the main toolbar frame on the grid
+   grid ${mainToolbarW} -row 1 -column 0 -sticky nsew -padx 2
 }
+
 
 proc Overview_createCanvas { _toplevelW } {
    set canvasFrame [frame ${_toplevelW}.canvas_frame]
@@ -2866,6 +2951,29 @@ proc Overview_testBellCallback { source_w } {
    tk_messageBox -title "Bell Testing" -message "You should hear the bell every 2 seconds. Click on the ok button to stop!" -type ok -parent ${source_w}
    set TEST_BELL_VAR 0
 }
+
+proc Overview_runPluginCommandCallback { command } {
+
+   global env
+   set id [clock seconds]
+   set init_dir $env(TMPDIR)
+   set mach  $env(HOST) 
+   if { $command != "" } {
+  	    set userCmd "$command"
+   } else {
+       set userCmd ""
+   }
+   set SEQ_MAESTRO_RC [SharedData_getMiscData RC_FILE]
+   set SEQ_SUITES_XML [SharedData_getMiscData SUITES_FILE]
+
+   set title $userCmd
+   puts "cmd=$command"
+   ::log::log debug "Overview_runPluginCommandCallback ksh -c $userCmd"
+   puts "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; cd ${init_dir}; ${userCmd}; bash --login -i\"" 
+   exec ksh -c "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; cd ${init_dir}; ${userCmd}; bash --login -i\" " & 
+
+}
+
 
 proc Overview_soundbell {} {
    global TEST_BELL_VAR
@@ -3030,6 +3138,7 @@ proc Overview_main {} {
 
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}
+   Overview_createPluginToolbar ${topOverview}
    Overview_createCanvas ${topOverview}
 
    # grid ${topCanvas} -row 2 -column 0 -sticky nsew -padx 2

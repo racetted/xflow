@@ -7,7 +7,7 @@ if [[ "$arch" = "Linux" ]]; then
    #TCLSH=/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
    TCLSH=$(which maestro_wish8.5)
    if [[ "${TCLSH}" == "" ]] ; then
-      echo "ERROR: executable \"maestro_wish8.5\" not found! Cannot start application..."
+      echo "\nERROR: executable \"maestro_wish8.5\" not found! Cannot start application..."
       exit 1
    fi
 else
@@ -24,25 +24,46 @@ fi
 
 arguments=$*
 eval `cclargs -D "" $0 "[maestro gui]" \
+  -d            ""      ""      "[sequencer date]" \
   -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
   -rc ""        ""      "[maestrorc preferrence file]" \
+  -n ""      ""      "[focus on this node at startup]" \
+  -l ""      ""      "[loop arguments to node argument]" \
   -debug        "0"     "1"     "[debug message]" \
   ++ $arguments`
 
 test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
 
+date_opt=""
+if [[ "${d}" != "" ]] ; then
+   print "\n starting $(basename $0) with date ${d}"
+   date_opt="-date ${d}"
+fi
 rc_opt=""
 if [[ "${rc}" != "" ]] ; then
    print "\n maestrorc preferrence file ${rc}"
    [[ ! -f ${rc} ]] && print "\nxflow ERROR: file not found ${rc}" && exit 1
    rc_opt="-rc ${rc}"
 fi
-
+node_opt=""
+if [[ "${n}" != "" ]] ; then
+   print "\n $(basename $0) will attempt to focus on node ${n}"
+   node_opt="-node ${n}"
+fi
+loop_opt=""
+if [[ "${l}" != "" ]] ; then
+   if [[ "${node_opt}" == "" ]] ; then
+      print "\nxflow ERROR: -l argument requires -n argument!"
+      exit 1
+   fi
+   print "\n $(basename $0) got loop argument ${l}"
+   loop_opt="-loop ${l}"
+fi
 debug_opt=""
 if [[ "${debug}" = "1" ]] ; then
    debug_opt="-debug"
 fi
 
-echo "$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt}"
+echo $TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt} ${date_opt} ${rc_opt} ${node_opt} ${loop_opt} ${debug_opt}
 export NO_STOP_MESSAGE=on
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt} ${rc_opt} ${debug_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt} ${date_opt} ${rc_opt} ${node_opt} ${loop_opt} ${debug_opt}
