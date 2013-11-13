@@ -830,6 +830,11 @@ proc xflow_findNode { exp_path datestamp real_node } {
    set extensionPart [SharedFlowNode_getExtFromDisplayFormat ${real_node}]
    set flowNode [SharedData_getExpNodeMapping ${exp_path} ${datestamp} ${nodeWithoutExt}]
 
+   if { [SharedFlowNode_isNodeExist ${exp_path} ${flowNode} ${datestamp}] == false } {
+      puts "WARNING: NODE ${real_node} NOT EXISTS!"
+      return
+   }
+
    # split the list using + as separator
    set extList [split ${extensionPart} +]
    set extLen [llength ${extList}]
@@ -3381,7 +3386,7 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # 2) in overview mode, this function is called everytime the user wants to view the exp flow with the latest
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
-proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
+proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node ""} } {
    global env XFLOW_STANDALONE PROGRESS_REPORT_TXT   
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} initial_display:${initial_display}"
 
@@ -3434,6 +3439,11 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} } {
 
    ::log::log notice "xflow_displayFlow ${exp_path} thread id:[thread::id] done datestamp:${datestamp}"
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} DONE"
+
+   set node_length [string length ${focus_node}]
+   if { ${node_length} > 0 } {
+      xflow_findNode ${exp_path} ${datestamp} ${focus_node}
+   }
 }
 
 # Position the flow windows relative to the main overview window.
@@ -3541,13 +3551,18 @@ proc out {} {
 proc xflow_parseCmdOptions {} {
    global env argv XFLOW_STANDALONE AUTO_MSG_DISPLAY APP_LOGFILE
    set rcFile ""
+   set focusNode ""
+   set focusLoopArgs ""
    if { [info exists argv] } {
       set options {
          {main ""}
+         {date.arg "" "Date for standalone startup"}
          {logfile.arg "" "App log file"}
          {debug "Turn debug on"}
          {noautomsg ""}
          {rc.arg "" "maestrorc preferrence file"}
+	 {node.arg "" "Highlight a specific node at startup"}
+	 {loop.arg "" "Loop arguments for specific node"}
       }
       
       set usage "\[options] \noptions:"
@@ -3587,6 +3602,16 @@ proc xflow_parseCmdOptions {} {
          set rcFile $params(rc)
       }
 
+      if { ! ($params(node) == "") } {
+         puts "xflow focusing on node: $params(node)"
+         set focusNode $params(node)
+      }
+
+      if { ! ($params(loop) == "") } {
+         puts "xflow got loop iteration: $params(loop)"
+         set focusLoopArgs $params(loop)
+      }
+
       SharedData_readProperties ${rcFile}
       SharedData_setDerivedColors
 
@@ -3596,20 +3621,34 @@ proc xflow_parseCmdOptions {} {
       set expPath [xflow_validateExp]
       ExpOptions_read ${expPath}
 
-      set newestDatestamp [LogMonitor_getNewestDatestamp ${expPath}]
-      SharedData_setExpThreadId ${expPath} ${newestDatestamp} [thread::id]
-      LogReader_startExpLogReader ${expPath} ${newestDatestamp} all true
+      if { ($params(date) == "") } {
+         set startupDatestamp [LogMonitor_getNewestDatestamp ${expPath}]
+      } else {
+         set startupDatestamp $params(date)
+      }
+      SharedData_setExpThreadId ${expPath} ${startupDatestamp} [thread::id]
+      LogReader_startExpLogReader ${expPath} ${startupDatestamp} all true
       SharedData_setMiscData STARTUP_DONE true
-      puts "xflow_displayFlow ${expPath} ${newestDatestamp}"
-      xflow_displayFlow ${expPath} ${newestDatestamp} true
+
+      set focusFlowNode [SharedData_getExpNodeMapping ${expPath} ${startupDatestamp} ${focusNode}]
+      set focusExt [SharedFlowNode_getLoopExtFromLoopArgs ${expPath} ${focusFlowNode} ${startupDatestamp} ${focusLoopArgs}]
+
+      if { ${focusExt} != -1 } {
+         set focusNode ${focusNode}${focusExt}
+      }
+
+      puts "xflow_displayFlow ${expPath} ${startupDatestamp} true ${focusNode}"
+      xflow_displayFlow ${expPath} ${startupDatestamp} true ${focusNode}
+
       MsgCenter_startupDone
+
       puts "LogReader_readMonitorDatestamps..."
       # start monitoring datestamps for new log entries
       LogReader_readMonitorDatestamps
 
       if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
          # monitor for new log datestamps
-	 LogMonitor_addOneExpDatestamp ${expPath} ${newestDatestamp}
+	 LogMonitor_addOneExpDatestamp ${expPath} ${startupDatestamp}
          LogMonitor_setLastCheckTime ${expPath} [clock seconds]
          LogMonitor_checkOneExpNewLogFiles ${expPath}
       }
