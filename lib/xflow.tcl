@@ -161,6 +161,11 @@ proc xflow_maestroCmds { parent } {
    }
 }
 
+proc xflow_createPluginToolbar { exp_path datestamp _toplevelW } {
+    set pluginEnv "export SEQ_EXP_HOME=${exp_path}; export SEQ_DATE=${datestamp}"
+    return [Utils_createPluginToolbar "xflow" ${_toplevelW} ${pluginEnv}]
+}   
+
 proc xflow_createToolbar { exp_path datestamp parent } {
    ::log::log debug "xflow_createToolbar exp_path:${exp_path} datestamp:${datestamp} parent:${parent} "
 
@@ -174,6 +179,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    #set depW [xflow_getWidgetName dep_button]
    set shellW [xflow_getWidgetName ${exp_path} ${datestamp} shell_button]
    set catchupTopW [xflow_getWidgetName ${exp_path} ${datestamp} catchup_toplevel]
+   set pluginFrame [xflow_createPluginToolbar ${exp_path} ${datestamp} ${parent}]
 
    set imageDir [SharedData_getMiscData IMAGE_DIR]
 
@@ -233,9 +239,9 @@ proc xflow_createToolbar { exp_path datestamp parent } {
       }
       ::tooltip::tooltip ${overviewW} "Show overview window."
       ::tooltip::tooltip ${closeW} "Close window."
-      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
    } else {
-      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${colorLegendW} ${closeW} -sticky w -padx 2
+      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
    }
 
 }
@@ -1091,6 +1097,12 @@ proc xflow_nodeMenuUnmapCallback { exp_path datestamp } {
    catch { eval [set NodeHighLightRestoreCmd_${exp_path}_${datestamp}] }
 }
 
+proc xflow_showPluginMenu { parentMenu source_w exp_path datestamp node extension } {
+    set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${source_w}]
+    set pluginEnv "export SEQ_NODE=${node}; export SEQ_LOOP_ARGS=\"${seqLoopArgs}\""
+    Utils_showPluginMenu "xflow" ${parentMenu} ${exp_path} ${datestamp} ${pluginEnv}
+}
+
 # This function is called when user click on a box with button 3
 # It will display a popup menu for the current node.
 proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
@@ -1204,6 +1216,8 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    }
 
    ${miscMenu} add command -label "Kill Node" -command [list xflow_killNodeFromDropdown ${exp_path} ${datestamp} $node ${extension} $canvas]
+
+   xflow_showPluginMenu ${popMenu} ${canvas} ${exp_path} ${datestamp} ${node} ${extension}
 
    $popMenu add separator
    $popMenu add command -label "Close"
@@ -1671,6 +1685,7 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
 # for the user to kill.
 proc xflow_killNodeFromDropdown { exp_path datestamp node extension source_w {all_node_instances false} } {
    ::log::log debug "xflow_killNodeFromDropdown  exp_path:${exp_path} node:${node} datestamp:${datestamp}"
+   puts "xflow_killNodeFromDropdown  exp_path:${exp_path} node:${node} datestamp:${datestamp} extension:${extension}"
 
    global env
    set shadowColor [SharedData_getColor SHADOW_COLOR]
@@ -3319,7 +3334,7 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    xflow_createToolbar ${exp_path} ${datestamp} ${toolbarFrame}   
    puts "xflow_createWidgets  ${exp_path} ${datestamp} toolbar done..."
 
-   # date bar is the 2nd widget
+   # date bar is the 3nd widget
    set expDateFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_frame]
    xflow_addDatestampWidget ${exp_path} ${datestamp} ${expDateFrame}
 
@@ -3329,10 +3344,9 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    set findCloseB [xflow_getWidgetName ${exp_path} ${datestamp} find_close_button]
    ${findCloseB} configure -command [list grid remove ${findFrame}]
 
-
    # this displays the widget on the second frame
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
-   grid ${expDateFrame} -row 0 -column 1 -sticky nsew -padx 2 -pady 0 -ipadx 2
+   grid ${expDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
 
    # flow_frame is the 3nd widget
    set flowFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  flow_frame]]
@@ -3614,6 +3628,7 @@ proc xflow_parseCmdOptions {} {
 
       SharedData_readProperties ${rcFile}
       SharedData_setDerivedColors
+      SharedData_setPlugins "xflow"
 
       xflow_init
       ::DrawUtils::initStatusImages
@@ -3652,6 +3667,9 @@ proc xflow_parseCmdOptions {} {
          LogMonitor_setLastCheckTime ${expPath} [clock seconds]
          LogMonitor_checkOneExpNewLogFiles ${expPath}
       }
+   } else {
+       # load application-specific plugins
+       SharedData_setPlugins "xflow"
    }
 }
 
@@ -3732,6 +3750,7 @@ proc xflow_setWidgetNames {} {
          shell_button .second_frame.toolbar.button_shell
          msg_center_img .second_frame.toolbar.msg_center_img
          msg_center_new_img .second_frame.toolbar.msg_center_new_img
+	 plugin_frame .second_frame.toolbar.plugintoolbar
 
          exp_date_frame  .second_frame.date_frame
          exp_date_entry  .second_frame.date_frame.entry
