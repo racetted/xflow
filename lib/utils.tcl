@@ -453,7 +453,35 @@ proc Utils_createTmpDir {} {
    }
 }
 
-#setGlobalValue SEQ_BIN [Sequencer_getPath]
-#setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
-#setGlobalValue DEBUG_TRACE 1
+proc Utils_parsePluginFile { fname } {
+    set pluginInfo [dict create script "" icon "" helptext "" menuitem "" terminal 1]
+    set errorMsg ""
+    if { ! [file exists ${fname}] } { return "" }
+    set pluginContent [open ${fname} r]
+    while {[gets ${pluginContent} line] >= 0 && ${errorMsg} == "" } {
+	#puts "SharedData_readProperties processing line: ${line}"
+	if { [string index ${line} 0] != "#" && [string length ${line}] > 0 } {
+	    #puts "SharedData_readProperties found data line: ${line}"
+	    # the = sign is used to separate between the key and the value.
+	    # spaces around the values are trimmed
+	    set splittedList [split ${line} =]
+	    
+	    # if the list does not contain 2 elements, something's not right
+	    # output the error message
+	    if { [llength ${splittedList}] != 2 } {
+		# error "ERROR: While reading ${fileName}\nInvalid property syntax: ${line}"
+		set errorMsg "While reading ${plugin}\n\nInvalid property syntax: ${line}.\n"
+	    } else {
+		set propertyName  [string trim [lindex $splittedList 0]] 
+		set propertyValue [string trim [lindex $splittedList 1]]
+		dict set pluginInfo ${propertyName} ${propertyValue}
+	    }
+	}
+    }
+    catch { close ${plugin} }
+    if { ${errorMsg} != "" } {
+	puts "Warning: ${errorMsg}"
+    }
+    return ${pluginInfo}
+}
 

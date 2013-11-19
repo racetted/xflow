@@ -2689,55 +2689,30 @@ proc Overview_createPluginToolbar { _toplevelW } {
    set toolbarW ${mainToolbarW}.plugintoolbar
 
    frame ${toolbarW} -bd 1
-   set errorMsg ""
-   set icon ""
-   set helptext ""
-   set terminal "1"
    
    #read files for list of plugins and icons 
    set pluginFileList [split [SharedData_getMiscData OVERVIEW_PLUGIN_LIST] ":"] 
    set count 0
    set pluginWidgets ""
    foreach plugin $pluginFileList {
-      if { [file exists ${plugin}] } {
-         set pluginContent [open ${plugin} r]
-         while {[gets ${pluginContent} line] >= 0 && ${errorMsg} == "" } {
-            #puts "SharedData_readProperties processing line: ${line}"
-            if { [string index ${line} 0] != "#" && [string length ${line}] > 0 } {
-               #puts "SharedData_readProperties found data line: ${line}"
-               # the = sign is used to separate between the key and the value.
-               # spaces around the values are trimmed
-               set splittedList [split ${line} =]
-
-               # if the list does not contain 2 elements, something's not right
-               # output the error message
-               if { [llength ${splittedList}] != 2 } {
-                  # error "ERROR: While reading ${fileName}\nInvalid property syntax: ${line}"
-                  set errorMsg "While reading ${plugin}\n\nInvalid property syntax: ${line}.\n"
-               } else {
-                  set propertyName  [string trim [lindex $splittedList 0]] 
-                  set propertyValue [string trim [lindex $splittedList 1]]
-                  #set propertyName as an actual variable
-                  set [string trim [lindex $splittedList 0]] [string trim [lindex $splittedList 1]]
-               }
-            }
-         }
-         catch { close ${plugin} }
-
-         if { ${errorMsg} != "" } {
-            puts "Warning: ${errorMsg}"
-         }
+      set pluginInfo [Utils_parsePluginFile ${plugin}]
+      if { ${pluginInfo} != "" } {
          #validate properties extracted from plugin, then use if existing
-         if { [info exists icon] && [file exists ${icon}] && [info exists script] && [info exists helptext] } {
-             set pluginButton ${toolbarW}.plugin$count
-             image create photo ${pluginButton}_img -file $icon 
-             button $pluginButton -image  ${pluginButton}_img  -command [ list Overview_runPluginCommandCallback $script $terminal ] -relief flat 
-             ::tooltip::tooltip ${pluginButton} $helptext
-	          set pluginWidgets "${pluginWidgets} ${pluginButton}"
-             incr count
-         } else {
-            puts "Warning: Icon $icon does not exist, or script or text properties are not defined in $plugin. Not loading it." 
-         }
+          if { [dict exists ${pluginInfo} script] } {
+	      if { [dict exists ${pluginInfo} icon] && [file exists [dict get ${pluginInfo} icon]] && [dict exists ${pluginInfo} helptext] } {
+		  set pluginButton ${toolbarW}.plugin$count
+		  image create photo ${pluginButton}_img -file [dict get ${pluginInfo} icon]
+		  button $pluginButton -image  ${pluginButton}_img  -command [ list Overview_runPluginCommandCallback \
+										   [dict get ${pluginInfo} script] [dict get ${pluginInfo} terminal] ] -relief flat 
+		  ::tooltip::tooltip ${pluginButton} [dict get ${pluginInfo} helptext]
+		  set pluginWidgets "${pluginWidgets} ${pluginButton}"
+		  incr count
+	      } else {
+		  puts [concat "Info: Icon " [dict get ${pluginInfo} icon] " does not exist, or helptext not defined in $plugin. Not loading it to taskbar."]
+	      }
+	  } else {
+	      puts "Warning: script is not defined in $plugin.  Not loading it."
+	  }
       }
    }
   
