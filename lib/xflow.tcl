@@ -1098,8 +1098,9 @@ proc xflow_nodeMenuUnmapCallback { exp_path datestamp } {
 }
 
 proc xflow_showPluginMenu { parentMenu source_w exp_path datestamp node extension } {
+    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
     set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${source_w}]
-    set pluginEnv "export SEQ_NODE=${node}; export SEQ_LOOP_ARGS=\"${seqLoopArgs}\""
+    set pluginEnv "export SEQ_NODE=${seqNode}; export SEQ_LOOP_ARGS=\"${seqLoopArgs}\""
     Utils_showPluginMenu "xflow" ${parentMenu} ${exp_path} ${datestamp} ${pluginEnv}
 }
 
