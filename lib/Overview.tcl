@@ -1610,12 +1610,12 @@ proc Overview_releaseLoggerThread { exp_thread_id exp_path datestamp } {
       ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp}"
       # ::thread::send -async ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
       # remove monitoring from the thread
-      ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} ${datestamp}"
+      ::thread::send ${exp_thread_id} "LogReader_removeMonitorDatestamp ${exp_path} \"${datestamp}\""
 
       # remove heartbeat monitoring
       # Overview_removeHeartbeatDatestamp ${exp_thread_id} ${exp_path} ${datestamp}
       if { [SharedData_getMiscData STARTUP_DONE] == false } {
-         ThreadPool_releaseThread ${exp_thread_id} ${exp_path} ${datestamp}
+         ThreadPool_releaseThread ${exp_thread_id} ${exp_path} "${datestamp}"
       }
       SharedData_removeExpThreadId ${exp_path} ${datestamp}
       ::log::log notice "Overview_releaseLoggerThread releasing inactive log exp=${exp_path} datestamp=${datestamp} DONE"
