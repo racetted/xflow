@@ -1375,14 +1375,21 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
       destroy $popMenu
    }
    menu $popMenu
+
    $popMenu add command -label "History" \
       -command [list Overview_historyCallback $canvas $exp_path ${datestamp} $popMenu]
    $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $exp_path ${datestamp} ${datestampHour}]
    $popMenu add command -label "Shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
-   # $popMenu add command -label "Support" -command [list Overview_showSupportCallback $exp_path ${datestamp} [winfo toplevel ${canvas}]]
+   Overview_showPluginMenu ${popMenu} ${exp_path} ${datestamp}
    $popMenu add command -label "Support" -command [list ExpOptions_showSupportCallback ${exp_path} ${datestamp} [Overview_getToplevel]]
-   tk_popup $popMenu $x $y
+
+    tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
+}
+
+# this function loads the plugin menu items
+proc Overview_showPluginMenu { parentMenu exp_path datestamp } {
+    Utils_showPluginMenu "overview" ${parentMenu} ${exp_path} ${datestamp} ""
 }
 
 proc Overview_showSupportCallback { exp_path datestamp {caller_w .} } {
@@ -2518,7 +2525,7 @@ proc Overview_parseCmdOptions {} {
 
          SharedData_readProperties $params(rc)
 	 SharedData_setDerivedColors
-
+	 SharedData_setPlugins "overview"
 
 	 set logDir [SharedData_getMiscData APP_LOG_DIR]
          if { $params(logfile) == "" && ${logDir} != "" } {
@@ -2678,77 +2685,6 @@ proc Overview_nodeDisplayCallback {} {
 proc Overview_flowScaleCallback {} {
    global FLOW_SCALE
    SharedData_setMiscData FLOW_SCALE ${FLOW_SCALE}
-}
-
-proc Overview_createPluginToolbar { _toplevelW } {
-
-   # get the main toolbar
-   set mainToolbarW ${_toplevelW}.toolbar
-
-   # plugin is child of main toolbar frame
-   set toolbarW ${mainToolbarW}.plugintoolbar
-
-   frame ${toolbarW} -bd 1
-   set errorMsg ""
-   set icon ""
-   set helptext ""
-   set terminal "1"
-   
-   #read files for list of plugins and icons 
-   set pluginFileList [split [SharedData_getMiscData OVERVIEW_PLUGIN_LIST] ":"] 
-   set count 0
-   set pluginWidgets ""
-   foreach plugin $pluginFileList {
-      if { [file exists ${plugin}] } {
-         set pluginContent [open ${plugin} r]
-         while {[gets ${pluginContent} line] >= 0 && ${errorMsg} == "" } {
-            #puts "SharedData_readProperties processing line: ${line}"
-            if { [string index ${line} 0] != "#" && [string length ${line}] > 0 } {
-               #puts "SharedData_readProperties found data line: ${line}"
-               # the = sign is used to separate between the key and the value.
-               # spaces around the values are trimmed
-               set splittedList [split ${line} =]
-
-               # if the list does not contain 2 elements, something's not right
-               # output the error message
-               if { [llength ${splittedList}] != 2 } {
-                  # error "ERROR: While reading ${fileName}\nInvalid property syntax: ${line}"
-                  set errorMsg "While reading ${plugin}\n\nInvalid property syntax: ${line}.\n"
-               } else {
-                  set propertyName  [string trim [lindex $splittedList 0]] 
-                  set propertyValue [string trim [lindex $splittedList 1]]
-                  #set propertyName as an actual variable
-                  set [string trim [lindex $splittedList 0]] [string trim [lindex $splittedList 1]]
-               }
-            }
-         }
-         catch { close ${plugin} }
-
-         if { ${errorMsg} != "" } {
-            puts "Warning: ${errorMsg}"
-         }
-         #validate properties extracted from plugin, then use if existing
-         if { [info exists icon] && [file exists ${icon}] && [info exists script] && [info exists helptext] } {
-             set pluginButton ${toolbarW}.plugin$count
-             image create photo ${pluginButton}_img -file $icon 
-             button $pluginButton -image  ${pluginButton}_img  -command [ list Overview_runPluginCommandCallback $script $terminal ] -relief flat 
-             ::tooltip::tooltip ${pluginButton} $helptext
-	          set pluginWidgets "${pluginWidgets} ${pluginButton}"
-             incr count
-         } else {
-            puts "Warning: Icon $icon does not exist, or script or text properties are not defined in $plugin. Not loading it." 
-         }
-      }
-   }
-  
-   if { ${pluginWidgets} != "" } {
-      eval grid ${pluginWidgets} -sticky w -padx 2 
-   }
-
-   # the main toolbar frame contains 2 different toolbars
-   # the plugin toolbar sits in column 1.. the core toolbar sits on column 0
-   grid ${toolbarW} -row 0 -column 1 -sticky nsew -padx 2
-
 }
 
 proc Overview_createToolbar { _toplevelW } {
@@ -2953,33 +2889,6 @@ proc Overview_testBellCallback { source_w } {
    set TEST_BELL_VAR 0
 }
 
-proc Overview_runPluginCommandCallback { command terminal } {
-
-   global env
-   set id [clock seconds]
-   set init_dir $env(TMPDIR)
-   set mach  $env(HOST) 
-   if { $command != "" } {
-       set userCmd "$command"
-   } else {
-       set userCmd ""
-   }
-   set SEQ_MAESTRO_RC [SharedData_getMiscData RC_FILE]
-   set SEQ_SUITES_XML [SharedData_getMiscData SUITES_FILE]
-
-   set title $userCmd
-   puts "cmd=$command"
-   ::log::log debug "Overview_runPluginCommandCallback ksh -c $userCmd"
-   if { $terminal > 0 } {
-       set cmd_str "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; export TMPDIR=${init_dir}; cd ${init_dir}; ${userCmd}; bash --login -i\""
-   } else {
-       set cmd_str "export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; export TMPDIR=${init_dir}; cd ${init_dir}; ${userCmd} 2>&1"
-   }
-   puts $cmd_str
-   exec ksh -c $cmd_str &
-}
-
-
 proc Overview_soundbell {} {
    global TEST_BELL_VAR
    if { [info exists TEST_BELL_VAR] && $TEST_BELL_VAR == "1" } {
@@ -3109,6 +3018,13 @@ proc Overview_processDeadThread { thread_id } {
    ::log::log notice "Thread Heartbeat: dropping thread ${thread_id} DONE"
 }
 
+# this function loads the plugin menu items
+proc Overview_createPluginToolbar { parentToolbar } {
+    set SEQ_SUITES_XML [SharedData_getMiscData SUITES_FILE]
+    set pluginEnv "export SEQ_SUITES_XML=${SEQ_SUITES_XML}"
+    Utils_createPluginToolbar "overview" ${parentToolbar} ${pluginEnv}
+}
+
 proc Overview_main {} {
    global env
    global DEBUG_TRACE FileLoggerCreated
@@ -3140,10 +3056,11 @@ proc Overview_main {} {
    wm withdraw ${topOverview}
 
    Overview_readExperiments
-
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}
-   Overview_createPluginToolbar ${topOverview}
+   set plugin_toolbar [Overview_createPluginToolbar ${topOverview}.toolbar]
+   grid ${plugin_toolbar} -row 0 -column 1 -sticky nsew -padx 2
+
    Overview_createCanvas ${topOverview}
 
    # grid ${topCanvas} -row 2 -column 0 -sticky nsew -padx 2

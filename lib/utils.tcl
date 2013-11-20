@@ -453,7 +453,93 @@ proc Utils_createTmpDir {} {
    }
 }
 
-#setGlobalValue SEQ_BIN [Sequencer_getPath]
-#setGlobalValue SEQ_UTILS_BIN [Sequencer_getUtilsPath]
-#setGlobalValue DEBUG_TRACE 1
+# this function displays plugins on the toolbar
+proc Utils_createPluginToolbar { parent parentToolbar pluginEnv } {
 
+   # plugin is child of main toolbar frame
+   set toolbarW ${parentToolbar}.plugintoolbar
+   frame ${toolbarW} -bd 1
+   
+   # add all plugins with icons defined
+   set count 0
+   set pluginWidgets ""
+   set pluginList [SharedData_getMiscData PLUGINS]
+   foreach pluginInfo ${pluginList} { 
+       if { [dict get ${pluginInfo} parent] == ${parent} } {
+	   if { [file exists [dict get ${pluginInfo} icon]] && [dict get ${pluginInfo} helptext] != "" } {
+	       set pluginButton ${toolbarW}.plugin$count
+	       image create photo ${pluginButton}_img -file [dict get ${pluginInfo} icon]
+	       button $pluginButton -image  ${pluginButton}_img  -command [ list Utils_runPluginCommandCallback \
+			${pluginEnv} [dict get ${pluginInfo} script] [dict get ${pluginInfo} terminal] ] -relief flat 
+	       ::tooltip::tooltip ${pluginButton} [dict get ${pluginInfo} helptext]
+	       set pluginWidgets "${pluginWidgets} ${pluginButton}"
+	       incr count
+	   } else {
+	       puts [concat "Info: Icon " [dict get ${pluginInfo} icon] " does not exist, or helptext not defined in $plugin. Not loading it to taskbar."]
+	   }
+       }
+   }
+   if { ${pluginWidgets} != "" } {
+      eval grid ${pluginWidgets} -sticky w -padx 2 
+   }
+
+   # the main toolbar frame contains 2 different toolbars
+   # the plugin toolbar sits in column 1.. the core toolbar sits on column 0
+   return ${toolbarW}
+
+}
+
+# this function loads the plugin menu items
+proc Utils_showPluginMenu { parent parentMenu exp_path datestamp pluginEnv } {
+    set pluginList [SharedData_getMiscData PLUGINS]
+    if { ${pluginList} == "" } { return }
+
+    # basic environment setup
+    set sep ";"
+    if { ${pluginEnv} == "" } { set sep "" }
+    set fullPluginEnv "export SEQ_EXP_HOME=${exp_path}; export SEQ_DATE=${datestamp}${sep} ${pluginEnv}"
+
+    # add all plugins with menuitems defined
+    set pluginMenu ""
+    foreach pluginInfo ${pluginList} {
+	if { [dict get ${pluginInfo} parent] == ${parent} } {
+	    if { [dict get ${pluginInfo} menuitem] != "" } {
+		if { ${pluginMenu} == "" } {
+		    set pluginMenu ${parentMenu}.plugin_menu
+		    ${parentMenu} add cascade -label "Plugins" -underline 0 -menu [menu ${pluginMenu}]
+		}
+		${pluginMenu} add command -label [dict get ${pluginInfo} menuitem] -command [ list Utils_runPluginCommandCallback \
+			${fullPluginEnv} [dict get ${pluginInfo} script] [dict get ${pluginInfo} terminal]]
+	    } else {
+		puts [concat "Info: The menuitem entry is not defined in " [dict get ${pluginInfo} file] ". Not loading it to popup menu."]
+	    }
+	}
+    }
+}
+
+proc Utils_runPluginCommandCallback { pluginEnv command terminal } {
+
+   global env
+   set id [clock seconds]
+   set init_dir $env(TMPDIR)
+   set mach  $env(HOST) 
+   if { $command != "" } {
+       set userCmd "$command"
+   } else {
+       set userCmd ""
+   }
+   set sep ";"
+   if { ${pluginEnv} == "" } {set sep ""}
+   set SEQ_MAESTRO_RC [SharedData_getMiscData RC_FILE]
+
+   set title $userCmd
+   puts "cmd=$command"
+   ::log::log debug "Utils_runPluginCommandCallback ksh -c $userCmd"
+   if { $terminal > 0 } {
+       set cmd_str "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd}; bash --login -i\""
+   } else {
+       set cmd_str "export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd} 2>&1"
+   }
+   puts $cmd_str
+   exec ksh -c $cmd_str &
+}
