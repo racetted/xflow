@@ -588,8 +588,7 @@ proc SharedData_setDerivedColors {} {
 proc SharedData_setPlugins { parent } {
     set pluginList [string toupper ${parent}_plugin_list]
     set pluginFileList [split [SharedData_getMiscData ${pluginList}] ":"]
-    set pluginInfo [dict create]
-    set id 0
+    set pluginInfo [SharedData_getMiscData PLUGINS]
     foreach fname $pluginFileList {
 	set thisPlugin [dict create script "" icon "" helptext "" menuitem "" terminal 1 file ${fname} parent ${parent}]
 	set errorMsg ""
@@ -621,8 +620,7 @@ proc SharedData_setPlugins { parent } {
 	    puts "Warning: ${errorMsg}"
 	}
 	if { [dict exists ${thisPlugin} script] } {
-	    dict append pluginInfo ${id} ${thisPlugin}
-	    incr id
+	    lappend pluginInfo ${thisPlugin}
 	} else {
 	    puts "Warning: script is not defined in $fname.  Not loading it."
 	}

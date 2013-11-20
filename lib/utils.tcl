@@ -464,8 +464,7 @@ proc Utils_createPluginToolbar { parent parentToolbar pluginEnv } {
    set count 0
    set pluginWidgets ""
    set pluginList [SharedData_getMiscData PLUGINS]
-   foreach id [dict keys ${pluginList}] { 
-       set pluginInfo [dict get ${pluginList} ${id}]
+   foreach pluginInfo ${pluginList} { 
        if { [dict get ${pluginInfo} parent] == ${parent} } {
 	   if { [file exists [dict get ${pluginInfo} icon]] && [dict get ${pluginInfo} helptext] != "" } {
 	       set pluginButton ${toolbarW}.plugin$count
@@ -502,8 +501,7 @@ proc Utils_showPluginMenu { parent parentMenu exp_path datestamp pluginEnv } {
 
     # add all plugins with menuitems defined
     set pluginMenu ""
-    foreach id [dict keys ${pluginList}] {
-	set pluginInfo [dict get ${pluginList} ${id}]
+    foreach pluginInfo ${pluginList} {
 	if { [dict get ${pluginInfo} parent] == ${parent} } {
 	    if { [dict get ${pluginInfo} menuitem] != "" } {
 		if { ${pluginMenu} == "" } {
@@ -530,21 +528,17 @@ proc Utils_runPluginCommandCallback { pluginEnv command terminal } {
    } else {
        set userCmd ""
    }
-   if { ${pluginEnv} == "" } {
-       set userEnv ""
-   } else {
-       set userEnv "${pluginEnv};"
-   }
+   set sep ";"
+   if { ${pluginEnv} == "" } {set sep ""}
    set SEQ_MAESTRO_RC [SharedData_getMiscData RC_FILE]
-   set SEQ_SUITES_XML [SharedData_getMiscData SUITES_FILE]
 
    set title $userCmd
    puts "cmd=$command"
    ::log::log debug "Utils_runPluginCommandCallback ksh -c $userCmd"
    if { $terminal > 0 } {
-       set cmd_str "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; export TMPDIR=${init_dir}; ${userEnv} cd ${init_dir}; ${userCmd}; bash --login -i\""
+       set cmd_str "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd}; bash --login -i\""
    } else {
-       set cmd_str "export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export SEQ_SUITES_XML=${SEQ_SUITES_XML}; export TMPDIR=${init_dir}; ${userEnv} cd ${init_dir}; ${userCmd} 2>&1"
+       set cmd_str "export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd} 2>&1"
    }
    puts $cmd_str
    exec ksh -c $cmd_str &

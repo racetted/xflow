@@ -3020,7 +3020,9 @@ proc Overview_processDeadThread { thread_id } {
 
 # this function loads the plugin menu items
 proc Overview_createPluginToolbar { parentToolbar } {
-    Utils_createPluginToolbar "overview" ${parentToolbar} ""
+    set SEQ_SUITES_XML [SharedData_getMiscData SUITES_FILE]
+    set pluginEnv "export SEQ_SUITES_XML=${SEQ_SUITES_XML}"
+    Utils_createPluginToolbar "overview" ${parentToolbar} ${pluginEnv}
 }
 
 proc Overview_main {} {
