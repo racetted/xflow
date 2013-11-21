@@ -475,7 +475,7 @@ proc Utils_createPluginToolbar { parent parentToolbar pluginEnv } {
 	       set pluginWidgets "${pluginWidgets} ${pluginButton}"
 	       incr count
 	   } else {
-	       puts [concat "Info: Icon " [dict get ${pluginInfo} icon] " does not exist, or helptext not defined in $plugin. Not loading it to taskbar."]
+	       puts [concat "Info: Icon " [dict get ${pluginInfo} icon] " does not exist, or helptext not defined in  [dict get ${pluginInfo} file]. Not loading it to taskbar."]
 	   }
        }
    }
