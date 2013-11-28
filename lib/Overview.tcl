@@ -1058,9 +1058,11 @@ proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
       set hour [Utils_getHourFromDatestamp ${datestamp}]
       set refStartTime [Overview_getRefTimings ${exp_path} ${hour} start]
       set refEndTime [Overview_getRefTimings ${exp_path} ${hour}  end]
-      Overview_ExpCreateStartIcon ${canvas} ${exp_path} default_${hour} ${refStartTime} true
-      Overview_ExpCreateMiddleBox ${canvas} ${exp_path} default_${hour} ${refEndTime} true
-      Overview_ExpCreateEndIcon ${canvas} ${exp_path} default_${hour} ${refEndTime} true
+      if { ${refStartTime} != "" && ${refEndTime} != "" } {
+         Overview_ExpCreateStartIcon ${canvas} ${exp_path} default_${hour} ${refStartTime} true
+         Overview_ExpCreateMiddleBox ${canvas} ${exp_path} default_${hour} ${refEndTime} true
+         Overview_ExpCreateEndIcon ${canvas} ${exp_path} default_${hour} ${refEndTime} true
+      }
    } else {
       # for default box without ref timings, only add if no other boxes active
       if { [llength [Overview_getExpBoxTags ${canvas} ${exp_path}]] == 0 } {
