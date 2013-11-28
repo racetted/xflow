@@ -1504,7 +1504,7 @@ proc SharedFlowNode_getBasePart { value } {
 # of nodes are being redrawned. For instance, if you are viewing a loop iteration
 # of 1 and updates are on another iteration, the data is updated but the gui is not
 proc SharedFlowNode_isRefreshNeeded { exp_path flow_node datestamp current_ext } {
-   # puts "SharedFlowNode_isRefreshNeeded $exp_path $flow_node $datestamp current_ext:$current_ext"
+   ::log::log debug "SharedFlowNode_isRefreshNeeded $exp_path $flow_node $datestamp current_ext:$current_ext"
    set refreshNeeded true
    set nodeType [SharedFlowNode_getNodeType ${exp_path} ${flow_node} ${datestamp}]
    if { [SharedFlowNode_getLoops ${exp_path} ${flow_node} ${datestamp}] != "" } {
@@ -1535,7 +1535,7 @@ proc SharedFlowNode_isRefreshNeeded { exp_path flow_node datestamp current_ext }
                   set refreshNeeded false
 	       }
 	    } elseif { ${parentLoopExt} == "" || ${parentLoopExt} != "latest" } {
-               if { ${currentLoopSelection} != "latest" && ${nodeExt} != ${current_ext} } {
+               if { ${currentIterationSelection} != "latest" && ${nodeExt} != ${current_ext} } {
                   # we don't refresh the current update if the user is currently viewing
                   # a specific iteration and the update is not on that iteration
                   set refreshNeeded false
@@ -1550,7 +1550,7 @@ proc SharedFlowNode_isRefreshNeeded { exp_path flow_node datestamp current_ext }
          }
       }
    }
-   ::log::log debug "SharedFlowNode_isRefreshNeeded$flow_node ${current_ext} refreshed? ${refreshNeeded}"
+   ::log::log debug "SharedFlowNode_isRefreshNeeded $flow_node ${current_ext} refreshed? ${refreshNeeded}"
    return ${refreshNeeded}
 }
 
