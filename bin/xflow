@@ -25,14 +25,14 @@ fi
 arguments=$*
 eval `cclargs -D "" $0 "[maestro gui]" \
   -d            ""      ""      "[sequencer date]" \
-  -noautomsg "0"                    "1"                           "[No Auto Message Display]" \
+  -noautomsg "0"        "1"   "[value 1 means no auto message display]" \
   -rc ""        ""      "[maestrorc preferrence file]" \
   -n ""      ""      "[focus on this node at startup]" \
   -l ""      ""      "[loop arguments to node argument]" \
   -debug        "0"     "1"     "[debug message]" \
   ++ $arguments`
 
-test "${noautomsg}" = "1" && automsg_opt="-noautomsg" || automsg_opt=""
+test "${noautomsg}" != "" && automsg_opt="-noautomsg ${noautomsg}" || automsg_opt=""
 
 date_opt=""
 if [[ "${d}" != "" ]] ; then

@@ -3574,7 +3574,7 @@ proc xflow_parseCmdOptions {} {
          {date.arg "" "Date for standalone startup"}
          {logfile.arg "" "App log file"}
          {debug "Turn debug on"}
-         {noautomsg ""}
+         {noautomsg.arg "" "No auto message display"}
          {rc.arg "" "maestrorc preferrence file"}
 	 {node.arg "" "Highlight a specific node at startup"}
 	 {loop.arg "" "Loop arguments for specific node"}
@@ -3589,9 +3589,6 @@ proc xflow_parseCmdOptions {} {
       if { $params(main) } {
          set XFLOW_STANDALONE 1
       }
-      if { $params(noautomsg) } {
-         set AUTO_MSG_DISPLAY false
-      }
    } else {
       set XFLOW_STANDALONE 0
    }
@@ -3600,6 +3597,13 @@ proc xflow_parseCmdOptions {} {
    if { ${XFLOW_STANDALONE} == 1 } {
       puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
       SharedData_init
+
+      if { ! ($params(rc) == "") } {
+         puts "xflow using maestrorc file: $params(rc)"
+         set rcFile $params(rc)
+      }
+
+      SharedData_readProperties ${rcFile}
 
       if { $params(logfile) != "" } {
          puts "xflow writing to log file: $params(logfile)"
@@ -3612,9 +3616,13 @@ proc xflow_parseCmdOptions {} {
          SharedData_setMiscData DEBUG_TRACE 1
       } 
 
-      if { ! ($params(rc) == "") } {
-         puts "xflow using maestrorc file: $params(rc)"
-         set rcFile $params(rc)
+      if { $params(noautomsg) != "" } {
+         puts "xflow noautomsg flag: $params(noautomsg)"
+         if { $params(noautomsg) == 1 } {
+            set AUTO_MSG_DISPLAY false
+         } else {
+            set AUTO_MSG_DISPLAY true
+	 }
       }
 
       if { ! ($params(node) == "") } {
@@ -3627,7 +3635,6 @@ proc xflow_parseCmdOptions {} {
          set focusLoopArgs $params(loop)
       }
 
-      SharedData_readProperties ${rcFile}
       SharedData_setDerivedColors
       SharedData_setPlugins "xflow"
 

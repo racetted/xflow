@@ -2485,7 +2485,7 @@ proc Overview_parseCmdOptions {} {
          {main ""}
          {debug "Turn debug on"}
          {logfile.arg "" "App log file"}
-         {noautomsg "No automatic message display"}
+         {noautomsg.arg "" "No automatic message display"}
          {suites.arg "" "suites definition file"}
          {user.arg "" "real user (before switching -as)"}
          {rc.arg "" "maestrorc preferrence file"}
@@ -2504,6 +2504,11 @@ proc Overview_parseCmdOptions {} {
          SharedData_init
          SharedData_setMiscData OVERVIEW_MODE true
 
+         if { ! ($params(rc) == "") } {
+            puts "Overview_parseCmdOptions using maestrorc file: $params(rc)"
+         }
+
+         SharedData_readProperties $params(rc)
 
          SharedData_setMiscData REAL_USER $env(USER)
          if { $params(user) != "" } {
@@ -2511,9 +2516,14 @@ proc Overview_parseCmdOptions {} {
             SharedData_setMiscData REAL_USER $params(user)
          } 
 
-         if { $params(noautomsg) } {
-            SharedData_setMiscData AUTO_MSG_DISPLAY false
-         } 
+         if { $params(noautomsg) != "" } {
+            puts "Overview_parseCmdOptions noautomsg argument is $params(noautomsg)"
+	    if { $params(noautomsg) == 1 } {
+               SharedData_setMiscData AUTO_MSG_DISPLAY false
+            } else {
+               SharedData_setMiscData AUTO_MSG_DISPLAY true
+            }
+	 }
 
          if { $params(logspan) != "" } {
             SharedData_setMiscData LOG_SPAN_IN_HOURS $params(logspan)
@@ -2526,11 +2536,6 @@ proc Overview_parseCmdOptions {} {
             SharedData_setMiscData DEBUG_TRACE 1
          } 
 
-         if { ! ($params(rc) == "") } {
-            puts "Overview_parseCmdOptions using maestrorc file: $params(rc)"
-         }
-
-         SharedData_readProperties $params(rc)
 	 SharedData_setDerivedColors
 	 SharedData_setPlugins "overview"
 
