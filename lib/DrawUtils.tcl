@@ -358,7 +358,7 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
       set barX [expr ($nx1 + $nx2)/2]
       $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget"
       set maxY ${barY}
-      update idletasks
+      # update idletasks
       if { [winfo height ${indexListW}] == "1" } {
          set nextY [expr $barY + 20]
       } else {
@@ -707,13 +707,13 @@ proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext te
       }
       ${indexListW} setvalue first
    }
-
    pack ${indexListW} -fill both
+
    set barY [expr ${maxY} + 15]
    set barX ${nx1}
    $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
    set maxY ${barY}
-   update idletasks
+   # update idletasks
    if { [winfo height ${indexListW}] == "1" } {
       set nextY [expr $barY + 20]
    } else {

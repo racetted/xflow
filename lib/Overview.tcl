@@ -1058,9 +1058,11 @@ proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
       set hour [Utils_getHourFromDatestamp ${datestamp}]
       set refStartTime [Overview_getRefTimings ${exp_path} ${hour} start]
       set refEndTime [Overview_getRefTimings ${exp_path} ${hour}  end]
-      Overview_ExpCreateStartIcon ${canvas} ${exp_path} default_${hour} ${refStartTime} true
-      Overview_ExpCreateMiddleBox ${canvas} ${exp_path} default_${hour} ${refEndTime} true
-      Overview_ExpCreateEndIcon ${canvas} ${exp_path} default_${hour} ${refEndTime} true
+      if { ${refStartTime} != "" && ${refEndTime} != "" } {
+         Overview_ExpCreateStartIcon ${canvas} ${exp_path} default_${hour} ${refStartTime} true
+         Overview_ExpCreateMiddleBox ${canvas} ${exp_path} default_${hour} ${refEndTime} true
+         Overview_ExpCreateEndIcon ${canvas} ${exp_path} default_${hour} ${refEndTime} true
+      }
    } else {
       # for default box without ref timings, only add if no other boxes active
       if { [llength [Overview_getExpBoxTags ${canvas} ${exp_path}]] == 0 } {
@@ -1452,17 +1454,23 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    puts "Overview_launchExpFlow exp_path:${exp_path} datestamp:${datestamp} "
    
-   global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEXT OVERVIEW_LAUNCH_EXP_AFTER_ID
-
-   if { ! [info exists LAUNCH_XFLOW_MUTEXT] } {
-       set LAUNCH_XFLOW_MUTEXT [thread::mutex create -recursive]
-       ::log::log notice "Overview_launchExpFlow creating LAUNCH_XFLOW_MUTEXT"
-   }
+   global PROGRESS_REPORT_TXT LAUNCH_XFLOW_MUTEX OVERVIEW_LAUNCH_EXP_AFTER_ID
 
    # lock execution of this proc... seems like this proc could be executed in multiple
    # instances at the same time even though it is only send/invoked within the main thread...
    # Since it is using global vars need to make sure the block below is ecxcuted in serial
-   thread::mutex lock $LAUNCH_XFLOW_MUTEXT
+
+   if { ! [info exists LAUNCH_XFLOW_MUTEX] } {
+      set LAUNCH_XFLOW_MUTEX [thread::mutex create]
+     ::log::log notice "Overview_launchExpFlow creating LAUNCH_XFLOW_MUTEX"
+   }
+
+   if [ catch { thread::mutex lock ${LAUNCH_XFLOW_MUTEX} } message ] {
+      puts "Overview_launchExpFlow ERROR locking mutex... trying again later" 
+      after 500 Overview_launchExpFlow ${exp_path} ${datestamp}
+      return
+   }
+
    puts "Overview_launchExpFlow LOCKED exp_path:${exp_path} datestamp:${datestamp} "
 
    # make sure overview is visible
@@ -1500,13 +1508,15 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       }
 
       ::log::log notice "Overview_launchExpFlow launching progress bar..."
+      set progressW  ${exp_path}_${datestamp}
+      set progressW  [regsub -all {[\.]} ${progressW} _]
+      set progressW .pd_${progressW}
       # set a 60 seconds timeout to kill the dialog in case it fails to grab the focus
-      set OVERVIEW_LAUNCH_EXP_AFTER_ID [after 60000 [list Overview_launchExpTimeout ${exp_path} ${datestamp} ${datestamp_hour} ${isNewThread}]]
-      set progressW .pd
+      set OVERVIEW_LAUNCH_EXP_AFTER_ID [after 60000 [list Overview_launchExpTimeout ${exp_path} ${datestamp} ${datestamp_hour} ${isNewThread} ${progressW}]]
 
       if { ! [winfo exists ${progressW}] } {
          ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT \
-	    -width ${progressWidth} -stop cancel -command [list Overview_cancelLaunchExp ${exp_path} ${datestamp} ${isNewThread}]
+	    -width ${progressWidth} -stop cancel -command [list Overview_cancelLaunchExp ${exp_path} ${datestamp} ${isNewThread} ${progressW}]
       }
 
       ::log::log notice "Overview_launchExpFlow launching progress bar DONE"
@@ -1550,7 +1560,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       set ecode $::errorCode
       catch { destroy ${progressW} }
 
-      catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
+      catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEX} }
 
       # report the error with original details
       return -code ${result} \
@@ -1558,31 +1568,28 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          -errorinfo ${einfo} \
          ${message}
    }
-   catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
+   catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEX} }
    puts "Overview_launchExpFlow UNLOCKED exp_path:${exp_path} datestamp:${datestamp} "
    puts "Overview_launchExpFlow exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
 
-proc Overview_launchExpTimeout { exp_path datestamp datestamp_hour is_new_thread } {
+proc Overview_launchExpTimeout { exp_path datestamp datestamp_hour is_new_thread progress_w} {
 
    ::log::log notice "Overview_launchExpTimeout exp_path:${exp_path} datestamp: ${datestamp}"
 
-   Overview_cancelLaunchExp ${exp_path} ${datestamp} ${is_new_thread}
-   # Overview_launchExpFlow ${exp_path} ${datestamp} ${datestamp_hour}
-   # ::log::log notice "Overview_launchExpTimeout relaunching exp_path:${exp_path} datestamp: ${datestamp}"
+   Overview_cancelLaunchExp ${exp_path} ${datestamp} ${is_new_thread} ${progress_w}
    ::log::log notice "Overview_launchExpTimeout exp_path:${exp_path} datestamp: ${datestamp} DONE"
 }
 
-proc Overview_cancelLaunchExp { exp_path datestamp is_new_thread } {
+proc Overview_cancelLaunchExp { exp_path datestamp is_new_thread progress_w } {
    global OVERVIEW_LAUNCH_EXP_AFTER_ID
-   global LAUNCH_XFLOW_MUTEXT
+   global LAUNCH_XFLOW_MUTEX
    ::log::log notice "Overview_cancelLaunchExp exp_path:${exp_path} datestamp:${datestamp}"
 
-   set topLevelWindow .pd
    catch { after cancel ${OVERVIEW_LAUNCH_EXP_AFTER_ID} }
-   catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEXT} }
-   catch { grab release ${topLevelWindow} }
-   catch { destroy  ${topLevelWindow} }
+   catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEX} }
+   catch { grab release ${progress_w} }
+   catch { destroy  ${progress_w} }
    if { ${is_new_thread} == true } {
        set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
        Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}

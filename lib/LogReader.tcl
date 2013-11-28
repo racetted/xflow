@@ -53,11 +53,13 @@ proc LogReader_readMonitorDatestamps {} {
            }
          } message ] {
             ::log::log notice "ERROR in LogReader_readMonitorDatestamps: key:${key} ${message}"
+            puts "ERROR in LogReader_readMonitorDatestamps: key:${key} ${message}"
          }
       }
 
    } message ] {
       ::log::log notice "ERROR in LogReader_readMonitorDatestamps: ${message}"
+      puts "ERROR in LogReader_readMonitorDatestamps: ${message}"
    }
 
    set READ_LOG_AFTER_ID [after 4000 LogReader_readMonitorDatestamps]
@@ -163,7 +165,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
          seek $f_logfile $logFileOffset
 	 set sameRead false
          while {[gets $f_logfile line] > 0} {
-            catch { 
+            if [ catch { 
 	       if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}] != 0 } {
 	          # something went wrong reading the line
 		  # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
@@ -182,6 +184,10 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
 	          set sameRead false
 	          set logFileOffset [tell ${f_logfile}]
 	       }
+            } message ] {
+	       ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}"
+	       ::log::log notice "ERROR: message: ${message}"
+	       puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read} \nmessage: ${message}"
 	    }
          }
 	 set offset [tell $f_logfile]
@@ -264,7 +270,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
 	    # send msg variable in between brackets so no expansion is being made
 	    # in case it contains dollar signs
             thread::send -async ${MSG_CENTER_THREAD_ID} \
-               "MsgCenter_processNewMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} {${msg}}"
+                "MsgCenter_processNewMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} ${_exp_path} {${msg}}"
          }
       }
 
