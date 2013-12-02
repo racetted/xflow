@@ -1514,9 +1514,16 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       # set a 60 seconds timeout to kill the dialog in case it fails to grab the focus
       set OVERVIEW_LAUNCH_EXP_AFTER_ID [after 60000 [list Overview_launchExpTimeout ${exp_path} ${datestamp} ${datestamp_hour} ${isNewThread} ${progressW}]]
 
+      if { [winfo exists ${progressW}] } {
+         # this should not happen but keep note of it
+         ::log::log notice "WARNING: Overview_launchExpFlow killing existing progress bar."
+	 destroy ${progressW}
+      }
+
       if { ! [winfo exists ${progressW}] } {
          ProgressDlg ${progressW} -title "Launch Exp Flow" -parent [Overview_getToplevel]  -textvariable PROGRESS_REPORT_TXT \
 	    -width ${progressWidth} -stop cancel -command [list Overview_cancelLaunchExp ${exp_path} ${datestamp} ${isNewThread} ${progressW}]
+         update idletasks
       }
 
       ::log::log notice "Overview_launchExpFlow launching progress bar DONE"
@@ -1712,8 +1719,16 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
 
    if { [OverviewExpStatus_getLastStatusDateTime ${exp_path} ${datestamp}] >  [Overview_GraphGetXOriginDateTime] } {
       if { [winfo exists $canvas] } {
-         # launch the flow if needed... but not when the app is startup up
          set isStartupDone [SharedData_getMiscData STARTUP_DONE]
+         # update exp box status
+         if { ${isStartupDone} == "true" } {
+            # check for box overlapping, auto-refresh, etc
+            Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${status} ${timeValue}
+            ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
+            Overview_checkGridLimit
+            ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
+         }
+         # launch the flow if needed... but not when the app is startup up
          if { $status == "begin" } {
             if { [SharedData_getExpAutoLaunch ${exp_path}] == true && ${AUTO_LAUNCH} == "true" \
 	         && ${isStartupDone} == "true" } {
@@ -1724,14 +1739,6 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
          } else {
             # change the exp colors
             Overview_refreshBoxStatus ${exp_path} ${datestamp}
-         }
-         if { ${isStartupDone} == "true" } {
-
-            # check for box overlapping, auto-refresh, etc
-            Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${status} ${timeValue}
-            ::log::log debug "Overview_updateExp Overview_updateExpBox DONE!"
-            Overview_checkGridLimit
-            ::log::log debug "Overview_updateExp Overview_checkGridLimit DONE!"
          }
       } else {
          ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
