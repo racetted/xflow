@@ -597,39 +597,43 @@ proc MsgCenter_show {} {
 # called everytime a new message comes in from experiment threads
 proc MsgCenter_processNewMessage { datestamp_ timestamp_ type_ node_ exp_ msg_ } {
    global MSG_ALARM_ID MSG_CENTER_MUTEX
+   ::log::log debug "MsgCenter_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
+
    if { ! [info exists MSG_CENTER_MUTEX] } {
       ::log::log debug "MsgCenter_processNewMessage creating mutex"
       set MSG_CENTER_MUTEX [thread::mutex create ]
-   } else {
-      ::log::log debug "MsgCenter_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
-      if [ catch { thread::mutex lock ${MSG_CENTER_MUTEX} } message ] {
-         ::log::log debug "MsgCenter_processNewMessage no lock...trying later..."
-	 after 250 MsgCenter_processNewMessage "${datestamp_}" "${timestamp_}" "${type_}" "${node_}" "${msg_}" "${exp_}"
-	 return
-      }
-      if [ catch { 
-         ::log::log debug "MsgCenterThread_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
-         MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
-         # if the exp is done reading messages, we send a notification out
-         # to warn about new messages available in the msg center
-         if { [SharedData_getMiscData STARTUP_DONE] == true } {
-            MsgCenter_sendNotification
-         }
-      } message ] {
-         puts "ERROR in MsgCenter_processNewMessage: ${message}"
-         catch { thread::mutex unlock ${MSG_CENTER_MUTEX} }
-         set einfo $::errorInfo
-         set ecode $::errorCode
-         # report the error with original details
-
-         return -code ${result} \
-            -errorcode ${ecode} \
-            -errorinfo ${einfo} \
-            ${message}
-      }
-
-      catch { thread::mutex unlock ${MSG_CENTER_MUTEX} }
    }
+
+   ::log::log debug "MsgCenter_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
+   if [ catch { thread::mutex lock ${MSG_CENTER_MUTEX} } message ] {
+      ::log::log debug "MsgCenter_processNewMessage no lock...trying later..."
+      after 250 MsgCenter_processNewMessage \"${datestamp_}\" \"${timestamp_}\" \"${type_}\" \"${node_}\" \"${msg_}\" \"${exp_}\"
+      return
+   }
+
+   if [ catch { 
+      ::log::log debug "MsgCenterThread_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
+      MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
+      # if the exp is done reading messages, we send a notification out
+      # to warn about new messages available in the msg center
+      if { [SharedData_getMiscData STARTUP_DONE] == true } {
+               MsgCenter_sendNotification
+      }
+   } message ] {
+      puts "ERROR in MsgCenter_processNewMessage: ${message}"
+      catch { thread::mutex unlock ${MSG_CENTER_MUTEX} }
+      ::log::log notice "ERROR in MsgCenter_processNewMessage: ${message}"
+      set einfo $::errorInfo
+      set ecode $::errorCode
+      # report the error with original details
+
+      return -code ${result} \
+         -errorcode ${ecode} \
+         -errorinfo ${einfo} \
+         ${message}
+   }
+
+   catch { thread::mutex unlock ${MSG_CENTER_MUTEX} }
 }
 
 # called by xflow or xflow_overview to let msg center
