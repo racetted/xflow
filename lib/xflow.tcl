@@ -801,7 +801,7 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
       }
 
       default {
-         if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
+         if { ${displayPref} == "catchup" || [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
             set attrValue "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} ${attrName}]"
             if { ${displayPref} == "machine_queue" } {
                set queue [SharedFlowNode_getQueue ${exp_path} ${node} ${datestamp}]
