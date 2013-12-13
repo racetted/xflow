@@ -1781,7 +1781,7 @@ proc Overview_checkGridLimit {} {
          } elseif { ${graphy} > ${defaultGraphY} && ${graphy} >  [expr ${maxExpBoxY} + ${expEntryHeight}] } {
 	    # shring the grid to default value
             ::log::log debug "Overview_checkGridLimit reducing grid to graphy:$graphy"
-	    set graphy [expr ${defaultGraphY} + ${expEntryHeight}]
+	    set graphy [expr ${maxExpBoxY} + ${expEntryHeight}]
             Overview_redrawGrid
 	 }
       }
