@@ -15,6 +15,7 @@ proc FlowXml_parse { xml_file exp_path datestamp parent_flow_node } {
 # if no match, an empty string is returned
 proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
    set returnedValue ""
+   set switchItemFound 0
    ::log::log debug "FlowXml_getSwitchingItemNode() exp_path:${exp_path} datestamp:${datestamp}"
    if { ${datestamp} != "" && [${xml_node} nodeName] == "SWITCH" } {
       ::log::log debug "FlowXml_getSwitchingItemNode() got SWITCH"
@@ -24,6 +25,28 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
             set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
 	    if { ${datestampHour} != "" } {
                set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${datestampHour}\]]
+               if { ${switchItemNode} != "" } {
+                   set switchItemFound 1
+               } else {
+                   #if no exact match, search for switch item within multiple values
+                   set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[contains(@name,${datestampHour})\]]  
+                   if { ${switchItemNode} != "" } {
+                       foreach node $switchItemNode {
+                           set completeName [${node} getAttribute name "00"]
+                           set nameList [split ${completeName} ","]
+                           foreach singleName $nameList {
+                               if { ${singleName} == ${datestampHour} } {
+                                   set switchItemFound 1
+                                   set switchItemNode ${node}
+                               }
+                           }
+                       }
+                   }
+               }
+               #if no match, look for default switch item
+               if { ${switchItemFound} == 0 } {
+                   set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name='default'\]]
+               }
 	       set returnedValue ${switchItemNode}
 	    }
          }
