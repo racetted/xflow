@@ -595,7 +595,7 @@ proc MsgCenter_show {} {
 
 
 # called everytime a new message comes in from experiment threads
-proc MsgCenter_processNewMessage { datestamp_ timestamp_ type_ node_ exp_ msg_ } {
+proc MsgCenter_processNewMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } {
    global MSG_ALARM_ID MSG_CENTER_MUTEX
    ::log::log debug "MsgCenter_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
 
