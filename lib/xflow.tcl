@@ -436,7 +436,7 @@ proc xflow_findCallback { _exp_path _datestamp _entry_w _next_or_previous } {
       set mainFlowCanvas [xflow_getMainFlowCanvas ${_exp_path} ${_datestamp}]
       # if the node is collapsed, uncollapse it
       if { [SharedFlowNode_uncollapseBranch ${_exp_path} ${foundNode} ${_datestamp} ${mainFlowCanvas}] != "" } {
-         xflow_drawflow ${_exp_path} ${_datestamp} ${mainFlowCanvas} 0
+         xflow_drawflow ${_exp_path} ${_datestamp} ${mainFlowCanvas} false
       }
 
       set foundTag [::DrawUtils::highLightFindNode ${_exp_path} ${_datestamp} ${foundNode} ${mainFlowCanvas}]
@@ -2542,7 +2542,7 @@ proc xflow_changeCollapsed { exp_path datestamp canvas node x y } {
       SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} ${canvas} 0
    }
 
-   xflow_drawflow ${exp_path} ${datestamp} $canvas 0
+   xflow_drawflow ${exp_path} ${datestamp} $canvas false
    if { [xflow_needBgImageRefresh ${exp_path} ${datestamp} ${canvas}] == true } {
       xflow_addBgImage ${exp_path} ${datestamp} ${canvas} [winfo width ${canvas}] [winfo height ${canvas}]
    }
@@ -2587,7 +2587,7 @@ proc xflow_redrawAllFlow { exp_path datestamp } {
    # called from the LogReader in overview mode
    set canvasList [SharedData_getExpCanvasList ${exp_path} ${datestamp}]
    foreach canvasW $canvasList {
-      xflow_drawflow ${exp_path} ${datestamp} $canvasW 0
+      xflow_drawflow ${exp_path} ${datestamp} $canvasW false
    }
 }
 
@@ -2647,7 +2647,7 @@ proc xflow_refreshFlow { exp_path datestamp } {
 }
 
 # draws the experiment flow
-proc xflow_drawflow { exp_path datestamp canvas {initial_display "1"} } {
+proc xflow_drawflow { exp_path datestamp canvas {initial_display true} } {
    ::log::log debug "xflow_drawflow() canvas:$canvas"
 
    if { [SharedFlowNode_isFlowModified ${exp_path} ${datestamp}] == "true" } {
@@ -2666,7 +2666,7 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display "1"} } {
       xflow_drawNode ${exp_path} ${datestamp} $canvas $rootNode 0 true
       xflow_resetScrollRegion ${canvas}
    
-      if { $initial_display == "1" } {
+      if { $initial_display == true } {
          # $canvas yview moveto 0
          # resize the window depending on size of canvas elements
          xflow_resizeWindow ${exp_path} ${datestamp} ${canvas}
