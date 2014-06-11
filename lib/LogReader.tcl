@@ -279,25 +279,23 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
       }
 
       if { ${_toOverview} == true } {
-         if { ! ($node == "" || $type == "") } {
-            # abortx, endx, beginx type are used for signals we send to the parent containers nodes
+         if { ${type} != "info" && ${type} != "event" } {
+	    # abortx, endx, beginx type are used for signals we send to the parent containers nodes
             # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
             # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
             if { ${type} != "beginx" } {
                catch { set type [SharedData_getRippleStatusMap ${type}] }
             }
-            if { ${type} != "info" } {
-               if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
-                  ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
-                  ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
-		  # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
-		  # sends the command in async mode to avoid potential deadlock... however the vwait ensures that it waits for the
-		  # command to be finished before going further
-                  thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
-                     "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\"" SendDone
-		  vwait SendDone
-		  # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\" DONE"
-               }
+            if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
+               ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
+               ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
+               # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
+               # sends the command in async mode to avoid potential deadlock... however the vwait ensures that it waits for the
+               # command to be finished before going further
+               thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
+               "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\"" SendDone
+               vwait SendDone
+               # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\" DONE"
             }
          }
       }
