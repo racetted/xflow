@@ -3797,6 +3797,9 @@ proc xflow_init { {exp_path ""} } {
    # initate array containg name for widgets used in the application
 
    if { ${XFLOW_STANDALONE} == "1" } {
+      if { ! [info exists env(SEQ_EXP_HOME)] } {
+      Utils_fatalError . "Xflow Startup Error" "SEQ_EXP_HOME environment variable not set! Exiting..."
+      }
       Utils_createTmpDir
       SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 
