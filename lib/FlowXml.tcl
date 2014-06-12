@@ -54,6 +54,28 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
             set dow [Utils_getDayOfWeekFromDatestamp ${datestamp}]
 	    if { ${dow} != "" } {
                set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${dow}\]]
+               if { ${switchItemNode} != "" } {
+                   set switchItemFound 1
+               } else {
+                   #if no exact match, search for switch item within multiple values
+                   set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[contains(@name,${dow})\]]  
+                   if { ${switchItemNode} != "" } {
+                       foreach node $switchItemNode {
+                           set completeName [${node} getAttribute name "0"]
+                           set nameList [split ${completeName} ","]
+                           foreach singleName $nameList {
+                               if { ${singleName} == ${dow} } {
+                                   set switchItemFound 1
+                                   set switchItemNode ${node}
+                               }
+                           }
+                       }
+                   }
+               }
+               #if no match, look for default switch item
+               if { ${switchItemFound} == 0 } {
+                   set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name='default'\]]
+               }
 	       set returnedValue ${switchItemNode}
 	    }
          }
