@@ -581,12 +581,13 @@ proc MsgCenter_close {} {
 proc MsgCenter_show {} {
    set topW [MsgCenter_getToplevel]
    set currentStatus [wm state ${topW}]
-   switch ${currentStatus} {
-      withdrawn -
-      iconic {
-         wm deiconify ${topW}
-      }
-   }
+
+   # force remove and redisplay of msg center
+   # Need to do this cause when the msg center is in another virtual
+   # desktop, it is the only way for it to redisplay in the
+   # current desktop
+   wm withdraw ${topW}
+   wm deiconify ${topW}
 
    if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
       raise ${topW}

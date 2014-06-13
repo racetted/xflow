@@ -1422,6 +1422,7 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
 proc Overview_getReferenceDatestamp { exp_path datestamp_hour } {
    set canvas [Overview_getCanvas]
    set expBoxCoords [Overview_getRunBoxBoundaries ${canvas} ${exp_path} default_${datestamp_hour}]
+   set myx ""
    if { ${expBoxCoords} != "" } {
       set myx [lindex ${expBoxCoords} 0]
    }
