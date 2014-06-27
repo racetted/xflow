@@ -12,6 +12,7 @@ package require Thread
 package require BWidget 1.9
 package require img::gif
 package require log
+package require Tktable
 
 namespace import ::struct::record::*
 
@@ -1173,15 +1174,12 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
 	     ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
           }
       }
-      ${listingMenu} add command -label "Node Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
-      ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas $popMenu success]
-      ${listingMenu} add command -label "Node Abort Listing" \
+      ${listingMenu} add command -label "Latest Success Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+      ${listingMenu} add command -label "Latest Abort Listing" \
          -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
          -foreground [::DrawUtils::getBgStatusColor abort]
-
-      ${listingMenu} add command -label "All Node Abort Listing" \
-         -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas $popMenu abort] \
-         -foreground [::DrawUtils::getBgStatusColor abort]
+      ${listingMenu} add command -label "Compare Latest Listings" -command [list xflow_diffLatestListings ${exp_path} ${datestamp} $node ${extension} $canvas]
+      ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
 
       # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas $popMenu]
       ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback ${exp_path} ${datestamp} $node $canvas ]
@@ -1324,15 +1322,12 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
       }
    }
 
-   ${listingMenu} add command -label "Node Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
-   ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} success]
-   ${listingMenu} add command -label "Node Abort Listing" \
+   ${listingMenu} add command -label "Latest Success Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${listingMenu} add command -label "Latest Abort Listing" \
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
       -foreground [::DrawUtils::getBgStatusColor abort]
-
-   ${listingMenu} add command -label "All Node Abort Listing" \
-      -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} abort] \
-      -foreground [::DrawUtils::getBgStatusColor abort]
+   ${listingMenu} add command -label "Compare Latest Listings" -command [list xflow_diffLatestListings ${exp_path} ${datestamp} $node ${extension} $canvas]
+   ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
 
 
    ${submitMenu} add command -label "Submit & Continue" -command [list xflow_submitNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas continue ]
@@ -2347,60 +2342,135 @@ proc xflow_listingCallback { exp_path datestamp node extension canvas {full_loop
 
 # this funtion is invoked to list all the successfull node listing for this node.
 # this means all available listings in different datestamps
-proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu type } {
+proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
   global env
-   #puts "xflow_allListingCallback $exp_path $node $canvas $caller_menu $type"
+   #puts "xflow_allListingCallback $exp_path $node $canvas $caller_menu"
    set shadowColor [SharedData_getColor SHADOW_COLOR]
    set bgColor [SharedData_getColor CANVAS_COLOR]
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
+   set tmpfile2 "${tmpdir}/test$id"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set listerPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    Utils_busyCursor [winfo toplevel ${canvas}]
 
    set result [ catch {
-      set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -type $type -list > $tmpfile 2>&1"
+      set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -type success -list > $tmpfile 2>&1"
       ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
      eval [exec ksh -c $cmd ]
       ::log::log debug  "xflow_allListingCallback DONE: $cmd"
 
-      ##set fullList [list showAllListings $node $type $canvas $canvas.list]
-      set listingW .listing_${type}_${node}
+      ##set fullList [list showAllListings $node $canvas $canvas.list]
+      set listingW .listing_${node}
       if { [winfo exists ${listingW}] } {
          destroy ${listingW}
       }
       toplevel ${listingW}
       wm geometry ${listingW} +[winfo pointerx ${caller_menu}]+[winfo pointery ${caller_menu}]
-
-      wm title  ${listingW} "${type} listings ${node} - Exp=${exp_path}"
-      frame ${listingW}.frame -relief raised -bd 2 -bg $bgColor
-      pack ${listingW}.frame -fill both -expand 1
-      listbox ${listingW}.list -yscrollcommand "${listingW}.yscroll set" \
-          -xscrollcommand "${listingW}.xscroll set"  \
+      
+      #Bottom menu bar
+      frame $listingW.mbar -relief raised -bd 2
+      pack $listingW.mbar -side bottom -fill x
+      button $listingW.mbar.quit -text Quit -command [list destroy ${listingW}]
+      pack $listingW.mbar.quit -side right -pady .5m -padx 1m
+      wm title  ${listingW} "All listings ${node} - Exp=${exp_path}"
+      
+      #Divide the window in 3 parts: success listings, abort listings and compare listings
+      TitleFrame $listingW.successFrame -text "Success listings"
+      pack ${listingW}.successFrame -fill both -expand 1 -padx 5 -pady 10
+      set subf1 [${listingW}.successFrame getframe]
+      frame $subf1.successButtons
+      pack $subf1.successButtons -side bottom -fill x
+      TitleFrame $listingW.abortFrame -text "Abort listings"
+      pack ${listingW}.abortFrame -fill both -expand 1 -padx 5 -pady 10
+      set subf2 [${listingW}.abortFrame getframe]
+      frame $subf2.abortButtons
+      pack $subf2.abortButtons -side bottom -fill x
+      TitleFrame $listingW.diffFrame -text "Compare listings"
+      pack ${listingW}.diffFrame -fill both -expand 1 -padx 5 -pady 10
+      set subf3 [${listingW}.diffFrame getframe]
+      frame $subf3.diffButtons
+      pack $subf3.diffButtons -side bottom -fill x
+   
+      #Buttons and help balloons for each frame
+      button $subf1.successButtons.successView -text "View selected" -command [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf1.list success]
+      pack $subf1.successButtons.successView -side left -pady .5m -padx 1m
+      button $subf1.successButtons.successDiffAdd -text "Add selected to diff list" -command [list xflow_addToDiffList $subf1 $subf3 success]
+      pack $subf1.successButtons.successDiffAdd -side left -pady .5m -padx 1m
+      balloon $subf1.successButtons.successDiffAdd "Only two listings can be added to the compare list"
+      button $subf2.abortButtons.abortView -text "View selected" -command [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf2.list2 abort]
+      pack $subf2.abortButtons.abortView -side left -pady .5m -padx 1m
+      button $subf2.abortButtons.abortDiffAdd -text "Add selected to diff list" -command [list xflow_addToDiffList $subf2 $subf3 abort]
+      pack $subf2.abortButtons.abortDiffAdd -side left -pady .5m -padx 1m
+      balloon $subf2.abortButtons.abortDiffAdd "Only two listings can be added to the compare list"
+      button $subf3.diffButtons.diff -text Diff -command [list xflow_diffListing ${exp_path} ${datestamp} $subf3.list3]
+      pack $subf3.diffButtons.diff -side left -pady .5m -padx 1m
+      balloon $subf3.diffButtons.diff "Compare listings from the list above"
+      button $subf3.diffButtons.removeDiff -text "Remove selected" -command [list xflow_removeDiff $subf3.list3 $subf1.list $subf2.list2]
+      pack $subf3.diffButtons.removeDiff -side left -pady .5m -padx 1m
+      
+      #Listboxes, where the listings are listed
+      listbox $subf1.list -yscrollcommand "${subf1}.yscroll set" \
+          -xscrollcommand "${subf1}.xscroll set" -selectbackground gray5 \
           -height 10 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor
-      scrollbar ${listingW}.yscroll -command "${listingW}.list yview"  -bg $bgColor
-      scrollbar ${listingW}.xscroll -command "${listingW}.list xview" -orient horizontal -bg $bgColor
+      listbox $subf2.list2 -yscrollcommand "${subf2}.yscroll2 set" \
+          -xscrollcommand "${subf2}.xscroll2 set" -selectbackground gray5 \
+          -height 10 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor
+      listbox $subf3.list3 -height 2 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor -selectbackground gray5
 
-      pack ${listingW}.xscroll -fill x -side bottom -in ${listingW}.frame
-      pack ${listingW}.yscroll -side right -fill y -in ${listingW}.frame
-      pack ${listingW}.list -expand 1 -fill both -padx 1m -side left -in ${listingW}.frame
+      #Scrollbars for the listboxes
+      scrollbar $subf1.yscroll -command "${subf1}.list yview"  -bg $bgColor
+      scrollbar $subf1.xscroll -command "${subf1}.list xview" -orient horizontal -bg $bgColor
+      scrollbar $subf2.yscroll2 -command "${subf2}.list2 yview"  -bg $bgColor
+      scrollbar $subf2.xscroll2 -command "${subf2}.list2 xview" -orient horizontal -bg $bgColor
 
-      set resultingFile [open $tmpfile] 
-
+      pack $subf1.xscroll -fill x -side bottom -in $subf1
+      pack $subf1.yscroll -side right -fill y -in $subf1
+      pack $subf1.list -expand 1 -fill both -side left -in $subf1
+      pack $subf2.xscroll2 -fill x -side bottom -in $subf2
+      pack $subf2.yscroll2 -side right -fill y -in $subf2
+      pack $subf2.list2 -expand 1 -fill both -padx 1m -side left -in $subf2
+      pack $subf3.list3 -expand 1 -fill both -padx 1m -side left -in $subf3
+      
+      #List the success listings
+      set resultingFile [open $tmpfile]
       while { [gets $resultingFile line ] >= 0 } {
           if { [string first "On" $line] >= 0 } {
              set mach [string trimleft $line "On "]
-             ${listingW}.list insert end $line
+             $subf1.list insert end $line
           } else {
-             ${listingW}.list insert end "[string trim $line "\n"] $mach"
+             set tmpLine "[string trim $line "\n"] $mach"
+             set splittedArgs [split $tmpLine]
+             set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
+             $subf1.list insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
+          }
+     }
+     catch {[exec rm -f $tmpfile]}
+
+     #List the abort listings
+     set cmd "$listerPath -n ${seqNode} -type abort -list > $tmpfile2 2>&1"
+      ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
+     eval [exec ksh -c $cmd ]
+      ::log::log debug  "xflow_allListingCallback DONE: $cmd"
+     set resultingFile2 [open $tmpfile2] 
+     while { [gets $resultingFile2 line ] >= 0 } {
+          if { [string first "On" $line] >= 0 } {
+             set mach [string trimleft $line "On "]
+             $subf2.list2 insert end $line
+          } else {
+             set tmpLine "[string trim $line "\n"] $mach"
+             set splittedArgs [split $tmpLine]
+             set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
+             $subf2.list2 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
           }
       }
+      catch {[exec rm -f $tmpfile2]}
 
-      catch {[exec rm -f $tmpfile]}
-      bind ${listingW}.list <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} ${listingW}.list ${type}]
 
+      bind $subf1.list <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf1.list success]
+      bind $subf2.list2 <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf2.list2 abort]
       Utils_normalCursor [winfo toplevel ${canvas}]
 
    } message ]
@@ -2419,6 +2489,136 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu type 
    }
 }
 
+#balloon help taken from http://wiki.tcl.tk/3060
+#pop up a help text after a 1s duration mouseover
+proc balloon {w help} {
+    bind $w <Any-Enter> "after 1000 [list balloon:show %W [list $help]]"
+    bind $w <Any-Leave> "destroy %W.balloon"
+}
+proc balloon:show {w arg} {
+    if {[eval winfo containing  [winfo pointerxy .]]!=$w} {return}
+    set top $w.balloon
+    catch {destroy $top}
+    toplevel $top -bd 1 -bg black
+    wm overrideredirect $top 1
+    if {[string equal [tk windowingsystem] aqua]}  {
+        ::tk::unsupported::MacWindowStyle style $top help none
+    }   
+    pack [message $top.txt -aspect 10000 -bg lightyellow \
+             -text $arg]
+    set wmx [winfo rootx $w]
+    set wmy [expr [winfo rooty $w]+[winfo height $w]]
+    wm geometry $top \
+      [winfo reqwidth $top.txt]x[winfo reqheight $top.txt]+$wmx+$wmy
+    raise $top
+}
+
+#This function is invoked to add selected listings to the compare list in the
+# "All Node Listing" window
+proc xflow_addToDiffList { listf subf3 type } {
+   if { $type == "success" } {
+      set listName "list"
+   } else {
+      set listName "list2"
+   }
+   ::log::log debug "xflow_addToDiffList selection: [${listf}.${listName} curselection]"
+   set selectedIndexes [ $listf.${listName} curselection ]
+   foreach selectIndex $selectedIndexes {
+      if { [$subf3.list3 size] < 2 } {
+         set line [$listf.${listName} get $selectIndex]
+         if { [string first "On " $line] != 0 } {
+            $subf3.list3 insert end $line
+            if { $type == "success" } {
+               $subf3.list3 itemconfigure [expr [$subf3.list3 size] - 1] -background [::DrawUtils::getBgStatusColor end] -foreground [::DrawUtils::getFgStatusColor end]
+               $listf.${listName} itemconfigure $selectIndex -background [::DrawUtils::getBgStatusColor end] -foreground [::DrawUtils::getFgStatusColor end]
+            } else {
+               $subf3.list3 itemconfigure [expr [$subf3.list3 size] - 1] -background [::DrawUtils::getBgStatusColor abort] -foreground [::DrawUtils::getFgStatusColor abort]
+               $listf.${listName} itemconfigure $selectIndex -background [::DrawUtils::getBgStatusColor abort] -foreground [::DrawUtils::getFgStatusColor abort]
+            }
+         }
+      }
+   }
+}
+
+#This function is invoked to remove selected compare listings from the
+# "All Node Listing" window
+proc xflow_removeDiff { listw successlist abortlist } {
+   set selectedIndexes [$listw curselection]
+   if { [llength $selectedIndexes] == 1 } {
+      set tmpLine [$listw get [lindex $selectedIndexes 0]]
+      $listw delete [lindex $selectedIndexes 0]
+      if { [string first "success" $tmpLine] > 1 } {
+        set tmpSize [$successlist size]
+	for {set i 0} {$i < $tmpSize} {incr i} {
+	  if { $tmpLine == [$successlist get $i] } {
+	      $successlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+	  }
+	}
+      } else {
+         set tmpSize [$abortlist size]
+         for {set i 0} {$i < $tmpSize} {incr i} {
+	   if { $tmpLine == [$abortlist get $i] } {
+	      $abortlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+	   }
+         }
+      }
+   } elseif { [llength $selectedIndexes] == 2 } {
+      set tmpLineList {}
+      lappend tmpLineList [$listw get [lindex $selectedIndexes 0]]
+      lappend tmpLineList [$listw get [lindex $selectedIndexes 1]]
+      $listw delete [lindex $selectedIndexes 0] [lindex $selectedIndexes 1]
+      foreach tmpLine $tmpLineList {
+	if { [string first "success" $tmpLine] > 1 } {
+	  set tmpSize [$successlist size]
+	  for {set i 0} {$i < $tmpSize} {incr i} {
+	    if { $tmpLine == [$successlist get $i] } {
+		$successlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+	    }
+	  }
+	} else {
+	  set tmpSize [$abortlist size]
+	  for {set i 0} {$i < $tmpSize} {incr i} {
+	    if { $tmpLine == [$abortlist get $i] } {
+		$abortlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+	    }
+	  }
+	}
+      }
+   }
+}
+
+# this function is invoked to call tkdiff for the compare listings from the
+# "All Node Listing" window
+proc xflow_diffListing { exp_path datestamp listw } {
+   global SESSION_TMPDIR
+   ::log::log debug "xflow_diffListing listing 1: [$listw get 0] /// listing 2: [$listw get 1]"
+   set selectedIndexes "0 1"
+   set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set tclsh [ exec which maestro_wish8.5]
+
+   if { [$listw size] == 2 } {
+    foreach selectIndex $selectedIndexes {
+	set selectedValue [$listw get $selectIndex]
+	if { [string first "On " $selectedValue] != 0 } {
+	  set splittedArgs [split $selectedValue]
+	  set mach [lindex $splittedArgs end]
+	  set listingFile [lindex $splittedArgs end-1]
+
+	  set winTitle "[file tail ${exp_path}] - Listing [file tail ${listingFile}]"
+	  regsub -all " " ${winTitle} _ tempfile
+	  regsub -all "/" ${tempfile} _ tempfile
+	  set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+
+          set seqCmd "${listingExec} -f ${exp_path}//listings/${mach}//$listingFile@$mach"
+          Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+
+	  lappend outputList $outputfile
+	}
+    }
+    exec  ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff [lindex $outputList 0] [lindex $outputList 1] &
+   }
+}
+
 # this function is invoked to display the node listings selected from the
 # "All Node Listing" window
 proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
@@ -2433,7 +2633,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
       set selectedValue [$listw get $selectIndex]
       if { [string first "On " $selectedValue] != 0 } {
          set splittedArgs [split $selectedValue]
-     set mach [lindex $splittedArgs end]
+         set mach [lindex $splittedArgs end]
          set listingFile [lindex $splittedArgs end-1]
          set splittedFile [split [file tail $listingFile] .]
 
@@ -2441,8 +2641,8 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
          regsub -all " " ${winTitle} _ tempfile
          regsub -all "/" ${tempfile} _ tempfile
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
-
-         set seqCmd "${listingExec} -f $listingFile@$mach"
+         
+         set seqCmd "${listingExec} -f ${exp_path}//listings/${mach}//$listingFile@$mach"
          Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
          if { ${listingViewer} == "default" } {
             TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2451,6 +2651,54 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
             TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
          }
       }
+   }
+}
+
+#this function is invoked to call tkdiff on the node latest success and abort listings
+proc xflow_diffLatestListings { exp_path datestamp node extension canvas {full_loop 0} } {
+   global SESSION_TMPDIR
+   ::log::log debug "xflow_diffLatestListings node:$node canvas:$canvas"
+   set tclsh [ exec which maestro_wish8.5]
+   if { ${datestamp} == "" } {
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
+   set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+
+   if { ${extension} == "" } {
+      set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp} ${full_loop}]
+   } else {
+      if { ${full_loop} == 0 } {
+         set nodeExt ${extension}
+      } else {
+         # get the parent part of the extension
+         set nodeExt [string range ${extension} 0 [expr [string last + ${extension}] -1]]
+      }
+   }
+
+   if { $nodeExt == "-1" } {
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
+   } else {
+      if { $nodeExt != "" } {
+         set nodeExt ".${nodeExt}"
+      }
+
+      set successWinTitle "success Listing [file tail $node]${nodeExt}.${datestamp}"
+      regsub -all " " ${successWinTitle} _ tempfile
+      regsub -all "/" ${tempfile} _ tempfile
+      set successOutputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+      set abortWinTitle "abort Listing [file tail $node]${nodeExt}.${datestamp}"
+      regsub -all " " ${abortWinTitle} _ tempfile
+      regsub -all "/" ${tempfile} _ tempfile
+      set abortOutputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+
+      set successSeqCmd "${listingExec} -n ${seqNode}${nodeExt} -type success -d ${datestamp}"
+      Sequencer_runCommand ${exp_path} ${datestamp} ${successOutputfile} ${successSeqCmd}
+      set abortSeqCmd "${listingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}"
+      Sequencer_runCommand ${exp_path} ${datestamp} ${abortOutputfile} ${abortSeqCmd}
+
+      exec  ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff $successOutputfile $abortOutputfile &
    }
 }
 
@@ -2492,6 +2740,10 @@ proc xflow_abortListingCallback { exp_path datestamp node extension canvas {full
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set seqCmd "${abortListingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}"
+      #set s1 [exec ${abortListingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}]
+      #if { [string first "listing not available" $s1 1] > 1 } {
+      #   set seqCmd "${abortListingExec} -n ${seqNode}${nodeExt} -type abort"
+      #}
       Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
 
       if { ${listingViewer} == "default" } {
@@ -3793,13 +4045,14 @@ proc xflow_init { {exp_path ""} } {
    global SESSION_TMPDIR FLOW_SCALE
 
    set SHADOW_STATUS 0
- 
+   
+   if { ! [info exists env(SEQ_EXP_HOME)] } {
+      Utils_fatalError . "Xflow Startup Error" "SEQ_EXP_HOME environment variable not set! Exiting..."
+   }
+   
    # initate array containg name for widgets used in the application
 
    if { ${XFLOW_STANDALONE} == "1" } {
-      if { ! [info exists env(SEQ_EXP_HOME)] } {
-      Utils_fatalError . "Xflow Startup Error" "SEQ_EXP_HOME environment variable not set! Exiting..."
-      }
       Utils_createTmpDir
       SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 
