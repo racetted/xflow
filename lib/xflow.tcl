@@ -12,7 +12,6 @@ package require Thread
 package require BWidget 1.9
 package require img::gif
 package require log
-package require Tktable
 
 namespace import ::struct::record::*
 
