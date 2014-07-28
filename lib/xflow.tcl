@@ -68,7 +68,7 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
    menu ${displayMenu} -tearoff 0
    foreach item "normal catchup cpu machine_queue memory mpi wallclock" { 
       set value ${item}
-      ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} -value ${value} \
+      ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF -value ${value} \
          -command [list xflow_redrawAllFlow ${exp_path} ${datestamp}]
    }
 
@@ -77,7 +77,7 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
    set itemList [list "Execution Time" "Begin Time" "End Time" "Submission Delay"]
    foreach item ${itemList} {
       set value ${item}
-      ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} -value ${value} \
+      ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF -value ${value} \
          -command [list xflow_redrawAllFlow ${exp_path} ${datestamp}]
    }
 
@@ -678,6 +678,7 @@ proc xflow_initDatestampEntry { exp_path datestamp } {
 proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
    ::log::log debug "xflow_setDatestampCallback exp_path:$exp_path datestamp:$exp_path parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
+   SharedData_setMiscData FLOW_GEOMETRY [winfo geometry $top]
    set dateEntry [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
    set dateEntryCombo [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
 
@@ -2834,6 +2835,8 @@ proc xflow_redrawNodes { exp_path datestamp node {canvas ""} } {
 # redraws the flow for all canvas... if the user has multiple windows open
 # on the same experiment
 proc xflow_redrawAllFlow { exp_path datestamp } {
+   global NODE_DISPLAY_PREF_${exp_path}_${datestamp} NODE_DISPLAY_PREF
+   set NODE_DISPLAY_PREF_${exp_path}_${datestamp} ${NODE_DISPLAY_PREF}
    # the active suite could be empty if the redraw is
    # called from the LogReader in overview mode
    set canvasList [SharedData_getExpCanvasList ${exp_path} ${datestamp}]
@@ -4045,13 +4048,12 @@ proc xflow_init { {exp_path ""} } {
 
    set SHADOW_STATUS 0
    
-   if { ! [info exists env(SEQ_EXP_HOME)] } {
-      Utils_fatalError . "Xflow Startup Error" "SEQ_EXP_HOME environment variable not set! Exiting..."
-   }
-   
    # initate array containg name for widgets used in the application
 
    if { ${XFLOW_STANDALONE} == "1" } {
+      if { ! [info exists env(SEQ_EXP_HOME)] } {
+         Utils_fatalError . "Xflow Startup Error" "SEQ_EXP_HOME environment variable not set! Exiting..."
+      }
       Utils_createTmpDir
       SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 
