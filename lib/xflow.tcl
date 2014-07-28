@@ -810,15 +810,22 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
                   set attrValue "${attrValue}:${queue}"
                }
             }
+            set attrValue "(${attrValue})"
+            if { ${displayPref} == "cpu" } {
+               set cpuMult [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} cpu_multiplier]
+               if { ${cpuMult} != "1" } {
+                  set attrValue "${attrValue}x(${cpuMult})"
+               }
+            }
          }
       }
    }
 
    if { ${attrValue} != "" } {
       if { ${text} != "" } {
-         set text "${text}\n(${attrValue})"
+         set text "${text}\n${attrValue}"
       } else {
-         set text "(${attrValue})"
+         set text "${attrValue}"
       }
    }
 
