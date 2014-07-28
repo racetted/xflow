@@ -661,7 +661,6 @@ proc SharedData_init {} {
    SharedData_setMiscData AUTO_MSG_DISPLAY true
    SharedData_setMiscData NODE_DISPLAY_PREF normal
    SharedData_setMiscData STARTUP_DONE false
-   SharedData_setMiscData FLOW_GEOMETRY
 
    SharedData_setMiscData FLOW_SCALE 1
    SharedData_setMiscData XFLOW_EXP_LABEL_SIZE 25
