@@ -2730,7 +2730,7 @@ proc Overview_createToolbar { _toplevelW } {
    image create photo ${toolbarW}.msg_center_new_img -file ${imageDir}/open_mail_new.gif
    image create photo ${toolbarW}.color_legend_img -file ${imageDir}/color_legend.gif
 
-   button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command MsgCenter_show -relief flat
+   button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command [list MsgCenter_show true] -relief flat
 
    ::tooltip::tooltip ${mesgCenterW} "Show Message Center."
 
@@ -2776,6 +2776,7 @@ proc Overview_createCanvas { _toplevelW } {
 
    scrollbar ${canvasFrame}.yscroll -command [list ${canvasW} yview ]
    scrollbar ${canvasFrame}.xscroll -orient horizontal -command [list ${canvasW} xview]
+
    set pad 12
    frame ${canvasFrame}.pad -width $pad -height $pad
 
@@ -2805,7 +2806,6 @@ proc Overview_createCanvas { _toplevelW } {
    grid rowconfigure ${canvasFrame} 0 -weight 1
 
    grid ${canvasFrame} -row 2 -column 0 -sticky nsew
-
 }
 
 # this is called when a configure event is triggered on a widget to resize, iconified a window.
