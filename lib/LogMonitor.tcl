@@ -191,10 +191,16 @@ proc LogMonitor_getNewestDatestamp { _exp_path } {
 
 proc LogMonitor_createLogFile { _exp_path _datestamp } {
    set logfile ${_exp_path}/logs/${_datestamp}_nodelog
+   set top_logfile ${_exp_path}/logs/${_datestamp}_toplog
    if { ! [file exists $logfile] && [file writable ${_exp_path}/logs/] } {
       puts "LogMonitor_createLogFile creating $logfile"
       ::log::log notice "LogMonitor_createLogFile() creating file: $logfile"
       close [open $logfile a]
+   }
+   if { ! [file exists $top_logfile] && [file writable ${_exp_path}/logs/] } {
+      puts "LogMonitor_createLogFile creating $top_logfile"
+      ::log::log notice "LogMonitor_createLogFile() creating file: $top_logfile"
+      close [open $top_logfile a]
    }
 }
 

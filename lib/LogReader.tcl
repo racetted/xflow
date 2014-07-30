@@ -94,8 +94,10 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
       SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
 
       # first do a full first pass read of the log file
-      # LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
-      LogReader_readFile ${exp_path} ${datestamp} ${read_type} false
+      
+      #LogReader_readFile ${exp_path} ${datestamp} ${read_type} false
+      LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
+
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} first pass read DONE."
 
       if { [SharedData_getMiscData STARTUP_DONE] == false && [SharedData_getMiscData OVERVIEW_MODE] == true } {
@@ -112,7 +114,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
       if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
          set offset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
          # thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_addHeartbeatDatestamp ${exp_path} ${datestamp}"
-	 # SharedData_setExpHeartbeat ${exp_path} ${datestamp} [thread::id] [clock seconds] ${offset}
+         # SharedData_setExpHeartbeat ${exp_path} ${datestamp} [thread::id] [clock seconds] ${offset}
       }
    }
 }
@@ -142,160 +144,233 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
    }
    
    if { ${datestamp} != "" } {
-      set logfile ${exp_path}/logs/${datestamp}_nodelog
-
+      if { $isOverviewMode == true && [file exists ${exp_path}/logs/${datestamp}_toplog] } {
+         set logfile ${exp_path}/logs/${datestamp}_toplog
+      } else {
+         set logfile ${exp_path}/logs/${datestamp}_nodelog
+      }
+      
       if { [file exists $logfile] } {
-         set f_logfile [ open $logfile r ]
-	 # fconfigure ${f_logfile} -buffering line
-         flush stdout
+      
+         if { $first_read == false } {
+            set f_logfile [ open $logfile r ]
+            # fconfigure ${f_logfile} -buffering line
+            flush stdout
          
-         if { ${isStartupDone} == "true" } {
-            set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
-            if { ${logFileOffset} == "" } {
+            if { ${isStartupDone} == "true" } {
+               set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
+               if { ${logFileOffset} == "" } {
+                  set logFileOffset 0
+                  ::log::log notice "INFO: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
+               }
+               ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
+            } else {
+               ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} reset read_offset"
                set logFileOffset 0
-               ::log::log notice "INFO: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
             }
-            ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
-         } else {
-            ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} reset read_offset"
-            set logFileOffset 0
-         }
 
-         # position yourself in the file
-         seek $f_logfile $logFileOffset
-	 set sameRead false
-         while {[gets $f_logfile line] > 0} {
-            if [ catch { 
-	       if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}] != 0 } {
-	          # something went wrong reading the line
-		  # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
-		  # writing to it... a retry seems to do the trick
-		  if { ${sameRead} == false } {
-		     set sameRead true
-		     # go to previous spot in the file
-                     seek $f_logfile $logFileOffset
-		     after 500
-		  } else {
-		     # only retry once... after that we log the error
-                     ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: ${logFileOffset} after 1 retry."
-		     break
-		  }
-	       } else {
-	          set sameRead false
-	          set logFileOffset [tell ${f_logfile}]
-	       }
-            } message ] {
-	       ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}"
-	       ::log::log notice "ERROR: message: ${message}"
-	       puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read} \nmessage: ${message}"
-	    }
+            # position yourself in the file
+            seek $f_logfile $logFileOffset
+            set sameRead false
+            while {[gets $f_logfile line] > 0} {
+               if [ catch { 
+                  if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} false] != 0 } {
+                     # something went wrong reading the line
+                     # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
+                     # writing to it... a retry seems to do the trick
+                     if { ${sameRead} == false } {
+                        set sameRead true
+                        # go to previous spot in the file
+                        seek $f_logfile $logFileOffset
+                        after 500
+                     } else {
+                        # only retry once... after that we log the error
+                        ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: ${logFileOffset} after 1 retry."
+                        break
+                     }
+                  } else {
+                     set sameRead false
+                     set logFileOffset [tell ${f_logfile}]
+                  }
+               } message ] {
+                  ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}"
+                  ::log::log notice "ERROR: message: ${message}"
+                  puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read} \nmessage: ${message}"
+               }
+            }
+         } else {
+            set tmpdir $::env(TMPDIR)
+            set dirlist [split ${exp_path} "/"]
+            set tmpexpname ""
+            foreach dir $dirlist {
+               append tmpexpname $dir "_"
+            }
+            set tmplogfile ${tmpdir}/${tmpexpname}${datestamp}_tmplog
+            if { [file writable ${tmpdir}] } {
+               close [open ${tmplogfile} w]
+            }
+            eval [list exec logreader -i $logfile -o ${tmplogfile}]
+
+            set f_logfile [ open ${tmplogfile} r ]
+            # fconfigure ${f_logfile} -buffering line
+            flush stdout
+
+            set sameRead false
+            while { [gets $f_logfile line] > 0 } {
+               if [ catch {
+                  if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} true] != 0 } {
+                     # something went wrong reading the line
+                     # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
+                     # writing to it... a retry seems to do the trick
+                     if { ${sameRead} == false } {
+                        set sameRead true
+                        # go to previous spot in the file
+                        seek $f_logfile -1 current
+                        after 500
+                     } else {
+                        # only retry once... after that we log the error
+                        ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] after 1 retry."
+                        break
+                     }  
+                  } else {
+                     set sameRead false
+                  } 
+               } message ] {
+                  ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
+                  ::log::log notice "ERROR: message: ${message}"
+                  puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
+               } 
+            } 
+            set true_logfile [ open $logfile r ]
+            seek $true_logfile 0 end
+            set offset [tell $true_logfile]
+            SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${offset}
+            catch { close $true_logfile }
+            catch { close $f_logfile }
+            catch { [file delete ${tmplogfile}] }
          }
-	 set offset [tell $f_logfile]
-         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${offset}
-         catch { close $f_logfile }
       } else {
          ::log::log debug "LogReader_readFile $logfile file does not exists!"
       }
    }
-
-   if { ${first_read} == false && [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] != "" } {
+   
+   if { [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] != "" } {
       # the gui runs in the overview thread... so set the update nodes list in shared memory
       SharedData_setExpUpdatedNodes ${exp_path} ${datestamp} [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}]
       # let gui knows that he needs to redraw the flow
       if { ${isOverviewMode} == true } {
          ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
-	 # puts "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
+         # puts "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
          thread::send -async ${overviewThreadId} "xflow_redrawNodesEvent ${exp_path} ${datestamp}" SendDone
-	 vwait SendDone
+         vwait SendDone
          ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp} DONE"
       } else {
          # in non-overview mode, xflow and LogReader runs within same thread
-	 # we are sending the request through the thread messaging  instead of direct call
-	 # so that no dependency on the TK is found in this tcl file
+         # we are sending the request through the thread messaging  instead of direct call
+         # so that no dependency on the TK is found in this tcl file
          thread::send [thread::id] "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
       }
    }
+   
 }
 
 proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter {first_read false} } {
    global MSG_CENTER_THREAD_ID
-   if { [string first "TIMESTAMP=" ${_line}] != 0 } {
+   if { ($first_read == true && [string first "TIMESTAMP=" ${_line}] != 1 && [string first "\\" ${_line}] != 0)
+      || ($first_read == false && [string first "TIMESTAMP=" ${_line}] != 0) } {
       return 1
    }
 
-   set nodeIndex 28
-   set typeIndex [string first "MSGTYPE=" ${_line} $nodeIndex]
-   if { $typeIndex == -1 } {
-      puts "LogReader_processLine invalid line ignored:${_line} exp_path:${_exp_path} datestamp:${_datestamp}"
-      return 1
-   }
-   set loopIndex [string first "SEQLOOP=" ${_line} $typeIndex]
-   set msgIndex [string first "SEQMSG=" ${_line} $typeIndex]
-   set nodeStartIndex [expr $nodeIndex + 8]
-   set nodeEndIndex [expr $typeIndex - 2]
-   set typeStartIndex [expr $typeIndex + 8]
-   set loopEndIndex end
-   if { $loopIndex != -1 } {
-      set typeEndIndex [expr $loopIndex -2]
-      set loopStartIndex [expr $loopIndex + 8]
-   }
-   if { $msgIndex == -1 && $loopIndex == -1 } {
-      set typeEndIndex end
+   set inputline $_line
+   if { $first_read == false } {
+      set loglist [list $inputline]
    } else {
-       set loopEndIndex [expr $msgIndex - 2]
-      if { $loopIndex == -1 } {
-         set typeEndIndex [expr $msgIndex -2]
-      }
-      set msgStartIndex [expr $msgIndex + 7]
+      set loglist [split $inputline "\\"]
    }
+   
+   foreach tmpline $loglist {
+      if { $tmpline == "" } {
+         continue
+      }
 
-   set timestamp [string range ${_line} 10 [expr $nodeIndex - 2]]
-   set node [string range ${_line} $nodeStartIndex $nodeEndIndex]
-   set type [string range ${_line} $typeStartIndex $typeEndIndex]
-   if { $type != "" } {
+      set nodeIndex [string first "SEQNODE=" ${tmpline}]
+      set node [string range ${tmpline} [expr $nodeIndex + 8] [expr [string first ":MSGTYPE=" ${tmpline} ${nodeIndex}] - 1]]
+   
+      set typeIndex [string first "MSGTYPE=" ${tmpline}]
+      if { $typeIndex == -1 } {
+         continue
+      }
+
+      set loopIndex [string first "SEQLOOP=" ${tmpline} $typeIndex]
+      set msgIndex [string first "SEQMSG=" ${tmpline} $typeIndex]
+      set nodeStartIndex [expr $nodeIndex + 8]
+      set nodeEndIndex [expr $typeIndex - 2]
+      set typeStartIndex [expr $typeIndex + 8]
+      set loopEndIndex end
       if { $loopIndex != -1 } {
-         set loopExt [string range ${_line} $loopStartIndex $loopEndIndex]
+         set typeEndIndex [expr $loopIndex -2]
+         set loopStartIndex [expr $loopIndex + 8]
       }
-      if { $msgIndex != -1 } {
-         set msg [string range ${_line} $msgStartIndex end]
-      }
-
-      if { ${_toMsgCenter} == true } {
-         if { ${type} == "abort" || ${type} == "info" || ${type} == "event" } {
-            if { ${node} == "" } {
-               set msgNode NONE
-            } else {
-               set msgNode ${node}
-            }
-	    # send msg variable in between brackets so no expansion is being made
-	    # in case it contains dollar signs
-            thread::send -async ${MSG_CENTER_THREAD_ID} \
-                "MsgCenter_processNewMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} {${msg}} ${_exp_path}"
+      if { $msgIndex == -1 && $loopIndex == -1 } {
+         set typeEndIndex end
+      } else {
+         set loopEndIndex [expr $msgIndex - 2]
+         if { $loopIndex == -1 } {
+            set typeEndIndex [expr $msgIndex -2]
          }
+         set msgStartIndex [expr $msgIndex + 7]
       }
 
-      if { ${_ToFlow} == true } {
-         LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} ${first_read}
+      set timestamp [string range ${tmpline} [expr [string first "TIMESTAMP=" ${tmpline} 0] + 10] [expr $nodeIndex - 2]]
+      if { [string length $timestamp] > 18 || [string length $timestamp] < 17} {
+         continue
       }
-
-      if { ${_toOverview} == true } {
-         if { ${type} != "info" && ${type} != "event" } {
-	    # abortx, endx, beginx type are used for signals we send to the parent containers nodes
-            # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
-            # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
-            if { ${type} != "beginx" } {
-               catch { set type [SharedData_getRippleStatusMap ${type}] }
+      set type [string range ${tmpline} $typeStartIndex $typeEndIndex]
+      if { $type != "" } {
+         if { $loopIndex != -1 } {
+            set loopExt [string range ${tmpline} $loopStartIndex $loopEndIndex]
+         }
+         if { $msgIndex != -1 } {
+            set msg [string range ${tmpline} $msgStartIndex end]
+         }
+         
+         if { ${_toMsgCenter} == true } {
+            if { ${type} == "abort" || ${type} == "info" || ${type} == "event" } {
+               if { ${node} == "" } {
+                  set msgNode NONE
+               } else {
+                  set msgNode ${node}
+               }
+               # send msg variable in between brackets so no expansion is being made
+               # in case it contains dollar signs
+               thread::send -async ${MSG_CENTER_THREAD_ID} \
+                "MsgCenter_processNewMessage \"${_datestamp}\" ${timestamp} ${type} ${msgNode}${loopExt} {${msg}} ${_exp_path}"
             }
-            if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
-               ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
-               ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
-               # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
-               # sends the command in async mode to avoid potential deadlock... however the vwait ensures that it waits for the
-               # command to be finished before going further
-               thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
-               "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\"" SendDone
-               vwait SendDone
-               # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\" DONE"
+         }
+
+         if { ${_ToFlow} == true } {
+            LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} false
+         }
+
+         if { ${_toOverview} == true } {
+            if { ${type} != "info" && ${type} != "event" } {
+               # abortx, endx, beginx type are used for signals we send to the parent containers nodes
+               # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
+               # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
+               if { ${type} != "beginx" } {
+                  catch { set type [SharedData_getRippleStatusMap ${type}] }
+               }
+               if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
+                  ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
+                  ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
+                  # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
+                  # sends the command in async mode to avoid potential deadlock... however the vwait ensures that it waits for the
+                  # command to be finished before going further
+                  thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
+                  "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\"" SendDone
+                  vwait SendDone
+                  # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\" DONE"
+               }
             }
          }
       }
