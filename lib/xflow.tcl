@@ -2191,6 +2191,18 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
    if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
+      set loopStart [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp start])]
+      set loopEnd [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp end])]
+      set loopStep [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp step])]
+      set loopSet [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp set])]
+      if { $loopSet == 0 } {
+         set loopSet 1
+      }
+      set jobNumber [expr int([expr abs([expr floor([expr (($loopEnd - $loopStart)/${loopStep})+1])])])]
+      set answer [tk_messageBox -message "You are submitting a loop of $jobNumber job(s), ${loopSet} member(s) at a time" -type okcancel -icon info]
+      switch -- $answer {
+         cancel return
+      }
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
          -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs 
