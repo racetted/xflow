@@ -156,7 +156,6 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
             set f_logfile [ open $logfile r ]
             # fconfigure ${f_logfile} -buffering line
             flush stdout
-         
             if { ${isStartupDone} == "true" } {
                set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
                if { ${logFileOffset} == "" } {
@@ -191,6 +190,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
                   } else {
                      set sameRead false
                      set logFileOffset [tell ${f_logfile}]
+                     SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${logFileOffset}
                   }
                } message ] {
                   ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}"
@@ -198,6 +198,8 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
                   puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read} \nmessage: ${message}"
                }
             }
+         catch { close $f_logfile }
+
          } else {
             set tmpdir $::env(TMPDIR)
             set dirlist [split ${exp_path} "/"]
