@@ -1,7 +1,9 @@
 package require tdom
 # sample ExpOptions.xml file
 #
-#<ExpOptions displayName="HRDPS/West/forecast">
+#<ExpOptions displayName="HRDPS/West/forecast" shortName="hrdps">
+#   <ScheduleInfo sched_type="day_of_week" sched_value="0 1 2 3 4 5 6" />
+#   <MonitorInfo check_idle="false"/>
 #   <SupportInfo executing="Yes" status="All Full Support"/>
 #   <Exp hour="00">
 #      <TimingInfo ref_start="15:00" ref_end="17:00"/>
@@ -94,35 +96,6 @@ proc ExpXmlOptions_getRefTimings { _dom_doc } {
    return ${results}
 }
 
-proc ExpXmlOptions_getRefTimings___ { _dom_doc _exp_hour } {
-
-   # point to the root element
-   set root [${_dom_doc} documentElement root]
-
-   # retrieve the Exp elements
-   # if exp_name is set, we filter it
-   # if not set get all exps from the document
-   set query "/ExpOptions/Exp\[@hour='${_exp_hour}'\]/TimingInfo"
-
-   set expNodes [${root} selectNodes ${query}]
-   set results {}
-   foreach timingInfo ${expNodes} {
-      set start [${timingInfo} getAttribute ref_start]
-      lappend results ${start}
-      set end [${timingInfo} getAttribute ref_end]
-      lappend results ${end}
-   }
-      # get timingInfo
-      #set timingInfoNode [${expHourNode} selectNodes ./TimingInfo]
-      #if { ${timingInfoNode} != "" } {
-      #   set refStart [${timingInfoNode} getAttribute ref_start]
-      #   set refEnd [${timingInfoNode} getAttribute ref_end]
-      #   puts "ExpXmlOptions_getSupport2 expHour:${expHour} refStart:${refStart} refEnd:${refEnd}"
-      #}
-
-   return ${results}
-}
-
 proc ExpXmlOptions_getDisplayName { _dom_doc _exp_path } {
    set root [${_dom_doc} documentElement root]
 
@@ -182,6 +155,32 @@ proc ExpXmlOptions_getCheckIdle { _dom_doc _exp_path } {
    }
    return ${checkIdleValue}
 }
+
+proc ExpXmlOptions_getScheduleInfoType { _dom_doc _exp_path } {
+   set type DAY_OF_WEEK
+   set root [${_dom_doc} documentElement root]
+
+   set query "/ExpOptions/ScheduleInfo"
+   set scheduleInfoNode [${root} selectNodes ${query}]
+   if { ${scheduleInfoNode} != "" } {
+      set type [string toupper [${scheduleInfoNode} getAttribute sched_type]]
+   }
+   return ${type}
+}
+
+proc ExpXmlOptions_getScheduleInfoValue { _dom_doc _exp_path } {
+   # default executes every day of the week
+   set value "0 1 2 3 4 5 6"
+   set root [${_dom_doc} documentElement root]
+
+   set query "/ExpOptions/ScheduleInfo"
+   set scheduleInfoNode [${root} selectNodes ${query}]
+   if { ${scheduleInfoNode} != "" } {
+      set value [${scheduleInfoNode} getAttribute sched_value]
+   }
+   return ${value}
+}
+
 #global env
 #global env
 #ExpXmlOptions_read $env(SEQ_EXP_HOME)/ExpOptions.xml

@@ -144,6 +144,9 @@ proc ExpOptions_read { _exp_path } {
 
       set checkIdleValue [ExpXmlOptions_getCheckIdle ${domDoc} ${_exp_path}]
 
+      set scheduleType [ExpXmlOptions_getScheduleInfoType ${domDoc} ${_exp_path}]
+      set scheduleValue [ExpXmlOptions_getScheduleInfoValue ${domDoc} ${_exp_path}]
+
       # close xml doc
       ExpXmlOptions_done ${domDoc}
 
@@ -154,9 +157,13 @@ proc ExpOptions_read { _exp_path } {
       SharedData_setExpSupportInfo ${_exp_path} ${supportData}
       SharedData_setExpAutoLaunch ${_exp_path} ${autoLaunchValue}
       SharedData_setExpCheckIdle ${_exp_path} ${checkIdleValue}
+      SharedData_setExpScheduleType ${_exp_path} ${scheduleType}
+      SharedData_setExpScheduleValue ${_exp_path} ${scheduleValue}
    } else {
       SharedData_setExpDisplayName ${_exp_path} [file tail ${_exp_path}]
       SharedData_setExpShortName ${_exp_path} [file tail ${_exp_path}]
+      SharedData_setExpScheduleType ${_exp_path} "DAY_OF_WEEK"
+      SharedData_setExpScheduleValue ${_exp_path} "0 1 2 3 4 5 6"
    }
 }
 
