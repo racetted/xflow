@@ -208,6 +208,8 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
          set topW [regsub -all {[\.]} ${topW} _]
          set topW .submit_late_${topW}
          if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckSubmitLate ${expPath} ${datestamp}] == "0" } {
+	    # set callback to configure msg dialog as topmost
+	    after 1000 [list Overview_setTopMost $topW]
             set answer [MessageDlg ${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "Ok \"Launch Flow\" \"Do Not Show Again!\"" -aspect 800 \
                -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" ]
             if { ${answer} == "1" } {
@@ -226,6 +228,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
       after ${next_check_time} [list Overview_checkExpSubmitLate ${next_check_time}]
    }
 }
+
 
 proc Overview_isExpIdle { exp_path datestamp } {
    # puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
@@ -260,6 +263,8 @@ proc Overview_processIdleExp { expIdleList } {
       set topW [regsub -all {[\.]} ${topW} _]
       set topW .idle_${topW}
       if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckIdle  ${expPath} ${datestamp}] == "0" } {
+	 # set callback to configure msg dialog as topmost
+	 after 1000 [list Overview_setTopMost $topW]
          set answer [MessageDlg ${topW} -icon warning -title "Exp Idle Warning" -type user -buttons "Ok \"Launch Flow\" \"Do Not Show Again\"" -aspect 800 \
             -parent [Overview_getToplevel] -message "Experiment: ${expPath} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" ]
          if { ${answer} == "1" } {
@@ -3134,6 +3139,14 @@ proc Overview_processDeadThread { thread_id } {
       thread::send -async ${expThreadId} "LogReader_readMonitorDatestamps"
    }
    ::log::log notice "Thread Heartbeat: dropping thread ${thread_id} DONE"
+}
+
+# set window as topmost,
+# need callback for widgets like MessageDialog
+proc Overview_setTopMost { widget } {
+   catch {
+      wm attributes $widget -topmost 1
+   }
 }
 
 # this function loads the plugin menu items
