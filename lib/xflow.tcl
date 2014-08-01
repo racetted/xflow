@@ -1221,7 +1221,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    xflow_showPluginMenu ${popMenu} ${canvas} ${exp_path} ${datestamp} ${node} ${extension}
 
    $popMenu add separator
-   $popMenu add command -label "Close"
+   $popMenu add command -label "Close" -command [list destroy ${popMenu}]
    
    tk_popup $popMenu $x $y
 }
