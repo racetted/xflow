@@ -578,18 +578,19 @@ proc MsgCenter_close {} {
    wm withdraw [MsgCenter_getToplevel]
 }
 
-proc MsgCenter_show {} {
+proc MsgCenter_show { {force false} } {
    set topW [MsgCenter_getToplevel]
    set currentStatus [wm state ${topW}]
 
-   # force remove and redisplay of msg center
-   # Need to do this cause when the msg center is in another virtual
-   # desktop, it is the only way for it to redisplay in the
-   # current desktop
-   wm withdraw ${topW}
-   wm deiconify ${topW}
-
    if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+      if { ${force} == true } {
+         # force remove and redisplay of msg center
+         # Need to do this cause when the msg center is in another virtual
+         # desktop, it is the only way for it to redisplay in the
+         # current desktop
+         wm withdraw ${topW}
+         wm deiconify ${topW}
+      }
       raise ${topW}
    }
 }
@@ -645,7 +646,7 @@ proc MsgCenter_startupDone {} {
    # sort the msg by timestamp ascending order
    MsgCenter_initialSort [MsgCenter_getTableWidget]
    if { [SharedData_getMiscData AUTO_MSG_DISPLAY] == true && ${MSG_COUNTER} > 0 } {
-      MsgCenter_show
+      MsgCenter_show true
    }
 }
 
