@@ -199,7 +199,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    #image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
    image create photo ${parent}.shell_img -file ${imageDir}/terminal.ppm
 
-   button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command MsgCenter_show -relief flat
+   button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command [list MsgCenter_show true] -relief flat
    ::tooltip::tooltip ${msgCenterW} "Show Message Center."
 
    button ${nodeKillW} -image ${parent}.node_kill_img -command [list xflow_nodeKillDisplay ${exp_path} ${datestamp} ${parent} ] -relief flat
@@ -1226,7 +1226,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    xflow_showPluginMenu ${popMenu} ${canvas} ${exp_path} ${datestamp} ${node} ${extension}
 
    $popMenu add separator
-   $popMenu add command -label "Close"
+   $popMenu add command -label "Close" -command [list destroy ${popMenu}]
    
    tk_popup $popMenu $x $y
 }

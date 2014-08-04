@@ -208,6 +208,8 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
          set topW [regsub -all {[\.]} ${topW} _]
          set topW .submit_late_${topW}
          if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckSubmitLate ${expPath} ${datestamp}] == "0" } {
+	    # set callback to configure msg dialog as topmost
+	    after 1000 [list Overview_setTopMost $topW]
             set answer [MessageDlg ${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "Ok \"Launch Flow\" \"Do Not Show Again!\"" -aspect 800 \
                -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" ]
             if { ${answer} == "1" } {
@@ -226,6 +228,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
       after ${next_check_time} [list Overview_checkExpSubmitLate ${next_check_time}]
    }
 }
+
 
 proc Overview_isExpIdle { exp_path datestamp } {
    # puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
@@ -260,6 +263,8 @@ proc Overview_processIdleExp { expIdleList } {
       set topW [regsub -all {[\.]} ${topW} _]
       set topW .idle_${topW}
       if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckIdle  ${expPath} ${datestamp}] == "0" } {
+	 # set callback to configure msg dialog as topmost
+	 after 1000 [list Overview_setTopMost $topW]
          set answer [MessageDlg ${topW} -icon warning -title "Exp Idle Warning" -type user -buttons "Ok \"Launch Flow\" \"Do Not Show Again\"" -aspect 800 \
             -parent [Overview_getToplevel] -message "Experiment: ${expPath} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" ]
          if { ${answer} == "1" } {
@@ -1045,10 +1050,90 @@ proc Overview_addExpDefaultBoxes { canvas exp_path } {
    } else {
       foreach refTiming ${refTimings} {
          foreach { hour startTime endTime } ${refTiming} {
-            Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init
+	    if { [Overview_isExpScheduled ${exp_path} ${hour}] == true } {
+               Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init
+            }
          }
       }
    }
+}
+
+proc Overview_getScheduledDatestamp { exp_path hour } {
+   set datestamp ""
+
+   # date value at grid x origin
+   set originDateTime [Overview_GraphGetXOriginDateTime]
+
+   # date value at grid x end
+   set endDateTime [Overview_GraphGetXEndDateTime]
+
+   # date value currently
+   set currentDateTime [clock seconds]
+
+   # date value at 00Z
+   set today00ZDateTime [Overview_GraphGetCurrentDayTime]
+
+   # date value of current processed hour
+   if { ${hour} == "00" } {
+      set hourDateTime ${today00ZDateTime}
+   } else {
+      set hour [string trimleft ${hour} 0]
+      set hourDateTime [clock add ${today00ZDateTime} ${hour} hours]
+   }
+
+   if { ${hourDateTime} >= ${originDateTime} && ${hourDateTime} < ${endDateTime} } {
+      # value is within visible grid
+      set datestamp [Utils_getDatestamp ${hour} 0]
+   } elseif { ${hourDateTime} < ${originDateTime} } {
+      # add extra day to datestamp and check if visible
+      # shift to the right of the grid
+      set hourDateTime [clock add ${hourDateTime} 24 hours]
+      if { ${hourDateTime} >= ${originDateTime} && ${hourDateTime} < ${endDateTime} } {
+         set datestamp [Utils_getDatestamp ${hour} 1]
+      }
+   }
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
+   return ${datestamp}
+}
+
+# check if the exp box should be displayed in the overview
+proc Overview_isExpScheduled { exp_path hour } {
+   global DayOfWeekMapping 
+
+   # by default it runs
+   set isScheduled true
+   
+   if [ catch {
+
+   if { ! [info exists DayOfWeekMapping] } {
+      set DayOfWeekMapping { Sun 0 Mon 1 Tue 2 Wed 3 Thu 4 Fri 5 Sat 6 }
+   }
+   set scheduledDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour}]
+   if { ${scheduledDatestamp} != "" } {
+     # get day of week schedule for the exp
+     set scheduleType [SharedData_getExpScheduleType ${exp_path}]
+     set scheduleInfo [SharedData_getExpScheduleValue ${exp_path}]
+     if { ${scheduleInfo} != "" && ${scheduleType} != "" } {
+        set isScheduled false
+        if { ${scheduleType} == "DAY_OF_WEEK" } {
+           # get day of week for datestamp
+           # value is like Mon, Tue, Wed... Sun
+           set dayOfWeekString [clock format [clock scan ${scheduledDatestamp} -format "%Y%m%d%H0000"] -format %a]
+           set dayOfWeekInt [string map ${DayOfWeekMapping} ${dayOfWeekString}]
+	   if { [lsearch ${scheduleInfo} ${dayOfWeekInt}] != -1 } {
+	      set isScheduled true
+	   }
+	}
+	::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:${hour} scheduleType:$scheduleType scheduleInfo;$scheduleInfo isScheduled:isScheduled"
+     }
+   }
+
+   } message ] {
+      puts "Overview_isExpScheduled ERROR: exp_path:$exp_path hour:$hour message:$message"
+      ::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:$hour"
+   }
+
+   return ${isScheduled}
 }
 
 proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
@@ -2319,6 +2404,24 @@ proc Overview_GraphGetXOriginDateTime {} {
    return ${value}
 }
 
+# returns the date as an init value of the date and time
+# of the time hour displayed at x=end
+proc Overview_GraphGetXEndDateTime {} {
+   set endDateTime [clock add [clock seconds] +11 hours]
+   set endDateTimeFormat [clock format ${endDateTime} -format {%Y-%m-%d %H}]
+   set endDateTimeFormat ${endDateTimeFormat}:00:00
+   set value [clock scan ${endDateTimeFormat}]
+   return ${value}
+}
+
+# returns value of current day at 00Z
+proc Overview_GraphGetCurrentDayTime {} {
+   set currentTime [clock seconds]
+   set currentDay00Z [clock format ${currentTime} -format {%Y-%m-%d}]
+   set currentDay00Z "${currentDay00Z} 00:00:00"
+   set value [clock scan ${currentDay00Z}]
+   return ${value}
+}
 
 # returns the hour that sits that
 # the x origin
@@ -2730,7 +2833,7 @@ proc Overview_createToolbar { _toplevelW } {
    image create photo ${toolbarW}.msg_center_new_img -file ${imageDir}/open_mail_new.gif
    image create photo ${toolbarW}.color_legend_img -file ${imageDir}/color_legend.gif
 
-   button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command MsgCenter_show -relief flat
+   button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command [list MsgCenter_show true] -relief flat
 
    ::tooltip::tooltip ${mesgCenterW} "Show Message Center."
 
@@ -2776,6 +2879,7 @@ proc Overview_createCanvas { _toplevelW } {
 
    scrollbar ${canvasFrame}.yscroll -command [list ${canvasW} yview ]
    scrollbar ${canvasFrame}.xscroll -orient horizontal -command [list ${canvasW} xview]
+
    set pad 12
    frame ${canvasFrame}.pad -width $pad -height $pad
 
@@ -2805,7 +2909,6 @@ proc Overview_createCanvas { _toplevelW } {
    grid rowconfigure ${canvasFrame} 0 -weight 1
 
    grid ${canvasFrame} -row 2 -column 0 -sticky nsew
-
 }
 
 # this is called when a configure event is triggered on a widget to resize, iconified a window.
@@ -3036,6 +3139,14 @@ proc Overview_processDeadThread { thread_id } {
       thread::send -async ${expThreadId} "LogReader_readMonitorDatestamps"
    }
    ::log::log notice "Thread Heartbeat: dropping thread ${thread_id} DONE"
+}
+
+# set window as topmost,
+# need callback for widgets like MessageDialog
+proc Overview_setTopMost { widget } {
+   catch {
+      wm attributes $widget -topmost 1
+   }
 }
 
 # this function loads the plugin menu items
