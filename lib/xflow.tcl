@@ -2378,7 +2378,7 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
    set result [ catch {
       set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -type success -list > $tmpfile 2>&1"
       ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
-     eval [exec ksh -c $cmd ]
+      eval [exec ksh -c $cmd ]
       ::log::log debug  "xflow_allListingCallback DONE: $cmd"
 
       ##set fullList [list showAllListings $node $canvas $canvas.list]
@@ -2469,10 +2469,10 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
      catch {[exec rm -f $tmpfile]}
 
      #List the abort listings
-     set cmd "$listerPath -n ${seqNode} -type abort -list > $tmpfile2 2>&1"
-      ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
+     set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -type abort -list > $tmpfile2 2>&1"
+     ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
      eval [exec ksh -c $cmd ]
-      ::log::log debug  "xflow_allListingCallback DONE: $cmd"
+     ::log::log debug  "xflow_allListingCallback DONE: $cmd"
      set resultingFile2 [open $tmpfile2] 
      while { [gets $resultingFile2 line ] >= 0 } {
           if { [string first "On" $line] >= 0 } {
@@ -2634,7 +2634,12 @@ proc xflow_diffListing { exp_path datestamp listw } {
 	  lappend outputList $outputfile
 	}
     }
-    exec  ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff [lindex $outputList 0] [lindex $outputList 1] &
+    
+    if { [catch { exec which xxdiff } errmsg] } {
+       exec ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff [lindex $outputList 0] [lindex $outputList 1] &
+    } else {
+       exec xxdiff [lindex $outputList 0] [lindex $outputList 1] --text &
+    }
    }
 }
 
@@ -2717,7 +2722,11 @@ proc xflow_diffLatestListings { exp_path datestamp node extension canvas {full_l
       set abortSeqCmd "${listingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}"
       Sequencer_runCommand ${exp_path} ${datestamp} ${abortOutputfile} ${abortSeqCmd}
 
-      exec  ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff $successOutputfile $abortOutputfile &
+      if { [catch { exec which xxdiff } errmsg] } {
+         exec ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff $successOutputfile $abortOutputfile &
+      } else {
+         exec xxdiff $successOutputfile $abortOutputfile --text &
+      }
    }
 }
 
