@@ -27,7 +27,7 @@ proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
 
 # once initiated, this proc monitors all the datestamp that  is registered
 # every 4 seconds
-proc LogReader_readMonitorDatestamps {} {
+proc LogReader_readMonitorDatestamps { {read_toplog false} } {
    # puts "LogReader_readMonitorDatestamps called from thread: [thread::id]"
    global READ_LOG_AFTER_ID LogReader_Datestamps
 
@@ -41,7 +41,7 @@ proc LogReader_readMonitorDatestamps {} {
             set expPath [lindex ${value} 0]
             set datestamp [lindex ${value} 1]
             # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
-            LogReader_readFile ${expPath} ${datestamp} all
+            LogReader_readFile ${expPath} ${datestamp} all ${read_toplog}
             set offset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
             if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
               # send heartbeat with the overview
@@ -66,7 +66,7 @@ proc LogReader_readMonitorDatestamps {} {
 }
 
 # read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
-proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup false} } {
+proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog false} {is_startup false} } {
    global MSG_CENTER_THREAD_ID
    ::log::log debug "LogReader_startExpLogReader  $exp_path $datestamp"
    if { ! [info exists MSG_CENTER_THREAD_ID] } {
@@ -95,8 +95,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
 
       # first do a full first pass read of the log file
       
-      #LogReader_readFile ${exp_path} ${datestamp} ${read_type} false
-      LogReader_readFile ${exp_path} ${datestamp} ${read_type} true
+      LogReader_readFile ${exp_path} ${datestamp} ${read_type} ${read_toplog} true
 
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} first pass read DONE."
 
@@ -121,9 +120,10 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {is_startup fals
 
 # read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
 # first_read is true is used when the whole log is read for the first time...
-proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read false} } {
+proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} {first_read false} } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
+   puts "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} read_toplog:$read_toplog"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
@@ -144,11 +144,11 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {first_read
    }
    
    if { ${datestamp} != "" } {
-      if { $isOverviewMode == true && [file exists ${exp_path}/logs/${datestamp}_toplog] } {
+      set logfile ${exp_path}/logs/${datestamp}_nodelog
+      if { ${read_toplog} == true && [file exists ${exp_path}/logs/${datestamp}_toplog] } {
          set logfile ${exp_path}/logs/${datestamp}_toplog
-      } else {
-         set logfile ${exp_path}/logs/${datestamp}_nodelog
       }
+      puts "logfile;$logfile"
       
       if { [file exists $logfile] } {
       
