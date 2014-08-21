@@ -2903,7 +2903,7 @@ proc xflow_refreshFlow { exp_path datestamp } {
 	 if { ${expThreadId} == "" } {
 	    set expThreadId [ThreadPool_getNextThread]
 	 }
-         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview" LogReaderDone
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview false true" LogReaderDone
 	 vwait LogReaderDone
       }
 

@@ -1954,8 +1954,8 @@ proc Overview_readExpLogs {} {
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
          OverviewExpStatus_addStatusDatestamp ${exp_path} ${datestamp}
 
-         ::log::log debug "Overview_readExpLogs  thread::send -async ${expThreadId} \"LogReader_startExpLogReader ${exp_path} ${datestamp} all true\""
-         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
+         ::log::log debug "Overview_readExpLogs  thread::send -async ${expThreadId} \"LogReader_startExpLogReader ${exp_path} ${datestamp} all true true\""
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true true"
       }
    }
 }

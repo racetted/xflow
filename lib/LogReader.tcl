@@ -27,6 +27,7 @@ proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
 
 # once initiated, this proc monitors all the datestamp that  is registered
 # every 4 seconds
+# read_toplog argument should be set to true only at application startup
 proc LogReader_readMonitorDatestamps { {read_toplog false} } {
    # puts "LogReader_readMonitorDatestamps called from thread: [thread::id]"
    global READ_LOG_AFTER_ID LogReader_Datestamps
@@ -43,6 +44,7 @@ proc LogReader_readMonitorDatestamps { {read_toplog false} } {
             # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
             LogReader_readFile ${expPath} ${datestamp} all ${read_toplog}
             set offset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
+            
             if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {
               # send heartbeat with the overview
               # It could be that the key was modified while I'm processing this loop so before
@@ -65,7 +67,13 @@ proc LogReader_readMonitorDatestamps { {read_toplog false} } {
    set READ_LOG_AFTER_ID [after 4000 LogReader_readMonitorDatestamps]
 }
 
-# read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
+# read_type is one of all, no_overview, refresh_flow
+# all: message entries sent to xflow, overview and msg_center when applicable
+# no_overview: message entries sent to xflow and msg_center when applicable
+# refresh_flow: message entries only sent to xflow
+#
+# for now, the reading of toplog is only done at overview startup.
+# after startup, it reverts to nodelog for any further updates.
 proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog false} {is_startup false} } {
    global MSG_CENTER_THREAD_ID
    ::log::log debug "LogReader_startExpLogReader  $exp_path $datestamp"
@@ -118,12 +126,15 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
    }
 }
 
-# read_type is one of all, no_overview, overview_only, msg_only, refresh_flow, no_flow
+# read_type is one of all, no_overview, refresh_flow
 # first_read is true is used when the whole log is read for the first time...
+# all: message entries sent to xflow, overview and msg_center when applicable
+# no_overview: message entries sent to xflow and msg_center when applicable
+# refresh_flow: message entries only sent to xflow
+#
 proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} {first_read false} } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
-   puts "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} read_toplog:$read_toplog"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
@@ -133,22 +144,28 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
    set sendToOverview false
    set sendToFlow false
    set sendToMsgCenter false
-   if { ${isOverviewMode} == true && (${read_type} == "all" || ${read_type} == "overview_only" || ${read_type} == "no_flow") } {
+   if { ${isOverviewMode} == true && ${read_type} == "all" } {
       set sendToOverview true
    }
    if { (${read_type} == "all" || ${read_type} == "no_overview" || ${read_type} == "refresh_flow" ) } {
       set sendToFlow true
    }
-   if { (${read_type} == "all" || ${read_type} == "msg_only" || ${read_type} == "no_overview" || ${read_type} == "no_flow") } {
+   if { (${read_type} == "all" || ${read_type} == "no_overview" ) } {
       set sendToMsgCenter true
    }
    
    if { ${datestamp} != "" } {
+      set forceEndOffset ""
       set logfile ${exp_path}/logs/${datestamp}_nodelog
       if { ${read_toplog} == true && [file exists ${exp_path}/logs/${datestamp}_toplog] } {
+         # read_toplog is only used for overview startup
+         # To avoid reading the same entries twice at startup, we need to set the
+         # offset of the nodelog to the end of the file at startup
          set logfile ${exp_path}/logs/${datestamp}_toplog
+	 # once the toplog is read, we set the offset of the nodelog to the end
+	 set forceEndOffset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
       }
-      puts "logfile;$logfile"
+      # puts "logfile:$logfile"
       
       if { [file exists $logfile] } {
       
@@ -198,7 +215,12 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
                   puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read} \nmessage: ${message}"
                }
             }
-         catch { close $f_logfile }
+            catch { close $f_logfile }
+
+	    if { ${forceEndOffset} != "" } {
+	       # reset the nodelog offset to end of file
+               SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${forceEndOffset}
+	    }
 
          } else {
             set tmpdir $::env(TMPDIR)
@@ -212,7 +234,6 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
                close [open ${tmplogfile} w]
             }
             eval [list exec logreader -i $logfile -o ${tmplogfile}]
-
             set f_logfile [ open ${tmplogfile} r ]
             # fconfigure ${f_logfile} -buffering line
             flush stdout
@@ -243,13 +264,14 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
                   puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
                } 
             } 
+
             set true_logfile [ open $logfile r ]
             seek $true_logfile 0 end
             set offset [tell $true_logfile]
             SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${offset}
             catch { close $true_logfile }
             catch { close $f_logfile }
-            catch { [file delete ${tmplogfile}] }
+            # catch { [file delete ${tmplogfile}] }
          }
       } else {
          ::log::log debug "LogReader_readFile $logfile file does not exists!"
@@ -546,6 +568,18 @@ proc LogReader_getMonitorDatestamps { exp_path } {
    return ${result}
 }
 
+# returns the offset that would point to the end of the log file
+# "which_log_file" is either nodelog or toplog
+proc LogReader_getEndOffset { exp_path datestamp {which_log_file nodelog} } {
+   set endOffset 0
+   set logfile ${exp_path}/logs/${datestamp}_${which_log_file}
+   set f_logfile [ open $logfile r ]
+   seek $f_logfile 0 end
+   set endOffset [tell ${f_logfile}]
+   catch { close $f_logfile }
+   return ${endOffset}
+}
+
 proc LogReader_printMonitorDatestamps {} {
    global LogReader_Datestamps
 
@@ -557,3 +591,4 @@ proc LogReader_printMonitorDatestamps {} {
    }
    puts "LogReader_printMonitorDatestamps thread_id:[thread::id] DONE"
 }
+
