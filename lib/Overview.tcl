@@ -1618,14 +1618,12 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       # for some reason, I need to call the update for the progress dlg to appear properly
       update idletasks
 
-      if { ${isNewThread} == true } {
-         if { [thread::exists ${expThreadId}] } {
-             ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
-            thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow" LogReaderDone
-	    vwait LogReaderDone
-         }
+      if { [thread::exists ${expThreadId}] } {
+         ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow" LogReaderDone
+         vwait LogReaderDone
       }
- 
+
       # launch flow only if user has not cancelled
       if { [winfo exists ${progressW}] } {
          if { [xflow_isWindowActive ${exp_path} ${datestamp}] == true } {

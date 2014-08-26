@@ -1,4 +1,5 @@
 package require log
+package require textutil
 
 # this proc registers a datestamp to be monitored by the current thread
 proc LogReader_addMonitorDatestamp { exp_path datestamp } {
@@ -75,8 +76,12 @@ proc LogReader_readMonitorDatestamps { {read_toplog false} } {
 # for now, the reading of toplog is only done at overview startup.
 # after startup, it reverts to nodelog for any further updates.
 proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog false} {is_startup false} } {
-   global MSG_CENTER_THREAD_ID
+   global MSG_CENTER_THREAD_ID CREADER_FIELD_SEPARATOR
    ::log::log debug "LogReader_startExpLogReader  $exp_path $datestamp"
+   if { ! [info exists CREADER_FIELD_SEPARATOR] } {
+      set CREADER_FIELD_SEPARATOR "!~!"
+   }
+
    if { ! [info exists MSG_CENTER_THREAD_ID] } {
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
          # Utils_logInit
@@ -135,6 +140,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
 proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} {first_read false} } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
+   puts "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} first_read:$first_read logreader"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
@@ -162,10 +168,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
          # To avoid reading the same entries twice at startup, we need to set the
          # offset of the nodelog to the end of the file at startup
          set logfile ${exp_path}/logs/${datestamp}_toplog
-	 # once the toplog is read, we set the offset of the nodelog to the end
-	 set forceEndOffset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
       }
-      # puts "logfile:$logfile"
       
       if { [file exists $logfile] } {
       
@@ -216,63 +219,33 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
                }
             }
             catch { close $f_logfile }
-
-	    if { ${forceEndOffset} != "" } {
-	       # reset the nodelog offset to end of file
-               SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${forceEndOffset}
-	    }
-
          } else {
             set tmpdir $::env(TMPDIR)
-            set dirlist [split ${exp_path} "/"]
-            set tmpexpname ""
-            foreach dir $dirlist {
-               append tmpexpname $dir "_"
-            }
-            set tmplogfile ${tmpdir}/${tmpexpname}${datestamp}_tmplog
-            if { [file writable ${tmpdir}] } {
-               close [open ${tmplogfile} w]
-            }
-            eval [list exec logreader -i $logfile -o ${tmplogfile}]
-            set f_logfile [ open ${tmplogfile} r ]
-            # fconfigure ${f_logfile} -buffering line
-            flush stdout
+	    regsub -all / ${exp_path} _ tmplogfile
+            set tmplogfile ${tmpdir}/${tmplogfile}${datestamp}_tmplog
 
-            set sameRead false
+	    # call C logreader
+            exec logreader -i $logfile -o ${tmplogfile}
+
+            set f_logfile [ open ${tmplogfile} r ]
+            flush stdout
+            # process output from C logreader
             while { [gets $f_logfile line] > 0 } {
                if [ catch {
-                  if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} true] != 0 } {
-                     # something went wrong reading the line
-                     # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
-                     # writing to it... a retry seems to do the trick
-                     if { ${sameRead} == false } {
-                        set sameRead true
-                        # go to previous spot in the file
-                        seek $f_logfile -1 current
-                        after 500
-                     } else {
-                        # only retry once... after that we log the error
-                        ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] after 1 retry."
-                        break
-                     }  
-                  } else {
-                     set sameRead false
-                  } 
+                  LogReader_processCreaderLine  ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
                } message ] {
-                  ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
+                  ::log::log notice "ERROR: LogReader_readFile LogReader_processCreaderLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
                   ::log::log notice "ERROR: message: ${message}"
-                  puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
+                  puts "ERROR: LogReader_processCreaderLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
                } 
             } 
-
-            set true_logfile [ open $logfile r ]
-            seek $true_logfile 0 end
-            set offset [tell $true_logfile]
-            SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${offset}
-            catch { close $true_logfile }
             catch { close $f_logfile }
-            # catch { [file delete ${tmplogfile}] }
+            # reset offset to end of nodelog file
+	    set forceEndOffset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
+            SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${forceEndOffset}
+            catch { [file delete ${tmplogfile}] }
          }
+
       } else {
          ::log::log debug "LogReader_readFile $logfile file does not exists!"
       }
@@ -295,7 +268,58 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
          thread::send [thread::id] "xflow_redrawNodesEvent ${exp_path} ${datestamp}"
       }
    }
-   
+}
+
+# process line output from the logreader C, which is a bit different than the regular log file
+# for performance improvement
+proc LogReader_processCreaderLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter } {
+   global CREADER_FIELD_SEPARATOR MSG_CENTER_THREAD_ID
+   # puts "LogReader_processCreaderLine _line:$_line CREADER_FIELD_SEPARATOR:$CREADER_FIELD_SEPARATOR"
+   # split the data for the line based on the separator !~!
+   set dataList [textutil::splitx ${_line} ${CREADER_FIELD_SEPARATOR}]
+   # assign each value with the respective order
+   lassign $dataList timestamp node msgtype loopExt msg
+
+   if { ${_toMsgCenter} == true } {
+      if { ${msgtype} == "abort" || ${msgtype} == "info" || ${msgtype} == "event" } {
+         if { ${node} == "" } {
+            set msgNode NONE
+         } else {
+            set msgNode ${node}
+         }
+         # send msg variable in between brackets so no expansion is being made
+         # in case it contains dollar signs
+         thread::send -async ${MSG_CENTER_THREAD_ID} \
+            "MsgCenter_processNewMessage \"${_datestamp}\" ${timestamp} ${msgtype} ${msgNode}${loopExt} {${msg}} ${_exp_path}"
+      }
+   }
+
+   if { ${_ToFlow} == true } {
+      LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${msgtype} ${loopExt} ${timestamp} true
+   }
+
+   if { ${_toOverview} == true } {
+      if { ${msgtype} != "info" && ${msgtype} != "event" } {
+         # abortx, endx, beginx type are used for signals we send to the parent containers nodes
+         # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
+         # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
+         if { ${msgtype} != "beginx" } {
+            catch { set msgtype [SharedData_getRippleStatusMap ${msgtype}] }
+         }
+         if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
+            ::log::log debug "LogReader_processCreaderLine to overview time:$timestamp node=$node msgtype=$msgtype"
+            ::log::log notice "LogReader_processCreaderLine to overview time:$timestamp node=$node datestamp:${_datestamp} msgtype=$msgtype"
+            # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${msgtype}\" \"${timestamp}\""
+            # sends the command in async mode to avoid potential deadlock... however the vwait ensures that it waits for the
+            # command to be finished before going further
+            thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
+               "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${msgtype}\" \"${timestamp}\"" SendDone
+            vwait SendDone
+            # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${msgtype}\" \"${timestamp}\" DONE"
+         }
+      }
+   }
+
 }
 
 proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter {first_read false} } {
@@ -423,14 +447,14 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
             puts "WARNING: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} Node might not exists in flow.xml"
             ::log::log notice "WARNING: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} Node might not exists in flow.xml"
 	    return
-	 }
+	  }
          if [ catch { set nodeType [SharedFlowNode_getNodeType ${_exp_path} ${flowNode} ${_datestamp}] } message ] {
             puts "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} message: ${message}"
             ::log::log notice "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} message: ${message}"
             return
          }
             # 1 - first we take care of setting the node status
-            if { [string tolower ${_type}] == "init" } {
+            if { ${_type} == "init" } {
                if { ${nodeType} == "loop" || ${nodeType} == "npass_task" } {
                   if { ${_loopExt} != "" } {
                      SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} 1

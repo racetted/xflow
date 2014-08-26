@@ -120,11 +120,11 @@ proc MsgCenter_createToolbar { table_w_ } {
    button ${clearW} -image ${toolbarW}.clear_msg -relief flat -command [list MsgCenter_clearMessages ${clearW} ${table_w_}]
    ::tooltip::tooltip ${clearW} "Clear all messages."
 
-   image create photo ${toolbarW}.bulk_submit -file /users/dor/afsi/sul/Downloads/bulk_submit.png
+   image create photo ${toolbarW}.bulk_submit -file ${imageDir}/bulk_submit.png
    button ${submitW} -image ${toolbarW}.bulk_submit -relief flat -command [list MsgCenter_submitNodes ${table_w_}]
    ::tooltip::tooltip ${submitW} "Submit & flow continue."
 
-   image create photo ${toolbarW}.bulk_submit_stop -file /users/dor/afsi/sul/Downloads/bulk_submit_stop.png
+   image create photo ${toolbarW}.bulk_submit_stop -file ${imageDir}/bulk_submit_stop.png
    button ${submitStopW} -image ${toolbarW}.bulk_submit_stop -relief flat -command [list MsgCenter_submitNodes ${table_w_} stop]
    ::tooltip::tooltip ${submitStopW} "Submit & flow stop."
 
