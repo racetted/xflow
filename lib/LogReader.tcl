@@ -140,7 +140,6 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
 proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} {first_read false} } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
-   puts "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} first_read:$first_read logreader"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
