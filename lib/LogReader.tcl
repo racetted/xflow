@@ -226,19 +226,23 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
 	    # call C logreader
             exec logreader -i $logfile -o ${tmplogfile}
 
-            set f_logfile [ open ${tmplogfile} r ]
-            flush stdout
-            # process output from C logreader
-            while { [gets $f_logfile line] > 0 } {
-               if [ catch {
-                  LogReader_processCreaderLine  ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
-               } message ] {
-                  ::log::log notice "ERROR: LogReader_readFile LogReader_processCreaderLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
-                  ::log::log notice "ERROR: message: ${message}"
-                  puts "ERROR: LogReader_processCreaderLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
+            if { [file readable ${tmplogfile}] } {
+               set f_logfile [ open ${tmplogfile} r ]
+               flush stdout
+               # process output from C logreader
+               while { [gets $f_logfile line] > 0 } {
+                  if [ catch {
+                     LogReader_processCreaderLine  ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
+                  } message ] {
+                     ::log::log notice "ERROR: LogReader_readFile LogReader_processCreaderLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
+                     ::log::log notice "ERROR: message: ${message}"
+                     puts "ERROR: LogReader_processCreaderLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
+                  } 
                } 
-            } 
-            catch { close $f_logfile }
+               catch { close $f_logfile }
+            } else {
+               ::log::log notice "WARNING:  unable to read logreader output file: ${tmplogfile}"
+	    }
             # reset offset to end of nodelog file
 	    set forceEndOffset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
             SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${forceEndOffset}
