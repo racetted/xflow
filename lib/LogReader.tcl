@@ -77,7 +77,7 @@ proc LogReader_readMonitorDatestamps { {read_toplog false} } {
 # after startup, it reverts to nodelog for any further updates.
 proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog false} {is_startup false} } {
    global MSG_CENTER_THREAD_ID CREADER_FIELD_SEPARATOR
-   ::log::log debug "LogReader_startExpLogReader  $exp_path $datestamp"
+   ::log::log debug "LogReader_startExpLogReader  exp_path:$exp_path datestamp:$datestamp read_type:${read_type} read_toplog:${read_toplog} "
    if { ! [info exists CREADER_FIELD_SEPARATOR] } {
       set CREADER_FIELD_SEPARATOR "!~!"
    }
@@ -139,7 +139,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
 #
 proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} {first_read false} } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
-   ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
+   # ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
+   ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} read_toplog:${read_toplog} first_read:${first_read}"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
@@ -168,92 +169,63 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
          # offset of the nodelog to the end of the file at startup
          set logfile ${exp_path}/logs/${datestamp}_toplog
       }
-      
+   
+      ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} logfile:${logfile}"
       if { [file exists $logfile] } {
-      
-         if { $first_read == false } {
-            set f_logfile [ open $logfile r ]
-            # fconfigure ${f_logfile} -buffering line
-            flush stdout
-            if { ${isStartupDone} == "true" } {
-               set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
-               if { ${logFileOffset} == "" } {
-                  set logFileOffset 0
-                  ::log::log notice "INFO: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
-               }
-               ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
-            } else {
-               ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} reset read_offset"
+         set f_logfile [ open $logfile r ]
+	 # fconfigure ${f_logfile} -buffering line
+         flush stdout
+         
+         if { ${isStartupDone} == "true" } {
+            set logFileOffset [SharedData_getExpDatestampOffset ${exp_path} ${datestamp}]
+            if { ${logFileOffset} == "" } {
                set logFileOffset 0
+               ::log::log notice "INFO: LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
             }
-
-            # position yourself in the file
-            seek $f_logfile $logFileOffset
-            set sameRead false
-            while {[gets $f_logfile line] > 0} {
-               if [ catch { 
-                  if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} false] != 0 } {
-                     # something went wrong reading the line
-                     # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
-                     # writing to it... a retry seems to do the trick
-                     if { ${sameRead} == false } {
-                        set sameRead true
-                        # go to previous spot in the file
-                        seek $f_logfile $logFileOffset
-                        after 500
-                     } else {
-                        # only retry once... after that we log the error
-                        ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: ${logFileOffset} after 1 retry."
-                        break
-                     }
-                  } else {
-                     set sameRead false
-                     set logFileOffset [tell ${f_logfile}]
-                     SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${logFileOffset}
-                  }
-               } message ] {
-                  ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}"
-                  ::log::log notice "ERROR: message: ${message}"
-                  puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read} \nmessage: ${message}"
-               }
-            }
-            catch { close $f_logfile }
+            ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_offset:$logFileOffset"
          } else {
-            set tmpdir $::env(TMPDIR)
-	    regsub -all / ${exp_path} _ tmplogfile
-            set tmplogfile ${tmpdir}/${tmplogfile}${datestamp}_tmplog
-
-	    # call C logreader
-            exec logreader -i $logfile -o ${tmplogfile}
-
-            if { [file readable ${tmplogfile}] } {
-               set f_logfile [ open ${tmplogfile} r ]
-               flush stdout
-               # process output from C logreader
-               while { [gets $f_logfile line] > 0 } {
-                  if [ catch {
-                     LogReader_processCreaderLine  ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}
-                  } message ] {
-                     ::log::log notice "ERROR: LogReader_readFile LogReader_processCreaderLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
-                     ::log::log notice "ERROR: message: ${message}"
-                     puts "ERROR: LogReader_processCreaderLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
-                  } 
-               } 
-               catch { close $f_logfile }
-            } else {
-               ::log::log notice "WARNING:  unable to read logreader output file: ${tmplogfile}"
-	    }
-            # reset offset to end of nodelog file
-	    set forceEndOffset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
-            SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${forceEndOffset}
-            catch { [file delete ${tmplogfile}] }
+            ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} reset read_offset"
+            set logFileOffset 0
          }
 
+         # position yourself in the file
+         seek $f_logfile $logFileOffset
+	 set sameRead false
+         while {[gets $f_logfile line] > 0} {
+            if [ catch { 
+	       if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}] != 0 } {
+	          # something went wrong reading the line
+		  # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
+		  # writing to it... a retry seems to do the trick
+		  if { ${sameRead} == false } {
+		     set sameRead true
+		     # go to previous spot in the file
+                     seek $f_logfile $logFileOffset
+		     after 500
+		  } else {
+		     # only retry once... after that we log the error
+                     ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: ${logFileOffset} after 1 retry."
+		     break
+		  }
+	       } else {
+	          set sameRead false
+	          set logFileOffset [tell ${f_logfile}]
+	       }
+            } message ] {
+	       ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}"
+	       ::log::log notice "ERROR: message: ${message}"
+	       puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read} \nmessage: ${message}"
+	    }
+         }
+         # reset offset to end of nodelog file
+	 set forceEndOffset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
+         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${forceEndOffset}
+         catch { close $f_logfile }
       } else {
          ::log::log debug "LogReader_readFile $logfile file does not exists!"
       }
    }
-   
+
    if { [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}] != "" } {
       # the gui runs in the overview thread... so set the update nodes list in shared memory
       SharedData_setExpUpdatedNodes ${exp_path} ${datestamp} [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}]
@@ -275,6 +247,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
 
 # process line output from the logreader C, which is a bit different than the regular log file
 # for performance improvement
+# NOTE: this is not used for now
 proc LogReader_processCreaderLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter } {
    global CREADER_FIELD_SEPARATOR MSG_CENTER_THREAD_ID
    # puts "LogReader_processCreaderLine _line:$_line CREADER_FIELD_SEPARATOR:$CREADER_FIELD_SEPARATOR"
@@ -327,19 +300,12 @@ proc LogReader_processCreaderLine { _exp_path _datestamp _line _toOverview _ToFl
 
 proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter {first_read false} } {
    global MSG_CENTER_THREAD_ID
-   if { ($first_read == true && [string first "TIMESTAMP=" ${_line}] != 1 && [string first "\\" ${_line}] != 0)
-      || ($first_read == false && [string first "TIMESTAMP=" ${_line}] != 0) } {
+
+   if { [string first "TIMESTAMP=" ${_line}] != 0 } {
       return 1
    }
 
-   set inputline $_line
-   if { $first_read == false } {
-      set loglist [list $inputline]
-   } else {
-      set loglist [split $inputline "\\"]
-   }
-   
-   foreach tmpline $loglist {
+   set tmpline $_line
       if { $tmpline == "" } {
          continue
       }
@@ -425,7 +391,6 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
             }
          }
       }
-   }
    return 0
 }
 

@@ -298,7 +298,7 @@ proc xflow_newDatestampFound { exp_path datestamp } {
    set topLevelW [xflow_getToplevel ${exp_path} ${datestamp}]
    Utils_busyCursor ${topLevelW}
    SharedData_setExpThreadId ${exp_path} ${datestamp} [thread::id]
-   LogReader_startExpLogReader ${exp_path} ${datestamp} all true
+   LogReader_startExpLogReader ${exp_path} ${datestamp} all false true
    xflow_displayFlow ${exp_path} ${datestamp} true
    Utils_normalCursor ${topLevelW}
 }
@@ -3932,7 +3932,7 @@ proc xflow_parseCmdOptions {} {
          set startupDatestamp $params(date)
       }
       SharedData_setExpThreadId ${expPath} ${startupDatestamp} [thread::id]
-      LogReader_startExpLogReader ${expPath} ${startupDatestamp} all true
+      LogReader_startExpLogReader ${expPath} ${startupDatestamp} all false true
       SharedData_setMiscData STARTUP_DONE true
 
       set focusFlowNode [SharedData_getExpNodeMapping ${expPath} ${startupDatestamp} ${focusNode}]
