@@ -3935,12 +3935,14 @@ proc xflow_parseCmdOptions {} {
       LogReader_startExpLogReader ${expPath} ${startupDatestamp} all false true
       SharedData_setMiscData STARTUP_DONE true
 
-      set focusFlowNode [SharedData_getExpNodeMapping ${expPath} ${startupDatestamp} ${focusNode}]
-      set focusExt [SharedFlowNode_getLoopExtFromLoopArgs ${expPath} ${focusFlowNode} ${startupDatestamp} ${focusLoopArgs}]
-
-      if { ${focusExt} != -1 } {
-         set focusNode ${focusNode}${focusExt}
+      if { ${focusNode} != "" } {
+         set focusFlowNode [SharedData_getExpNodeMapping ${expPath} ${startupDatestamp} ${focusNode}]
+         set focusExt [SharedFlowNode_getLoopExtFromLoopArgs ${expPath} ${focusFlowNode} ${startupDatestamp} ${focusLoopArgs}]
+         if { ${focusExt} != -1 } {
+            set focusNode ${focusNode}${focusExt}
+         }
       }
+
 
       puts "xflow_displayFlow ${expPath} ${startupDatestamp} true ${focusNode}"
       xflow_displayFlow ${expPath} ${startupDatestamp} true ${focusNode}
