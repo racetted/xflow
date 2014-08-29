@@ -2532,7 +2532,8 @@ proc Overview_init {} {
    set expBoxLength 40
    
    # creates suite entries
-   set entryStartY 70
+   #set entryStartY 70
+   set entryStartY 50
    set entryStartX 20
 
    set startEndIconSize 10
