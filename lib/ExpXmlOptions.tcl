@@ -3,7 +3,7 @@ package require tdom
 #
 #<ExpOptions displayName="HRDPS/West/forecast" shortName="hrdps">
 #   <ScheduleInfo sched_type="day_of_week" sched_value="0 1 2 3 4 5 6" />
-#   <MonitorInfo check_idle="false"/>
+#   <MonitorInfo auto_launch="false" check_idle="false" show_exp="false"/>
 #   <SupportInfo executing="Yes" status="All Full Support"/>
 #   <Exp hour="00">
 #      <TimingInfo ref_start="15:00" ref_end="17:00"/>
@@ -142,6 +142,18 @@ proc ExpXmlOptions_getAutoLaunch { _dom_doc _exp_path } {
       set autoLaunchValue [${monitorInfoNode} getAttribute auto_launch true]
    }
    return ${autoLaunchValue}
+}
+
+proc ExpXmlOptions_getShowExp { _dom_doc _exp_path } {
+   set showExpValue true
+   set root [${_dom_doc} documentElement root]
+
+   set query "/ExpOptions/MonitorInfo"
+   set monitorInfoNode [${root} selectNodes ${query}]
+   if { ${monitorInfoNode} != "" } {
+      set showExpValue [${monitorInfoNode} getAttribute show_exp true]
+   }
+   return ${showExpValue}
 }
 
 proc ExpXmlOptions_getCheckIdle { _dom_doc _exp_path } {

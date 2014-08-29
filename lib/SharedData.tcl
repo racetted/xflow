@@ -248,6 +248,19 @@ proc SharedData_getExpCheckIdle { _exp_path } {
    return ${checkIdleValue}
 }
 
+# true | false
+proc SharedData_setExpShowExp { _exp_path _showExp } {
+   SharedData_setExpData ${_exp_path} showexp ${_showExp}
+}
+
+proc SharedData_getExpShowExp { _exp_path } {
+   set showExpValue [SharedData_getExpData ${_exp_path} showexp]
+   if { ${showExpValue} == "" } {
+      set showExpValue true
+   }
+   return ${showExpValue}
+}
+
 proc SharedData_setExpScheduleType { _exp_path _schedType } {
    SharedData_setExpData ${_exp_path} sched_type ${_schedType}
 }

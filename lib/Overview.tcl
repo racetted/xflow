@@ -1043,6 +1043,13 @@ proc Overview_isExpBoxObsolete { exp_path datestamp } {
 
 proc Overview_addExpDefaultBoxes { canvas exp_path } {
    # puts "Overview_addExpDefaultBoxes $exp_path"
+   if { [SharedData_getExpShowExp ${exp_path}] == false } {
+      # this is a configuration from ExpOptions.xml
+      # user decided that this suite not be shown in overview i.e. mainly used for default suite
+      puts "Overview_addExpDefaultBoxes skipping ${exp_path}"
+      return
+   }
+
    set refTimings [SharedData_getExpTimings ${exp_path}]
    if { ${refTimings} == "" } {
       # exp withouth ExpOptions.xml or withouth any ref timings

@@ -142,6 +142,9 @@ proc ExpOptions_read { _exp_path } {
       # get auto launch info
       set autoLaunchValue [ExpXmlOptions_getAutoLaunch ${domDoc} ${_exp_path}]
 
+      # get show exp info
+      set showExpValue [ExpXmlOptions_getShowExp ${domDoc} ${_exp_path}]
+
       set checkIdleValue [ExpXmlOptions_getCheckIdle ${domDoc} ${_exp_path}]
 
       set scheduleType [ExpXmlOptions_getScheduleInfoType ${domDoc} ${_exp_path}]
@@ -156,6 +159,7 @@ proc ExpOptions_read { _exp_path } {
       SharedData_setExpShortName ${_exp_path} ${shortName}
       SharedData_setExpSupportInfo ${_exp_path} ${supportData}
       SharedData_setExpAutoLaunch ${_exp_path} ${autoLaunchValue}
+      SharedData_setExpShowExp ${_exp_path} ${showExpValue}
       SharedData_setExpCheckIdle ${_exp_path} ${checkIdleValue}
       SharedData_setExpScheduleType ${_exp_path} ${scheduleType}
       SharedData_setExpScheduleValue ${_exp_path} ${scheduleValue}
