@@ -2697,12 +2697,12 @@ proc Overview_addFileMenu { parent } {
 
 proc Overview_toFront {} {
    set topW [Overview_getToplevel]
-   switch [wm state ${topW}] {
-      withdrawn -
-      "iconic" {
-         wm deiconify ${topW}
-      }
-   }
+   # force remove and redisplay of overview
+   # Need to do this cause when the overview is in another virtual
+   # desktop, it is the only way for it to redisplay in the
+   # current desktop
+   wm withdraw ${topW}
+   wm deiconify ${topW}
    raise ${topW}
 }
 
