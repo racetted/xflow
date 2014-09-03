@@ -75,9 +75,11 @@ proc LogReader_readMonitorDatestamps { {read_toplog false} } {
 #
 # for now, the reading of toplog is only done at overview startup.
 # after startup, it reverts to nodelog for any further updates.
-proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog false} {is_startup false} } {
+proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog false} {use_log_cache false} } {
    global MSG_CENTER_THREAD_ID CREADER_FIELD_SEPARATOR
-   ::log::log debug "LogReader_startExpLogReader  exp_path:$exp_path datestamp:$datestamp read_type:${read_type} read_toplog:${read_toplog} "
+   ::log::log debug "LogReader_startExpLogReader  exp_path:$exp_path datestamp:$datestamp read_type:${read_type} read_toplog:${read_toplog} use_log_cache:${use_log_cache}"
+   if [ catch {
+
    if { ! [info exists CREADER_FIELD_SEPARATOR] } {
       set CREADER_FIELD_SEPARATOR "!~!"
    }
@@ -92,8 +94,10 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
    }
 
    if [ catch { 
-      FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
-      ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
+      if { ${use_log_cache} == false } {
+         FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
+         ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
+      }
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
       puts "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message"
@@ -103,12 +107,14 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
    }
 
    if { ${datestamp} != "" } {
-      # force reread from beginning
-      SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
+      if { ${use_log_cache} == false } {
+         # force reread from beginning
+         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
+      }
 
       # first do a full first pass read of the log file
       
-      LogReader_readFile ${exp_path} ${datestamp} ${read_type} ${read_toplog} true
+      LogReader_readFile ${exp_path} ${datestamp} ${read_type} ${read_toplog}
 
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} first pass read DONE."
 
@@ -129,18 +135,24 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
          # SharedData_setExpHeartbeat ${exp_path} ${datestamp} [thread::id] [clock seconds] ${offset}
       }
    }
+
+   } message ] {
+      puts "ERROR: LogReader_startExpLogReader exp_path:${exp_path} datestamp:${datestamp}\n$message"
+      ::log::log notice "ERROR: LogReader_startExpLogReader ${exp_path}:\n$message."
+      error ${message}
+      return
+   }
 }
 
 # read_type is one of all, no_overview, refresh_flow
-# first_read is true is used when the whole log is read for the first time...
 # all: message entries sent to xflow, overview and msg_center when applicable
 # no_overview: message entries sent to xflow and msg_center when applicable
 # refresh_flow: message entries only sent to xflow
 #
-proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} {first_read false} } {
+proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
    # ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
-   ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} read_toplog:${read_toplog} first_read:${first_read}"
+   ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} read_toplog:${read_toplog}"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
    if { ${isOverviewMode} == true } {
@@ -193,7 +205,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
 	 set sameRead false
          while {[gets $f_logfile line] > 0} {
             if [ catch { 
-	       if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}] != 0 } {
+	       if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}] != 0 } {
 	          # something went wrong reading the line
 		  # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
 		  # writing to it... a retry seems to do the trick
@@ -212,9 +224,9 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
 	          set logFileOffset [tell ${f_logfile}]
 	       }
             } message ] {
-	       ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read}"
+	       ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
 	       ::log::log notice "ERROR: message: ${message}"
-	       puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} ${first_read} \nmessage: ${message}"
+	       puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
 	    }
          }
          # reset offset to end of nodelog file
@@ -298,7 +310,7 @@ proc LogReader_processCreaderLine { _exp_path _datestamp _line _toOverview _ToFl
 
 }
 
-proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter {first_read false} } {
+proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter } {
    global MSG_CENTER_THREAD_ID
 
    if { [string first "TIMESTAMP=" ${_line}] != 0 } {
@@ -366,7 +378,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
          }
 
          if { ${_ToFlow} == true } {
-            LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} false
+            LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp}
          }
 
          if { ${_toOverview} == true } {
@@ -394,8 +406,8 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
    return 0
 }
 
-proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp {_firstRead false}} {
-  #  puts " LogReader_processFlowLine _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} _firstRead:${_firstRead}"
+proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp } {
+  #  puts " LogReader_processFlowLine _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt}" 
    # node & signal is mandatory to be processed
    # else the line is ignored
    set loopInfoDisplay ""
@@ -456,8 +468,7 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
             }
 
             # 2 - then we refresh the display... redisplay the node text?
-            if { [SharedData_getMiscData STARTUP_DONE] == "true" &&
-               [SharedFlowNode_isRefreshNeeded ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt}] == "true" && ${_firstRead} == false } {
+            if { [SharedData_getMiscData STARTUP_DONE] == "true" && [SharedFlowNode_isRefreshNeeded ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt}] == "true" } {
                LogReader_updateNodes ${_exp_path} ${_datestamp} ${flowNode}
             }
       }

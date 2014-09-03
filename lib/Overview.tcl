@@ -1626,9 +1626,14 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       update idletasks
 
       if { [thread::exists ${expThreadId}] } {
-         ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow"
-         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow" LogReaderDone
+         # first time, reads the full data
+	 # second time, it checks if data is cached i.e. read log starting from last read
+	 set useLogCache [SharedData_getExpNodeLogCache ${exp_path} ${datestamp}] 
+         ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow false ${useLogCache}"
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow false ${useLogCache}" LogReaderDone
          vwait LogReaderDone
+	 # tell next read to use cache
+	 SharedData_setExpNodeLogCache ${exp_path} ${datestamp} true
       }
 
       # launch flow only if user has not cancelled
@@ -1959,8 +1964,8 @@ proc Overview_readExpLogs {} {
          SharedData_setExpThreadId ${exp_path} "${datestamp}" ${expThreadId}
          OverviewExpStatus_addStatusDatestamp ${exp_path} ${datestamp}
 
-         ::log::log debug "Overview_readExpLogs  thread::send -async ${expThreadId} \"LogReader_startExpLogReader ${exp_path} ${datestamp} all true true\""
-         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true true"
+         ::log::log debug "Overview_readExpLogs  thread::send -async ${expThreadId} \"LogReader_startExpLogReader ${exp_path} ${datestamp} all true\""
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} ${datestamp} all true"
       }
    }
 }

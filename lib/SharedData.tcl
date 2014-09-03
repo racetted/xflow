@@ -171,6 +171,53 @@ proc SharedData_getExpRootNode { _exp_path _datestamp } {
    return ${rootNode}
 }
 
+proc SharedData_setExpNodeLogCache { _exp_path _datestamp _cached } {
+   SharedData_setExpDatestampData ${_exp_path} ${_datestamp} nodelogcache ${_cached}
+}
+
+proc SharedData_getExpNodeLogCache { _exp_path _datestamp } {
+   set cached false
+   catch {
+      set cached [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} nodelogcache]
+   }
+   if { ${cached} == "" } {
+      set cached false
+   }
+   return ${cached}
+}
+
+proc SharedData_setExpHeartbeat { _exp_path _datestamp _threadId _timeSeconds _offset } {
+   SharedData_setExpDatestampData ${_exp_path} ${_datestamp} heartbeat "${_threadId} ${_timeSeconds} ${_offset}"
+}
+
+proc SharedData_getExpHeartbeat { _exp_path _datestamp } {
+   set heartbeatData [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} heartbeat]
+   return ${heartbeatData}
+}
+
+proc SharedData_getExpGroupDisplay { _exp_path } {
+   set groupDisplay [SharedData_getExpData ${_exp_path} groupdisplay]
+   return ${groupDisplay}
+}
+
+proc SharedData_setExpDisplayName { _exp_path _displayName } {
+   SharedData_setExpData ${_exp_path} displayname ${_displayName}
+}
+
+proc SharedData_getExpDisplayName { _exp_path } {
+   set displayName [SharedData_getExpData ${_exp_path} displayname]
+   return ${displayName}
+}
+
+proc SharedData_setExpTimings { _exp_path _timings } {
+   SharedData_setExpData ${_exp_path} ref_timings ${_timings}
+}
+
+proc SharedData_getExpTimings { _exp_path } {
+   set timings [SharedData_getExpData ${_exp_path} ref_timings]
+   return ${timings}
+}
+
 proc SharedData_setExpHeartbeat { _exp_path _datestamp _threadId _timeSeconds _offset } {
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} heartbeat "${_threadId} ${_timeSeconds} ${_offset}"
 }
