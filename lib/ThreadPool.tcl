@@ -1,7 +1,7 @@
 # should be called at application startup time to create
 # the desired number of threads to process exp datestamps.
 # The number of threads is configurable through the maestrorc file (overview_num_threads)
-# Defaults to 8 threads.
+# Defaults to 4 threads.
 # Each experiment active log datestamp is assigned a thread from the thread pool.
 # Each thread can monitor multiple log datestamps.
 # An active log file is one that has been modified within the last hour.
@@ -41,6 +41,7 @@ proc ThreadPool_createThread { {is_init false} } {
       source $env(SEQ_XFLOW_BIN)/../lib/LogMonitor.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/SharedData.tcl
       source $env(SEQ_XFLOW_BIN)/../lib/SharedFlowNode.tcl
+      source $env(SEQ_XFLOW_BIN)/../lib/ThreadPool.tcl
 
       Utils_logInit
       thread::wait

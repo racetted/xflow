@@ -3238,7 +3238,17 @@ proc Overview_main {} {
    wm deiconify ${topOverview}
 
    # start the reader for currently active logs
-   ::thread::broadcast LogReader_readMonitorDatestamps
+   # ::thread::broadcast "LogReader_readMonitorDatestamps true"
+   # delay each log thread by 1 sec apart
+   global PoolId
+   set count 1
+
+   foreach thread [array names PoolId] {
+      set delayValue [expr ${count} * 1000]
+      ::thread::send -async ${thread} "LogReader_readMonitorDatestamps ${delayValue}"
+      incr count
+   }
+
    # run a periodic monitor to look for new log files to process
    LogMonitor_checkNewLogFiles
 

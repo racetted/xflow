@@ -29,13 +29,18 @@ proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
 # once initiated, this proc monitors all the datestamp that  is registered
 # every 4 seconds
 # read_toplog argument should be set to true only at application startup
-proc LogReader_readMonitorDatestamps { {read_toplog false} } {
-   # puts "LogReader_readMonitorDatestamps called from thread: [thread::id]"
+proc LogReader_readMonitorDatestamps { {start_delay -1} } {
+   ::log::log debug "LogReader_readMonitorDatestamps called from thread: [thread::id] start_delay:${start_delay}"
    global READ_LOG_AFTER_ID LogReader_Datestamps
 
-   catch { after cancel ${READ_LOG_AFTER_ID} }
+   if { ${start_delay} != -1 } {
+      after ${start_delay}
+   }
 
    if [ catch {
+  
+      catch { after cancel ${READ_LOG_AFTER_ID} }
+
 
       foreach { key value } [array get LogReader_Datestamps] {
          if [ catch {
@@ -43,7 +48,7 @@ proc LogReader_readMonitorDatestamps { {read_toplog false} } {
             set expPath [lindex ${value} 0]
             set datestamp [lindex ${value} 1]
             # puts "LogReader_readMonitorDatestamps LogReader_readFile ${expPath} ${datestamp}"
-            LogReader_readFile ${expPath} ${datestamp} all ${read_toplog}
+            LogReader_readFile ${expPath} ${datestamp} all
             set offset [SharedData_getExpDatestampOffset ${expPath} ${datestamp}]
             
             if { [SharedData_getMiscData OVERVIEW_MODE] == true && [SharedData_getMiscData STARTUP_DONE] == true } {

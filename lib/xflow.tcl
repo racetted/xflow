@@ -1118,9 +1118,6 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    global ignoreDep 
    ::log::log debug "xflow_nodeMenu exp_path:$exp_path datestamp:$datestamp canvas:$canvas node:$node extension:$extension "
 
-   # highlights the selected node
-   catch { ::DrawUtils::highLightNode ${exp_path} ${node} ${datestamp} ${canvas} }
-
    set popMenu .popupMenu
    set infoMenu ${popMenu}.info_menu
    set listingMenu ${popMenu}.listing_menu
@@ -1229,6 +1226,9 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    $popMenu add command -label "Close" -command [list destroy ${popMenu}]
    
    tk_popup $popMenu $x $y
+
+   # highlights the selected node
+   catch { ::DrawUtils::highLightNode ${exp_path} ${node} ${datestamp} ${canvas} }
 }
 
 # creates the popup menu for a loop node
@@ -1334,7 +1334,7 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
       -foreground [::DrawUtils::getBgStatusColor abort]
    ${listingMenu} add command -label "Compare Latest Listings" -command [list xflow_diffLatestListings ${exp_path} ${datestamp} $node ${extension} $canvas]
-   ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
+   ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
 
 
    ${submitMenu} add command -label "Submit & Continue" -command [list xflow_submitNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas continue ]
