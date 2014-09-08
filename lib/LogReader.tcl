@@ -177,6 +177,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
       set sendToMsgCenter true
    }
    
+   set isTopLogRead false
    if { ${datestamp} != "" } {
       set forceEndOffset ""
       set logfile ${exp_path}/logs/${datestamp}_nodelog
@@ -185,6 +186,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
          # To avoid reading the same entries twice at startup, we need to set the
          # offset of the nodelog to the end of the file at startup
          set logfile ${exp_path}/logs/${datestamp}_toplog
+	 set isTopLogRead true
       }
    
       ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} logfile:${logfile}"
@@ -234,9 +236,15 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
 	       puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
 	    }
          }
-         # reset offset to end of nodelog file
-	 set forceEndOffset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
-         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${forceEndOffset}
+	 if { ${isTopLogRead} == false } {
+	    set logFileOffset [tell ${f_logfile}]
+         } else {
+            # reset offset to end of nodelog file
+	    # after reading toplog
+	    set logFileOffset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
+	 }
+
+         SharedData_setExpDatestampOffset ${exp_path} ${datestamp} ${logFileOffset}
          catch { close $f_logfile }
       } else {
          ::log::log debug "LogReader_readFile $logfile file does not exists!"
