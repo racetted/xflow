@@ -199,7 +199,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    #image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
    image create photo ${parent}.shell_img -file ${imageDir}/terminal.ppm
 
-   button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command [list MsgCenter_show] -relief flat
+   button ${msgCenterW} -padx 0 -pady 0 -image ${noNewMsgImage} -command [list MsgCenter_show true] -relief flat
    ::tooltip::tooltip ${msgCenterW} "Show Message Center."
 
    button ${nodeKillW} -image ${parent}.node_kill_img -command [list xflow_nodeKillDisplay ${exp_path} ${datestamp} ${parent} ] -relief flat

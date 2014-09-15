@@ -557,8 +557,12 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
          }
          set MSG_ALARM_ID [after 1500 [list MsgCengter_processAlarm ${table_w_} true]]
       }
-   
-      MsgCenter_show
+  
+      if { ${repeat_alarm} == false } {
+         MsgCenter_show true
+      } else {
+         MsgCenter_show
+      }
    }
 }
 
@@ -578,19 +582,31 @@ proc MsgCenter_close {} {
    wm withdraw [MsgCenter_getToplevel]
 }
 
-proc MsgCenter_show {} {
+proc MsgCenter_show { {force false} } {
    ::log::log debug "MsgCenter_show"
    set topW [MsgCenter_getToplevel]
    set currentStatus [wm state ${topW}]
 
-   if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
-      # force remove and redisplay of msg center
-      # Need to do this cause when the msg center is in another virtual
-      # desktop, it is the only way for it to redisplay in the
-      # current desktop
-      wm withdraw ${topW}
-      wm deiconify ${topW}
-      raise ${topW}
+   if { ${force} == false } {
+      switch ${currentStatus} {
+         withdrawn -
+         iconic {
+            wm deiconify ${topW}
+         }
+      }
+      if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+         raise ${topW}
+      }
+   } else {
+      if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+         # force remove and redisplay of msg center
+         # Need to do this cause when the msg center is in another virtual
+         # desktop, it is the only way for it to redisplay in the
+         # current desktop
+         wm withdraw ${topW}
+         wm deiconify ${topW}
+         raise ${topW}
+      }
    }
 }
 
