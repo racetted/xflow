@@ -1057,7 +1057,7 @@ proc Overview_addExpDefaultBoxes { canvas exp_path } {
    } else {
       foreach refTiming ${refTimings} {
          foreach { hour startTime endTime } ${refTiming} {
-	    if { [Overview_isExpScheduled ${exp_path} ${hour}] == true } {
+	    if { [Overview_isExpScheduled ${exp_path} ${hour} ${startTime}] == true } {
                Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init
             }
          }
@@ -1065,7 +1065,10 @@ proc Overview_addExpDefaultBoxes { canvas exp_path } {
    }
 }
 
-proc Overview_getScheduledDatestamp { exp_path hour } {
+# returns the datestamp of the run based
+# on the run hour and it's referenced start time
+# and the current date
+proc Overview_getScheduledDatestamp { exp_path hour start_time } {
    set datestamp ""
 
    # date value at grid x origin
@@ -1080,12 +1083,13 @@ proc Overview_getScheduledDatestamp { exp_path hour } {
    # date value at 00Z
    set today00ZDateTime [Overview_GraphGetCurrentDayTime]
 
+   set startTimeHour [Utils_getPaddedValue [Utils_getHourFromTime ${start_time}]]
    # date value of current processed hour
-   if { ${hour} == "00" } {
+   if { ${startTimeHour} == "00" } {
       set hourDateTime ${today00ZDateTime}
    } else {
-      set hour [string trimleft ${hour} 0]
-      set hourDateTime [clock add ${today00ZDateTime} ${hour} hours]
+      set startTimeHour [string trimleft ${startTimeHour} 0]
+      set hourDateTime [clock add ${today00ZDateTime} ${startTimeHour} hours]
    }
 
    if { ${hourDateTime} >= ${originDateTime} && ${hourDateTime} < ${endDateTime} } {
@@ -1104,7 +1108,7 @@ proc Overview_getScheduledDatestamp { exp_path hour } {
 }
 
 # check if the exp box should be displayed in the overview
-proc Overview_isExpScheduled { exp_path hour } {
+proc Overview_isExpScheduled { exp_path hour start_time } {
    global DayOfWeekMapping 
 
    # by default it runs
@@ -1115,7 +1119,7 @@ proc Overview_isExpScheduled { exp_path hour } {
    if { ! [info exists DayOfWeekMapping] } {
       set DayOfWeekMapping { Sun 0 Mon 1 Tue 2 Wed 3 Thu 4 Fri 5 Sat 6 }
    }
-   set scheduledDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour}]
+   set scheduledDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour} ${start_time} ]
    if { ${scheduledDatestamp} != "" } {
      # get day of week schedule for the exp
      set scheduleType [SharedData_getExpScheduleType ${exp_path}]
