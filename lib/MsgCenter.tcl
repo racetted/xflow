@@ -583,7 +583,7 @@ proc MsgCenter_close {} {
 }
 
 proc MsgCenter_show { {force false} } {
-   ::log::log debug "MsgCenter_show"
+   ::log::log debug "MsgCenter_show force:${force}"
    set topW [MsgCenter_getToplevel]
    set currentStatus [wm state ${topW}]
 
@@ -599,6 +599,7 @@ proc MsgCenter_show { {force false} } {
       }
    } else {
       if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+        ::log::log debug "MsgCenter_show force:${force} here"
          # force remove and redisplay of msg center
          # Need to do this cause when the msg center is in another virtual
          # desktop, it is the only way for it to redisplay in the

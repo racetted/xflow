@@ -3933,7 +3933,6 @@ proc xflow_parseCmdOptions {} {
       }
       SharedData_setExpThreadId ${expPath} ${startupDatestamp} [thread::id]
       LogReader_startExpLogReader ${expPath} ${startupDatestamp} all false
-      SharedData_setMiscData STARTUP_DONE true
 
       if { ${focusNode} != "" } {
          set focusFlowNode [SharedData_getExpNodeMapping ${expPath} ${startupDatestamp} ${focusNode}]
@@ -3943,11 +3942,11 @@ proc xflow_parseCmdOptions {} {
          }
       }
 
-
       puts "xflow_displayFlow ${expPath} ${startupDatestamp} true ${focusNode}"
       xflow_displayFlow ${expPath} ${startupDatestamp} true ${focusNode}
 
       MsgCenter_startupDone
+      SharedData_setMiscData STARTUP_DONE true
 
       puts "LogReader_readMonitorDatestamps..."
       # start monitoring datestamps for new log entries

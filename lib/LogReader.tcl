@@ -164,6 +164,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
       set overviewThreadId [SharedData_getMiscData OVERVIEW_THREAD_ID]
    }
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
+   ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} isStartupDone:${isStartupDone}"
    set sendToOverview false
    set sendToFlow false
    set sendToMsgCenter false
