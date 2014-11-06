@@ -19,7 +19,7 @@ proc LogMonitor_getLastCheckFile { _exp_path } {
 proc LogMonitor_checkNewLogFiles {} {
    ::log::log debug "LogMonitor_checkNewLogFiles"
    # check every 5 secs
-   set nextCheckTime 5000
+   set nextCheckTime 30000
 
    if { [ catch {
       set displayGroups [ExpXmlReader_getGroups]
