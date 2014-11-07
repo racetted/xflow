@@ -2646,8 +2646,6 @@ proc Overview_parseCmdOptions {} {
             puts "Overview_parseCmdOptions noautomsg argument is $params(noautomsg)"
 	    if { $params(noautomsg) == 1 } {
                SharedData_setMiscData AUTO_MSG_DISPLAY false
-            } else {
-               SharedData_setMiscData AUTO_MSG_DISPLAY true
             }
 	 }
 

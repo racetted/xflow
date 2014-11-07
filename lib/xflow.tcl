@@ -3902,9 +3902,7 @@ proc xflow_parseCmdOptions {} {
          puts "xflow noautomsg flag: $params(noautomsg)"
          if { $params(noautomsg) == 1 } {
             set AUTO_MSG_DISPLAY false
-         } else {
-            set AUTO_MSG_DISPLAY true
-	 }
+         }
       }
 
       if { ! ($params(node) == "") } {
@@ -3945,8 +3943,8 @@ proc xflow_parseCmdOptions {} {
       puts "xflow_displayFlow ${expPath} ${startupDatestamp} true ${focusNode}"
       xflow_displayFlow ${expPath} ${startupDatestamp} true ${focusNode}
 
-      MsgCenter_startupDone
       SharedData_setMiscData STARTUP_DONE true
+      MsgCenter_startupDone
 
       puts "LogReader_readMonitorDatestamps..."
       # start monitoring datestamps for new log entries
