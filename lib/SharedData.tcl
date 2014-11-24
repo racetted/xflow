@@ -726,6 +726,7 @@ proc SharedData_init {} {
    SharedData_setMiscData SHOW_ABORT_TYPE true
    SharedData_setMiscData SHOW_EVENT_TYPE true
    SharedData_setMiscData SHOW_INFO_TYPE true
+   SharedData_setMiscData SHOW_SYSINFO_TYPE true
 
    SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
    SharedData_setMiscData MSG_CENTER_USE_BELL true

@@ -41,7 +41,7 @@ proc MsgCenter_addFileMenu { parent } {
 }
 
 proc MsgCenter_addPrefMenu { parent } {
-   global SHOW_ABORT_TYPE SHOW_EVENT_TYPE SHOW_INFO_TYPE
+   global SHOW_ABORT_TYPE SHOW_EVENT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
 
@@ -60,14 +60,17 @@ proc MsgCenter_addPrefMenu { parent } {
    trace add variable SHOW_EVENT_TYPE write [list MsgCenter_filterCallback ${parent} Event]
    $msgTypeMenuW add checkbutton -label "Info" -variable SHOW_INFO_TYPE \
       -onvalue true -offvalue false -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
+   $msgTypeMenuW add checkbutton -label "Sysinfo" -variable SHOW_SYSINFO_TYPE \
+      -onvalue true -offvalue false -command [list MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]]
    trace add variable SHOW_INFO_TYPE write [list MsgCenter_filterCallback ${parent} Info]
+   trace add variable SHOW_SYSINFO_TYPE write [list MsgCenter_filterCallback ${parent} Sysinfo]
 
    pack $menuButtonW -side left -padx 2
 }
 
 # adds a confirmation for message type filtering out
 proc MsgCenter_filterCallback { _sourceW _messageType {_name1 ""} {_name2 ""} {_op ""} } {
-   set msgTypeToVariableMapping { Abort SHOW_ABORT_TYPE Event SHOW_EVENT_TYPE Info SHOW_INFO_TYPE }
+   set msgTypeToVariableMapping { Abort SHOW_ABORT_TYPE Event SHOW_EVENT_TYPE Info SHOW_INFO_TYPE SHOW_SYSINFO_TYPE }
 
    set globalVarName [string map ${msgTypeToVariableMapping} ${_messageType}]
    if { ${globalVarName} != "" } {
@@ -364,7 +367,15 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
 
    if { ${isMsgActive} == "true" } {
       ${table_w_} see ${MSG_ACTIVE_COUNTER}
-      MsgCengter_processAlarm ${table_w_}
+
+      # for sysinfo, we don't flash or beep
+      switch ${type_} {
+         sysinfo {
+	 }
+	 default {
+            MsgCengter_processAlarm ${table_w_}
+         }
+      }
    }
 }
 
@@ -396,8 +407,7 @@ proc MsgCenter_sendNotification {} {
 }
 
 proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } {
-   # puts "addActiveMessage datestamp:${datestamp_} timestamp:${timestamp_} type:${type_} node:${node_} msg:${msg_} exp:${exp_}"
-   global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
+   global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE SHOW_EVENT_TYPE
    global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
 
    set isMsgActive false
@@ -409,6 +419,11 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } 
       }
       info {
          if { ${SHOW_INFO_TYPE} == "true" } {
+            set isMsgActive true
+         }
+      }
+      sysinfo {
+         if { ${SHOW_SYSINFO_TYPE} == "true" } {
             set isMsgActive true
          }
       }
@@ -546,8 +561,6 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    } else {
       set MSG_ALARM_ON true
       set raiseAlarm true
-      # put the window on top of the rest
-      #wm attributes . -topmost 1
    }
    if { ${autoMsgDisplay} == "true" && [SharedData_getMiscData STARTUP_DONE] == "true" } {
       if { ${raiseAlarm} == "true" } {
@@ -801,6 +814,11 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
    }
 }
 
+# returns current time as argument expected by processNewMessage function
+proc MsgCenter_getCurrentTime {} {
+   return [clock format [clock seconds] -format "%y%m%d.%H:%M:%S"]
+}
+
 ########################################
 # end callback procedures
 ########################################
@@ -808,7 +826,7 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
 proc MsgCenter_init {} {
    global MSG_ALARM_ON MsgCenterMainGridRowMap
    global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
-   global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_EVENT_TYPE
+   global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE SHOW_EVENT_TYPE
    global DEBUG_TRACE MSG_BELL_TRIGGER MSG_CENTER_USE_BELL
 
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
@@ -846,6 +864,7 @@ proc MsgCenter_init {} {
    # get the list of message filters
    set SHOW_ABORT_TYPE [SharedData_getMiscData SHOW_ABORT_TYPE]
    set SHOW_INFO_TYPE [SharedData_getMiscData SHOW_INFO_TYPE]
+   set SHOW_SYSINFO_TYPE [SharedData_getMiscData SHOW_SYSINFO_TYPE]
    set SHOW_EVENT_TYPE [SharedData_getMiscData SHOW_EVENT_TYPE]
 
    # is bell activated?

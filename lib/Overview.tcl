@@ -127,7 +127,9 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
             # is the exp thread still needed?
             set expThreadId [SharedData_getExpThreadId ${exp} ${datestamp}]
-            if { [LogMonitor_isLogFileActive ${exp} ${datestamp}] == false && [xflow_isWindowActive ${exp} ${datestamp}] == false } {
+            if { [OverviewExpStatus_getLastStatus ${exp} ${datestamp}] == "end" 
+	         && [LogMonitor_isLogFileActive ${exp} ${datestamp}] == false 
+		 && [xflow_isWindowActive ${exp} ${datestamp}] == false } {
                # the exp thread that followed this log is not needed anymore, release it    
                ::log::log notice "Overview_GridAdvanceHour Overview_releaseExpThread releasing exp thread for ${exp} ${datestamp}"
                Overview_releaseExpThread ${expThreadId} ${exp} ${datestamp}
@@ -208,16 +210,28 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
          set topW [regsub -all {[\.]} ${topW} _]
          set topW .submit_late_${topW}
          if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckSubmitLate ${expPath} ${datestamp}] == "0" } {
-	    # set callback to configure msg dialog as topmost
-	    after 1000 [list Overview_setTopMost $topW]
-            set answer [MessageDlg ${topW} -icon warning -title "Exp Submit Late Warning" -type user -buttons "Ok \"Launch Flow\" \"Do Not Show Again!\"" -aspect 800 \
-               -parent [Overview_getToplevel] -message "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!" ]
-            if { ${answer} == "1" } {
-               Overview_launchExpFlow ${expPath} ${datestamp}
-            } elseif { ${answer} == "2" } {
-	       SharedData_setExpStopCheckSubmitLate ${expPath} ${datestamp} 1
-               ::log::log notice "Experiment ${expPath} ${datestamp} CHECK SUBMIT LATE turned OFF." 
-	    }
+	    # exp is late , send a message dialog warning user
+	    set dialogTitle "Exp Submit Late Warning"
+	    set dialogText "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!"
+
+            global WARNING_AFTERID_${topW}
+            Overview_closeWarningDlg  ${expPath} ${datestamp} ${topW} ${dialogTitle}
+            set dlg [Dialog ${topW} -parent . -modal none \
+                 -separator 1 -title ${dialogTitle} -default 0 -cancel 1]
+            $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+            $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+            $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_expLateNoShowAgainCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+            set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify center -anchor c  -font [Overview_getWarningFont] ]
+            pack $msg -fill both -expand yes -padx 50 -pady 50 
+
+            $dlg draw
+
+            # set a timer in 60 seconds to reshow the widget if the user did not respond
+            set WARNING_AFTERID_${topW} [after 60000 [list Overview_showWarningReminder  ${expPath} ${datestamp} ${topW}]]
+
+	    # send message in msg center
+	    MsgCenter_processNewMessage ${datestamp} [MsgCenter_getCurrentTime] sysinfo [Overview_getExpRootNodeInfo ${expPath}] ${dialogText} ${expPath}
+
          } else {
             puts "Overview_checkSubmitLate NOT SENDING warning for ${expPath} ${datestamp}"
          }
@@ -263,19 +277,86 @@ proc Overview_processIdleExp { expIdleList } {
       set topW [regsub -all {[\.]} ${topW} _]
       set topW .idle_${topW}
       if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckIdle  ${expPath} ${datestamp}] == "0" } {
-	 # set callback to configure msg dialog as topmost
-	 after 1000 [list Overview_setTopMost $topW]
-         set answer [MessageDlg ${topW} -icon warning -title "Exp Idle Warning" -type user -buttons "Ok \"Launch Flow\" \"Do Not Show Again\"" -aspect 800 \
-            -parent [Overview_getToplevel] -message "Experiment: ${expPath} datestamp:${datestamp} has been idle for over 1 Hour... Please verify!" ]
-         if { ${answer} == "1" } {
-             Overview_launchExpFlow ${expPath} ${datestamp}
-         } elseif { ${answer} == "2" } {
-	    SharedData_setExpStopCheckIdle  ${expPath} ${datestamp} 1
-            ::log::log notice "Experiment ${expPath} ${datestamp} CHECK EXP IDLE turned OFF." 
-	 }
+         # set callback to configure msg dialog as topmost
+	 # after 1000 [list Overview_setTopMost $topW]
+	 set dialogTitle "Exp Idle Warning"
+	 set dialogText "Experiment: ${expPath} datestamp: ${datestamp} has been idle for over 1 Hour... Please verify!" 
+
+         global WARNING_AFTERID_${topW}
+         set dlg [Dialog ${topW} -parent [Overview_getToplevel]  -modal none \
+                 -separator 1 -title ${dialogTitle} -default 0 -cancel 1]
+         $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+         $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+         $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_idleExpNoShowAgainCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+         # set a timer in 60 seconds to reshow the widget if the user did not respond
+         set WARNING_AFTERID_${topW} [after 60000 [list Overview_showWarningReminder  ${expPath} ${datestamp} ${topW}]]
+         set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify center -anchor c  -font [Overview_getWarningFont] ]
+         pack $msg -fill both -expand yes -padx 50 -pady 50 
+
+         $dlg draw
+
+	 # send message in msg center
+	 # MsgCenter_processNewMessage ${datestamp} [MsgCenter_getCurrentTime] sysinfo [Overview_getExpRootNodeInfo ${expPath}] ${expPath}
       } else {
          puts "Overview_processIdleExp NOT SENDING warning for ${expPath} ${datestamp}"
       }
+   }
+}
+
+proc Overview_showExpLateDlg { exp_path datestamp topLevelWidget title text } {
+
+   global WARNING_AFTERID_${topLevelWidget}
+   Overview_closeWarningDlg  ${exp_path} ${datestamp} ${topLevelWidget} ${title}
+   set dlg [Dialog ${topLevelWidget} -parent [Overview_getToplevel] -modal none \
+                 -separator 1 \
+                 -title ${title}  \
+                 -default 0 -cancel 1]
+   $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
+   $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
+   $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_expLateNoShowAgainCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
+
+   # set a timer in 60 seconds to reshow the widget if the user did not respond
+   set WARNING_AFTERID_${topLevelWidget} [after 60000 [list Overview_showWarningReminder  ${exp_path} ${datestamp} ${topLevelWidget}]]
+   set msg [message [$dlg getframe].msg -aspect 300 -text ${text} -justify center -anchor c  -font [Overview_getWarningFont] ]
+   pack $msg -fill both -expand yes -padx 50 -pady 50 
+   $dlg draw
+}
+
+proc Overview_warningDlgLaunchCallback { exp_path datestamp callingTopLevelW title } {
+   Overview_launchExpFlow ${exp_path} ${datestamp}
+   Overview_closeWarningDlg ${exp_path} ${datestamp} ${callingTopLevelW} ${title}
+   ::log::log notice "Experiment ${exp_path} ${datestamp} ${title} launch xflow acknowledge." 
+}
+
+proc Overview_idleExpNoShowAgainCallback { exp_path datestamp callingTopLevelW title } {
+   SharedData_setExpStopCheckIdle ${exp_path} ${datestamp} 1
+   Overview_closeWarningDlg ${exp_path} ${datestamp} ${callingTopLevelW} ${title}
+   ::log::log notice "Experiment ${exp_path} ${datestamp} ${title} turned OFF." 
+}
+
+proc Overview_expLateNoShowAgainCallback { exp_path datestamp callingTopLevelW title } {
+   SharedData_setExpStopCheckSubmitLate ${exp_path} ${datestamp} 1
+   Overview_closeWarningDlg ${exp_path} ${datestamp} ${callingTopLevelW} ${title}
+   ::log::log notice "Experiment ${exp_path} ${datestamp} ${title} turned OFF." 
+}
+
+proc Overview_warningDlgOkCallback { exp_path datestamp callingTopLevelW title } {
+   Overview_closeWarningDlg ${exp_path} ${datestamp} ${callingTopLevelW} ${title}
+   ::log::log notice "Experiment ${exp_path} ${datestamp} ${title} ok acknowledge."
+}
+
+proc Overview_closeWarningDlg { exp_path datestamp callingTopLevelW title } {
+   global WARNING_AFTERID_${callingTopLevelW}
+   catch { after cancel [set WARNING_AFTERID_${callingTopLevelW}] }
+   destroy ${callingTopLevelW}
+}
+
+proc Overview_showWarningReminder { exp_path datestamp callingTopLevelW } {
+   global WARNING_AFTERID_${callingTopLevelW}
+   puts "Overview_showWarningReminder exp_path:${exp_path} datestamp:${datestamp}"
+   if { [winfo exists ${callingTopLevelW}] } {
+      wm withdraw ${callingTopLevelW}; wm deiconify ${callingTopLevelW} ; raise ${callingTopLevelW}
+      set WARNING_AFTERID_${callingTopLevelW} [after 60000 [list Overview_showWarningReminder  ${exp_path} ${datestamp} ${callingTopLevelW}]]
    }
 }
 
@@ -2321,6 +2402,17 @@ proc Overview_getLevelFont { canvas item_tag level } {
    }
 
    return $searchFont
+}
+
+proc Overview_getWarningFont {} {
+   set fontName WarningFont
+
+   if { [lsearch [font names] ${fontName}] == -1 } {
+      font create ${fontName}
+      font configure ${fontName} -size 14
+   }
+
+   return ${fontName}
 }
 
 proc Overview_getBoxLabelFont {} {
