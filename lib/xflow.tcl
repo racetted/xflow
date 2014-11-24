@@ -3674,6 +3674,9 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
       set hour [Utils_getHourFromDatestamp ${_datestamp}]
       set displayValue ${_displayName}-${hour}
    }
+   if { [SharedData_getMiscData XFLOW_LABEL] != "" } {
+      set displayValue "[SharedData_getMiscData XFLOW_LABEL] ${displayValue}"
+   }
    ${expLabelFrame}.exp_label configure -text ${displayValue}
 }
 

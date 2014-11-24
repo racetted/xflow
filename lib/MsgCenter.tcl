@@ -25,6 +25,7 @@ proc MsgCenter_createMenus {} {
    MsgCenter_addFileMenu ${topFrame}
    MsgCenter_addPrefMenu ${topFrame}
    MsgCenter_addHelpMenu ${topFrame}
+   MsgCenter_createLabel ${topFrame}
    grid ${topFrame} -row $MsgCenterMainGridRowMap(Menu) -column 0 -sticky ew -padx 2
 }
 
@@ -97,6 +98,15 @@ proc MsgCenter_addHelpMenu { parent } {
    menu $menuW -tearoff 0
 
    pack $menuButtonW -side right -padx 2
+}
+
+# displays value from msg_center_label entry in maestrorc file if it exists
+# display is to right of menu as bold text
+proc MsgCenter_createLabel { parent } {
+   set labelFrame [frame ${parent}.label_frame]
+   set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [SharedData_getMiscData MSG_CENTER_LABEL]]
+   grid ${labelW} -sticky nesw
+   pack ${labelFrame} -side left -padx {20 0}
 }
 
 proc MsgCenter_createToolbar { table_w_ } {
