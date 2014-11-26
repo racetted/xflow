@@ -296,7 +296,7 @@ proc Overview_processIdleExp { expIdleList } {
          $dlg draw
 
 	 # send message in msg center
-	 # MsgCenter_processNewMessage ${datestamp} [MsgCenter_getCurrentTime] sysinfo [Overview_getExpRootNodeInfo ${expPath}] ${expPath}
+	 MsgCenter_processNewMessage ${datestamp} [MsgCenter_getCurrentTime] sysinfo [Overview_getExpRootNodeInfo ${expPath}] ${dialogText} ${expPath}
       } else {
          puts "Overview_processIdleExp NOT SENDING warning for ${expPath} ${datestamp}"
       }
