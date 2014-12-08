@@ -1127,7 +1127,7 @@ proc Overview_addExpDefaultBoxes { canvas exp_path } {
    if { [SharedData_getExpShowExp ${exp_path}] == false } {
       # this is a configuration from ExpOptions.xml
       # user decided that this suite not be shown in overview i.e. mainly used for default suite
-      puts "Overview_addExpDefaultBoxes skipping ${exp_path}"
+      # puts "Overview_addExpDefaultBoxes skipping ${exp_path}"
       return
    }
 
