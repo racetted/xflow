@@ -744,6 +744,7 @@ proc SharedData_init {} {
 
    SharedData_setMiscData FLOW_SCALE 1
    SharedData_setMiscData XFLOW_EXP_LABEL_SIZE 25
+   SharedData_setMiscData XFLOW_TASK_MONITOR_CMD "tail -f"
    SharedData_setMiscData OVERVIEW_MODE false
    SharedData_setMiscData DEFAULT_CONSOLE "konsole -e"
    SharedData_setMiscData TEXT_VIEWER default

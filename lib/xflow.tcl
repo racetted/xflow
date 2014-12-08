@@ -2254,11 +2254,12 @@ proc xflow_tailfCallback { exp_path datestamp node canvas {full_loop 0} } {
          set nodeExt ".${nodeExt}"
       }
       ::log::log debug "xflow_tailfCallback looking for ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout*"
+      set taskMonitorCmd [SharedData_getMiscData XFLOW_TASK_MONITOR_CMD]
       if [ catch { set listPath [exec ksh -c "ls -rt1 ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] } message ] {
          Utils_raiseError . "Retrieve node output" $message
          return 0
       }
-      Utils_launchShell $env(TRUE_HOST) ${exp_path} ${exp_path} "Monitoring=${seqNode}${nodeExt}" "tail -f ${listPath}"
+      Utils_launchShell $env(TRUE_HOST) ${exp_path} ${exp_path} "Monitoring=${seqNode}${nodeExt}" "${taskMonitorCmd} ${listPath}"
     }
 }
 
