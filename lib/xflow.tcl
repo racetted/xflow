@@ -2254,12 +2254,28 @@ proc xflow_tailfCallback { exp_path datestamp node canvas {full_loop 0} } {
          set nodeExt ".${nodeExt}"
       }
       ::log::log debug "xflow_tailfCallback looking for ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout*"
-      set taskMonitorCmd [SharedData_getMiscData XFLOW_TASK_MONITOR_CMD]
+   # end added code
+
       if [ catch { set listPath [exec ksh -c "ls -rt1 ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] } message ] {
          Utils_raiseError . "Retrieve node output" $message
          return 0
       }
-      Utils_launchShell $env(TRUE_HOST) ${exp_path} ${exp_path} "Monitoring=${seqNode}${nodeExt}" "${taskMonitorCmd} ${listPath}"
+
+      set taskMonitorCmd [SharedData_getMiscData XFLOW_LISTING_MONITOR_CMD]
+      if { ${taskMonitorCmd} == "" } {
+         # use default
+	 set taskMonitorCmd "tail -f ${listPath}"
+      } else {
+         set machine ""
+         # added code to get machine
+         catch {
+            set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+            set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+            set machine [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res | grep node.machine | sed -e 's:node.machine=::' 2> /dev/null "]
+         }
+	 set taskMonitorCmd "${taskMonitorCmd} ${listPath} ${machine}"
+      }
+      Utils_launchShell $env(TRUE_HOST) ${exp_path} ${exp_path} "Monitoring=${seqNode}${nodeExt}" ${taskMonitorCmd}
     }
 }
 

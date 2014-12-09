@@ -75,13 +75,16 @@ proc SharedData_removeExpDatestampData { exp_path datestamp } {
    catch { after cancel [SharedData_getExpOverviewUpdateAfterId ${exp_path} ${datestamp}] }
    # ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} reset done"
 
+   ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} getting lock"
    set expDatestampMutex [SharedData_getExpDatestampMutex ${exp_path} ${datestamp}]
    # puts "SharedData_removeExpDatestampData ${expDatestampMutex} locked"
    thread::mutex lock ${expDatestampMutex}
 
+   ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset "
    # puts "SharedData_removeExpDatestampData() unset exp_path:${exp_path} datestamp:${datestamp}"
    catch { tsv::unset SharedData_${exp_path}_${datestamp} }
 
+   ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unlock"
    # puts "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unlocking..."
    thread::mutex unlock ${expDatestampMutex}
    ::log::log notice "SharedData_removeExpDatestampData() exp_path:${exp_path} datestamp:${datestamp} unset done"
@@ -744,7 +747,6 @@ proc SharedData_init {} {
 
    SharedData_setMiscData FLOW_SCALE 1
    SharedData_setMiscData XFLOW_EXP_LABEL_SIZE 25
-   SharedData_setMiscData XFLOW_TASK_MONITOR_CMD "tail -f"
    SharedData_setMiscData OVERVIEW_MODE false
    SharedData_setMiscData DEFAULT_CONSOLE "konsole -e"
    SharedData_setMiscData TEXT_VIEWER default
