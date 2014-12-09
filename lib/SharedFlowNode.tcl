@@ -1316,19 +1316,10 @@ proc SharedFlowNode_getListingNodeExtension { exp_path current_node datestamp {f
 
       if { ${loopList} != "" } {
          set parentLoopExt [SharedFlowNode_getParentLoopExt ${exp_path} ${current_node} ${datestamp}]
-         if { ${parentLoopExt} == "latest" } {
-            if { ${currentNptExt} != "latest" } {
-               # npt index cannot be selected if parent loop is on latest
-               return "-1"
-            }
+         if { ${parentLoopExt} == "latest" || ${currentNptExt} == "latest" } {
             set extension [SharedFlowNode_getLatestExt ${exp_path} ${current_node} ${datestamp}]
-         } else {
-            if { ${currentNptExt} == "latest" } {
-               # npt cannot be latest if parent loop is not latest
-               return "-1"
-            } else {
-               set extension ${parentLoopExt}${currentNptExt}
-            }
+	 } else {
+            set extension ${parentLoopExt}${currentNptExt}
          }
       } else {
          if { ${currentNptExt} == "latest" } {
@@ -1356,11 +1347,8 @@ proc SharedFlowNode_getListingNodeExtension { exp_path current_node datestamp {f
          # the status of the loop node as a whole
          set extension "${extension}${currentExt}"
       }
-      if { $latestCount != 0 && $latestCount != [llength $loopList] } {
-         # user has a mix of latest and loop index, can't figure out
-         # which one to use send an error
-         set extension "-1"
-      } elseif { $latestCount != 0 } {
+
+      if { $latestCount != 0 } {
          # user is on latest mode, get the latest for the current node
          set extension [SharedFlowNode_getLatestExt ${exp_path} ${current_node} ${datestamp}]
          if { $extension == "all" } {
@@ -1368,7 +1356,6 @@ proc SharedFlowNode_getListingNodeExtension { exp_path current_node datestamp {f
          }
       }
    }
-
    return $extension
 }
 
