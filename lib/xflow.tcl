@@ -1039,9 +1039,10 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    if { ${flowScale} != "1" } { ::tooltip::tooltip $canvas -item ${node} ${text} }
    ::DrawUtils::drawNodeStatus ${exp_path} ${node} ${datestamp} [xflow_getShawdowStatus]
    xflow_MouseWheelCheck ${canvas}
+   set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed ${exp_path} ${datestamp} $canvas $node %X %Y]
-   $canvas bind $node <Button-2> [ list xflow_historyCallback ${exp_path} ${datestamp} $node "" $canvas  48] 
-   $canvas bind $node <Button-3> [ list xflow_nodeMenu ${exp_path} ${datestamp} $canvas $node "" %X %Y]
+   $canvas bind $node <Button-2> [ list xflow_historyCallback ${exp_path} ${datestamp} $node ${currentExtension} $canvas  48] 
+   $canvas bind $node <Button-3> [ list xflow_nodeMenu ${exp_path} ${datestamp} $canvas $node ${currentExtension} %X %Y]
 
    if { $isCollapsed == 0 } {
       # get the childs to display
@@ -1407,6 +1408,8 @@ proc xflow_getNodeHistoryOptions {} {
 #                      handle the error properly
 # 
 proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w {raise_no_index_error false}} {
+   ::log::log debug "xflow_getSeqLoopArgs exp_path:$exp_path datestamp:$datestamp node:$node extension:$extension "
+
    set seqLoopArgs ""
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
       set loopIndex ""
@@ -1481,6 +1484,7 @@ proc xflow_historyCallback { exp_path datestamp node extension canvas {history 4
 
 # shows the node information and is invoked from the "Node Info" menu item.
 proc xflow_nodeInfoCallback { exp_path datestamp node extension canvas } {
+   ::log::log debug "xflow_nodeInfoCallback exp_path:$exp_path datestamp:$datestamp node:$node extension:$extension"
    global env
 
    set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"

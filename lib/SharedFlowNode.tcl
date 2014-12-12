@@ -883,7 +883,7 @@ proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status t
             tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member ""
          }
 
-         set baseExt [SharedFlowNode_getBasePart ${member}]
+         set baseExt [SharedFlowNode_getExtBasePart ${member}]
 	 set latestMemberKey latest_member_${baseExt}
          if { [SharedFlowNode_isRuntimeKeyExist ${exp_path} ${node} ${datestamp} ${latestMemberKey}] == true }  {
 	    tsv::keyldel SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} ${latestMemberKey}
@@ -892,7 +892,7 @@ proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status t
       } elseif { [expr ${nofSeparators} > ${nofParentLoops}] } {
          # changing one npt index only
          set statuses($member) "${status} ${timestamp}"
-         set baseExt [SharedFlowNode_getBasePart ${member}]
+         set baseExt [SharedFlowNode_getExtBasePart ${member}]
          tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member $member
 	 if { ${baseExt} != "" } {
 	    set latestMemberKey latest_member_${baseExt}
@@ -1366,6 +1366,7 @@ proc SharedFlowNode_getListingNodeExtension { exp_path current_node datestamp {f
 # 
 # exts sample: +2+4 for outer_loop index +2 and inner loop index +4
 proc SharedFlowNode_getLoopArgs { exp_path node datestamp exts} {
+   # puts "SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${exts}"
    set args ""
    set count 0
    set loopList [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}]
@@ -1403,31 +1404,73 @@ proc SharedFlowNode_getLoopArgs { exp_path node datestamp exts} {
 # npass_index argument is used when user is provided manual
 # the index value at submission time
 proc SharedFlowNode_getNptArgs { exp_path node datestamp {loop_index ""} {npass_index ""} } {
+   # puts "SharedFlowNode_getNptArgs exp_path:$exp_path node:$node datestamp:$datestamp loop_index:$loop_index npass_index:$npass_index"
    set args ""
 
+   # parentLoopArgs if not empty already contains -l
    set parentLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${loop_index}]
-   if { ${parentLoopArgs} != "" } {
-      set parentLoopArgs "${parentLoopArgs},"
-   } elseif { [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
-      return "-1"
-   } else {
-      set parentLoopArgs "-l "
-   }
+   set latestExt [SharedFlowNode_getLatestExt ${exp_path} ${node} ${datestamp}]
+   set latestExt [SharedFlowNode_getExtLeafPart ${latestExt}]
 
    set nodeName [SharedFlowNode_getName ${exp_path} ${node} ${datestamp}]
+
+   if { ${parentLoopArgs} != "" } {
+      # there are arguments for parent loops
+      set parentLoopArgs "${parentLoopArgs}"
+   } elseif { [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
+      # means parent loops has latest selected
+      # build from the the latest
+      set fullExt [SharedFlowNode_getLatestExt ${exp_path} ${node} ${datestamp}]
+      if { ${fullExt} != "" } {
+         # build the args and return
+         set args "[SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${fullExt}],${nodeName}=${latestExt}"
+	 return ${args}
+      }
+   }
+
    if { ${npass_index} != "" } {
+      set trimmedNpassIndex [SharedFlowNode_getExtLeafPart ${npass_index}]
       # if npass_index is passed use it...
-      # means user has provided it manually
-      set args "${parentLoopArgs}${nodeName}=[string trim ${npass_index} +]"
+      if { ${npass_index} == "latest" } {
+         if { ${latestExt} == "" } {
+	    # no index for current npt
+	    set args ${parentLoopArgs}
+         } else {
+	    if { ${parentLoopArgs} != "" } {
+	       set args "${parentLoopArgs},${nodeName}=${latestExt}"
+	    } else {
+	       set args "-l ${nodeName}=${latestExt}"
+	    }
+         }
+      } else {
+         # means user has provided it manually
+	 if { ${parentLoopArgs} != "" } {
+            set args "${parentLoopArgs},${nodeName}=${trimmedNpassIndex}"
+	 } else {
+	    set args "-l ${nodeName}=${trimmedNpassIndex}"
+	 }
+      }
    } else {
       set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${node} ${datestamp}]
       if { ${currentExt} == "latest" } {
-         set args "-1"
-         return $args
+         if { ${latestExt} == "" } {
+	    # no index for current npt
+	    set args ${parentLoopArgs}
+         } else {
+	    if { ${parentLoopArgs} != "" } {
+	       set args "${parentLoopArgs},${nodeName}=${latestExt}"
+	    } else {
+	       set args "-l ${nodeName}=${latestExt}"
+	    }
+         }
       } else {
          # remove the + sign before extension
-         set currentExt [string trim ${currentExt} +]
-         set args "${parentLoopArgs}${nodeName}=${currentExt}"
+         set currentExt [SharedFlowNode_getExtLeafPart ${currentExt}]
+	 if { ${parentLoopArgs} != "" } {
+            set args "${parentLoopArgs},${nodeName}=${currentExt}"
+	 } else {
+	    set args "-l ${nodeName}=${currentExt}"
+	 }
       }
    }
 
@@ -1468,7 +1511,7 @@ proc SharedFlowNode_getParentLoopArgs { exp_path node datestamp } {
 # input +2+3 returns +2
 # input +2+3+4 returns +2+3
 # input +2 returns ""
-proc SharedFlowNode_getBasePart { value } {
+proc SharedFlowNode_getExtBasePart { value } {
    set returnVal ""
    switch [llength [split ${value} +]] {
       0 -
@@ -1481,6 +1524,16 @@ proc SharedFlowNode_getBasePart { value } {
       }
    }
 
+   return ${returnVal}
+}
+
+# input +2+3 returns 3
+# input +2 returns 2
+# input "" return ""
+proc SharedFlowNode_getExtLeafPart { value } {
+   set returnVal ""
+   set splittedValue [split ${value} +]
+   set returnVal [lindex ${splittedValue} end]
    return ${returnVal}
 }
 
