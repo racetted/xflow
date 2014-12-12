@@ -1366,7 +1366,7 @@ proc SharedFlowNode_getListingNodeExtension { exp_path current_node datestamp {f
 # 
 # exts sample: +2+4 for outer_loop index +2 and inner loop index +4
 proc SharedFlowNode_getLoopArgs { exp_path node datestamp exts} {
-   puts "SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${exts}"
+   # puts "SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${exts}"
    set args ""
    set count 0
    set loopList [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}]
@@ -1404,8 +1404,9 @@ proc SharedFlowNode_getLoopArgs { exp_path node datestamp exts} {
 # npass_index argument is used when user is provided manual
 # the index value at submission time
 proc SharedFlowNode_getNptArgs { exp_path node datestamp {loop_index ""} {npass_index ""} } {
+   # puts "SharedFlowNode_getNptArgs exp_path:$exp_path node:$node datestamp:$datestamp loop_index:$loop_index npass_index:$npass_index"
    set args ""
-   puts "SharedFlowNode_getNptArgs exp_path:$exp_path node:$node datestamp:$datestamp loop_index:$loop_index npass_index:$npass_index"
+
    # parentLoopArgs if not empty already contains -l
    set parentLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${loop_index}]
    set latestExt [SharedFlowNode_getLatestExt ${exp_path} ${node} ${datestamp}]
