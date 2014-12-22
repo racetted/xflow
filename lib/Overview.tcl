@@ -250,14 +250,7 @@ proc Overview_isExpIdle { exp_path datestamp } {
    set lastStatusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
    set isIdle false
    if { ! [string match "default*" ${datestamp}] && ${lastStatus} != "end" && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-      set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
-      if { ${refEndTime} != "" } {
-         set refTimeLate [clock add [clock scan ${refEndTime}] 1 hour]
-	 set currentTime [clock seconds]
-	 if { ${currentTime} > ${refTimeLate} } {
-	    set isIdle true
-	 }
-      }
+      set isIdle true
    }
    # puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
    return ${isIdle}
