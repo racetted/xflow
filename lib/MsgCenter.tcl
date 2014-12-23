@@ -551,6 +551,7 @@ proc MsgCenter_removeMessages { exp datestamp } {
 proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    global MSG_ALARM_ON MSG_ALARM_ID MSG_BELL_TRIGGER
    global MSG_ALARM_COUNTER MSG_CENTER_USE_BELL
+   global MSG_ALARM_AFTER_ID
 
    set autoMsgDisplay [SharedData_getMiscData AUTO_MSG_DISPLAY]
 
@@ -580,11 +581,19 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
          }
          set MSG_ALARM_ID [after 1500 [list MsgCengter_processAlarm ${table_w_} true]]
       }
-  
+
+      # msg center flood control. When more than 1000 requests are being processed
+      # asynchronously, the MsgCenter_show command would go berserk with the display.
+      # Setting a delay of 500 ms to show the msg center so that
+      # multiple entries will cancel each other within the delay, only the last one will be working
+      if { [info exists MSG_ALARM_AFTER_ID] } {
+         after cancel ${MSG_ALARM_AFTER_ID}
+      }
+
       if { ${repeat_alarm} == false } {
-         MsgCenter_show true
+         set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show true]]
       } else {
-         MsgCenter_show
+         set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show]]
       }
    }
 }
@@ -622,7 +631,6 @@ proc MsgCenter_show { {force false} } {
       }
    } else {
       if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
-        ::log::log debug "MsgCenter_show force:${force} here"
          # force remove and redisplay of msg center
          # Need to do this cause when the msg center is in another virtual
          # desktop, it is the only way for it to redisplay in the
@@ -726,7 +734,6 @@ proc MsgCenter_doubleClickCallback { table_widget } {
    set result [ catch {
       # start the suite flow if not started
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-      set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
       if { ${isOverviewMode} == "true" } {
          Overview_launchExpFlow ${expPath} ${realDatestamp}
       }
