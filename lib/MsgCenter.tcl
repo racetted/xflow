@@ -71,7 +71,7 @@ proc MsgCenter_addPrefMenu { parent } {
 
 # adds a confirmation for message type filtering out
 proc MsgCenter_filterCallback { _sourceW _messageType {_name1 ""} {_name2 ""} {_op ""} } {
-   set msgTypeToVariableMapping { Abort SHOW_ABORT_TYPE Event SHOW_EVENT_TYPE Info SHOW_INFO_TYPE SHOW_SYSINFO_TYPE }
+   set msgTypeToVariableMapping { Abort SHOW_ABORT_TYPE Event SHOW_EVENT_TYPE Info SHOW_INFO_TYPE Sysinfo SHOW_SYSINFO_TYPE }
 
    set globalVarName [string map ${msgTypeToVariableMapping} ${_messageType}]
    if { ${globalVarName} != "" } {
