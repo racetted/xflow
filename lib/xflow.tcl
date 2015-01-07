@@ -638,8 +638,8 @@ proc xflow_populateDatestamp { exp_path datestamp date_frame } {
    ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp} ${visibleLen}]
 }
 
-# Only called in xflow overview mode.
 proc xflow_launchFlowNewWindow { exp_path datestamp } {
+   ::log::log debug "xflow_launchFlowNewWindow exp_path:$exp_path datestamp:$datestamp"
    set dateEntryCombo [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
    set hiddenDateWidget [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_hidden]
    set datestampEntryValue [${dateEntryCombo} get]   
@@ -836,6 +836,7 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
 # find a node in the flow and point to it
 # the real_node might have an extension attached to
 # it example: /a/b/c+12+1
+# also accepts: /a/b/c.+12+1
 # if multiple indexes are given... the last one can be either a npt or loop index
 # the others can only be loop indexes
 proc xflow_findNode { exp_path datestamp real_node } {
@@ -1168,17 +1169,27 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
 
       set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
       set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
-      if { ${status} == "begin" } {
-          set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
-	  if { [file readable ${outputFile}] } {
-	     ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
-          }
-      } elseif { ${status} == "abort" || ${status} == "end" } {
-          set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
-	  if { [file readable ${outputFile}] } {
-	     ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
-          }
+      switch ${status} {
+         begin {
+            set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+	    if { [file readable ${outputFile}] } {
+	       ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+            }
+	 }
+
+	 abort -
+	 end {
+            set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+	    if { [file readable ${outputFile}] } {
+	       ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
+            }
+	 }
+
+	 wait {
+            ${infoMenu} insert 0 command -label "Follow Current Dependency" -command [list xflow_followDependency ${exp_path} ${datestamp} $node ${extension} ]
+	 }
       }
+
       ${listingMenu} add command -label "Latest Success Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
       ${listingMenu} add command -label "Latest Abort Listing" \
          -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
@@ -1232,6 +1243,78 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    catch { ::DrawUtils::highLightNode ${exp_path} ${node} ${datestamp} ${canvas} }
 }
 
+# "Follow Current Dependency" callback
+proc xflow_followDependency {  exp_path datestamp node extension } {
+   ::log::log debug "xflow_followDependency exp_path:$exp_path datestamp:$datestamp node:$node extension:$extension"
+
+   set waitStatusMsg [SharedFlowNode_getMemberStatusMsg ${exp_path} ${node} ${datestamp} ${extension}]
+
+   set depExp [exec true_path ${exp_path}]
+   set isOcmDep false
+   if { ${waitStatusMsg} != "" } {
+      # parse wait msg looking for exp=, node=, index=, datestamp=
+      foreach token ${waitStatusMsg} {
+         switch -glob ${token} {
+	    exp=* {
+	       ::log::log debug "xflow_followDependency got exp: $token"
+	       if { [string match */.ocm/* ${token}] } {
+	          set isOcmDep true
+	          set depExp [textutil::trimPrefix ${token} exp=]
+	       } else {
+	          set depExp [exec true_path [::textutil::trimPrefix ${token} exp=]]
+	       }
+	    }
+	    node=* {
+	       ::log::log debug "xflow_followDependency got node: $token"
+	       # if an iteration is used, it would be part of the node
+	       # i.e. /CMC-GRIB/Global/SGPD_GDPS/Switch_GRIB/Loop_Hours+12+18
+	       set depNode [::textutil::trimPrefix ${token} node=]
+	       if { [string index ${depNode} 0] != "/" && ${isOcmDep} == false } {
+	          set depNode /${depNode}
+	       }
+	    }
+	    datestamp=* {
+	       ::log::log debug "xflow_followDependency got datestamp: $token"
+	       set depDatestamp [::textutil::trimPrefix ${token} datestamp=]
+	    }
+	 }
+      }
+
+      set xflowToplevel [xflow_getToplevel ${depExp} ${depDatestamp}] 
+      if { ${isOcmDep} == false } {
+         # start the suite flow if not started
+         set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+
+         if { [ winfo exists ${xflowToplevel} ] == 0 || [winfo viewable ${xflowToplevel}] == false } {
+            if { ${isOverviewMode} == true } {
+               Overview_launchExpFlow ${depExp} ${depDatestamp}
+            } elseif { ${depExp} != ${exp_path} } {
+               # standalone xflow mode with dependencies on an external maestro suite
+               ExpOptions_read ${depExp}
+               xflow_newDatestampFound ${depExp} ${depDatestamp}
+            }
+	 }
+
+         # ask the suite to take care of showing the selected node in it's flow
+         xflow_findNode ${depExp} ${depDatestamp} ${depNode}
+      } else {
+         # ocm dependencies... send a dialog with dependency info
+         set topW ${depExp}_${depDatestamp}
+         set topW [regsub -all {[\.]} ${topW} _]
+         set topW .dep_dialog_${topW}
+
+         set dialogText "OCM Dependency\n\nSuite: ${depExp}\n\nJob: ${depNode}\n\nDatestamp: ${depDatestamp}"
+         set dlg [Dialog ${topW} -parent ${xflowToplevel} -modal none \
+                 -separator 1 -title "OCM Dependency Dialog" -default 0 -cancel 1]
+         $dlg add -name Ok -text Ok -command [list destroy ${topW}]
+         set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify left -anchor c -font [xflow_getWarningFont]]
+         pack $msg -fill both -expand yes -padx 50 -pady 50 
+
+         $dlg draw
+      }
+   }
+}
+
 # creates the popup menu for a loop node
 proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension } {
    ::log::log debug "xflow_addLoopNodeMenu() exp_path:${exp_path} datestamp:${datestamp} node:$node"
@@ -1254,15 +1337,23 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
 
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
-   if { ${status} == "begin" } {
-      set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
-      if { [file readable ${outputFile}] } {
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+
+   switch ${status} {
+      begin {
+         set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+         if { [file readable ${outputFile}] } {
+            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+	 }
       }
-   } elseif { ${status} == "abort" || ${status} == "end" } {
-      set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
-      if { [file readable ${outputFile}] } {
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
+      abort -
+      end {
+         set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+         if { [file readable ${outputFile}] } {
+            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
+         }
+      }
+      wait {
+         ${infoMenu} insert 0 command -label "Follow Current Dependency" -command [list xflow_followDependency ${exp_path} ${datestamp} $node ${extension} ]
       }
    }
 
@@ -1318,15 +1409,23 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
 
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
-   if { ${status} == "begin" } {
-      set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
-      if { [file readable ${outputFile}] } {
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+
+   switch ${status} {
+      begin {
+         set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+         if { [file readable ${outputFile}] } {
+            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node $canvas ]
+	 }
       }
-   } elseif { ${status} == "abort" || ${status} == "end" } {
-      set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
-      if { [file readable ${outputFile}] } {
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
+      abort -
+      end {
+         set outputFile [xflow_getOutputFile ${exp_path} ${datestamp} $node]
+         if { [file readable ${outputFile}] } {
+            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${outputFile}]
+         }
+      }
+      wait {
+         ${infoMenu} insert 0 command -label "Follow Current Dependency" -command [list xflow_followDependency ${exp_path} ${datestamp} $node ${extension} ]
       }
    }
 
@@ -1454,12 +1553,14 @@ proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w {raise_n
 # By default, the middle mouse on a node shows the history for the last 48 hours.
 # The "Node History" from the Info menu on the node shows only the current datestamp
 proc xflow_historyCallback { exp_path datestamp node extension canvas {history 48} {full_loop 0} } {
-   ::log::log debug "xflow_historyCallback node:$node extension:$extension canvas:$canvas $full_loop"
+   # ::log::log debug "xflow_historyCallback node:$node extension:$extension canvas:$canvas $full_loop"
+   puts "xflow_historyCallback node:$node extension:$extension canvas:$canvas $full_loop"
 
    set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
 
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
-   if { ${extension} == "" } {
+
+   if { ${extension} == "" || ${extension} == "all" } {
       set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp} ${full_loop}]
    } else {
       set nodeExt ${extension}
@@ -3469,11 +3570,10 @@ proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
 }
 
 proc xflow_getXflowInstances { exp_path } {
-   set winStartName [xlfow_getToplevelStartName ${exp_path}]
    set wins [winfo children .]
    set count 0
    foreach win ${wins} {
-      if { [string first ${winStartName} ${win}] != -1 } {
+      if { [string first .xflow_ ${win}] != -1 } {
          incr count
       }
    }
@@ -3594,7 +3694,7 @@ proc xflow_validateExp {} {
    }
 
    set entryModTruePath ""
-   set expPath $env(SEQ_EXP_HOME)
+   set expPath [exec true_path $env(SEQ_EXP_HOME)]
    catch { set entryModTruePath [ exec true_path ${expPath}/EntryModule ] }
    if { ${entryModTruePath} == "" } {
       Utils_fatalError . "Xflow Startup Error" "Cannot access ${expPath}/EntryModule. Exiting..."
@@ -4020,14 +4120,7 @@ proc xflow_getToplevel { exp_path {datestamp ""} } {
    set topLevel [regsub -all " " ${exp_path} _]
    set topLevel [regsub -all "/" ${topLevel} _]
    set topLevel [regsub -all {[\.]} ${topLevel} _]
-   return .${topLevel}_${datestamp}
-}
-
-proc xlfow_getToplevelStartName { exp_path } {
-   set topLevel [regsub -all " " ${exp_path} _]
-   set topLevel [regsub -all "/" ${topLevel} _]
-   set topLevel [regsub -all {[\.]} ${topLevel} _]
-   return .${topLevel}_
+   return .xflow_${topLevel}_${datestamp}
 }
 
 # adds the name of widgets in an array. The widget names are
@@ -4153,6 +4246,16 @@ proc xflow_isRefreshMode { exp_path datestamp } {
    return ${refreshMode}
 }
 
+proc xflow_getWarningFont {} {
+   set fontName WarningFont
+
+   if { [lsearch [font names] ${fontName}] == -1 } {
+      font create ${fontName}
+      font configure ${fontName} -size 14
+   }
+
+   return ${fontName}
+}
 
 if { ! [info exists XFLOW_STANDALONE] || ${XFLOW_STANDALONE} == "1" } {
    if { ! [info exists env(SEQ_XFLOW_BIN) ] } {

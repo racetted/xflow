@@ -221,7 +221,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
             $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
             $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
             $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_expLateNoShowAgainCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
-            set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify center -anchor c  -font [Overview_getWarningFont] ]
+            set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify center -anchor c  -font [xflow_getWarningFont] ]
             pack $msg -fill both -expand yes -padx 50 -pady 50 
 
             $dlg draw
@@ -283,7 +283,7 @@ proc Overview_processIdleExp { expIdleList } {
          $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_idleExpNoShowAgainCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
          # set a timer in 60 seconds to reshow the widget if the user did not respond
          set WARNING_AFTERID_${topW} [after 60000 [list Overview_showWarningReminder  ${expPath} ${datestamp} ${topW}]]
-         set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify center -anchor c  -font [Overview_getWarningFont] ]
+         set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify center -anchor c  -font [xflow_getWarningFont] ]
          pack $msg -fill both -expand yes -padx 50 -pady 50 
 
          $dlg draw
@@ -294,25 +294,6 @@ proc Overview_processIdleExp { expIdleList } {
          puts "Overview_processIdleExp NOT SENDING warning for ${expPath} ${datestamp}"
       }
    }
-}
-
-proc Overview_showExpLateDlg { exp_path datestamp topLevelWidget title text } {
-
-   global WARNING_AFTERID_${topLevelWidget}
-   Overview_closeWarningDlg  ${exp_path} ${datestamp} ${topLevelWidget} ${title}
-   set dlg [Dialog ${topLevelWidget} -parent [Overview_getToplevel] -modal none \
-                 -separator 1 \
-                 -title ${title}  \
-                 -default 0 -cancel 1]
-   $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
-   $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
-   $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_expLateNoShowAgainCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
-
-   # set a timer in 60 seconds to reshow the widget if the user did not respond
-   set WARNING_AFTERID_${topLevelWidget} [after 60000 [list Overview_showWarningReminder  ${exp_path} ${datestamp} ${topLevelWidget}]]
-   set msg [message [$dlg getframe].msg -aspect 300 -text ${text} -justify center -anchor c  -font [Overview_getWarningFont] ]
-   pack $msg -fill both -expand yes -padx 50 -pady 50 
-   $dlg draw
 }
 
 proc Overview_warningDlgLaunchCallback { exp_path datestamp callingTopLevelW title } {
@@ -346,7 +327,7 @@ proc Overview_closeWarningDlg { exp_path datestamp callingTopLevelW title } {
 
 proc Overview_showWarningReminder { exp_path datestamp callingTopLevelW } {
    global WARNING_AFTERID_${callingTopLevelW}
-   puts "Overview_showWarningReminder exp_path:${exp_path} datestamp:${datestamp}"
+   # puts "Overview_showWarningReminder exp_path:${exp_path} datestamp:${datestamp}"
    if { [winfo exists ${callingTopLevelW}] } {
       wm withdraw ${callingTopLevelW}; wm deiconify ${callingTopLevelW} ; raise ${callingTopLevelW}
       set WARNING_AFTERID_${callingTopLevelW} [after 60000 [list Overview_showWarningReminder  ${exp_path} ${datestamp} ${callingTopLevelW}]]
@@ -2397,17 +2378,6 @@ proc Overview_getLevelFont { canvas item_tag level } {
    return $searchFont
 }
 
-proc Overview_getWarningFont {} {
-   set fontName WarningFont
-
-   if { [lsearch [font names] ${fontName}] == -1 } {
-      font create ${fontName}
-      font configure ${fontName} -size 14
-   }
-
-   return ${fontName}
-}
-
 proc Overview_getBoxLabelFont {} {
    set labelFont canvas_exp_box_label_font
    if { [lsearch [font names] ${labelFont}] == -1 } {
@@ -2646,9 +2616,11 @@ proc Overview_readExperiments {} {
    set suiteList {}
    if { [file exists $suitesFile] } {
       puts "Overview_readExperiments from file: $suitesFile"
+      puts "Overview_readExperiments date: [exec date]"
       ExpXmlReader_readExperiments $suitesFile
       set suiteList [ExpXmlReader_getExpList]
       puts "suiteList: $suiteList"
+      puts "Overview_readExperiments DONE date: [exec date]"
    } else {
       puts "ERROR: file not found ${suitesFile}"
       Utils_fatalError . "Overview Startup Error" "${suitesFile} does not exists! Exiting..."

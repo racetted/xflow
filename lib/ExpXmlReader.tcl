@@ -65,7 +65,7 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
             if { $childName == "Exp" } {
                set firstChild [$child firstChild]
                set expPath [$firstChild nodeValue]
-               ExpXmlReader_addExp $groupRecordName $expPath
+               ExpXmlReader_addExp $groupRecordName [exec true_path $expPath]
                ::log::log debug "exp:$expPath"
             } elseif { $childName == "Group" } {
                ExpXmlReader_readGroup $child $groupRecordName $newLevel

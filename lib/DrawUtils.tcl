@@ -770,7 +770,7 @@ proc ::DrawUtils::pointNode { exp_path datestamp node {canvas ""} } {
       set canvasList [SharedData_getExpCanvasList ${exp_path} ${datestamp}]
    }
    foreach canvasW ${canvasList} {
-      set newcords [${canvasW} bbox ${node}]
+      set newcords [${canvasW} bbox ${node}.text]
    
       if { [string length $newcords] == 0 } {
          ::log::log debug "::DrawUtils::pointNode can't find node:${node}"
@@ -778,10 +778,10 @@ proc ::DrawUtils::pointNode { exp_path datestamp node {canvas ""} } {
       }
       # the "target"s are the top-left and bottom-right
       # coordinates for the job box
-      set target_x  [expr round([lindex $newcords 0])]
-      set target_y  [expr round([lindex $newcords 1])]
-      set target_x2 [expr round([lindex $newcords 2])]
-      set target_y2 [expr round([lindex $newcords 3])]
+      set target_x  [expr round([lindex $newcords 0]) - 5]
+      set target_y  [expr round([lindex $newcords 1]) - 5]
+      set target_x2 [expr round([lindex $newcords 2]) + 5]
+      set target_y2 [expr round([lindex $newcords 3]) + 5]
    
       set x_offset 25
       set y_offset 25
@@ -955,15 +955,17 @@ proc ::DrawUtils::getCanvasViewArea { _canvas } {
 # move the item referenced by _tag to a visible area if it is not
 # visible within the current scroll area
 proc ::DrawUtils::viewCanvasItem { _canvas _tag } {
-
    foreach {x1 y1 x2 y2} [${_canvas} bbox ${_tag}] break
-   set y1 [expr $y1 - 10]
-   set x1 [expr $x1 - 10]
+   #set y1 [expr $y1 - 10]
+   #set x1 [expr $x1 - 10]
 
+   if { ${y1} < 0 } {
+      set y1 0
+   }
    foreach {vx1 vy1 vx2 vy2} [::DrawUtils::getCanvasViewArea ${_canvas}] break
    foreach {sx1 sy1 sx2 sy2} [${_canvas} cget -scrollregion] break
 
-    if { ! ( ${x1} > ${vx1} && ${x2} < ${vx2} && ${y1} > ${vy1} && ${y2} < ${vy2} ) } {
+    if { ! ( ${x1} >= ${vx1} && ${x2} <= ${vx2} && ${y1} >= ${vy1} && ${y2} <= ${vy2} ) } {
       # item is not within visible area
       set xfraction [expr {double($x1 - $sx1) / ($sx2 - $sx1)}]
       set yfraction [expr {double($y1 - $sy1) / ($sy2 - $sy1)}]
