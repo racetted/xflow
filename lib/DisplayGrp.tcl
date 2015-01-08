@@ -1,9 +1,17 @@
-# x  is x coord variable used to know where to
-#    display next exp
-# x  is y coord variable used to know where to
-#    display next exp
+#   name : name of group as it appears in xml file
+#   dname : name of group internally (directory name)
+#   level : level of group 
+#   parent : parent group dname
+#   exp_list : list of experiment that this group contains
+#   grp_list : list of group that this group contains
+#   maxy : display coord variable max y used
+#   x :  is x coord variable used to know where to
+#       display next exp
+#   y : is y coord variable used to know where to
+#       display next exp
 record define DisplayGroup {
    name
+   dname
    level {0}
    parent ""
    exp_list {}

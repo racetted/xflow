@@ -2236,8 +2236,8 @@ proc Overview_getGroupDisplayY { group_display } {
 proc Overview_addGroup { canvas displayGroup } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
    #puts "Overview_addGroup displayGroup:${displayGroup}"
+   set groupDname [$displayGroup cget -dname]
    set groupName [$displayGroup cget -name]
-   set displayName [file tail $groupName]
    set tagName ${displayGroup}
    set groupLevel [$displayGroup cget -level]
    set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
@@ -2247,15 +2247,14 @@ proc Overview_addGroup { canvas displayGroup } {
    # add indentation for each different level
    set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
 
-   #puts "Overview_addGroupsplayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY"
+   #puts "Overview_addGroupsplayGroup groupDname:$groupDname groupEntryCurrentY:$groupEntryCurrentY"
    set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
-      -text $displayName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
+      -text $groupName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
 
    # get the font for each level
    set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
 
    $canvas itemconfigure displayGroup_${tagName} -font $newFont
-   # ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
 
    $displayGroup configure -x [expr $graphStartX + 20]
    DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
