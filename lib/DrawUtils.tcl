@@ -805,6 +805,45 @@ proc ::DrawUtils::pointNode { exp_path datestamp node {canvas ""} } {
    }
 }
 
+proc ::DrawUtils::pointOverviewExp { exp_path datestamp canvasW expSearchTag } {
+
+   ::log::log debug "::DrawUtils::pointOverviewNode exp_path:${exp_path} datestamp:${datestamp}"
+
+      set newcords [${canvasW} bbox ${expSearchTag}]
+   
+      if { [string length $newcords] == 0 } {
+         ::log::log debug "::DrawUtils::pointOverviewExp can't find Exp:${exp_path} Datestamp:${datestamp}"
+         return 0
+      }
+
+      # the "target"s are the top-left and bottom-right
+      # coordinates for the job box
+      set target_x  [expr round([lindex $newcords 0]) - 5]
+      set target_y  [expr round([lindex $newcords 1]) - 5]
+      set target_x2 [expr round([lindex $newcords 2]) + 5]
+      set target_y2 [expr round([lindex $newcords 3]) + 5]
+   
+      set x_offset 25
+      set y_offset 25
+
+      set searchTag ${canvasW}searchlines
+
+      # draw four lines with arrows pointing at the job
+      ${canvasW} create line $target_x $target_y [expr $target_x - $x_offset] \
+      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
+      ${canvasW} create line $target_x2 $target_y [expr $target_x2 + $x_offset] \
+      [expr $target_y - $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
+      ${canvasW} create line $target_x $target_y2 [expr $target_x - $x_offset] \
+      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
+      ${canvasW} create line $target_x2 $target_y2 [expr $target_x2 + $x_offset] \
+      [expr $target_y2 + $y_offset] -arrow first -width 2m -tag ${searchTag} -fill black
+
+      ::DrawUtils::viewCanvasItem ${canvasW} ${searchTag}
+      raise [winfo toplevel ${canvasW}]
+      # after a few seconds, delete the lines pointing at the job
+      after 8000 [list ::DrawUtils::delPointNode ${canvasW}]
+}
+
 # search down the node tree for nodes in position 0 relative
 # to the current node that might require more space than
 # usual ones Example loop. Used mainly to know where to draw the first

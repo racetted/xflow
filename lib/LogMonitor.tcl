@@ -206,12 +206,12 @@ proc LogMonitor_createLogFile { _exp_path _datestamp } {
 
 # the log file is considered inactive if it has not been modified for 
 # the last hour
-proc LogMonitor_isLogFileActive { _exp_path _datestamp } {
+proc LogMonitor_isLogFileActive { _exp_path _datestamp {_idleThreshold 60} } {
    if { ${_datestamp} == "" } {
       return false
    }
 
-   if { [LogMonitor_getDatestampModTime ${_exp_path} ${_datestamp}] < [clock add [clock seconds] -1 hours] } {
+   if { [LogMonitor_getDatestampModTime ${_exp_path} ${_datestamp}] < [clock add [clock seconds] -${_idleThreshold} minutes] } {
       return false
    }
    return true

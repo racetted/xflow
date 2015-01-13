@@ -48,7 +48,6 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
       set groupRecordName [regsub -all "/" ${groupDname} _]
       set groupRecordName [regsub -all " " ${groupRecordName} _ ]
       if { ! [record exists instance $groupRecordName] } {
-         puts "DisplayGroup $groupRecordName "
          set recordId [DisplayGroup $groupRecordName -name ${groupName} -dname ${groupDname} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0]
          lappend DISPLAY_GROUPS ${recordId}
          if { ${parent_name} != "" } {
