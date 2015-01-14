@@ -2384,6 +2384,39 @@ proc xflow_tailfCallback { exp_path datestamp node canvas {full_loop 0} } {
     }
 }
 
+proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_path } {
+   global SESSION_TMPDIR
+   puts "exp_path:${exp_path} datestamp:${datestamp} file_path:${file_path}"
+   set textViewer [SharedData_getMiscData TEXT_VIEWER]
+   set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
+
+   set winTitle "View File Exp=${exp_path} File=[file tail ${file_path}]"
+   regsub -all " " ${winTitle} _ tempfile
+   regsub -all "/" ${tempfile} _ tempfile
+   set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+   set trueFile [exec true_path ${file_path}]
+
+   if { [file readable ${trueFile}] } {
+      file copy ${trueFile} ${outputfile}
+   } else {
+      set fileId [open ${outputfile} "w"] 
+      if { ! [file exists ${file_path}] } {
+         puts ${fileId} "File ${file_path} does not exist!"
+      } else {
+         puts ${fileId} "Cannot open ${file_path}!"
+      }
+      close ${fileId}
+   }
+
+   if { ${textViewer} == "default" } {
+      TextEditor_createWindow ${winTitle} ${outputfile} top .
+   } else {
+      set editorCmd "${textViewer} ${outputfile}"
+      ::log::log debug "xflow_genericEditorCallback running ${defaultConsole} ${editorCmd}"
+      TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
+   }
+}
+
 # verifies if the temp output file for a node exists
 # and returns the path to the file if it exists.
 # returns "" if not exists
@@ -3065,7 +3098,7 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display true} } {
       # reset the default spacing for drawing flow
       SharedData_resetExpDisplayData ${exp_path} ${datestamp} ${canvas}
       set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
-
+      xflow_addExpSettingsImg ${exp_path} ${datestamp} ${canvas}
       xflow_clearCanvasFlow ${canvas}
       xflow_drawNode ${exp_path} ${datestamp} $canvas $rootNode 0 true
       xflow_resetScrollRegion ${canvas}
@@ -3078,6 +3111,48 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display true} } {
 
    }
    ::log::log debug "xflow_drawflow() done"
+}
+
+# add exp settings icon in flow canvas
+proc xflow_addExpSettingsImg { exp_path datestamp canvas } {
+   set expCfgImage ${canvas}.exp_cfg_image
+   image create photo ${expCfgImage} -file [SharedData_getMiscData IMAGE_DIR]/config.png
+   set iconStartX [expr [SharedData_getMiscData CANVAS_X_START] - 25]
+   set iconY [SharedData_getMiscData CANVAS_Y_START]
+
+   ${canvas} create image ${iconStartX} ${iconY} -image ${expCfgImage} -tag "ExpSettings"
+   ${canvas} bind ExpSettings <Double-1> [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${canvas} ${exp_path}/experiment.cfg]
+   ${canvas} bind ExpSettings <Button-3> [list xflow_addExpSettingsMenu ${exp_path} ${datestamp} ${canvas} %X %Y]
+
+   tooltip::tooltip ${canvas}  -items ExpSettings "View/edit experiment settings."
+
+   set lineStartX [expr [SharedData_getMiscData CANVAS_X_START] - 10]
+   set lineEndX [expr ${lineStartX} + 18]
+   ::DrawUtils::drawline ${canvas} ${lineStartX} ${iconY} ${lineEndX} ${iconY} none \
+    [SharedData_getColor FLOW_SUBMIT_ARROW] on [SharedData_getColor SHADOW_COLOR] settings
+}
+
+# right click popup menu from exp settings icon
+proc xflow_addExpSettingsMenu { exp_path datestamp canvas x y } {
+   set popMenu .pop_menu
+   if { [winfo exists ${popMenu}] } {
+      destroy ${popMenu}
+   }
+
+   set expConfigPath ${exp_path}/experiment.cfg
+   set expResourcePath ${exp_path}/resources/resources.def
+   set expOptionsPath ${exp_path}/ExpOptions.xml
+
+   menu .pop_menu -title "Exp Settings" -tearoff 0
+   ${popMenu} add command -label "Exp Config" -underline 4 \
+      -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expConfigPath}]
+   ${popMenu} add command -label "Exp Resource" -underline 4 \
+      -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expResourcePath}]
+   ${popMenu} add command -label "Exp Options" -underline 4 \
+      -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expOptionsPath}]
+   # $popMenu add separator
+
+   tk_popup $popMenu ${x} ${y}
 }
 
 # this function resizes the xflow main window depending on the
