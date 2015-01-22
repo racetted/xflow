@@ -1132,7 +1132,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
       destroy ${popMenu}
    }
 
-   menu ${popMenu} -title [SharedFlowNode_getName ${exp_path} ${node} ${datestamp}]
+   menu ${popMenu} -title [SharedFlowNode_getName ${exp_path} ${node} ${datestamp}] -tearoffcommand [list xflow_nodeMenuTearoffCallback]
 
    # when the menu is destroyed, clears the highlighted node
    bind ${popMenu} <Unmap> [list xflow_nodeMenuUnmapCallback ${exp_path} ${datestamp}]
@@ -1241,6 +1241,13 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
 
    # highlights the selected node
    catch { ::DrawUtils::highLightNode ${exp_path} ${node} ${datestamp} ${canvas} }
+}
+
+proc xflow_nodeMenuTearoffCallback { menu_w tearoff_w } {
+   ::log::log debug  "xflow_nodeMenuTearoffCallback menu_w:$menu_w tearoff_w:$tearoff_w"
+   if { [winfo exists ${tearoff_w}] } {
+      wm minsize ${tearoff_w} 100 100
+   }
 }
 
 # "Follow Current Dependency" callback
