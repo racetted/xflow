@@ -577,6 +577,7 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
       if { ${raiseAlarm} == "true" } {
          MsgCenter_setHeaderStatus ${table_w_} alarm
          if { [expr ${MSG_ALARM_COUNTER} > ${MSG_BELL_TRIGGER}] && ${MSG_CENTER_USE_BELL} == true } {
+            ::log::log debug "MsgCenter_processAlarm sounding bell..."
             bell
          }
          set MSG_ALARM_ID [after 1500 [list MsgCengter_processAlarm ${table_w_} true]]
@@ -718,6 +719,7 @@ proc MsgCenter_doubleClickCallback { table_widget } {
    global MsgTableColMap
 
    ::log::log debug "MsgCenter_doubleClickCallback widget:${table_widget}"
+   MsgCenter_stopBell ${table_widget}
    set selectedRow [${table_widget} curselection]
    # retrieve needed information
    set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
@@ -763,6 +765,8 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
    global MsgTableColMap
 
    ::log::log debug "MsgCenter_rightClickCallback widget:${w} x:$x y:$y"
+
+   MsgCenter_stopBell ${table_widget}
 
    # convert screen coords to widget coords
    foreach {mytable myx myy} \
