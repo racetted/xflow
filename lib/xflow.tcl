@@ -2195,15 +2195,54 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
    if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      set loopStart [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp start])]
-      set loopEnd [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp end])]
-      set loopStep [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp step])]
-      set loopSet [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp set])]
-      if { $loopSet == 0 } {
-         set loopSet 1
+      set tmpExpression [SharedFlowNode_getGenericAttribute $exp_path $node $datestamp expression]
+      if { $tmpExpression == "" } {
+         set loopStart [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp start])]
+         set loopEnd [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp end])]
+         set loopStep [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp step])]
+         set loopSet [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp set])]
+         if { $loopSet == 0 } {
+            set loopSet 1
+         }
+         set jobNumber [expr int([expr abs([expr floor([expr (($loopEnd - $loopStart)/${loopStep})+1])])])]
+         set answer [tk_messageBox -message "You are submitting a loop of $jobNumber job(s), ${loopSet} member(s) at a time" -type okcancel -icon info]
+      } else {
+         set answertxt "You are submitting a loop of "
+         set expArray [split $tmpExpression ","]
+         set firstFlag 1
+         set minusOneFlag 0
+         set lastEnd 0
+         set lastEndIsExt 0
+         set tmpExt 0
+         set loopExts [SharedFlowNode_getLoopExtensions $exp_path $node $datestamp]
+         foreach def $expArray {
+            set defArray [split $def ":"]
+            if { $firstFlag != 1 } {
+               append answertxt ", then "
+               if { $lastEnd == [lindex $defArray 0] && $lastEndIsExt == 1 } {
+                  set minusOneFlag 1
+                  set lastEndIsExt 0
+               }
+            } else {
+               set firstFlag 0
+            }
+            set lastEnd [lindex $defArray 1]
+            while { [expr {$tmpExt+[lindex $defArray 2]}] <= $lastEnd } {
+               set tmpExt [expr {$tmpExt+[lindex $defArray 2]}]
+            }
+            if { $tmpExt == $lastEnd } {
+               set lastEndIsExt 1
+            }
+            set jobNumber [expr int([expr abs([expr floor([expr (([lindex $defArray 1] - [lindex $defArray 0])/[lindex $defArray 2])+1])])])]
+            if { $minusOneFlag == 1 } {
+               set jobNumber [expr {$jobNumber-1}]
+               set minusOneFlag 0
+            }
+            set loopSet [lindex $defArray 3]
+            append answertxt "${jobNumber} job(s), ${loopSet} member(s) at a time"
+         }
+         set answer [tk_messageBox -message "${answertxt}" -type okcancel -icon info]
       }
-      set jobNumber [expr int([expr abs([expr floor([expr (($loopEnd - $loopStart)/${loopStep})+1])])])]
-      set answer [tk_messageBox -message "You are submitting a loop of $jobNumber job(s), ${loopSet} member(s) at a time" -type okcancel -icon info]
       switch -- $answer {
          cancel return
       }
@@ -3174,6 +3213,7 @@ proc xflow_getLoopResources { node exp_path datestamp} {
       STEP step
       END end
       SET set
+      EXPRESSION expression
    }
 
    foreach { name value } [array get valueList] {

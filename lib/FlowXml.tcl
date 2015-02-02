@@ -238,11 +238,12 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
          set step [$current_xml_node getAttribute step "1"]
          set setValue [$current_xml_node getAttribute "set" "1"]
          set end [$current_xml_node getAttribute end "1"]
+         set expression [$current_xml_node getAttribute expression ""]
          set type default
          if { $setValue != "" } {
             set type loopset
          }
-         SharedFlowNode_setLoopData ${exp_path} ${newParentNode} ${datestamp} ${type} ${start} ${step} ${end} ${setValue}
+         SharedFlowNode_setLoopData ${exp_path} ${newParentNode} ${datestamp} ${type} ${start} ${step} ${end} ${setValue} ${expression}
       }
       "SWITCH" {
          set newParentNode [FlowXml_createNodeFromXml ${exp_path}  ${datestamp} ${parent_flow_node} ${current_xml_node}]
