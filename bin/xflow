@@ -26,6 +26,7 @@ arguments=$*
 eval `cclargs -D "" $0 "[maestro gui]" \
   -d            ""      ""      "[sequencer date]" \
   -noautomsg "0"        "1"   "[value 1 means no auto message display]" \
+  -nosubmitpopup "0"        "1"   "[value 1 means no submit popup]" \
   -rc ""        ""      "[maestrorc preferrence file]" \
   -n ""      ""      "[focus on this node at startup]" \
   -l ""      ""      "[loop arguments to node argument]" \
@@ -33,6 +34,7 @@ eval `cclargs -D "" $0 "[maestro gui]" \
   ++ $arguments`
 
 test "${noautomsg}" != "" && automsg_opt="-noautomsg ${noautomsg}" || automsg_opt=""
+test "${nosubmitpopup}" != "" && nosubmitpopup_opt="-nosubmitpopup ${nosubmitpopup}" || nosubmitpopup=""
 
 date_opt=""
 if [[ "${d}" != "" ]] ; then
@@ -64,6 +66,6 @@ if [[ "${debug}" = "1" ]] ; then
    debug_opt="-debug"
 fi
 
-echo $TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt} ${date_opt} ${rc_opt} ${node_opt} ${loop_opt} ${debug_opt}
+echo $TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt} ${nosubmitpopup_opt} ${date_opt} ${rc_opt} ${node_opt} ${loop_opt} ${debug_opt}
 export NO_STOP_MESSAGE=on
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt} ${date_opt} ${rc_opt} ${node_opt} ${loop_opt} ${debug_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/xflow.tcl -main ${automsg_opt} ${nosubmitpopup_opt} ${date_opt} ${rc_opt} ${node_opt} ${loop_opt} ${debug_opt}
