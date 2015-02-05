@@ -269,39 +269,20 @@ proc SharedFlowNode_getLoopExtensions { exp_path node datestamp } {
                set count [expr $count + $step]
             }
          } else {
-            set endIndex 1
-            set stepIndex 2
-            set expArray [split $tmpExpression ",:"]
-            set count [lindex $expArray 0]
-            set detectedEnd 0
+            set slowArray [split $tmpExpression ","]
             set firstFlag 1
-            foreach defNode $expArray {
-               if { $defNode > $detectedEnd } {
-                  set detectedEnd $defNode
+            foreach slowEl $slowArray {
+               set fastArray [split $slowEl ":"]
+               set count [lindex $fastArray 0]
+               if { $firstFlag == 0 && $count == $lastCount } {
+                  set count [expr $count + [lindex $fastArray 2]]
                }
-            }
-            while { $count <= $detectedEnd } {
-               set breakFlag 0
-               while { $count <= [lindex $expArray $endIndex] && $breakFlag == 0 } {
-                  if { $firstFlag == 0 } {
-                     if { [expr {$count+[lindex $expArray $stepIndex]}] <= [lindex $expArray $endIndex] } {
-                        set count [expr {$count+[lindex $expArray $stepIndex]}]
-                     } else {
-                        set breakFlag 1
-                     }
-                  } else {
-                     set firstFlag 0
-                  }
-                  if { $breakFlag == 0 } {
-                     lappend extensions $count
-                  }
+               while { $count <= [lindex $fastArray 1] } {
+                  lappend extensions $count
+                  set lastCount $count
+                  set count [expr $count + [lindex $fastArray 2]]
                }
-               if { [expr {$stepIndex+4}] < [llength $expArray] } {
-                  set endIndex [expr {$endIndex+4}]
-                  set stepIndex [expr {$stepIndex+4}]
-               } else {
-                  break
-               }
+               set firstFlag 0
             }
          }
       }
@@ -1304,13 +1285,22 @@ proc SharedFlowNode_getLoopInfo { exp_path loop_node datestamp } {
             set txt "\[${start},${end},${step},${setValue}\]"
          } else {
             set count 0
+            set first 0
             set expArray [split $tmpExpression ",:"]
             foreach defNode $expArray {
+               if { $count == 0 } {
+                  if { $first != 0 } {
+                     append txt ",\n"
+                  } else {
+                     set first 1
+                  }
+                  append txt "\["
+               }
                if { $count < 3 } {
                   append txt $defNode ","
                   incr count
                } else {
-                  append txt $defNode "\n"
+                  append txt $defNode "\]"
                   set count 0
                }
             }
