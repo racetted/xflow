@@ -643,18 +643,26 @@ proc xflow_launchFlowNewWindow { exp_path datestamp } {
    set dateEntryCombo [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
    set hiddenDateWidget [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_hidden]
    set datestampEntryValue [${dateEntryCombo} get]   
-
-   set datestampRealValue [Utils_getRealDatestampValue ${datestampEntryValue}]
+   set top [winfo toplevel ${dateEntryCombo}]
+   set seqDatestamp [Utils_getRealDatestampValue ${datestampEntryValue}]
+   set currentWidth  [winfo width ${top}]
+   set currentHeight  [winfo height ${top}]
    # do nothing if selected value is empty or is already current flow
-   if { ${datestampEntryValue} != "" && ${datestampRealValue} != ${datestamp} } {
+   if { ${datestampEntryValue} != "" && ${seqDatestamp} != ${datestamp} } {
+      SharedData_setExpFlowSize ${exp_path} ${seqDatestamp} ${currentWidth}x${currentHeight}
+      set newTop [xflow_getToplevel ${exp_path} ${seqDatestamp}]
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
-         Overview_launchExpFlow ${exp_path} ${datestampRealValue}
+         Overview_launchExpFlow ${exp_path} ${seqDatestamp}
       } else {
-         xflow_newDatestampFound ${exp_path} ${datestampRealValue}
+         xflow_newDatestampFound ${exp_path} ${seqDatestamp}
       }
+      # set new window size to current one
+      after 25 [list wm geometry ${newTop} =${currentWidth}x${currentHeight}]
+
       # reset to existing value in current flow
       ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
    }
+
 }
 
 
@@ -678,7 +686,7 @@ proc xflow_initDatestampEntry { exp_path datestamp } {
 proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
    ::log::log debug "xflow_setDatestampCallback exp_path:$exp_path datestamp:$exp_path parent_w:$parent_w"
    set top [winfo toplevel $parent_w]
-   SharedData_setMiscData FLOW_GEOMETRY [winfo geometry $top]
+
    set dateEntry [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
    set dateEntryCombo [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_entry]
 
@@ -706,21 +714,22 @@ proc xflow_setDatestampCallback { exp_path datestamp parent_w } {
    Utils_busyCursor $top
    # create log file is not exists
    set seqDatestamp [Utils_getRealDatestampValue ${newDatestamp}]
+
+   # keep the new window the same size as the current one
+   SharedData_setExpFlowSize ${exp_path} ${seqDatestamp} [winfo width ${top}]x[winfo height ${top}]
+
    set logfile ${exp_path}/logs/${seqDatestamp}_nodelog
 
    set hiddenDate [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_hidden]
    set previousDatestamp [${hiddenDate} cget -text]
 
    if { ${previousDatestamp} != ${newDatestamp} } {
-      # SharedFlowNode_resetNodeStatus ${exp_path} [SharedData_getExpRootNode ${exp_path} ${datestamp}] ${seqDatestamp}
 
       MsgCenter_clearAllMessages
       if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
          # add the datestamp so the monitor does not try to launch the xflow again
          LogMonitor_addOneExpDatestamp ${exp_path} ${seqDatestamp}
       }
-      LogMonitor_createLogFile ${exp_path} ${seqDatestamp}
-      # SharedData_setExpDatestampOffset ${exp_path} ${seqDatestamp} 0
 
       ::log::log debug "xflow_setDatestampCallback exp_path:${exp_path} seqDatestamp:${seqDatestamp}"
 
@@ -1223,6 +1232,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
          ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${extension} ${popMenu}]
          ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
          ${statusMenu} add command -label "Initialize node" -command [list xflow_initnodeCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+         ${miscMenu} add command -label "Save Workdir" -command [list xflow_saveWorkCallback ${exp_path} ${datestamp} $node $canvas ]
       }
       ${statusMenu} add command -label "Begin" -command [list xflow_beginCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
       ${statusMenu} add command -label "End" -command [list xflow_endCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
@@ -1454,6 +1464,7 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
 
    # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas ${popmenu_w}]
    ${miscMenu} add command -label "View Workdir" -command [list xflow_launchWorkCallback ${exp_path} ${datestamp} $node $canvas ]
+   ${miscMenu} add command -label "Save Workdir" -command [list xflow_saveWorkCallback ${exp_path} ${datestamp} $node $canvas ]
    ${statusMenu} add command -label "Initnode" -command [list xflow_initnodeNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${statusMenu} add command -label "End" -command [list xflow_endNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${statusMenu} add command -label "Abort" -command [list xflow_abortNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
@@ -1792,6 +1803,24 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
       }
       set taskBasedir "[lindex $workpath 1]${seqNode}${nodeExt}"
       Utils_launchShell [lindex $workpath 0] ${exp_path} [lindex $workpath 1] "TASK_BASEDIR=[lindex $workpath 1]"
+   }
+}
+
+proc xflow_saveWorkCallback { exp_path datestamp node canvas } {
+   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/savework
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp}]
+
+   if { $nodeExt == "-1" } {
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
+   } else {
+      ::log::log debug "$seqExec -n ${seqNode} -ext ${nodeExt} -d ${datestamp}"
+      # if [ catch { exec ksh -c "export SEQ_EXP_HOME=${exp_path};$seqExecSavework -n ${seqNode} -ext ${nodeExt} -d ${datestamp} &" ] } message ] {
+      #    Utils_raiseError . "Node Save Work Directory" $message
+      # }
+      set winTitle "node savework ${seqNode} ${nodeExt} - Exp=${exp_path}"
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+            -n $seqNode -d ${datestamp} -ext ${nodeExt}
    }
 }
 
@@ -4348,7 +4377,6 @@ if { ! [info exists XFLOW_STANDALONE] || ${XFLOW_STANDALONE} == "1" } {
    set lib_dir $env(SEQ_XFLOW_BIN)/../lib
    puts "lib_dir=$lib_dir"
    set auto_path [linsert $auto_path 0 $lib_dir ]
-
    package require Tk
    catch { wm withdraw . }
    package require DrawUtils
