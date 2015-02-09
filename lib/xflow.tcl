@@ -1807,17 +1807,14 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
 }
 
 proc xflow_saveWorkCallback { exp_path datestamp node canvas } {
-   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/savework
+   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodesavework
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp}]
 
    if { $nodeExt == "-1" } {
-      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
+      Utils_raiseError $canvas "node savework" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       ::log::log debug "$seqExec -n ${seqNode} -ext ${nodeExt} -d ${datestamp}"
-      # if [ catch { exec ksh -c "export SEQ_EXP_HOME=${exp_path};$seqExecSavework -n ${seqNode} -ext ${nodeExt} -d ${datestamp} &" ] } message ] {
-      #    Utils_raiseError . "Node Save Work Directory" $message
-      # }
       set winTitle "node savework ${seqNode} ${nodeExt} - Exp=${exp_path}"
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
             -n $seqNode -d ${datestamp} -ext ${nodeExt}
