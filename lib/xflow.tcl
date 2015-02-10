@@ -3802,7 +3802,9 @@ proc xflow_validateExp {} {
    }
 
    set entryModTruePath ""
-   set expPath [exec true_path $env(SEQ_EXP_HOME)]
+   # set expPath [exec true_path $env(SEQ_EXP_HOME)]
+   set expPath [file normalize $env(SEQ_EXP_HOME)]
+   set expPath [exec true_path ${expPath}]
    catch { set entryModTruePath [ exec true_path ${expPath}/EntryModule ] }
    if { ${entryModTruePath} == "" } {
       Utils_fatalError . "Xflow Startup Error" "Cannot access ${expPath}/EntryModule. Exiting..."
