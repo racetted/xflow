@@ -1,3 +1,6 @@
+package require struct::record
+namespace import ::struct::record::*
+
 #   name : name of group as it appears in xml file
 #   dname : name of group internally (directory name)
 #   level : level of group 
@@ -19,6 +22,13 @@ record define DisplayGroup {
    x {0}
    y {0}
    {maxy 0}
+}
+
+proc DisplayGrp_createDefaultGroup { exp_path  } {
+   global  DISPLAY_GROUPS
+   set groupName Default
+   set defaultGroupId [DisplayGroup ${groupName} -name ${groupName} -level 0 -exp_list [list ${exp_path}]]
+   lappend DISPLAY_GROUPS $defaultGroupId
 }
 
 # adds the group to the DisplayGroup so it can be viewed

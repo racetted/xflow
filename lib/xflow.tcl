@@ -3903,11 +3903,9 @@ proc xflow_cleanDatestampVars { exp_path datestamp } {
 # this is the place to validate essential exp
 # data for startup
 proc xflow_validateExp { startup_exp } {
-   global env
-   puts "xflow_validateExp startup_exp:$startup_exp"
+   global env XFLOW_STANDALONE
  
    set myExp ${startup_exp}
-   puts "xflow_validateExp myExp:$myExp"
 
    if { ${myExp} == "" && [info exists env(SEQ_EXP_HOME)] } {
       # if exp not defined at startup and seq_exp_home defined use it
@@ -3915,7 +3913,6 @@ proc xflow_validateExp { startup_exp } {
       set myExp $env(SEQ_EXP_HOME)
    }
 
-   puts "xflow_validateExp  2 myExp:$myExp"
    if { ${myExp} == "" } {
       set isExpCheckPath [pwd]/EntryModule
       # at last if pwd is an exp, use it
@@ -3925,20 +3922,22 @@ proc xflow_validateExp { startup_exp } {
       }
    }
 
-   puts "xflow_validateExp  3 myExp:$myExp"
    if { ${myExp} == "" } {
-      Utils_fatalError . "Xflow Startup Error" "No exp defined at startup! SEQ_EXP_HOME environment variable not set! Exiting..."
+      Utils_fatalError . "Startup Error" "No exp defined at startup! SEQ_EXP_HOME environment variable not set! Exiting..."
    }
 
    set entryModTruePath ""
    set expPath [file normalize ${myExp}]
-   set expPath [exec true_path ${expPath}]
    catch { set entryModTruePath [ exec true_path ${expPath}/EntryModule ] }
    if { ${entryModTruePath} == "" } {
-      Utils_fatalError . "Xflow Startup Error" "Cannot access ${expPath}/EntryModule. Exiting..."
+      Utils_fatalError . "Startup Error" "Cannot access ${expPath}/EntryModule. Exiting..."
    }
 
-   set env(SEQ_EXP_HOME) ${expPath}
+   set expPath [exec true_path ${expPath}]
+   if { $XFLOW_STANDALONE == 1 } {
+      set env(SEQ_EXP_HOME) ${expPath}
+   }
+
    return ${expPath}
 }
 

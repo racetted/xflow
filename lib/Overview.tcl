@@ -15,9 +15,6 @@ if { ! [info exists env(SEQ_XFLOW_BIN) ] } {
    exit
 }
 
-
-# puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
-
 set lib_dir $env(SEQ_XFLOW_BIN)/../lib
 set auto_path [linsert $auto_path 0 $lib_dir ]
 
@@ -2757,13 +2754,15 @@ proc Overview_quit {} {
 }
 
 proc Overview_parseCmdOptions {} {
-   global argv env 
+   global argv env startupExp DISPLAY_GROUPS
    global AUTO_MSG_DISPLAY
 
+   set startupExp ""
    if { [info exists argv] } {
       set options {
          {main ""}
          {debug "Turn debug on"}
+         {exp.arg "" "experiment path"}
          {logfile.arg "" "App log file"}
          {noautomsg.arg "" "No automatic message display"}
          {suites.arg "" "suites definition file"}
@@ -2803,6 +2802,7 @@ proc Overview_parseCmdOptions {} {
             }
 	 }
 
+
          if { $params(logspan) != "" } {
             SharedData_setMiscData LOG_SPAN_IN_HOURS $params(logspan)
          } else { 
@@ -2837,6 +2837,13 @@ proc Overview_parseCmdOptions {} {
             # if not defined in maestrorc, used a default one
             SharedData_setMiscData SUITES_FILE $env(HOME)/xflow.suites.xml
          }
+
+         if { ! ($params(exp) == "") && $params(suites) == "" } {
+	    set startupExp $params(exp)
+	    xflow_validateExp ${startupExp}
+	    DisplayGrp_createDefaultGroup ${startupExp}
+            SharedData_setMiscData SUITES_FILE ""
+	 }
 
          Overview_main
       }
@@ -3334,7 +3341,7 @@ proc Overview_createPluginToolbar { parentToolbar } {
 }
 
 proc Overview_main {} {
-   global env
+   global env startupExp
    global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
 
@@ -3363,7 +3370,10 @@ proc Overview_main {} {
    bind ${topOverview} <Configure> [list Overview_setMainCoords ${topOverview}]
    wm withdraw ${topOverview}
 
-   Overview_readExperiments
+   if { [SharedData_getMiscData SUITES_FILE] != "" } {
+      Overview_readExperiments
+   }
+
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}
    set plugin_toolbar [Overview_createPluginToolbar ${topOverview}.toolbar]
