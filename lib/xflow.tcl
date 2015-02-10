@@ -3902,21 +3902,43 @@ proc xflow_cleanDatestampVars { exp_path datestamp } {
 
 # this is the place to validate essential exp
 # data for startup
-proc xflow_validateExp {} {
+proc xflow_validateExp { startup_exp } {
    global env
-   if { ! [info exists env(SEQ_EXP_HOME)] } {
-      Utils_fatalError . "Xflow Startup Error" "SEQ_EXP_HOME environment variable not set! Exiting..."
+   puts "xflow_validateExp startup_exp:$startup_exp"
+ 
+   set myExp ${startup_exp}
+   puts "xflow_validateExp myExp:$myExp"
+
+   if { ${myExp} == "" && [info exists env(SEQ_EXP_HOME)] } {
+      # if exp not defined at startup and seq_exp_home defined use it
+      puts "Using SEQ_EXP_HOME at startup: $env(SEQ_EXP_HOME)"
+      set myExp $env(SEQ_EXP_HOME)
+   }
+
+   puts "xflow_validateExp  2 myExp:$myExp"
+   if { ${myExp} == "" } {
+      set isExpCheckPath [pwd]/EntryModule
+      # at last if pwd is an exp, use it
+      if { [file exists ${isExpCheckPath}] && [file type ${isExpCheckPath}] == "link" && [file readable ${isExpCheckPath}] } {
+         puts "Using current pwd as exp for startup: [pwd]"
+         set myExp [pwd]
+      }
+   }
+
+   puts "xflow_validateExp  3 myExp:$myExp"
+   if { ${myExp} == "" } {
+      Utils_fatalError . "Xflow Startup Error" "No exp defined at startup! SEQ_EXP_HOME environment variable not set! Exiting..."
    }
 
    set entryModTruePath ""
-   # set expPath [exec true_path $env(SEQ_EXP_HOME)]
-   set expPath [file normalize $env(SEQ_EXP_HOME)]
+   set expPath [file normalize ${myExp}]
    set expPath [exec true_path ${expPath}]
    catch { set entryModTruePath [ exec true_path ${expPath}/EntryModule ] }
    if { ${entryModTruePath} == "" } {
       Utils_fatalError . "Xflow Startup Error" "Cannot access ${expPath}/EntryModule. Exiting..."
    }
 
+   set env(SEQ_EXP_HOME) ${expPath}
    return ${expPath}
 }
 
@@ -4191,10 +4213,12 @@ proc xflow_parseCmdOptions {} {
    set rcFile ""
    set focusNode ""
    set focusLoopArgs ""
+   set startupExp ""
    if { [info exists argv] } {
       set options {
          {main ""}
          {date.arg "" "Date for standalone startup"}
+         {exp.arg "" "experiment path"}
          {logfile.arg "" "App log file"}
          {debug "Turn debug on"}
          {noautomsg.arg "" "No auto message display"}
@@ -4264,13 +4288,20 @@ proc xflow_parseCmdOptions {} {
          set focusLoopArgs $params(loop)
       }
 
+      if { ! ($params(exp) == "") } {
+         puts "Using exp specified at startup: $params(exp)"
+         # user specified an exp, use it
+         set startupExp $params(exp)
+      }
+
+      set expPath [xflow_validateExp ${startupExp}]
+
       SharedData_setDerivedColors
       SharedData_setPlugins "xflow"
 
       xflow_init
       ::DrawUtils::initStatusImages
 
-      set expPath [xflow_validateExp]
       ExpOptions_read ${expPath}
 
       if { ($params(date) == "") } {
@@ -4420,9 +4451,6 @@ proc xflow_init { {exp_path ""} } {
    # initate array containg name for widgets used in the application
 
    if { ${XFLOW_STANDALONE} == "1" } {
-      if { ! [info exists env(SEQ_EXP_HOME)] } {
-         Utils_fatalError . "Xflow Startup Error" "SEQ_EXP_HOME environment variable not set! Exiting..."
-      }
       Utils_createTmpDir
       SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 
