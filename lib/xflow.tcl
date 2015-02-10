@@ -57,6 +57,11 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
       $menuW add checkbutton -label "Auto Message Display" -variable AUTO_MSG_DISPLAY \
          -command [list xflow_setAutoMsgDisplay] \
          -onvalue true -offvalue false
+
+      $menuW add checkbutton -label "Submit Popup" -variable SUBMIT_POPUP \
+         -command [list xflow_setSubmitPopup] \
+         -onvalue true -offvalue false
+
    }
 
    $menuW add checkbutton -label "Show Shadow Status" -variable SHADOW_STATUS \
@@ -462,6 +467,14 @@ proc xflow_setAutoMsgDisplay {} {
    global AUTO_MSG_DISPLAY
    ::log::log debug "xflow_setAutoMsgDisplay AUTO_MSG_DISPLAY new value: ${AUTO_MSG_DISPLAY}"
    SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
+}
+
+# this function is only called in xflow standalone mode.
+# It propagates the Output Display configuration
+proc xflow_setSubmitPopup {} {
+   global SUBMIT_POPUP
+   ::log::log debug "xflow_setSubmitPopup SUBMIT_POPUP new value: ${SUBMIT_POPUP}"
+   SharedData_setMiscData SUBMIT_POPUP ${SUBMIT_POPUP}
 }
 
 # this function creates the widgets for the node kill window
@@ -1203,7 +1216,8 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
       ${listingMenu} add command -label "Latest Abort Listing" \
          -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
          -foreground [::DrawUtils::getBgStatusColor abort]
-      ${listingMenu} add command -label "Compare Latest Listings" -command [list xflow_diffLatestListings ${exp_path} ${datestamp} $node ${extension} $canvas]
+      ${listingMenu} add command -label "Latest Submission Listing" -command [list xflow_submissionListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+      ${listingMenu} add command -label "Compare Latest Success/Abort Listings" -command [list xflow_diffLatestListings ${exp_path} ${datestamp} $node ${extension} $canvas]
       ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
 
       # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas $popMenu]
@@ -1378,7 +1392,6 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
    ${listingMenu} add command -label "Loop Abort Listing" \
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas 1] \
       -foreground [::DrawUtils::getBgStatusColor abort]
-
    ${listingMenu} add command -label "Member Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${listingMenu} add command -label "Member Abort Listing" \
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
@@ -1450,7 +1463,8 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
    ${listingMenu} add command -label "Latest Abort Listing" \
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
       -foreground [::DrawUtils::getBgStatusColor abort]
-   ${listingMenu} add command -label "Compare Latest Listings" -command [list xflow_diffLatestListings ${exp_path} ${datestamp} $node ${extension} $canvas]
+      ${listingMenu} add command -label "Latest Submission Listing" -command [list xflow_submissionListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${listingMenu} add command -label "Compare Latest Success/Abort Listings" -command [list xflow_diffLatestListings ${exp_path} ${datestamp} $node ${extension} $canvas]
    ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
 
 
@@ -2329,15 +2343,54 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
    if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      set loopStart [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp start])]
-      set loopEnd [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp end])]
-      set loopStep [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp step])]
-      set loopSet [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp set])]
-      if { $loopSet == 0 } {
-         set loopSet 1
+      set tmpExpression [SharedFlowNode_getGenericAttribute $exp_path $node $datestamp expression]
+      if { $tmpExpression == "" } {
+         set loopStart [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp start])]
+         set loopEnd [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp end])]
+         set loopStep [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp step])]
+         set loopSet [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp set])]
+         if { $loopSet == 0 } {
+            set loopSet 1
+         }
+         set jobNumber [expr int([expr abs([expr floor([expr (($loopEnd - $loopStart)/${loopStep})+1])])])]
+         set answer [tk_messageBox -message "You are submitting a loop of $jobNumber job(s), ${loopSet} member(s) at a time" -type okcancel -icon info]
+      } else {
+         set answertxt "You are submitting a loop of "
+         set expArray [split $tmpExpression ","]
+         set firstFlag 1
+         set minusOneFlag 0
+         set lastEnd 0
+         set lastEndIsExt 0
+         set tmpExt 0
+         set loopExts [SharedFlowNode_getLoopExtensions $exp_path $node $datestamp]
+         foreach def $expArray {
+            set defArray [split $def ":"]
+            if { $firstFlag != 1 } {
+               append answertxt ", then "
+               if { $lastEnd == [lindex $defArray 0] && $lastEndIsExt == 1 } {
+                  set minusOneFlag 1
+                  set lastEndIsExt 0
+               }
+            } else {
+               set firstFlag 0
+            }
+            set lastEnd [lindex $defArray 1]
+            while { [expr {$tmpExt+[lindex $defArray 2]}] <= $lastEnd } {
+               set tmpExt [expr {$tmpExt+[lindex $defArray 2]}]
+            }
+            if { $tmpExt == $lastEnd } {
+               set lastEndIsExt 1
+            }
+            set jobNumber [expr int([expr abs([expr floor([expr (([lindex $defArray 1] - [lindex $defArray 0])/[lindex $defArray 2])+1])])])]
+            if { $minusOneFlag == 1 } {
+               set jobNumber [expr {$jobNumber-1}]
+               set minusOneFlag 0
+            }
+            set loopSet [lindex $defArray 3]
+            append answertxt "${jobNumber} job(s), ${loopSet} member(s) at a time"
+         }
+         set answer [tk_messageBox -message "${answertxt}" -type okcancel -icon info]
       }
-      set jobNumber [expr int([expr abs([expr floor([expr (($loopEnd - $loopStart)/${loopStep})+1])])])]
-      set answer [tk_messageBox -message "You are submitting a loop of $jobNumber job(s), ${loopSet} member(s) at a time" -type okcancel -icon info]
       switch -- $answer {
          cancel return
       }
@@ -2971,6 +3024,59 @@ proc xflow_abortListingCallback { exp_path datestamp node extension canvas {full
    }
 }
 
+# this funtion is invoked to show the latest submission listing
+proc xflow_submissionListingCallback { exp_path datestamp node extension canvas {full_loop 0} } {
+   global SESSION_TMPDIR
+   ::log::log debug "xflow_submissionListingCallback node:$node canvas:$canvas"
+   if { ${datestamp} == "" } {
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
+      return
+   }
+   set submissionListingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
+   set listingViewer [SharedData_getMiscData TEXT_VIEWER]
+   set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
+
+   if { ${extension} == "" } {
+      set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp} ${full_loop}]
+   } else {
+      if { ${full_loop} == 0 } {
+         set nodeExt ${extension}
+      } else {
+         # get the parent part of the extension
+         set nodeExt [string range ${extension} 0 [expr [string last + ${extension}] -1]]
+      }
+   }
+
+   if { $nodeExt == "-1" } {
+      Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
+   } else {
+      if { $nodeExt != "" } {
+         set nodeExt ".${nodeExt}"
+      }
+      # title is used only for default viewer
+      # set winTitle "abort Listing [file tail $node]${nodeExt}.${datestamp}"
+      set winTitle "submission Listing [file tail $node]${nodeExt}.${datestamp}"
+      regsub -all " " ${winTitle} _ tempfile
+      regsub -all "/" ${tempfile} _ tempfile
+      set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+
+      set seqCmd "${submissionListingExec} -n ${seqNode}${nodeExt} -type submission -d ${datestamp}"
+      #set s1 [exec ${submissionListingExec} -n ${seqNode}${nodeExt} -type submission -d ${datestamp}]
+      #if { [string first "listing not available" $s1 1] > 1 } {
+      #   set seqCmd "${submissionListingExec} -n ${seqNode}${nodeExt} -type submission"
+      #}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+
+      if { ${listingViewer} == "default" } {
+         TextEditor_createWindow ${winTitle} ${outputfile} top .
+      } else {
+         set editorCmd "${listingViewer} ${outputfile}"
+         TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
+      }
+   }
+}
+
 # this function is called when the user selects an index from the npt or loop
 # listbox. It redraws the flow starting from the selected widget
 proc xflow_indexedNodeSelectionCallback { exp_path node datestamp canvas combobox_w} {
@@ -3383,6 +3489,7 @@ proc xflow_getLoopResources { node exp_path datestamp} {
       STEP step
       END end
       SET set
+      EXPRESSION expression
    }
 
    foreach { name value } [array get valueList] {
@@ -4080,7 +4187,7 @@ proc out {} {
 }
 
 proc xflow_parseCmdOptions {} {
-   global env argv XFLOW_STANDALONE AUTO_MSG_DISPLAY APP_LOGFILE
+   global env argv XFLOW_STANDALONE AUTO_MSG_DISPLAY SUBMIT_POPUP APP_LOGFILE
    set rcFile ""
    set focusNode ""
    set focusLoopArgs ""
@@ -4091,6 +4198,7 @@ proc xflow_parseCmdOptions {} {
          {logfile.arg "" "App log file"}
          {debug "Turn debug on"}
          {noautomsg.arg "" "No auto message display"}
+         {nosubmitpopup.arg "" "No submit popup"}
          {rc.arg "" "maestrorc preferrence file"}
 	 {node.arg "" "Highlight a specific node at startup"}
 	 {loop.arg "" "Loop arguments for specific node"}
@@ -4136,6 +4244,13 @@ proc xflow_parseCmdOptions {} {
          puts "xflow noautomsg flag: $params(noautomsg)"
          if { $params(noautomsg) == 1 } {
             set AUTO_MSG_DISPLAY false
+         }
+      }
+
+      if { $params(nosubmitpopup) != "" } {
+         puts "xflow nosubmitpopup flag: $params(nosubmitpopup)"
+         if { $params(nosubmitpopup) == 1 } {
+            set SUBMIT_POPUP false
          }
       }
 
@@ -4296,7 +4411,7 @@ proc xflow_msgCenterThreadReady {} {
 
 proc xflow_init { {exp_path ""} } {
    global env DEBUG_TRACE XFLOW_STANDALONE
-   global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF
+   global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF SUBMIT_POPUP
    global SHADOW_STATUS
    global SESSION_TMPDIR FLOW_SCALE
 
@@ -4318,6 +4433,12 @@ proc xflow_init { {exp_path ""} } {
       } else {
          ::log::log debug "xflow_init SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}"
          SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
+      }
+      if { ! [info exists SUBMIT_POPUP] } {
+         set SUBMIT_POPUP [SharedData_getMiscData SUBMIT_POPUP]
+      } else {
+         ::log::log debug "xflow_init SharedData_setMiscData SUBMIT_POPUP ${SUBMIT_POPUP}"
+         SharedData_setMiscData SUBMIT_POPUP ${SUBMIT_POPUP}
       }
       xflow_setTkOptions
       keynav::enableMnemonics .
