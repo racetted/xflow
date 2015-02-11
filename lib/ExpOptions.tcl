@@ -146,6 +146,8 @@ proc ExpOptions_read { _exp_path } {
       set showExpValue [ExpXmlOptions_getShowExp ${domDoc} ${_exp_path}]
 
       set checkIdleValue [ExpXmlOptions_getCheckIdle ${domDoc} ${_exp_path}]
+      set idleThresholdValue [ExpXmlOptions_getIdleThreshold ${domDoc} ${_exp_path}]
+      set submitLateThresholdValue [ExpXmlOptions_getSubmitLateThreshold ${domDoc} ${_exp_path}]
 
       set scheduleType [ExpXmlOptions_getScheduleInfoType ${domDoc} ${_exp_path}]
       set scheduleValue [ExpXmlOptions_getScheduleInfoValue ${domDoc} ${_exp_path}]
@@ -161,6 +163,8 @@ proc ExpOptions_read { _exp_path } {
       SharedData_setExpAutoLaunch ${_exp_path} ${autoLaunchValue}
       SharedData_setExpShowExp ${_exp_path} ${showExpValue}
       SharedData_setExpCheckIdle ${_exp_path} ${checkIdleValue}
+      SharedData_setExpIdleThreshold ${_exp_path} ${idleThresholdValue}
+      SharedData_setExpSubmitLateThreshold ${_exp_path} ${submitLateThresholdValue}
       SharedData_setExpScheduleType ${_exp_path} ${scheduleType}
       SharedData_setExpScheduleValue ${_exp_path} ${scheduleValue}
    } else {

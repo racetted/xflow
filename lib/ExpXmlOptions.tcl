@@ -3,7 +3,7 @@ package require tdom
 #
 #<ExpOptions displayName="HRDPS/West/forecast" shortName="hrdps">
 #   <ScheduleInfo sched_type="day_of_week" sched_value="0 1 2 3 4 5 6" />
-#   <MonitorInfo auto_launch="false" check_idle="false" show_exp="false"/>
+#   <MonitorInfo auto_launch="false" check_idle="false" idle_threshold="60" submit_late_threshold="15" show_exp="false"/>
 #   <SupportInfo executing="Yes" status="All Full Support"/>
 #   <Exp hour="00">
 #      <TimingInfo ref_start="15:00" ref_end="17:00"/>
@@ -15,7 +15,12 @@ package require tdom
 #   </Exp>
 # </ExpOptions>
 #
-
+#
+# idle_threshold : threshold value in minutes after which the application will
+#                        warn if the exp log file is still idle. 
+#                        This is an overwrite at the exp level.
+# submit_late_threshold : threshold value in minuets after which the application will warn
+#                         if the exp run has still not been launched
 # parse the xml file and returns a doc
 proc ExpXmlOptions_parse { _xml_file } {
    set doc [dom parse [tDOM::xmlReadFile ${_xml_file}]]
@@ -166,6 +171,30 @@ proc ExpXmlOptions_getCheckIdle { _dom_doc _exp_path } {
       set checkIdleValue  [${monitorInfoNode} getAttribute check_idle true]
    }
    return ${checkIdleValue}
+}
+
+proc ExpXmlOptions_getIdleThreshold { _dom_doc _exp_path } {
+   set idleThresholdValue ""
+   set root [${_dom_doc} documentElement root]
+
+   set query "/ExpOptions/MonitorInfo"
+   set monitorInfoNode [${root} selectNodes ${query}]
+   if { ${monitorInfoNode} != "" } {
+      set idleThresholdValue  [${monitorInfoNode} getAttribute idle_threshold ""]
+   }
+   return ${idleThresholdValue}
+}
+
+proc ExpXmlOptions_getSubmitLateThreshold { _dom_doc _exp_path } {
+   set submitLateThresholdValue ""
+   set root [${_dom_doc} documentElement root]
+
+   set query "/ExpOptions/MonitorInfo"
+   set monitorInfoNode [${root} selectNodes ${query}]
+   if { ${monitorInfoNode} != "" } {
+      set submitLateThresholdValue  [${monitorInfoNode} getAttribute submit_late_threshold ""]
+   }
+   return ${submitLateThresholdValue}
 }
 
 proc ExpXmlOptions_getScheduleInfoType { _dom_doc _exp_path } {

@@ -392,7 +392,11 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
          }
 
          if { ${_ToFlow} == true } {
-            LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp}
+	    if { ${type} != "wait" } {
+               LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp}
+	    } else {
+               LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} ${msg}
+	    }
          }
 
          if { ${_toOverview} == true } {
@@ -420,7 +424,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
    return 0
 }
 
-proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp } {
+proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp {_msg ""} } {
   #  puts " LogReader_processFlowLine _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt}" 
    # node & signal is mandatory to be processed
    # else the line is ignored
@@ -451,7 +455,7 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
             if { ${_type} == "init" } {
                if { ${nodeType} == "loop" || ${nodeType} == "npass_task" } {
                   if { ${_loopExt} != "" } {
-                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} 1
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} "" 1
                   } else {
                      # we got an update on the whole loop
                      SharedFlowNode_resetAllStatus ${_exp_path} ${flowNode} ${_datestamp} 1
@@ -460,24 +464,25 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
                   # current node is not loop
                   if { [SharedFlowNode_getLoops ${_exp_path} ${flowNode} ${_datestamp}] != "" } {
                      # part of parent loop container
-                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} 1
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} "" 1
                   } else {
                      SharedFlowNode_resetNodeStatus ${_exp_path} ${flowNode} ${_datestamp}
                   }
                }
             } else {
+
                # not init state, any other
                if { ${nodeType} == "loop" || ${nodeType} == "npass_task" } {
                   if { ${_loopExt} != "" } {
                      # we got an update on a loop iteration
-                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} 0
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} ${_msg}
                   } else {
                      # we got an update on the whole loop
-                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} all ${statusType} ${_type} ${_timestamp}
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} all ${statusType} ${_type} ${_timestamp} ${_msg}
                   }
                } else { 
                   # current node is not loop
-                  SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp}
+                  SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} ${_msg}
                }
             }
 

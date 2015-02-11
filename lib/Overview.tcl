@@ -14,7 +14,6 @@ if { ! [info exists env(SEQ_XFLOW_BIN) ] } {
    puts "Environment variable SEQ_XFLOW_BIN must be defined!"
    exit
 }
-# puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
 
 set lib_dir $env(SEQ_XFLOW_BIN)/../lib
 set auto_path [linsert $auto_path 0 $lib_dir ]
@@ -41,7 +40,6 @@ proc Overview_setTkOptions {} {
 # the next hour switch and then wake up every hour to perform the same task
 proc Overview_GridAdvanceHour { {new_hour ""} } {
    global graphHourX graphX graphStartX graphStartY
-   global CHECK_EXP_IDLE
 
    if [ catch {
 
@@ -106,7 +104,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    # check if we need to release obsolete data
    OverviewExpStatus_checkObseleteDatestamps
 
-   set expIdleList {}
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
@@ -142,28 +139,116 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
                # delete current exp box from overview
                Overview_removeExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus}
-
-               set expBoxTag [Overview_getExpBoxTag ${exp} ${datestamp} default false]
-               set datestamp ${expBoxTag}
-               set lastStatus init
-            }
-
-	    if { ${CHECK_EXP_IDLE} == true && [ExpOptions_getCheckIdle ${exp}] == true 
-	         && [Overview_isExpIdle ${exp} ${datestamp}] == true } {
-	       lappend expIdleList "${exp} ${datestamp}"
-            }
-
-            if { ${lastStatusTime} != "" } {
-               Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
+               
+               # set expBoxTag [Overview_getExpBoxTag ${exp} ${datestamp} default false]
+               # set datestamp ${expBoxTag}
+               # set lastStatus init
+               Overview_addExpDefaultBoxes ${canvasW} ${exp} [Utils_getHourFromDatestamp ${datestamp}]
+            } else {
+               if { ${lastStatusTime} != "" } {
+                  Overview_updateExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus} ${lastStatusTime}
+	       }
             }
          }
+
       }
    }
 
    Overview_checkGridLimit 
    Overview_setCurrentTime ${canvasW}
-   Overview_processIdleExp ${expIdleList}
    ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}] DONE"
+}
+
+# redraws the overview for an exp
+proc Overview_redrawExp { exp_path } {
+   set canvasW [Overview_getCanvas]
+
+   # delete all exp boxes
+   Overview_removeAllExpBoxes ${canvasW} ${exp_path}
+
+   # create default boxes
+   Overview_addExpDefaultBoxes ${canvasW} ${exp_path}
+
+   set datestamps [OverviewExpStatus_getDatestamps ${exp_path}]
+   foreach datestamp ${datestamps} {
+      set runBoxCoords [Overview_getRunBoxBoundaries  ${canvasW} ${exp_path} ${datestamp}]
+      set currentX [lindex ${runBoxCoords} 0]
+      set lastStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
+      set lastStatusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
+
+      if { ${lastStatusTime} != "" } {
+         Overview_updateExpBox ${canvasW} ${exp_path} ${datestamp} ${lastStatus} ${lastStatusTime}
+      }
+   }
+}
+
+# sends a notification when an exp/datestamp is in idle state... 
+#
+# idle state is defined by an experiment where 
+# 1) the log file exists (not in default state)
+# 2) The log files and has not been modified in over
+# a configurable idle threshold value
+# 3) the current state is not "end" state
+proc Overview_checkExpIdle { { next_check_time 3600000 } } {
+   ::log::log debug "Overview_checkExpIdle [exec date]"
+   global CHECK_EXP_IDLE
+   set displayGroups [ExpXmlReader_getGroups]
+
+   set dialogTitle "Exp Idle Warning"
+   if { ${CHECK_EXP_IDLE} == true } {
+      foreach displayGroup $displayGroups {
+         set expList [$displayGroup cget -exp_list]
+
+         foreach expPath $expList {
+            set datestamps [OverviewExpStatus_getDatestamps ${expPath}]
+            set idleThreshold [SharedData_getExpIdleThreshold ${expPath}]
+            foreach datestamp ${datestamps} {
+               set lastStatus [OverviewExpStatus_getLastStatus ${expPath} ${datestamp}]
+	       if { [ExpOptions_getCheckIdle ${expPath}] == true && ! [string match "default*" ${datestamp}] 
+	          &&  ${lastStatus} != "end" && [LogMonitor_isLogFileActive ${expPath} ${datestamp} ${idleThreshold}] == false 
+	         && [Overview_isExpIdle ${expPath} ${datestamp}] == true } {
+
+                  # raise dialog to warn user exp is idled
+                  ::log::log notice "Experiment ${expPath} ${datestamp} IDLE..."
+                  set topW .idle_[regsub -all {[\.]} ${expPath}_${datestamp} _]
+                  if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckIdle  ${expPath} ${datestamp}] == "0" } {
+                     set idleThreshold [SharedData_getExpIdleThreshold ${expPath}]
+		     set elapsedTimeMinutes [expr ([clock scan now] - [LogMonitor_getDatestampModTime ${expPath} ${datestamp}])  / 60]
+	             set dialogText "Exp Idle Warning:\n\nExp: ${expPath} datestamp:${datestamp}  \
+		     has been idle since \"[clock format [LogMonitor_getDatestampModTime ${expPath} ${datestamp}]] (${elapsedTimeMinutes} Minutes)\". \
+		     \nIdle Threshold: ${idleThreshold} Minutes\nPlease verify!" 
+
+                     global WARNING_AFTERID_${topW}
+                     set dlg [Dialog ${topW} -parent [Overview_getToplevel] -modal none \
+                             -separator 1 -title ${dialogTitle} -default 0 -place below -cancel 0]
+                     $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+                     $dlg add -name Find -text "Find" -width 8  -command [list Overview_findExp ${expPath} ${datestamp}]
+                     $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+                     $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_idleExpNoShowAgainCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+
+                     # set a timer in 60 seconds to reshow the widget if the user did not ackownledge
+                     set WARNING_AFTERID_${topW} [after 60000 [list Overview_showWarningReminder  ${expPath} ${datestamp} ${topW}]]
+                     set msg [message [$dlg getframe].msg -aspect 600 -text ${dialogText} -justify left -anchor c  -font [xflow_getWarningFont] ]
+                     pack $msg -fill both -expand yes -padx 20 -pady 20 
+
+                     $dlg draw
+
+                     # send message in msg center
+	             MsgCenter_processNewMessage ${datestamp} [MsgCenter_getCurrentTime] sysinfo [Overview_getExpRootNodeInfo ${expPath}] "Exp Idle Warning!" ${expPath}
+                  } else {
+                     puts "Overview_processIdleExp NOT SENDING warning for ${expPath} ${datestamp}"
+                  }
+               }
+            }
+         }
+      }
+   } else {
+      ::log::log debug "Overview_checkExpIdle CHECK_EXP_IDLE off!"
+   }
+
+   if { [string is integer -strict ${next_check_time}] } {
+      after ${next_check_time} [list Overview_checkExpIdle ${next_check_time}]
+   }
 }
 
 # checks exp submission late every 15 minutes
@@ -173,67 +258,79 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
    # puts "Overview_checkExpSubmitLate date:[exec date]"
    if { ${CHECK_EXP_IDLE} == true } {
 
-      set displayGroups [ExpXmlReader_getGroups]
       set canvasW [Overview_getCanvas]
-      set expLateList {}
       set currentTime [clock seconds]
-
-      foreach displayGroup $displayGroups {
+      foreach displayGroup [ExpXmlReader_getGroups] {
          set expList [$displayGroup cget -exp_list]
+
          foreach expPath $expList {
 	    if { [ExpOptions_getCheckIdle ${expPath}] } {
+	       # check submit late for this exp
+               set expSubmitLateThreshold [SharedData_getExpSubmitLateThreshold ${expPath}]
+               if { [string is integer -strict ${expSubmitLateThreshold}] == 0 || ${expSubmitLateThreshold} <=0 } {
+                  ::log::log notice "Overview_checkExpSubmitLate ${expPath} invalid OVERVIEW_SUBMIT_LATE_THRESHOLD value: ${expSubmitLateThreshold}"
+                  puts "ERROR: Overview_checkExpSubmitLate ${expPath} invalid OVERVIEW_SUBMIT_LATE_THRESHOLD value: ${expSubmitLateThreshold}"
+	          set expSubmitLateThreshold 15
+               }
+
+               # get the exp box from the overview
                set checkList [Overview_getExpBoxTags ${canvasW} ${expPath}]
+	       # we are looking for boxes that have default_ tag, those are the ones that have not been submitted
 	       set checkListIndex [lsearch -all ${checkList} default_*]
 	       foreach checkIndex ${checkListIndex} {
 	          set checkTag [lindex ${checkList} ${checkIndex}]
                   set refStartTime [Overview_getRefTimings ${expPath} [Utils_getHourFromDatestamp ${checkTag}] start]
                   if { [Overview_isExpStartPassed ${expPath} ${checkTag}] == true && ${refStartTime} != "" } {
-                     set refTimeLate [clock add [clock scan ${refStartTime}] 15 minute]
-	             if { ${currentTime} > ${refTimeLate} } {
-		        lappend expLateList "${expPath} ${checkTag}"
-	             }
+                     set hour [Utils_getHourFromDatestamp ${checkTag}]
+                     set datestamp [Overview_getScheduledDatestamp ${expPath} ${hour}]
+		     set dayValue [Utils_getDayClockFromDatestamp ${datestamp}]
+		     scan ${refStartTime} %d:%d hourValue minuteValue
+                     set refTimeStartSeconds [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
+                     set refTimeLateSeconds [clock add ${refTimeStartSeconds} ${expSubmitLateThreshold} minute]
+
+	             if { ${currentTime} > ${refTimeLateSeconds} } {
+		        # we need to send a warning dialog
+                        set shortName [SharedData_getExpShortName ${expPath}]
+                        set expLabel "${shortName}-${hour}"
+
+		        set elapsedTimeMinutes [expr ([clock scan now] - ${refTimeStartSeconds})  / 60]
+                        ::log::log notice "Experiment ${expPath} ${datestamp} SUBMIT LATE." 
+                        set topW .submit_late_[regsub -all {[\.]} ${expPath}_${datestamp} _]
+                        if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckSubmitLate ${expPath} ${datestamp}] == "0" } {
+	                   # exp is late , send a message dialog warning user
+	                   set dialogTitle "Exp Submit Late Warning"
+	                   set dialogText "Exp Submit Late Warning:\n\nExp: ${expPath}\n${expLabel} \
+			   has been late since \"[clock format ${refTimeStartSeconds}] (${elapsedTimeMinutes} Minutes)\". \
+			   \nSubmit Late Threshold: ${expSubmitLateThreshold} Minutes\nPlease verify!" 
+
+
+                           global WARNING_AFTERID_${topW}
+                           Overview_closeWarningDlg  ${expPath} ${datestamp} ${topW} ${dialogTitle}
+                           set dlg [Dialog ${topW} -parent . -modal none -geometry 750x300 \
+                                -separator 1 -title ${dialogTitle} -default 0 -cancel 0]
+                           $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+                           $dlg add -name Find -text "Find" -width 8  -command [list Overview_findExp ${expPath} ${datestamp} true]
+                           $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+                           $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_expLateNoShowAgainCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
+
+                           set msg [message [$dlg getframe].msg -aspect 600 -text ${dialogText} -justify left -anchor w  -font [xflow_getWarningFont] ]
+                           pack $msg -fill x -expand yes -padx 20 -pady 20 
+
+                           $dlg draw
+
+                           # set a timer in 60 seconds to reshow the widget if the user did not respond
+                           set WARNING_AFTERID_${topW} [after 60000 [list Overview_showWarningReminder  ${expPath} ${datestamp} ${topW}]]
+
+	                   # send message in msg center
+	                   MsgCenter_processNewMessage ${datestamp} [MsgCenter_getCurrentTime] sysinfo [Overview_getExpRootNodeInfo ${expPath}] "Submission Late Warning!" ${expPath}
+
+                        } else {
+                           puts "Overview_checkExpSubmitLate NOT SENDING warning for ${expPath} ${datestamp}"
+	                }
+                     }
                   }
                }
             }
-         }
-      }
-
-      foreach expLate ${expLateList} {
-         set expPath [lindex ${expLate} 0]
-         set expTag [lindex ${expLate} 1]
-         set hour [Utils_getHourFromDatestamp ${expTag}]
-         set datestamp [Overview_getReferenceDatestamp ${expPath} ${hour}]
-         set shortName [SharedData_getExpShortName ${expPath}]
-         set expLabel "${shortName}-${hour}"
-         ::log::log notice "Experiment ${expPath} ${datestamp} SUBMIT LATE." 
-         set topW ${expPath}_${datestamp}
-         set topW [regsub -all {[\.]} ${topW} _]
-         set topW .submit_late_${topW}
-         if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckSubmitLate ${expPath} ${datestamp}] == "0" } {
-	    # exp is late , send a message dialog warning user
-	    set dialogTitle "Exp Submit Late Warning"
-	    set dialogText "Run ${expLabel} submission is late from experiment ${expPath} ... Please verify!"
-
-            global WARNING_AFTERID_${topW}
-            Overview_closeWarningDlg  ${expPath} ${datestamp} ${topW} ${dialogTitle}
-            set dlg [Dialog ${topW} -parent . -modal none \
-                 -separator 1 -title ${dialogTitle} -default 0 -cancel 1]
-            $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
-            $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
-            $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_expLateNoShowAgainCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
-            set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify center -anchor c  -font [Overview_getWarningFont] ]
-            pack $msg -fill both -expand yes -padx 50 -pady 50 
-
-            $dlg draw
-
-            # set a timer in 60 seconds to reshow the widget if the user did not respond
-            set WARNING_AFTERID_${topW} [after 60000 [list Overview_showWarningReminder  ${expPath} ${datestamp} ${topW}]]
-
-	    # send message in msg center
-	    MsgCenter_processNewMessage ${datestamp} [MsgCenter_getCurrentTime] sysinfo [Overview_getExpRootNodeInfo ${expPath}] ${dialogText} ${expPath}
-
-         } else {
-            puts "Overview_checkSubmitLate NOT SENDING warning for ${expPath} ${datestamp}"
          }
       }
    }
@@ -249,77 +346,25 @@ proc Overview_isExpIdle { exp_path datestamp } {
    set lastStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    set lastStatusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
    set isIdle false
-   if { ! [string match "default*" ${datestamp}] && ${lastStatus} != "end" && [LogMonitor_isLogFileActive ${exp_path} ${datestamp}] == false } {
-      set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
-      if { ${refEndTime} != "" } {
-         set refTimeLate [clock add [clock scan ${refEndTime}] 1 hour]
-	 set currentTime [clock seconds]
-	 if { ${currentTime} > ${refTimeLate} } {
-	    set isIdle true
-	 }
-      }
+   set idleThreshold [SharedData_getExpIdleThreshold ${exp_path}]
+   if { ! [string match "default*" ${datestamp}] && ${lastStatus} != "end" && [LogMonitor_isLogFileActive ${exp_path} ${datestamp} ${idleThreshold}] == false } {
+      set isIdle true
    }
    # puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
    return ${isIdle}
 }
 
-# idle state is defined by an experiment that is not in end state, has a reference end time,
-# sends a notification when an exp/datestamp is in idle state... 
-# the reference end time has been passed by over one hour and the log file has not been modified in over
-# one hour
-proc Overview_processIdleExp { expIdleList } {
-   foreach { expIdle } ${expIdleList} {
-      set expPath [lindex ${expIdle} 0]
-      set datestamp [lindex ${expIdle} 1]
-      # puts "Overview_processIdleExp expPath:$expPath datestamp:$datestamp"
-      ::log::log notice "Experiment ${expPath} ${datestamp} IDLE..."
-      set topW ${expPath}_${datestamp}
-      set topW [regsub -all {[\.]} ${topW} _]
-      set topW .idle_${topW}
-      if { [winfo exists ${topW}] == 0 && [SharedData_getExpStopCheckIdle  ${expPath} ${datestamp}] == "0" } {
-         # set callback to configure msg dialog as topmost
-	 # after 1000 [list Overview_setTopMost $topW]
-	 set dialogTitle "Exp Idle Warning"
-	 set dialogText "Experiment: ${expPath} datestamp: ${datestamp} has been idle for over 1 Hour... Please verify!" 
-
-         global WARNING_AFTERID_${topW}
-         set dlg [Dialog ${topW} -parent [Overview_getToplevel]  -modal none \
-                 -separator 1 -title ${dialogTitle} -default 0 -cancel 1]
-         $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
-         $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
-         $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_idleExpNoShowAgainCallback ${expPath} ${datestamp} ${topW} ${dialogTitle}]
-         # set a timer in 60 seconds to reshow the widget if the user did not respond
-         set WARNING_AFTERID_${topW} [after 60000 [list Overview_showWarningReminder  ${expPath} ${datestamp} ${topW}]]
-         set msg [message [$dlg getframe].msg -aspect 300 -text ${dialogText} -justify center -anchor c  -font [Overview_getWarningFont] ]
-         pack $msg -fill both -expand yes -padx 50 -pady 50 
-
-         $dlg draw
-
-	 # send message in msg center
-	 MsgCenter_processNewMessage ${datestamp} [MsgCenter_getCurrentTime] sysinfo [Overview_getExpRootNodeInfo ${expPath}] ${dialogText} ${expPath}
-      } else {
-         puts "Overview_processIdleExp NOT SENDING warning for ${expPath} ${datestamp}"
-      }
+# locates and point to an exp/datestamp box in the overview grid
+proc Overview_findExp { exp_path datestamp {isDefault false}} {
+   ::log::log debug "Overview_findExp exp_path:${exp_path} datestamp:${datestamp}"
+   if { ${isDefault} == true } {
+      set currentStatus default
+   } else {
+      set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    }
-}
 
-proc Overview_showExpLateDlg { exp_path datestamp topLevelWidget title text } {
-
-   global WARNING_AFTERID_${topLevelWidget}
-   Overview_closeWarningDlg  ${exp_path} ${datestamp} ${topLevelWidget} ${title}
-   set dlg [Dialog ${topLevelWidget} -parent [Overview_getToplevel] -modal none \
-                 -separator 1 \
-                 -title ${title}  \
-                 -default 0 -cancel 1]
-   $dlg add -name Ok -text Ok -command [list Overview_warningDlgOkCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
-   $dlg add -name Launch -text "Launch Flow" -width 12 -command [list Overview_warningDlgLaunchCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
-   $dlg add -name NoShowAgain -text "Do Not Show Again" -width 20 -command [list Overview_expLateNoShowAgainCallback ${exp_path} ${datestamp} ${topLevelWidget} ${title}]
-
-   # set a timer in 60 seconds to reshow the widget if the user did not respond
-   set WARNING_AFTERID_${topLevelWidget} [after 60000 [list Overview_showWarningReminder  ${exp_path} ${datestamp} ${topLevelWidget}]]
-   set msg [message [$dlg getframe].msg -aspect 300 -text ${text} -justify center -anchor c  -font [Overview_getWarningFont] ]
-   pack $msg -fill both -expand yes -padx 50 -pady 50 
-   $dlg draw
+   set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
+   ::DrawUtils::pointOverviewExp  ${exp_path} ${datestamp} [Overview_getCanvas] ${expBoxTag}
 }
 
 proc Overview_warningDlgLaunchCallback { exp_path datestamp callingTopLevelW title } {
@@ -348,12 +393,13 @@ proc Overview_warningDlgOkCallback { exp_path datestamp callingTopLevelW title }
 proc Overview_closeWarningDlg { exp_path datestamp callingTopLevelW title } {
    global WARNING_AFTERID_${callingTopLevelW}
    catch { after cancel [set WARNING_AFTERID_${callingTopLevelW}] }
+   catch { unset WARNING_AFTERID_${callingTopLevelW} }
    destroy ${callingTopLevelW}
 }
 
 proc Overview_showWarningReminder { exp_path datestamp callingTopLevelW } {
    global WARNING_AFTERID_${callingTopLevelW}
-   puts "Overview_showWarningReminder exp_path:${exp_path} datestamp:${datestamp}"
+   # puts "Overview_showWarningReminder exp_path:${exp_path} datestamp:${datestamp}"
    if { [winfo exists ${callingTopLevelW}] } {
       wm withdraw ${callingTopLevelW}; wm deiconify ${callingTopLevelW} ; raise ${callingTopLevelW}
       set WARNING_AFTERID_${callingTopLevelW} [after 60000 [list Overview_showWarningReminder  ${exp_path} ${datestamp} ${callingTopLevelW}]]
@@ -1122,7 +1168,7 @@ proc Overview_isExpBoxObsolete { exp_path datestamp } {
    return ${isObsolete}
 }
 
-proc Overview_addExpDefaultBoxes { canvas exp_path } {
+proc Overview_addExpDefaultBoxes { canvas exp_path {myhour ""} } {
    # puts "Overview_addExpDefaultBoxes $exp_path"
    if { [SharedData_getExpShowExp ${exp_path}] == false } {
       # this is a configuration from ExpOptions.xml
@@ -1138,9 +1184,21 @@ proc Overview_addExpDefaultBoxes { canvas exp_path } {
    } else {
       foreach refTiming ${refTimings} {
          foreach { hour startTime endTime } ${refTiming} {
-	    if { [Overview_isExpScheduled ${exp_path} ${hour} ${startTime}] == true } {
-               Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init
-            }
+	    set scheduledDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour} ${startTime}]
+	    set isExpBoxActive [Overview_isExpBoxActive ${canvas} ${exp_path} ${scheduledDatestamp}]
+	    # if there is already a box active for the datestamp, no need for a default box
+	    if { ${isExpBoxActive} == false } {
+	       if { ${myhour} != "" } {
+	          if { ${hour} == ${myhour} && [Overview_isExpScheduled ${exp_path} ${hour} ${startTime}] == true } {
+                     Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init
+	          }
+               } else {
+	           if { [Overview_isExpScheduled ${exp_path} ${hour} ${startTime}] == true } {
+		      # puts "Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init"
+                      Overview_updateExpBox ${canvas} ${exp_path} default_${hour} init
+                   }
+	       }
+	    }
          }
       }
    }
@@ -1149,39 +1207,71 @@ proc Overview_addExpDefaultBoxes { canvas exp_path } {
 # returns the datestamp of the run based
 # on the run hour and it's referenced start time
 # and the current date
-proc Overview_getScheduledDatestamp { exp_path hour start_time } {
+proc Overview_getScheduledDatestamp { exp_path hour {start_time ""} } {
+   global graphStartX
    set datestamp ""
+
+   if { ${start_time} == "" } {
+      set start_time 00:00
+      # get from reference times
+      set refTimings [SharedData_getExpTimings ${exp_path}]
+      foreach refTiming ${refTimings} {
+         foreach { myhour myStartTime myEndTime } ${refTiming} {
+	    if { ${hour} == ${myhour} } {
+	       set start_time ${myStartTime}
+	    }
+	 }
+      }
+   }
 
    # date value at grid x origin
    set originDateTime [Overview_GraphGetXOriginDateTime]
 
-   # date value at grid x end
-   set endDateTime [Overview_GraphGetXEndDateTime]
+   set myStartHour [Utils_getPaddedValue [Utils_getHourFromTime ${start_time}]]
+   set myx [Overview_getXCoordTime ${start_time}]
 
    # date value currently
    set currentDateTime [clock seconds]
+   set currentTimeX [Overview_getCurrentTimeX]
+
+   # date value at grid x end
+   set endDateTime [Overview_GraphGetXEndDateTime]
 
    # date value at 00Z
    set today00ZDateTime [Overview_GraphGetCurrentDayTime]
+   set today00ZX [Overview_getZeroHourX]
 
-   set startTimeHour [Utils_getPaddedValue [Utils_getHourFromTime ${start_time}]]
-   # date value of current processed hour
-   if { ${startTimeHour} == "00" } {
-      set hourDateTime ${today00ZDateTime}
-   } else {
-      set startTimeHour [string trimleft ${startTimeHour} 0]
-      set hourDateTime [clock add ${today00ZDateTime} ${startTimeHour} hours]
+
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
+   ::log::log debug "Overview_getScheduledDatestamp myx:$myx currentTimeX:$currentTimeX today00ZX:$today00ZX myStartHour:$myStartHour"
+   set deltaDay 0
+   if { ${currentTimeX} >= ${today00ZX} && ${myx} < ${today00ZX} } {
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp deltaDay -1"
+
+      # 00z is to the left of current time and my start time is prior to 00Z so need -24H
+      set deltaDay -1 
    }
 
-   if { ${hourDateTime} >= ${originDateTime} && ${hourDateTime} < ${endDateTime} } {
+   # date value of current processed hour
+   if { ${myStartHour} == "00" } {
+      set myDateTime ${today00ZDateTime}
+   } else {
+      set myStartHour [string trimleft ${myStartHour} 0]
+      set myDateTime [clock add ${today00ZDateTime} ${myStartHour} hours ${deltaDay} day]
+   }
+
+   if { ${myDateTime} >= ${originDateTime} && ${myDateTime} < ${endDateTime} } {
       # value is within visible grid
-      set datestamp [Utils_getDatestamp ${hour} 0]
-   } elseif { ${hourDateTime} < ${originDateTime} } {
+      set datestamp [Utils_getDatestamp ${hour} ${deltaDay}]
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp here"
+   } elseif { ${myDateTime} < ${originDateTime} } {
       # add extra day to datestamp and check if visible
       # shift to the right of the grid
-      set hourDateTime [clock add ${hourDateTime} 24 hours]
-      if { ${hourDateTime} >= ${originDateTime} && ${hourDateTime} < ${endDateTime} } {
+      set myDateTime [clock add ${myDateTime} 24 hours]
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp add 24 hours"
+      if { ${myDateTime} >= ${originDateTime} && ${myDateTime} < ${endDateTime} } {
          set datestamp [Utils_getDatestamp ${hour} 1]
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp here 2"
       }
    }
    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
@@ -1201,6 +1291,7 @@ proc Overview_isExpScheduled { exp_path hour start_time } {
       set DayOfWeekMapping { Sun 0 Mon 1 Tue 2 Wed 3 Thu 4 Fri 5 Sat 6 }
    }
    set scheduledDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour} ${start_time} ]
+   ::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:${hour} scheduledDatestamp:$scheduledDatestamp"
    if { ${scheduledDatestamp} != "" } {
      # get day of week schedule for the exp
      set scheduleType [SharedData_getExpScheduleType ${exp_path}]
@@ -1277,14 +1368,20 @@ proc Overview_removeAllExpBoxes { canvas exp_path } {
    ${canvas} delete ${exp_path}
 }
 
-proc Overview_isDefaultBoxActive { canvas exp_path datestamp } {
-   set refTimings [SharedData_getExpTimings ${exp_path}]
+# locates and point to an exp/datestamp box in the overview grid
+proc Overview_isExpBoxActive { canvas_w exp_path datestamp {isDefault false}} {
+   ::log::log debug "Overview_isExpBoxActive exp_path:${exp_path} datestamp:${datestamp}"
    set isActive false
-   set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
-   if { [${canvas} gettags ${expBoxTag}] != "" } {
-      set isActive true
+   if { ${isDefault} == true } {
+      set currentStatus default
+   } else {
+      set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    }
 
+   set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
+   if { [${canvas_w} gettags ${expBoxTag}] != "" } {
+      set isActive true
+   }
    return ${isActive}
 }
 
@@ -1333,7 +1430,6 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
          # the box becomes history, don't need it anymore
 	 ::log::log notice "Overview_updateExpBox() OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}"
 	 OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}
-         # OverviewExpStatus_removeStatusDatestamp ${exp_path} ${datestamp}
          set datestamp [file tail [Overview_getExpBoxTag ${exp_path} ${datestamp} default false]]
 
 	 set continueStatus ""
@@ -1553,7 +1649,7 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
    if { [winfo exists $popMenu] } {
       destroy $popMenu
    }
-   menu $popMenu
+   menu $popMenu -title [file tail ${exp_path}]  -tearoffcommand [list xflow_nodeMenuTearoffCallback]
 
    $popMenu add command -label "History" \
       -command [list Overview_historyCallback $canvas $exp_path ${datestamp} $popMenu]
@@ -1561,9 +1657,15 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
    $popMenu add command -label "Shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
    Overview_showPluginMenu ${popMenu} ${exp_path} ${datestamp}
    $popMenu add command -label "Support" -command [list ExpOptions_showSupportCallback ${exp_path} ${datestamp} [Overview_getToplevel]]
+   $popMenu add command -label "Xml Options" -command [list Overview_xmlOptionsCallback ${exp_path}]
 
     tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
+}
+
+proc Overview_xmlOptionsCallback { exp_path } {
+   ExpOptions_read ${exp_path} 
+   Overview_redrawExp ${exp_path}
 }
 
 # this function loads the plugin menu items
@@ -1590,39 +1692,6 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
    }
 
    Sequencer_runCommandWithWindow $exp_path ${datestamp} [Overview_getToplevel] $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
-}
-
-# this proc returns the datestamp that should be used for a run
-# based on the reference start time of the run and the current date & time,
-# It is used to assign a datestamp to a flow that is selected by the user
-# when the run has not been executed yet...
-proc Overview_getReferenceDatestamp { exp_path datestamp_hour } {
-   set canvas [Overview_getCanvas]
-   set expBoxCoords [Overview_getRunBoxBoundaries ${canvas} ${exp_path} default_${datestamp_hour}]
-   set myx ""
-   if { ${expBoxCoords} != "" } {
-      set myx [lindex ${expBoxCoords} 0]
-   }
-
-   set currentTimeX [Overview_getCurrentTimeX]
-   set zeroHourX [Overview_getZeroHourX]
-   set deltaDay 0
-   # when we have the grid movable, we'll need to add a delta with respect to the
-   # current zero hour but for now we don't need to
-   if { ${currentTimeX} < ${zeroHourX} } {
-      # 00z is to the right of current time
-      if { ${myx} >= ${zeroHourX} } {
-         set deltaDay 1
-      }
-   } else {
-      # 00z is to the left of current time
-      if { ${myx} < ${zeroHourX} } {
-         set deltaDay -1 
-      }
-   }
-
-   set refDatestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
-   return ${refDatestamp}
 }
 
 # this function is called to launch an exp window
@@ -1659,7 +1728,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       # user launched a flow without datestamp but with reference hour
       # We need to calculate the reference datestamp based on the
       # current date & time and the reference time of the run
-      set datestamp [Overview_getReferenceDatestamp ${exp_path} ${datestamp_hour}]
+      set datestamp [Overview_getScheduledDatestamp ${exp_path} ${datestamp_hour}]
       ::log::log debug "Overview_launchExpFlow got reference datestamp:${datestamp}"
    }
 
@@ -2262,8 +2331,8 @@ proc Overview_getGroupDisplayY { group_display } {
 proc Overview_addGroup { canvas displayGroup } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
    #puts "Overview_addGroup displayGroup:${displayGroup}"
+   set groupDname [$displayGroup cget -dname]
    set groupName [$displayGroup cget -name]
-   set displayName [file tail $groupName]
    set tagName ${displayGroup}
    set groupLevel [$displayGroup cget -level]
    set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
@@ -2273,15 +2342,14 @@ proc Overview_addGroup { canvas displayGroup } {
    # add indentation for each different level
    set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
 
-   #puts "Overview_addGroupsplayGroup groupName:$groupName groupEntryCurrentY:$groupEntryCurrentY"
+   #puts "Overview_addGroupsplayGroup groupDname:$groupDname groupEntryCurrentY:$groupEntryCurrentY"
    set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
-      -text $displayName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
+      -text $groupName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
 
    # get the font for each level
    set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
 
    $canvas itemconfigure displayGroup_${tagName} -font $newFont
-   # ::tooltip::tooltip $canvas -item "${groupId}" "more info here for $displayName"
 
    $displayGroup configure -x [expr $graphStartX + 20]
    DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
@@ -2402,17 +2470,6 @@ proc Overview_getLevelFont { canvas item_tag level } {
    }
 
    return $searchFont
-}
-
-proc Overview_getWarningFont {} {
-   set fontName WarningFont
-
-   if { [lsearch [font names] ${fontName}] == -1 } {
-      font create ${fontName}
-      font configure ${fontName} -size 14
-   }
-
-   return ${fontName}
 }
 
 proc Overview_getBoxLabelFont {} {
@@ -2653,9 +2710,11 @@ proc Overview_readExperiments {} {
    set suiteList {}
    if { [file exists $suitesFile] } {
       puts "Overview_readExperiments from file: $suitesFile"
+      ::log::log debug "Overview_readExperiments date: [exec date]"
       ExpXmlReader_readExperiments $suitesFile
       set suiteList [ExpXmlReader_getExpList]
-      puts "suiteList: $suiteList"
+      ::log::log debug "suiteList: $suiteList"
+      ::log::log debug "Overview_readExperiments DONE date: [exec date]"
    } else {
       puts "ERROR: file not found ${suitesFile}"
       Utils_fatalError . "Overview Startup Error" "${suitesFile} does not exists! Exiting..."
@@ -2695,13 +2754,15 @@ proc Overview_quit {} {
 }
 
 proc Overview_parseCmdOptions {} {
-   global argv env 
+   global argv env startupExp DISPLAY_GROUPS
    global AUTO_MSG_DISPLAY
 
+   set startupExp ""
    if { [info exists argv] } {
       set options {
          {main ""}
          {debug "Turn debug on"}
+         {exp.arg "" "experiment path"}
          {logfile.arg "" "App log file"}
          {noautomsg.arg "" "No automatic message display"}
          {suites.arg "" "suites definition file"}
@@ -2741,6 +2802,7 @@ proc Overview_parseCmdOptions {} {
             }
 	 }
 
+
          if { $params(logspan) != "" } {
             SharedData_setMiscData LOG_SPAN_IN_HOURS $params(logspan)
          } else { 
@@ -2775,6 +2837,13 @@ proc Overview_parseCmdOptions {} {
             # if not defined in maestrorc, used a default one
             SharedData_setMiscData SUITES_FILE $env(HOME)/xflow.suites.xml
          }
+
+         if { ! ($params(exp) == "") && $params(suites) == "" } {
+	    set startupExp $params(exp)
+	    xflow_validateExp ${startupExp}
+	    DisplayGrp_createDefaultGroup ${startupExp}
+            SharedData_setMiscData SUITES_FILE ""
+	 }
 
          Overview_main
       }
@@ -3272,7 +3341,7 @@ proc Overview_createPluginToolbar { parentToolbar } {
 }
 
 proc Overview_main {} {
-   global env
+   global env startupExp
    global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
 
@@ -3301,7 +3370,10 @@ proc Overview_main {} {
    bind ${topOverview} <Configure> [list Overview_setMainCoords ${topOverview}]
    wm withdraw ${topOverview}
 
-   Overview_readExperiments
+   if { [SharedData_getMiscData SUITES_FILE] != "" } {
+      Overview_readExperiments
+   }
+
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}
    set plugin_toolbar [Overview_createPluginToolbar ${topOverview}.toolbar]
@@ -3327,8 +3399,8 @@ proc Overview_main {} {
    # set thread error handler for async calls
    thread::errorproc Overview_threadErrorCallback
 
-   Overview_addGroups ${topCanvas}
    Overview_setCurrentTime ${topCanvas}
+   Overview_addGroups ${topCanvas}
 
    # check if we need to release obsolete data
    after 60000 OverviewExpStatus_checkObseleteDatestamps
@@ -3353,15 +3425,57 @@ proc Overview_main {} {
       incr count
    }
 
-   # run a periodic monitor to look for new log files to process
-   LogMonitor_checkNewLogFiles
+   Overview_checkStartupOptions
+
+   # periodic idle check interval in minutes
+   set expIdleInterval [SharedData_getMiscData OVERVIEW_EXP_IDLE_INTERVAL]
+   
+   ::log::log notice "Check Exp Idle Interval: ${expIdleInterval} minutes"
+   Overview_checkExpIdle [expr ${expIdleInterval} * 60000]
+
+   # periodic submit late check interval in minutes
+   set expSubmitLateInterval [SharedData_getMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL]
 
    # start a periodic check for late submission (every 15 minutes)
-   Overview_checkExpSubmitLate 900000
+   ::log::log notice "Check Exp Submit Late Interval: ${expSubmitLateInterval} minutes"
+   Overview_checkExpSubmitLate [expr ${expSubmitLateInterval} * 60000]
 
    # hearbeats for threads
    # after 30000 Overview_checkDatestampHeartbeats
+
+   # run a periodic monitor to look for new log files to process
+   LogMonitor_checkNewLogFiles
+}
+
+# validate required options
+proc Overview_checkStartupOptions {} {
+   # periodic idle check interval in minutes
+   set expIdleInterval [SharedData_getMiscData OVERVIEW_EXP_IDLE_INTERVAL]
+   if { ! [string is integer -strict ${expIdleInterval}] || ${expIdleInterval} <=0 } {
+      puts "ERROR: INVALID OVERVIEW_EXP_IDLE_INTERVAL value: ${expIdleInterval} using default 60 minutes"
+      SharedData_setMiscData OVERVIEW_EXP_IDLE_INTERVAL 60
+      ::log::log notice "ERROR: INVALID OVERVIEW_EXP_IDLE_INTERVAL value: ${expIdleInterval} using default 60 minutes"
+   }
+
+   # periodic idle check interval in minutes
+   set expSubmitLateInterval [SharedData_getMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL]
+   if { ! [string is integer -strict ${expSubmitLateInterval}] || ${expSubmitLateInterval} <=0 } {
+      puts "ERROR: INVALID OVERVIEW_EXP_SUBMIT_LATE_INTERVAL value: ${expSubmitLateInterval} using default 15 minutes"
+      SharedData_setMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL 15
+      ::log::log notice "Invalid Exp Submit Late Interval: ${expSubmitLateInterval} using default 15 minutes"
+   }
 }
 
 set tcl_traceExec 1
 Overview_parseCmdOptions
+
+# for testing only
+# intercep clock commands to allow
+# testing with different time values
+# global env
+# source $env(SEQ_XFLOW_BIN)/../lib/ClockWrapper.tcl
+# package require ClockWrapper
+# interp alias {} ::clock {} ::ClockWrapper
+# ::ClockWrapper::setDelta "7 hour"
+# ::ClockWrapper::setDelta "-5 hour"
+# ::ClockWrapper::setDelta "0 second"

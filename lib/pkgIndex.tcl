@@ -10,3 +10,4 @@
 
 package ifneeded DrawUtils 1.0 [list source [file join $dir DrawUtils.tcl]]
 package ifneeded SuiteNode 1.0 [list source [file join $dir SuiteNode.tcl]]
+package ifneeded ClockWrapper 1.0 [list source [file join $dir ClockWrapper.tcl]]
