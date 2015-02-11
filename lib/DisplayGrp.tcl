@@ -26,7 +26,7 @@ record define DisplayGroup {
 
 proc DisplayGrp_createDefaultGroup { exp_path  } {
    global  DISPLAY_GROUPS
-   set groupName Default
+   set groupName [file tail ${exp_path}]
    set defaultGroupId [DisplayGroup ${groupName} -name ${groupName} -level 0 -exp_list [list ${exp_path}]]
    lappend DISPLAY_GROUPS $defaultGroupId
 }
