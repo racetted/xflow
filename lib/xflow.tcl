@@ -42,7 +42,7 @@ proc xflow_addFileMenu { exp_path datestamp parent } {
 }
 
 proc xflow_addViewMenu { exp_path datestamp parent } {
-   global AUTO_MSG_DISPLAY FLOW_SCALE_${exp_path}_${datestamp}
+   global AUTO_MSG_DISPLAY SUBMIT_POPUP FLOW_SCALE_${exp_path}_${datestamp}
    if { $parent == "." } {
       set parent ""
    }
@@ -61,8 +61,8 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
       $menuW add checkbutton -label "Submit Popup" -variable SUBMIT_POPUP \
          -command [list xflow_setSubmitPopup] \
          -onvalue true -offvalue false
-
    }
+
 
    $menuW add checkbutton -label "Show Shadow Status" -variable SHADOW_STATUS \
       -onvalue 1 -offvalue 0 -command [list xflow_redrawAllFlow ${exp_path} ${datestamp}]
@@ -2480,7 +2480,11 @@ proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_pa
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
-   set trueFile [exec true_path ${file_path}]
+
+   if [ catch { set trueFile [file normalize ${file_path}] }  message ] {
+      Utils_raiseError $canvas "Editor Error" "Unable to read file ${file_path}"
+      return
+   }
 
    if { [file readable ${trueFile}] } {
       file copy ${trueFile} ${outputfile}

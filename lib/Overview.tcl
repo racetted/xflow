@@ -2880,7 +2880,7 @@ proc Overview_changeSettings { varName {name1 ""} {name2 ""} {op ""} } {
 }
 
 proc Overview_addPrefMenu { parent } {
-   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE
+   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SUBMIT_POPUP
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
    menubutton $menuButtonW -text Preferences -underline 0 -menu $menuW
@@ -2890,6 +2890,12 @@ proc Overview_addPrefMenu { parent } {
       -onvalue true -offvalue false
    trace add variable AUTO_LAUNCH write [list Overview_changeSettings AUTO_LAUNCH]
 
+   set SUBMIT_POPUP [SharedData_getMiscData SUBMIT_POPUP]
+
+   $menuW add checkbutton -label "Submit Popup" -variable SUBMIT_POPUP \
+      -command [list xflow_setSubmitPopup] \
+      -onvalue true -offvalue false
+
    set AUTO_MSG_DISPLAY [SharedData_getMiscData AUTO_MSG_DISPLAY]
    $menuW add checkbutton -label "Auto Message Display" -variable AUTO_MSG_DISPLAY \
       -command [list Overview_setAutoMsgDisplay] \
@@ -2897,6 +2903,7 @@ proc Overview_addPrefMenu { parent } {
    trace add variable AUTO_MSG_DISPLAY write [list Overview_changeSettings AUTO_MSG_DISPLAY]
    ::tooltip::tooltip $menuW -index 1 "Automatic launch of flow when experiment starts."
    ::tooltip::tooltip $menuW -index 2 "Automatic message window on new alarm."
+
 
    $menuW add checkbutton -label "Check Exp Idle" -variable CHECK_EXP_IDLE \
       -onvalue true -offvalue false
