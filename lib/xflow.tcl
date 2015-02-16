@@ -2490,7 +2490,7 @@ proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_pa
    }
 
    if { [file readable ${trueFile}] } {
-      file copy ${trueFile} ${outputfile}
+      file copy [exec true_path ${trueFile}] ${outputfile}
    } else {
       set fileId [open ${outputfile} "w"] 
       if { ! [file exists ${file_path}] } {
