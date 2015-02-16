@@ -1284,10 +1284,12 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
    ${listingMenu} add command -label "Loop Abort Listing" \
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas 1] \
       -foreground [::DrawUtils::getBgStatusColor abort]
+   ${listingMenu} add command -label "Loop Submission Listing" -command [list xflow_submissionListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas 1]
    ${listingMenu} add command -label "Member Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${listingMenu} add command -label "Member Abort Listing" \
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
       -foreground [::DrawUtils::getBgStatusColor abort]
+   ${listingMenu} add command -label "Member Submission Listing" -command [list xflow_submissionListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${listingMenu} add command -label "All Node Listing" -command [list xflow_allListingCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
 
    ${submitMenu} add command -label "Loop Submit" -command [list xflow_submitLoopCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} continue ]
