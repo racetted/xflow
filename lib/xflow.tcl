@@ -1317,11 +1317,14 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
          set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
 
          if { [ winfo exists ${xflowToplevel} ] == 0 || [winfo viewable ${xflowToplevel}] == false } {
+	    if { [SharedData_getExpDisplayName ${depExp}] == "" } {
+	       # read exp options if new exp
+               ExpOptions_read ${depExp}
+	    }
             if { ${isOverviewMode} == true } {
                Overview_launchExpFlow ${depExp} ${depDatestamp}
             } elseif { ${depExp} != ${exp_path} } {
                # standalone xflow mode with dependencies on an external maestro suite
-               ExpOptions_read ${depExp}
                xflow_newDatestampFound ${depExp} ${depDatestamp}
             }
 	 }
@@ -3659,32 +3662,54 @@ proc xflow_needBgImageRefresh { _exp_path _datestamp _canvas } {
 }
 
 proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height } {
+   global env
    global FLOW_BG_SOURCE_IMG FLOW_TILED_IMG_${_exp_path}_${_datestamp}
    package require img::gif
-
-   Utils_busyCursor [winfo toplevel ${_canvas}]
-
-   if { ! [info exists FLOW_BG_SOURCE_IMG] } {
-      set FLOW_BG_SOURCE_IMG [image create photo -file [xflow_getImageFile bg_image]]
+   set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+   set addImg true
+   # if overview mode and not monitored exp don't add bg
+   # if standalone mode and not original exp don't add  bg
+   if [ catch {
+      if { (${isOverviewMode} == true && [SharedData_getExpGroupDisplay ${_exp_path}] == "") ||
+           (${isOverviewMode} == false && ([exec true_path $_exp_path] != $env(SEQ_EXP_HOME))) } {
+	   set addImg false
+      }
+   } message ] {
+      puts "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
+      set addImg false
    }
 
-   if { [info exists  FLOW_TILED_IMG_${_exp_path}_${_datestamp}] } {
-      # already has current bg
-      image delete [ set FLOW_TILED_IMG_${_exp_path}_${_datestamp} ]
-      ${_canvas} delete backgroundBitmap
+
+   if { ${addImg} == true } {
+      if [ catch {
+         Utils_busyCursor [winfo toplevel ${_canvas}]
+
+         if { ! [info exists FLOW_BG_SOURCE_IMG] } {
+            set FLOW_BG_SOURCE_IMG [image create photo -file [xflow_getImageFile bg_image]]
+         }
+
+         if { [info exists  FLOW_TILED_IMG_${_exp_path}_${_datestamp}] } {
+            # already has current bg
+            image delete [ set FLOW_TILED_IMG_${_exp_path}_${_datestamp} ]
+            ${_canvas} delete backgroundBitmap
+         }
+
+         set FLOW_TILED_IMG_${_exp_path}_${_datestamp} [image create photo]
+         ${_canvas} create image 0 0 \
+            -anchor nw \
+            -image [set FLOW_TILED_IMG_${_exp_path}_${_datestamp}] \
+            -tags backgroundBitmap
+         ${_canvas} lower backgroundBitmap
+         bind ${_canvas} <Destroy> [list xflow_canvasDestroyCallback ${_exp_path} ${_datestamp}]
+
+         xflow_tileBgImage ${_exp_path} ${_datestamp} ${_canvas} [set FLOW_BG_SOURCE_IMG] [set FLOW_TILED_IMG_${_exp_path}_${_datestamp}] ${_width} ${_height}
+
+         Utils_normalCursor [winfo toplevel ${_canvas}]
+      } message ] {
+         puts "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
+         Utils_normalCursor [winfo toplevel ${_canvas}]
+      }
    }
-
-   set FLOW_TILED_IMG_${_exp_path}_${_datestamp} [image create photo]
-   ${_canvas} create image 0 0 \
-      -anchor nw \
-      -image [set FLOW_TILED_IMG_${_exp_path}_${_datestamp}] \
-      -tags backgroundBitmap
-   ${_canvas} lower backgroundBitmap
-   bind ${_canvas} <Destroy> [list xflow_canvasDestroyCallback ${_exp_path} ${_datestamp}]
-
-   xflow_tileBgImage ${_exp_path} ${_datestamp} ${_canvas} [set FLOW_BG_SOURCE_IMG] [set FLOW_TILED_IMG_${_exp_path}_${_datestamp}] ${_width} ${_height}
-
-   Utils_normalCursor [winfo toplevel ${_canvas}]
 }
 
 proc xflow_canvasDestroyCallback { exp_path datestamp } {
@@ -3768,7 +3793,7 @@ proc xflow_closeExpDatestamp { exp_path datestamp {from_overview false} } {
       # When called from the overview, the from_overview is set to true so that we don't
       # try to cleanp data twice and to avoid infinite recursion
       set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
-      if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true } {
+      if { [Overview_isExpBoxObsolete ${exp_path} ${datestamp}] == true || [SharedData_getExpGroupDisplay ${exp_path}] == "" } {
          ::log::log notice "xflow_closeExpDatestamp ${exp_path} ${datestamp} exp obsolete..."
          Overview_cleanDatestamp ${exp_path} ${datestamp}
          Overview_releaseExpThread ${expThreadId} ${exp_path} ${datestamp}
@@ -4030,15 +4055,16 @@ proc xflow_getExpLabelFont {} {
 }
 
 proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
-   # puts "xflow_setExpLabel _displayName:${_displayName} ${_datestamp}"
+   ::log::log debug "xflow_setExpLabel _displayName:${_displayName} datestamp:${_datestamp}"
    set expLabelFrame [xflow_getWidgetName ${_exp_path} ${_datestamp} exp_label_frame]
    set displayValue ${_displayName}
    if { ${_datestamp} != "" } {
       set hour [Utils_getHourFromDatestamp ${_datestamp}]
       set displayValue ${_displayName}-${hour}
    }
-   if { [SharedData_getMiscData XFLOW_LABEL] != "" } {
-      set displayValue "[SharedData_getMiscData XFLOW_LABEL] ${displayValue}"
+
+   if { [DisplayGrp_getWindowsLabel ${_exp_path}] != "" } {
+      set displayValue "[DisplayGrp_getWindowsLabel] ${displayValue}"
    }
    ${expLabelFrame}.exp_label configure -text ${displayValue}
 }

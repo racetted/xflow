@@ -25,7 +25,6 @@ proc MsgCenter_createMenus {} {
    MsgCenter_addFileMenu ${topFrame}
    MsgCenter_addPrefMenu ${topFrame}
    MsgCenter_addHelpMenu ${topFrame}
-   MsgCenter_createLabel ${topFrame}
    grid ${topFrame} -row $MsgCenterMainGridRowMap(Menu) -column 0 -sticky ew -padx 2
 }
 
@@ -100,11 +99,10 @@ proc MsgCenter_addHelpMenu { parent } {
    pack $menuButtonW -side right -padx 2
 }
 
-# displays value from msg_center_label entry in maestrorc file if it exists
 # display is to right of menu as bold text
 proc MsgCenter_createLabel { parent } {
    set labelFrame [frame ${parent}.label_frame]
-   set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [SharedData_getMiscData MSG_CENTER_LABEL]]
+   set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [DisplayGrp_getWindowsLabel]]
    grid ${labelW} -sticky nesw
    pack ${labelFrame} -side left -padx {20 0}
 }
@@ -693,6 +691,10 @@ proc MsgCenter_startupDone {} {
    MsgCenter_sendNotification
    # sort the msg by timestamp ascending order
    MsgCenter_initialSort [MsgCenter_getTableWidget]
+
+   set topFrame [MsgCenter_getToplevel].topframe
+   MsgCenter_createLabel ${topFrame}
+
    if { [SharedData_getMiscData AUTO_MSG_DISPLAY] == true && ${MSG_COUNTER} > 0 } {
       MsgCenter_show
    }

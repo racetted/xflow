@@ -19,6 +19,10 @@ proc ExpXmlReader_readExperiments { xml_file } {
    # point to the root element
    set folders [$d getElementsByTagName GroupList]
 
+   set labelValue [${folders} getAttribute label ""]
+   
+   DisplayGrp_setWindowsLabel ${labelValue}
+
    set level 0
    # get the list of Group
    set children [$folders childNodes]

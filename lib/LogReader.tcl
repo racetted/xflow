@@ -128,7 +128,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
          # release the thread to other exp
          thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_childInitDone [thread::id] ${exp_path} ${datestamp}"
       }
-   
+  
+      set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       # register the log to be monitor by this thread
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} added to monitor list"
       LogReader_addMonitorDatestamp ${exp_path} ${datestamp}
@@ -325,10 +326,16 @@ proc LogReader_processCreaderLine { _exp_path _datestamp _line _toOverview _ToFl
 }
 
 proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter } {
-   global MSG_CENTER_THREAD_ID
+   global MSG_CENTER_THREAD_ID env
 
    if { [string first "TIMESTAMP=" ${_line}] != 0 } {
       return 1
+   }
+   set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+   if { (${isOverviewMode} == true && [SharedData_getExpGroupDisplay ${_exp_path}] == "") ||
+	(${isOverviewMode} == false && ([exec true_path $_exp_path] != $env(SEQ_EXP_HOME))) } {
+      # in overview mode and the exp is not monitored, we don't send messages up
+      set _toMsgCenter false
    }
 
    set tmpline $_line

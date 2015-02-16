@@ -2954,11 +2954,10 @@ proc Overview_createMenu { _toplevelW } {
    Overview_createLabel ${topFrame}
 }
 
-# displays value from overview_label entry in maestrorc file if it exists
 # display is to right of menu as bold text
 proc Overview_createLabel { parentWidget } {
    set labelFrame [frame ${parentWidget}.label_frame]
-   set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [SharedData_getMiscData OVERVIEW_LABEL]]
+   set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [DisplayGrp_getWindowsLabel]]
    grid ${labelW} -sticky nesw
    pack ${labelFrame} -side left -padx {20 0}
 }

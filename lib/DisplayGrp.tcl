@@ -207,3 +207,24 @@ proc DisplayGrp_processOverlap { display_group } {
       }
    }
 }
+
+proc DisplayGrp_getWindowsLabel { {exp_path ""} } {
+   global WINDOWS_LABEL
+   set myLabel ""
+   if { ! [info exists WINDOWS_LABEL] } {
+      set WINDOWS_LABEL ""
+   }
+
+   # check if exp is part of monitored list.
+   # For example, a remote dependant suite would not be part of the monitored list
+   if { ${exp_path} == "" || (${exp_path} != "" && [SharedData_getExpGroupDisplay ${exp_path}] != "") } {
+      set myLabel ${WINDOWS_LABEL}
+   }
+
+   return ${myLabel}
+}
+
+proc DisplayGrp_setWindowsLabel { win_label } {
+   global WINDOWS_LABEL
+   set WINDOWS_LABEL "${win_label}"
+}
