@@ -1320,26 +1320,13 @@ proc SharedFlowNode_getLoopInfo { exp_path loop_node datestamp } {
             set end [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} end]
             set txt "\[${start},${end},${step},${setValue}\]"
          } else {
-            set count 0
-            set first 0
-            set expArray [split $tmpExpression ",:"]
-            foreach defNode $expArray {
-               if { $count == 0 } {
-                  if { $first != 0 } {
-                     append txt ",\n"
-                  } else {
-                     set first 1
-                  }
-                  append txt "\["
-               }
-               if { $count < 3 } {
-                  append txt $defNode ","
-                  incr count
-               } else {
-                  append txt $defNode "\]"
-                  set count 0
-               }
-            }
+            set txt "\[$tmpExpression\]"
+            #set tmptxt [split $txt ","]
+            #set txt ""
+            #foreach def $tmptxt {
+            #   append txt $def "\n"
+            #}
+            #string range $txt 0 end-2
          }
       }
    }
