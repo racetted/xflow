@@ -16,69 +16,22 @@ proc LogMonitor_getLastCheckFile { _exp_path } {
 }
 
 # look for new log files created under SEQ_EXP_HOME/logs
+# for all display groups from the overview
 proc LogMonitor_checkNewLogFiles {} {
    ::log::log debug "LogMonitor_checkNewLogFiles"
-   # check every 5 secs
+   # puts "LogMonitor_checkNewLogFiles START:[exec date]"
+   # check every 30 secs
    set nextCheckTime 30000
 
    if { [ catch {
       set displayGroups [ExpXmlReader_getGroups]
+      # I'm adding a delay of 1 second between each display group
+      # Without the delay, the execution was too intensive and 
+      # was blocking user interaction at the GUI level
+      set count 1000
       foreach displayGroup $displayGroups {
-         set expList [$displayGroup cget -exp_list]
-         foreach expPath $expList {
-            set checkDir ${expPath}/logs/
-            if { [file readable ${checkDir}] } {
-	       set lastCheckedFile [LogMonitor_getLastCheckFile ${expPath}]
-               set lastCheckedTime [file mtime ${lastCheckedFile}]
-               set newLastChecked [clock seconds]
-               catch { exec ls ${checkDir} > /dev/null }
-	       set modifiedFiles ""
-	       if { [ catch {
-                  # set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
-	          # -newerct not available on 32 bits find version
-                  set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
-               } errMsg] } {
-	          ::log::log notice "ERROR: LogMonitor_checkNewLogFiles() $errMsg"
-	          puts "ERROR: LogMonitor_checkNewLogFiles() $errMsg"
-	       }
-
-               foreach modifiedFile ${modifiedFiles} {
-                  ::log::log debug  "LogMonitor_checkNewLogFiles processing ${expPath} ${modifiedFile}..."
-                  set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
-                  if { [Utils_validateRealDatestamp ${seqDatestamp}] == true } {
-                     # look see if we have a thread monitoring this log file, if not create one
-                     set expThreadId [SharedData_getExpThreadId ${expPath} ${seqDatestamp}]
-
-		     # wake the datestamp in case it is an old one being rerun
-		     OverviewExpStatus_reactivateDatestamp ${expPath} ${seqDatestamp}
-
-                     if { ${expThreadId} == "" } {
-                        ::log::log notice "LogMonitor_checkNewLogFiles(): getting thread for ${expPath} ${seqDatestamp}"
-                        # if there is already a thread for this datestamp, we don't do anything
-                        set expThreadId [ThreadPool_getNextThread]
-                        ::log::log notice "LogMonitor_checkNewLogFiles(): got thread id ${expThreadId} for ${expPath} ${seqDatestamp}"
-                        # force reread of log file from start
-                        SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
-
-                        OverviewExpStatus_addStatusDatestamp ${expPath} ${seqDatestamp}
-
-                        ::log::log notice "LogMonitor_checkNewLogFiles(): setExpThreadId ${expThreadId} for ${expPath} ${seqDatestamp} DONE"
-                        ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
-                        thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all" SendDone
-		        vwait SendDone
-                        ::log::log notice "LogMonitor_checkNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp} DONE"
-                     }
-                  } else {
-                     ::log::log notice "ERROR: LogMonitor_checkNewLogFiles():Found invalid log file format: ${expPath} ${modifiedFile}"
-                     # puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
-                  }
-               }
-               if { [expr ${newLastChecked} - ${lastCheckedTime}] > 300 } {
-                  # to go around nfs latency, I only change the checked time every 5 minutes
-	          LogMonitor_setLastCheckTime ${expPath} ${newLastChecked}
-               }
-            }
-         }
+         after $count [list LogMonitor_checkGroupNewLogFiles ${displayGroup}]
+	 set count [expr $count + 1000]
       }
 
    } message ] } {
@@ -86,7 +39,71 @@ proc LogMonitor_checkNewLogFiles {} {
       puts "ERROR: LogMonitor_checkNewLogFiles() ${message}"
    }
 
+   # puts "LogMonitor_checkNewLogFiles DONE:[exec date]"
    after ${nextCheckTime} [list LogMonitor_checkNewLogFiles]
+}
+
+# check new exp log files for a specific displayGroup
+proc LogMonitor_checkGroupNewLogFiles { displayGroup } {
+   # puts "LogMonitor_checkNewLogFileOneGroup displayGroup:$displayGroup [exec date]"
+   set expList [$displayGroup cget -exp_list]
+   foreach expPath $expList {
+      set checkDir ${expPath}/logs/
+      if { [file readable ${checkDir}] } {
+         set lastCheckedFile [LogMonitor_getLastCheckFile ${expPath}]
+         set lastCheckedTime [file mtime ${lastCheckedFile}]
+         set newLastChecked [clock seconds]
+         catch { exec ls ${checkDir} > /dev/null }
+	 set modifiedFiles ""
+	 if { [ catch {
+            # set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
+	    # -newerct not available on 32 bits find version
+            set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
+         } errMsg] } {
+	    ::log::log notice "ERROR: () LogMonitor_checkGroupNewLogFiles $errMsg"
+	    puts "ERROR: LogMonitor_checkGroupNewLogFiles() $errMsg"
+	 }
+
+         foreach modifiedFile ${modifiedFiles} {
+
+            ::log::log debug  "LogMonitor_checkGroupNewLogFiles processing ${expPath} ${modifiedFile}..."
+            set seqDatestamp [string range [file tail ${modifiedFile}] 0 13]
+            if { [Utils_validateRealDatestamp ${seqDatestamp}] == true } {
+               # look see if we have a thread monitoring this log file, if not create one
+               set expThreadId [SharedData_getExpThreadId ${expPath} ${seqDatestamp}]
+
+	       # wake the datestamp in case it is an old one being rerun
+	       OverviewExpStatus_reactivateDatestamp ${expPath} ${seqDatestamp}
+
+               if { ${expThreadId} == "" } {
+                  ::log::log notice "LogMonitor_checkGroupNewLogFiles(): getting thread for ${expPath} ${seqDatestamp}"
+                  # if there is already a thread for this datestamp, we don't do anything
+                  set expThreadId [ThreadPool_getNextThread]
+                  ::log::log notice "LogMonitor_checkGroupNewLogFiles(): got thread id ${expThreadId} for ${expPath} ${seqDatestamp}"
+                  # force reread of log file from start
+                  SharedData_setExpThreadId ${expPath} ${seqDatestamp} ${expThreadId}
+
+                  OverviewExpStatus_addStatusDatestamp ${expPath} ${seqDatestamp}
+
+                  ::log::log notice "LogMonitor_checkGroupNewLogFiles(): setExpThreadId ${expThreadId} for ${expPath} ${seqDatestamp} DONE"
+                  ::log::log notice "LogMonitor_checkGroupNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp}"
+                  thread::send -async ${expThreadId} "LogReader_startExpLogReader ${expPath} \"${seqDatestamp}\" all" SendDone
+		  vwait SendDone
+                  ::log::log notice "LogMonitor_checkGroupNewLogFiles(): LogReader_startExpLogReader ${expPath} ${seqDatestamp} DONE"
+               }
+
+            } else {
+               ::log::log notice "ERROR: LogMonitor_checkGroupNewLogFiles():Found invalid log file format: ${expPath} ${modifiedFile}"
+               # puts "LogMonitor_checkNewLogFiles(): Found invalid log file format: ${modifiedFile}"
+            }
+         }
+
+         if { [expr ${newLastChecked} - ${lastCheckedTime}] > 300 } {
+            # to go around nfs latency, I only change the checked time every 5 minutes
+	    LogMonitor_setLastCheckTime ${expPath} ${newLastChecked}
+         }
+      }
+   }
 }
 
 # look for new log files created under SEQ_EXP_HOME/logs
