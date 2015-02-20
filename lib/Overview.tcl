@@ -288,7 +288,8 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
                      set refTimeStartSeconds [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
                      set refTimeLateSeconds [clock add ${refTimeStartSeconds} ${expSubmitLateThreshold} minute]
 
-	             if { ${currentTime} > ${refTimeLateSeconds} } {
+                     # check if exp box is passed current time and that is not within the log span discard
+	             if { ${currentTime} > ${refTimeLateSeconds} && ${refTimeStartSeconds} > [SharedData_getMiscData LOG_SPAN_THRESHOLD_TIME] } {
 		        # we need to send a warning dialog
                         set shortName [SharedData_getExpShortName ${expPath}]
                         set expLabel "${shortName}-${hour}"
@@ -2805,8 +2806,11 @@ proc Overview_parseCmdOptions {} {
 
          if { $params(logspan) != "" } {
             SharedData_setMiscData LOG_SPAN_IN_HOURS $params(logspan)
+	    # set the log span time threshold (useful for when to start checking submit late for an exp)
+	    SharedData_setMiscData LOG_SPAN_THRESHOLD_TIME [clock add [clock seconds] -$params(logspa
          } else { 
             SharedData_setMiscData LOG_SPAN_IN_HOURS 14
+	    SharedData_setMiscData LOG_SPAN_THRESHOLD_TIME [clock add [clock seconds] -14 hours]
          } 
 
          if { $params(debug) } {
