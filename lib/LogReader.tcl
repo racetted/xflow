@@ -156,7 +156,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
 # refresh_flow: message entries only sent to xflow
 #
 proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} } {
-   global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
+   global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} env
    # ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
    ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} read_toplog:${read_toplog}"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
@@ -177,6 +177,11 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
    }
    if { (${read_type} == "all" || ${read_type} == "no_overview" ) } {
       set sendToMsgCenter true
+      if { (${isOverviewMode} == true && [SharedData_getExpGroupDisplay ${exp_path}] == "") ||
+      	   (${isOverviewMode} == false && (${exp_path} != $env(SEQ_EXP_HOME))) } {
+         # in overview mode and the exp is not monitored, we don't send messages up
+         set sendToMsgCenter false
+      }
    }
    
    set isTopLogRead false
@@ -330,12 +335,6 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
 
    if { [string first "TIMESTAMP=" ${_line}] != 0 } {
       return 1
-   }
-   set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-   if { (${isOverviewMode} == true && [SharedData_getExpGroupDisplay ${_exp_path}] == "") ||
-	(${isOverviewMode} == false && ([exec true_path $_exp_path] != $env(SEQ_EXP_HOME))) } {
-      # in overview mode and the exp is not monitored, we don't send messages up
-      set _toMsgCenter false
    }
 
    set tmpline $_line

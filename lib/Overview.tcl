@@ -2807,7 +2807,7 @@ proc Overview_parseCmdOptions {} {
          if { $params(logspan) != "" } {
             SharedData_setMiscData LOG_SPAN_IN_HOURS $params(logspan)
 	    # set the log span time threshold (useful for when to start checking submit late for an exp)
-	    SharedData_setMiscData LOG_SPAN_THRESHOLD_TIME [clock add [clock seconds] -$params(logspa
+	    SharedData_setMiscData LOG_SPAN_THRESHOLD_TIME [clock add [clock seconds] -$params(logspan) hours]
          } else { 
             SharedData_setMiscData LOG_SPAN_IN_HOURS 14
 	    SharedData_setMiscData LOG_SPAN_THRESHOLD_TIME [clock add [clock seconds] -14 hours]
