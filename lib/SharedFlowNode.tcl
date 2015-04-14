@@ -894,6 +894,53 @@ proc SharedFlowNode_getSubmitDelay { exp_path node datestamp member } {
    return ${submitDelay}
 }
 
+proc SharedFlowNode_getDeltaFromStart { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   set deltaFromStart ""
+   set timestampFormat {%Y%m%d.%H:%M:%S}
+   set timeDisplayFormat {%H:%M:%S}
+   set beginStatus begin
+   if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
+      # tasks node
+      set endStatus end
+   } else {
+      # container node
+      set endStatus endx
+   }
+
+   if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
+        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
+      set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
+      set rootNodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${rootNode} ${datestamp} type]
+      if { [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${rootNode}] != "" } {
+         array set rootnode_statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${rootNode} stats_info]
+      } else {
+         return ""
+      }
+      if { ${rootNodeType} == "loop" } {
+         set rootNodeMember all
+      } else {
+         set rootNodeMember null
+      }
+      if { [info exists statsinfo($member)] && [info exists rootnode_statsinfo($rootNodeMember)] } {
+         set memberInfoList $statsinfo($member)
+         set endIndex [lsearch -exact ${memberInfoList} ${endStatus}]
+         set rootNodeInfoList $rootnode_statsinfo($rootNodeMember)
+         set beginIndex [lsearch -exact ${rootNodeInfoList} ${beginStatus}]
+         if { ${endIndex} != -1 && ${beginIndex} != -1 } {
+            set endTime [lindex ${memberInfoList} [expr ${endIndex} + 1]]
+            set beginTime [lindex ${rootNodeInfoList} [expr ${beginIndex} + 1]]
+            set deltaFromStartString [expr [clock scan ${endTime} -format ${timestampFormat}] -  [clock scan ${beginTime} -format ${timestampFormat}] ]
+	    set deltaFromStart [clock format ${deltaFromStartString} -timezone :UTC -format ${timeDisplayFormat}]
+         }
+      }
+   }
+   return ${deltaFromStart}
+}
+
 # If time_a is older than time_b return 1, else return 0
 proc SharedFlowNode_isTimestampOlder { time_a time_b } {
    set tmp_time_a [split $time_a {}]
