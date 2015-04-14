@@ -1,9 +1,20 @@
-# x  is x coord variable used to know where to
-#    display next exp
-# x  is y coord variable used to know where to
-#    display next exp
+package require struct::record
+namespace import ::struct::record::*
+
+#   name : name of group as it appears in xml file
+#   dname : name of group internally (directory name)
+#   level : level of group 
+#   parent : parent group dname
+#   exp_list : list of experiment that this group contains
+#   grp_list : list of group that this group contains
+#   maxy : display coord variable max y used
+#   x :  is x coord variable used to know where to
+#       display next exp
+#   y : is y coord variable used to know where to
+#       display next exp
 record define DisplayGroup {
    name
+   dname
    level {0}
    parent ""
    exp_list {}
@@ -11,6 +22,13 @@ record define DisplayGroup {
    x {0}
    y {0}
    {maxy 0}
+}
+
+proc DisplayGrp_createDefaultGroup { exp_path  } {
+   global  DISPLAY_GROUPS
+   set groupName [file tail ${exp_path}]
+   set defaultGroupId [DisplayGroup ${groupName} -name ${groupName} -level 0 -exp_list [list ${exp_path}]]
+   lappend DISPLAY_GROUPS $defaultGroupId
 }
 
 # adds the group to the DisplayGroup so it can be viewed
@@ -188,4 +206,25 @@ proc DisplayGrp_processOverlap { display_group } {
          }
       }
    }
+}
+
+proc DisplayGrp_getWindowsLabel { {exp_path ""} } {
+   global WINDOWS_LABEL
+   set myLabel ""
+   if { ! [info exists WINDOWS_LABEL] } {
+      set WINDOWS_LABEL ""
+   }
+
+   # check if exp is part of monitored list.
+   # For example, a remote dependant suite would not be part of the monitored list
+   if { ${exp_path} == "" || (${exp_path} != "" && [SharedData_getExpGroupDisplay ${exp_path}] != "") } {
+      set myLabel ${WINDOWS_LABEL}
+   }
+
+   return ${myLabel}
+}
+
+proc DisplayGrp_setWindowsLabel { win_label } {
+   global WINDOWS_LABEL
+   set WINDOWS_LABEL "${win_label}"
 }

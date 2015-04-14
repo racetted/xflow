@@ -131,7 +131,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
          # release the thread to other exp
          thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_childInitDone [thread::id] ${exp_path} ${datestamp}"
       }
-   
+  
+      set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       # register the log to be monitor by this thread
       ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} added to monitor list"
       LogReader_addMonitorDatestamp ${exp_path} ${datestamp}
@@ -300,7 +301,7 @@ proc LogReader_readTsv { exp_path datestamp } {
 # msg_center: message entries only sent to message center, used after parsing tsv output sent by the C logreader
 #
 proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} } {
-   global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}
+   global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} env
    # ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type}"
    ::log::log debug "LogReader_readFile exp_path:${exp_path} datestamp:${datestamp} read_type:${read_type} read_toplog:${read_toplog}"
    set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}  ""
@@ -321,6 +322,11 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
    }
    if { (${read_type} == "all" || ${read_type} == "no_overview" || ${read_type} == "msg_center" ) } {
       set sendToMsgCenter true
+      if { (${isOverviewMode} == true && [SharedData_getExpGroupDisplay ${exp_path}] == "") ||
+      	   (${isOverviewMode} == false && (${exp_path} != $env(SEQ_EXP_HOME))) } {
+         # in overview mode and the exp is not monitored, we don't send messages up
+         set sendToMsgCenter false
+      }
    }
    
    set isTopLogRead false
@@ -470,7 +476,7 @@ proc LogReader_processCreaderLine { _exp_path _datestamp _line _toOverview _ToFl
 }
 
 proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toMsgCenter } {
-   global MSG_CENTER_THREAD_ID
+   global MSG_CENTER_THREAD_ID env
 
    if { [string first "TIMESTAMP=" ${_line}] != 0 } {
       return 1
@@ -537,7 +543,11 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
          }
 
          if { ${_ToFlow} == true } {
-            LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp}
+	    if { ${type} != "wait" } {
+               LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp}
+	    } else {
+               LogReader_processFlowLine ${_exp_path} ${node} ${_datestamp} ${type} ${loopExt} ${timestamp} ${msg}
+	    }
          }
 
          if { ${_toOverview} == true } {
@@ -565,7 +575,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
    return 0
 }
 
-proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp } {
+proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _timestamp {_msg ""} } {
   #  puts " LogReader_processFlowLine _exp_path:${_exp_path} node:${_node} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt}" 
    # node & signal is mandatory to be processed
    # else the line is ignored
@@ -596,7 +606,7 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
             if { ${_type} == "init" } {
                if { ${nodeType} == "loop" || ${nodeType} == "npass_task" } {
                   if { ${_loopExt} != "" } {
-                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} 1
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} "" 1
                   } else {
                      # we got an update on the whole loop
                      SharedFlowNode_resetAllStatus ${_exp_path} ${flowNode} ${_datestamp} 1
@@ -605,24 +615,25 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
                   # current node is not loop
                   if { [SharedFlowNode_getLoops ${_exp_path} ${flowNode} ${_datestamp}] != "" } {
                      # part of parent loop container
-                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} 1
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} "" 1
                   } else {
                      SharedFlowNode_resetNodeStatus ${_exp_path} ${flowNode} ${_datestamp}
                   }
                }
             } else {
+
                # not init state, any other
                if { ${nodeType} == "loop" || ${nodeType} == "npass_task" } {
                   if { ${_loopExt} != "" } {
                      # we got an update on a loop iteration
-                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} 0
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} ${_msg}
                   } else {
                      # we got an update on the whole loop
-                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} all ${statusType} ${_type} ${_timestamp}
+                     SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} all ${statusType} ${_type} ${_timestamp} ${_msg}
                   }
                } else { 
                   # current node is not loop
-                  SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp}
+                  SharedFlowNode_setMemberStatus ${_exp_path} ${flowNode} ${_datestamp} ${_loopExt} ${statusType} ${_type} ${_timestamp} ${_msg}
                }
             }
 

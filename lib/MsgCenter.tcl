@@ -25,7 +25,6 @@ proc MsgCenter_createMenus {} {
    MsgCenter_addFileMenu ${topFrame}
    MsgCenter_addPrefMenu ${topFrame}
    MsgCenter_addHelpMenu ${topFrame}
-   MsgCenter_createLabel ${topFrame}
    grid ${topFrame} -row $MsgCenterMainGridRowMap(Menu) -column 0 -sticky ew -padx 2
 }
 
@@ -71,7 +70,7 @@ proc MsgCenter_addPrefMenu { parent } {
 
 # adds a confirmation for message type filtering out
 proc MsgCenter_filterCallback { _sourceW _messageType {_name1 ""} {_name2 ""} {_op ""} } {
-   set msgTypeToVariableMapping { Abort SHOW_ABORT_TYPE Event SHOW_EVENT_TYPE Info SHOW_INFO_TYPE SHOW_SYSINFO_TYPE }
+   set msgTypeToVariableMapping { Abort SHOW_ABORT_TYPE Event SHOW_EVENT_TYPE Info SHOW_INFO_TYPE Sysinfo SHOW_SYSINFO_TYPE }
 
    set globalVarName [string map ${msgTypeToVariableMapping} ${_messageType}]
    if { ${globalVarName} != "" } {
@@ -100,11 +99,10 @@ proc MsgCenter_addHelpMenu { parent } {
    pack $menuButtonW -side right -padx 2
 }
 
-# displays value from msg_center_label entry in maestrorc file if it exists
 # display is to right of menu as bold text
 proc MsgCenter_createLabel { parent } {
    set labelFrame [frame ${parent}.label_frame]
-   set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [SharedData_getMiscData MSG_CENTER_LABEL]]
+   set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [DisplayGrp_getWindowsLabel]]
    grid ${labelW} -sticky nesw
    pack ${labelFrame} -side left -padx {20 0}
 }
@@ -551,6 +549,7 @@ proc MsgCenter_removeMessages { exp datestamp } {
 proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
    global MSG_ALARM_ON MSG_ALARM_ID MSG_BELL_TRIGGER
    global MSG_ALARM_COUNTER MSG_CENTER_USE_BELL
+   global MSG_ALARM_AFTER_ID
 
    set autoMsgDisplay [SharedData_getMiscData AUTO_MSG_DISPLAY]
 
@@ -576,15 +575,24 @@ proc MsgCengter_processAlarm { table_w_ {repeat_alarm false} } {
       if { ${raiseAlarm} == "true" } {
          MsgCenter_setHeaderStatus ${table_w_} alarm
          if { [expr ${MSG_ALARM_COUNTER} > ${MSG_BELL_TRIGGER}] && ${MSG_CENTER_USE_BELL} == true } {
+            ::log::log debug "MsgCenter_processAlarm sounding bell..."
             bell
          }
          set MSG_ALARM_ID [after 1500 [list MsgCengter_processAlarm ${table_w_} true]]
       }
-  
+
+      # msg center flood control. When more than 1000 requests are being processed
+      # asynchronously, the MsgCenter_show command would go berserk with the display.
+      # Setting a delay of 500 ms to show the msg center so that
+      # multiple entries will cancel each other within the delay, only the last one will be working
+      if { [info exists MSG_ALARM_AFTER_ID] } {
+         after cancel ${MSG_ALARM_AFTER_ID}
+      }
+
       if { ${repeat_alarm} == false } {
-         MsgCenter_show true
+         set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show true]]
       } else {
-         MsgCenter_show
+         set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show]]
       }
    }
 }
@@ -622,7 +630,6 @@ proc MsgCenter_show { {force false} } {
       }
    } else {
       if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
-        ::log::log debug "MsgCenter_show force:${force} here"
          # force remove and redisplay of msg center
          # Need to do this cause when the msg center is in another virtual
          # desktop, it is the only way for it to redisplay in the
@@ -684,6 +691,10 @@ proc MsgCenter_startupDone {} {
    MsgCenter_sendNotification
    # sort the msg by timestamp ascending order
    MsgCenter_initialSort [MsgCenter_getTableWidget]
+
+   set topFrame [MsgCenter_getToplevel].topframe
+   MsgCenter_createLabel ${topFrame}
+
    if { [SharedData_getMiscData AUTO_MSG_DISPLAY] == true && ${MSG_COUNTER} > 0 } {
       MsgCenter_show
    }
@@ -710,6 +721,7 @@ proc MsgCenter_doubleClickCallback { table_widget } {
    global MsgTableColMap
 
    ::log::log debug "MsgCenter_doubleClickCallback widget:${table_widget}"
+   MsgCenter_stopBell ${table_widget}
    set selectedRow [${table_widget} curselection]
    # retrieve needed information
    set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
@@ -726,7 +738,6 @@ proc MsgCenter_doubleClickCallback { table_widget } {
    set result [ catch {
       # start the suite flow if not started
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-      set expThreadId [SharedData_getExpThreadId ${expPath} ${realDatestamp}]
       if { ${isOverviewMode} == "true" } {
          Overview_launchExpFlow ${expPath} ${realDatestamp}
       }
@@ -756,6 +767,8 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
    global MsgTableColMap
 
    ::log::log debug "MsgCenter_rightClickCallback widget:${w} x:$x y:$y"
+
+   MsgCenter_stopBell ${table_widget}
 
    # convert screen coords to widget coords
    foreach {mytable myx myy} \

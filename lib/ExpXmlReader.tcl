@@ -19,6 +19,10 @@ proc ExpXmlReader_readExperiments { xml_file } {
    # point to the root element
    set folders [$d getElementsByTagName GroupList]
 
+   set labelValue [${folders} getAttribute label ""]
+   
+   DisplayGrp_setWindowsLabel ${labelValue}
+
    set level 0
    # get the list of Group
    set children [$folders childNodes]
@@ -35,20 +39,20 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
    set nodeName [$xml_node nodeName]
    if { $nodeName == "Group" } {
       set groupName [$xml_node getAttribute name]
+      set groupDname ${groupName}
 
       set newLevel $level
       if { $parent_name != "" } {
-         set groupName ${parent_name}/${groupName}
+         set groupDname ${parent_name}/${groupName}
          set newLevel [expr $level + 1]
       }
       ::log::log debug "ExpXmlReader_readGroup groupName:$groupName newLevel:$newLevel"
 
       # replace / and spaces with _
-      set groupRecordName [regsub -all "/" ${groupName} _]
+      set groupRecordName [regsub -all "/" ${groupDname} _]
       set groupRecordName [regsub -all " " ${groupRecordName} _ ]
       if { ! [record exists instance $groupRecordName] } {
-         puts "DisplayGroup $groupRecordName "
-         set recordId [DisplayGroup $groupRecordName -name ${groupName} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0]
+         set recordId [DisplayGroup $groupRecordName -name ${groupName} -dname ${groupDname} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0]
          lappend DISPLAY_GROUPS ${recordId}
          if { ${parent_name} != "" } {
             DisplayGrp_insertGroup ${parent_name} ${recordId}
@@ -58,14 +62,14 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
       set childs [$xml_node childNodes]
       if { $childs == "" } {
          # puts "ExpXmlReader_readGroup group name:$groupName no child"
-         # DisplayGroup $groupName -name $groupName -level $newLevel
+         # DisplayGroup $groupName -dname $groupName -level $newLevel
       } else {
          foreach child $childs {
             set childName [$child nodeName]
             if { $childName == "Exp" } {
                set firstChild [$child firstChild]
                set expPath [$firstChild nodeValue]
-               ExpXmlReader_addExp $groupRecordName $expPath
+               ExpXmlReader_addExp $groupRecordName [exec true_path $expPath]
                ::log::log debug "exp:$expPath"
             } elseif { $childName == "Group" } {
                ExpXmlReader_readGroup $child $groupRecordName $newLevel

@@ -21,6 +21,7 @@ eval `cclargs -D "" $0 "[starts the overview gui]" \
   -as 		"" 	"" 	"[start application as another user]" \
   -display 	"" 	"$DISPLAY" 	"[X windows display]" \
   -debug 	"0" 	"1"	"[debug message]" \
+  -exp          ""      ""      "[experiment path]" \
   -noautomsg 	"0"     "1"	"[value 1 means no auto message display]" \
   -suites 	""	""	"[suites list file]" \
   -logfile ""  ""  "[application log file]" \
@@ -103,6 +104,12 @@ if [[ "${logspan}" != "" ]] ; then
    logspan_opt="-logspan ${logspan}"
 fi
 
+exp_opt=""
+if [[ "${exp}" != "" ]] ; then
+   print "\n starting $(basename $0) with exp ${exp}"
+   exp_opt="-exp ${exp}"
+fi
+
 export NO_STOP_MESSAGE=on
 print "\n$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl ${automsg_opt} ${suites_opt}"
-$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl -main ${automsg_opt} ${suites_opt} ${logfile_opt} ${debug_opt} ${rc_opt} ${user_opt} ${logspan_opt}
+$TCLSH ${SEQ_XFLOW_BIN}/../lib/Overview.tcl -main ${automsg_opt} ${suites_opt} ${logfile_opt} ${debug_opt} ${rc_opt} ${user_opt} ${logspan_opt} ${exp_opt}

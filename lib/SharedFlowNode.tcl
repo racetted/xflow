@@ -548,6 +548,30 @@ proc SharedFlowNode_setMaxExtValue { exp_path node datestamp max_ext_value } {
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} max_ext_value ${max_ext_value}
 }
 
+proc SharedFlowNode_getMemberStatusMsg { exp_path node datestamp member } {
+   set value "init"
+
+   if { [tsv::exists SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == 1 } {
+      set values {init}
+      if { $member == "" } {
+         set member "null"
+      }
+      # get the latest member 
+      if { $member == "latest" } {
+         set member [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} latest_member]
+      }
+      catch {
+         array set statuses [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses]
+         if { [info exists statuses($member)] } {
+            set values $statuses($member)
+         }
+      }
+      set value [lindex ${values} 2]
+   }
+
+   return $value
+}
+
 # retrieves the status for a given member iteration
 # This is a generic procedure that is used even for node that are not part of
 # loops... In that case the member value is simply an empty string
@@ -584,8 +608,8 @@ proc SharedFlowNode_getMemberStatus { exp_path node datestamp member } {
 # difference between status orig_status:
 # status=end, begin
 # orig_status=end or endx, begin or beginx
-proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig_status timestamp {is_recursive false} } {
-   # puts "SharedFlowNode_setMemberStatus ${exp_path} ${node} ${datestamp} ${member} ${status}"
+proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig_status timestamp {status_msg ""} {is_recursive false} } {
+   # puts "SharedFlowNode_setMemberStatus ${exp_path} ${node} ${datestamp} ${member} ${status} ${status_msg}"
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
       # puts "SharedFlowNode_setMemberStatus SharedFlowNode_initNodeDatestamp"
       SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp}
@@ -601,14 +625,18 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig
    }
 
    if { ${nodeType} == "npass_task"} {
-      SharedFlowNode_setNptMemberStatus ${exp_path} ${node} ${datestamp} ${member} ${status} ${timestamp}
+      SharedFlowNode_setNptMemberStatus ${exp_path} ${node} ${datestamp} ${member} ${status} ${timestamp} ${status_msg}
    } else {
 
       array set statuses [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses]
 
       if { $member == "" } {
          set member null
-         set statuses(null) "${status} ${timestamp}"
+	    if { ${status_msg} == "" } {
+               set statuses($member) "${status} ${timestamp}"
+	    } else {
+               set statuses($member) "${status} ${timestamp} [list ${status_msg}]"
+	    }
       } else {
          if { ${status} == "init" } {
             if { [info exists statuses($member)] } {
@@ -621,7 +649,11 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig
                unset statuses($item)
             }
          } else {
-            set statuses($member) "${status} ${timestamp}"
+	    if { ${status_msg} == "" } {
+               set statuses($member) "${status} ${timestamp}"
+	    } else {
+               set statuses($member) "${status} ${timestamp} [list ${status_msg}]"
+	    }
 	    if { ${nodeType} == "loop"} {
 	       # for loops, the latest_member stores the value of the whole loop.
 	       # for inn   # how many parent loops do I have
@@ -648,7 +680,7 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig
       if { ${submits} != "" } {
          foreach submitName ${submits} {
             set submitNode ${node}/${submitName}
-            SharedFlowNode_setMemberStatus ${exp_path} ${submitNode} ${datestamp} ${member} ${status} ${orig_status} ${timestamp} 1
+            SharedFlowNode_setMemberStatus ${exp_path} ${submitNode} ${datestamp} ${member} ${status} ${orig_status} ${timestamp} ${status_msg} 1
          }
       }
    }
@@ -960,7 +992,7 @@ proc SharedFlowNode_isTimestampOlder { time_a time_b } {
    return 0
 }
 
-proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status timestamp {is_recursive false}} {
+proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status timestamp {status_msg ""}} {
    ::log::log debug "SharedFlowNode_setNptMemberStatus ${exp_path} $node $member $status"
    if { [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type] != "npass_task" } {
       return
@@ -1005,7 +1037,11 @@ proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status t
 
       } elseif { [expr ${nofSeparators} > ${nofParentLoops}] } {
          # changing one npt index only
-         set statuses($member) "${status} ${timestamp}"
+         if { ${status_msg} == "" } {
+            set statuses($member) "${status} ${timestamp}"
+         } else {
+            set statuses($member) "${status} ${timestamp} [list ${status_msg}]"
+         }
          set baseExt [SharedFlowNode_getExtBasePart ${member}]
          tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member $member
 	 if { ${baseExt} != "" } {
@@ -1018,10 +1054,10 @@ proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status t
       }
    } else {
       # changing one npt member not part of a loop
-      if { ${timestamp} != "" } {
+      if { ${status_msg} == "" } {
          set statuses($member) "${status} ${timestamp}"
       } else {
-         set statuses($member) "${status}"
+         set statuses($member) "${status} ${timestamp} [list ${status_msg}]"
       }
       tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member $member
    }
@@ -1392,12 +1428,15 @@ proc SharedFlowNode_getLoopInfo { exp_path loop_node datestamp } {
    return $txt
 }
 
+# input: /a/b/c+12+1 or /a/b/c.+12+1
+# output: /a/b/c
 proc SharedFlowNode_getNodeFromDisplayFormat { node_with_ext } {
    set newNodeName ${node_with_ext}
    set firstSepIndex [string first "+" ${node_with_ext}]
    if { [expr ${firstSepIndex} != -1] } {
       set newNodeName [string range ${node_with_ext} 0 [expr ${firstSepIndex} - 1]]
    }
+   set newNodeName [string trim ${newNodeName} .]
    return ${newNodeName}
 }
 

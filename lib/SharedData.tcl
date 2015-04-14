@@ -298,6 +298,38 @@ proc SharedData_getExpCheckIdle { _exp_path } {
    return ${checkIdleValue}
 }
 
+# sets exp log idle threshold value in minutes
+proc SharedData_setExpIdleThreshold { _exp_path _idle_threshold } {
+   SharedData_setExpData ${_exp_path} idle_threshold ${_idle_threshold}
+}
+
+# exp log idle threshold value in minutes
+# try to read value from exp if it has a value (ExpOptions.xml)
+# if not, read from global value
+proc SharedData_getExpIdleThreshold { _exp_path } {
+   set idleThresholdValue [SharedData_getExpData ${_exp_path} idle_threshold ]
+   if { ${idleThresholdValue} == "" } {
+      set idleThresholdValue [SharedData_getMiscData OVERVIEW_EXP_IDLE_THRESHOLD]
+   }
+   return ${idleThresholdValue}
+}
+
+# sets exp log idle threshold value in minutes
+proc SharedData_setExpSubmitLateThreshold { _exp_path _submit_late_threshold } {
+   SharedData_setExpData ${_exp_path} submit_late_threshold ${_submit_late_threshold}
+}
+
+# exp check submission late threshold value in minutes
+# try to read value from exp if it has a value (ExpOptions.xml)
+# if not, read from global value
+proc SharedData_getExpSubmitLateThreshold { _exp_path } {
+   set submitLateThresholdValue [SharedData_getExpData ${_exp_path} submit_late_threshold ]
+   if { ${submitLateThresholdValue} == "" } {
+      set submitLateThresholdValue [SharedData_getMiscData OVERVIEW_EXP_SUBMIT_LATE_THRESHOLD]
+   }
+   return ${submitLateThresholdValue}
+}
+
 # true | false
 proc SharedData_setExpShowExp { _exp_path _showExp } {
    SharedData_setExpData ${_exp_path} showexp ${_showExp}
@@ -758,6 +790,18 @@ proc SharedData_init {} {
    # if true, will send notification if exp has been idle for more than 1 hour
    # idle means exp is not in end status and log has not been modified
    SharedData_setMiscData OVERVIEW_CHECK_EXP_IDLE false
+
+   # check idle interval in minutes
+   SharedData_setMiscData OVERVIEW_EXP_IDLE_INTERVAL 60
+
+   # check submit late interval in minutes
+   SharedData_setMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL 15
+
+   # check idle threshold in minutes
+   SharedData_setMiscData OVERVIEW_EXP_IDLE_THRESHOLD 60
+
+   # check submit late threshold in minutes
+   SharedData_setMiscData OVERVIEW_EXP_SUBMIT_LATE_THRESHOLD 60
 
    # number of threads created to process exp log datestamps
    SharedData_setMiscData OVERVIEW_NUM_THREADS 4

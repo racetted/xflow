@@ -82,6 +82,14 @@ proc Utils_getHourFromTime { timevalue  { keep_zero "no" } } {
    return ${hourValue}
 }
 
+# input datestamp: yyyyMMddhhmm00
+# returns yyMMdd in clock format 
+proc Utils_getDayClockFromDatestamp { datestamp } {
+   set dayOnly [string range ${datestamp} 0 7]
+   set clockValue [clock scan ${dayOnly} -format "%Y%m%d"]
+
+   return ${clockValue}
+}
 
 proc Utils_isListEqual { list_a list_b } {
    set isEqual false
@@ -303,7 +311,7 @@ proc Utils_getDayOfWeekFromDatestamp { _datestamp } {
     # Sakamoto's algorithm for day of week
     set timelist { 0 3 2 5 0 3 5 1 4 6 2 4 }
     if { $month < 3 } {
-       set year [expr $year - $month]    
+       set year [expr $year - 1]    
     }
     return [expr ($year + $year/4 - $year/100 + $year/400 + [lindex $timelist [expr $month-1]] + $day) % 7 ]
 }
