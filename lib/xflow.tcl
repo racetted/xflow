@@ -2435,7 +2435,7 @@ proc xflow_listingCallback { exp_path datestamp node extension canvas {full_loop
    }
 }
 
-# this funtion is invoked to list all the successfull node listing for this node.
+# this funtion is invoked to list all the node listing for this node.
 # this means all available listings in different datestamps
 proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
   global env
@@ -2445,14 +2445,13 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
-   set tmpfile2 "${tmpdir}/test$id"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set listerPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
    Utils_busyCursor [winfo toplevel ${canvas}]
 
    set result [ catch {
-      set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -type success -list > $tmpfile 2>&1"
+      set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -list > $tmpfile 2>&1"
       ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
       eval [exec ksh -c $cmd ]
       ::log::log debug  "xflow_allListingCallback DONE: $cmd"
@@ -2472,7 +2471,7 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       pack $listingW.mbar.quit -side right -pady .5m -padx 1m
       wm title  ${listingW} "All listings ${node} - Exp=${exp_path}"
       
-      #Divide the window in 3 parts: success listings, abort listings and compare listings
+      #Divide the window in 4 parts: success listings, abort listings, submission listings and compare listings
       TitleFrame $listingW.successFrame -text "Success listings"
       pack ${listingW}.successFrame -fill both -expand 1 -padx 5 -pady 10
       set subf1 [${listingW}.successFrame getframe]
@@ -2483,6 +2482,11 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       set subf2 [${listingW}.abortFrame getframe]
       frame $subf2.abortButtons
       pack $subf2.abortButtons -side bottom -fill x
+      TitleFrame $listingW.submitFrame -text "Submission listings"
+      pack ${listingW}.submitFrame -fill both -expand 1 -padx 5 -pady 10
+      set subf4 [${listingW}.submitFrame getframe]
+      frame $subf4.submitButtons
+      pack $subf4.submitButtons -side bottom -fill x
       TitleFrame $listingW.diffFrame -text "Compare listings"
       pack ${listingW}.diffFrame -fill both -expand 1 -padx 5 -pady 10
       set subf3 [${listingW}.diffFrame getframe]
@@ -2500,10 +2504,15 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       button $subf2.abortButtons.abortDiffAdd -text "Add selected to diff list" -command [list xflow_addToDiffList $subf2 $subf3 abort]
       pack $subf2.abortButtons.abortDiffAdd -side left -pady .5m -padx 1m
       balloon $subf2.abortButtons.abortDiffAdd "Only two listings can be added to the compare list"
+      button $subf4.submitButtons.submitView -text "View selected" -command [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf4.list4 submit]
+      pack $subf4.submitButtons.submitView -side left -pady .5m -padx 1m
+      button $subf4.submitButtons.submitDiffAdd -text "Add selected to diff list" -command [list xflow_addToDiffList $subf4 $subf3 submit]
+      pack $subf4.submitButtons.submitDiffAdd -side left -pady .5m -padx 1m
+      balloon $subf4.submitButtons.submitDiffAdd "Only two listings can be added to the compare list"
       button $subf3.diffButtons.diff -text Diff -command [list xflow_diffListing ${exp_path} ${datestamp} $subf3.list3]
       pack $subf3.diffButtons.diff -side left -pady .5m -padx 1m
       balloon $subf3.diffButtons.diff "Compare listings from the list above"
-      button $subf3.diffButtons.removeDiff -text "Remove selected" -command [list xflow_removeDiff $subf3.list3 $subf1.list $subf2.list2]
+      button $subf3.diffButtons.removeDiff -text "Remove selected" -command [list xflow_removeDiff $subf3.list3 $subf1.list $subf2.list2 $subf4.list4]
       pack $subf3.diffButtons.removeDiff -side left -pady .5m -padx 1m
       
       #Listboxes, where the listings are listed
@@ -2513,6 +2522,9 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       listbox $subf2.list2 -yscrollcommand "${subf2}.yscroll2 set" \
           -xscrollcommand "${subf2}.xscroll2 set" -selectbackground gray5 \
           -height 10 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor
+      listbox $subf4.list4 -yscrollcommand "${subf4}.yscroll4 set" \
+          -xscrollcommand "${subf4}.xscroll4 set" -selectbackground gray5 \
+          -height 10 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor
       listbox $subf3.list3 -height 2 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor -selectbackground gray5
 
       #Scrollbars for the listboxes
@@ -2520,6 +2532,8 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       scrollbar $subf1.xscroll -command "${subf1}.list xview" -orient horizontal -bg $bgColor
       scrollbar $subf2.yscroll2 -command "${subf2}.list2 yview"  -bg $bgColor
       scrollbar $subf2.xscroll2 -command "${subf2}.list2 xview" -orient horizontal -bg $bgColor
+      scrollbar $subf4.yscroll4 -command "${subf4}.list4 yview"  -bg $bgColor
+      scrollbar $subf4.xscroll4 -command "${subf4}.list4 xview" -orient horizontal -bg $bgColor
 
       pack $subf1.xscroll -fill x -side bottom -in $subf1
       pack $subf1.yscroll -side right -fill y -in $subf1
@@ -2527,45 +2541,43 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       pack $subf2.xscroll2 -fill x -side bottom -in $subf2
       pack $subf2.yscroll2 -side right -fill y -in $subf2
       pack $subf2.list2 -expand 1 -fill both -padx 1m -side left -in $subf2
+      pack $subf4.xscroll4 -fill x -side bottom -in $subf4
+      pack $subf4.yscroll4 -side right -fill y -in $subf4
+      pack $subf4.list4 -expand 1 -fill both -padx 1m -side left -in $subf4
       pack $subf3.list3 -expand 1 -fill both -padx 1m -side left -in $subf3
       
-      #List the success listings
+      #Parse the listings
       set resultingFile [open $tmpfile]
       while { [gets $resultingFile line ] >= 0 } {
           if { [string first "On" $line] >= 0 } {
              set mach [string trimleft $line "On "]
              $subf1.list insert end $line
+             $subf2.list2 insert end $line
+             $subf4.list4 insert end $line
           } else {
-             set tmpLine "[string trim $line "\n"] $mach"
-             set splittedArgs [split $tmpLine]
-             set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
-             $subf1.list insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
+             if { [string first "success" $line] > 1 } {
+                set tmpLine "[string trim $line "\n"] $mach"
+                set splittedArgs [split $tmpLine]
+                set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
+                $subf1.list insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
+             } elseif { [string first "abort" $line] > 1 } {
+                set tmpLine "[string trim $line "\n"] $mach"
+                set splittedArgs [split $tmpLine]
+                set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
+                $subf2.list2 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
+             } else {
+                set tmpLine "[string trim $line "\n"] $mach"
+                set splittedArgs [split $tmpLine]
+                set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
+                $subf4.list4 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
+             }
           }
      }
      catch {[exec rm -f $tmpfile]}
 
-     #List the abort listings
-     set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -type abort -list > $tmpfile2 2>&1"
-     ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
-     eval [exec ksh -c $cmd ]
-     ::log::log debug  "xflow_allListingCallback DONE: $cmd"
-     set resultingFile2 [open $tmpfile2] 
-     while { [gets $resultingFile2 line ] >= 0 } {
-          if { [string first "On" $line] >= 0 } {
-             set mach [string trimleft $line "On "]
-             $subf2.list2 insert end $line
-          } else {
-             set tmpLine "[string trim $line "\n"] $mach"
-             set splittedArgs [split $tmpLine]
-             set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
-             $subf2.list2 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
-          }
-      }
-      catch {[exec rm -f $tmpfile2]}
-
-
       bind $subf1.list <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf1.list success]
       bind $subf2.list2 <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf2.list2 abort]
+      bind $subf4.list4 <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf4.list4 submit]
       Utils_normalCursor [winfo toplevel ${canvas}]
 
    } message ]
@@ -2613,9 +2625,12 @@ proc balloon:show {w arg} {
 proc xflow_addToDiffList { listf subf3 type } {
    if { $type == "success" } {
       set listName "list"
-   } else {
+   } elseif { $type == "abort" } {
       set listName "list2"
+   } elseif { $type == "submit" } {
+      set listName "list4"
    }
+
    ::log::log debug "xflow_addToDiffList selection: [${listf}.${listName} curselection]"
    set selectedIndexes [ $listf.${listName} curselection ]
    foreach selectIndex $selectedIndexes {
@@ -2626,9 +2641,12 @@ proc xflow_addToDiffList { listf subf3 type } {
             if { $type == "success" } {
                $subf3.list3 itemconfigure [expr [$subf3.list3 size] - 1] -background [::DrawUtils::getBgStatusColor end] -foreground [::DrawUtils::getFgStatusColor end]
                $listf.${listName} itemconfigure $selectIndex -background [::DrawUtils::getBgStatusColor end] -foreground [::DrawUtils::getFgStatusColor end]
-            } else {
+            } elseif { $type == "abort" } {
                $subf3.list3 itemconfigure [expr [$subf3.list3 size] - 1] -background [::DrawUtils::getBgStatusColor abort] -foreground [::DrawUtils::getFgStatusColor abort]
                $listf.${listName} itemconfigure $selectIndex -background [::DrawUtils::getBgStatusColor abort] -foreground [::DrawUtils::getFgStatusColor abort]
+            } else {
+               $subf3.list3 itemconfigure [expr [$subf3.list3 size] - 1] -background [::DrawUtils::getBgStatusColor submit] -foreground [::DrawUtils::getFgStatusColor submit]
+               $listf.${listName} itemconfigure $selectIndex -background [::DrawUtils::getBgStatusColor submit] -foreground [::DrawUtils::getFgStatusColor submit]
             }
          }
       }
@@ -2637,7 +2655,7 @@ proc xflow_addToDiffList { listf subf3 type } {
 
 #This function is invoked to remove selected compare listings from the
 # "All Node Listing" window
-proc xflow_removeDiff { listw successlist abortlist } {
+proc xflow_removeDiff { listw successlist abortlist submitlist } {
    set selectedIndexes [$listw curselection]
    if { [llength $selectedIndexes] == 1 } {
       set tmpLine [$listw get [lindex $selectedIndexes 0]]
@@ -2649,11 +2667,18 @@ proc xflow_removeDiff { listw successlist abortlist } {
 	      $successlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
 	  }
 	}
-      } else {
+      } elseif { [string first "abort" $tmpLine] > 1 } {
          set tmpSize [$abortlist size]
          for {set i 0} {$i < $tmpSize} {incr i} {
 	   if { $tmpLine == [$abortlist get $i] } {
 	      $abortlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+	   }
+         }
+      } else {
+         set tmpSize [$submitlist size]
+         for {set i 0} {$i < $tmpSize} {incr i} {
+	   if { $tmpLine == [$submitlist get $i] } {
+	      $submitlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
 	   }
          }
       }
@@ -2670,14 +2695,21 @@ proc xflow_removeDiff { listw successlist abortlist } {
 		$successlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
 	    }
 	  }
-	} else {
+	} elseif { [string first "abort" $tmpLine] > 1 } {
 	  set tmpSize [$abortlist size]
 	  for {set i 0} {$i < $tmpSize} {incr i} {
 	    if { $tmpLine == [$abortlist get $i] } {
 		$abortlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
 	    }
 	  }
-	}
+	} else {
+	  set tmpSize [$submitlist size]
+	  for {set i 0} {$i < $tmpSize} {incr i} {
+	    if { $tmpLine == [$submitlist get $i] } {
+		$submitlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+	    }
+	  }
+        }
       }
    }
 }
