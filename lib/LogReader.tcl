@@ -157,7 +157,12 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
 # executes C logreader that outputs tsv elements
 # then set the tsv structures in the environment
 proc LogReader_readTsv { exp_path datestamp } {
-   set line [exec /users/dor/afsi/anm/LogReader -i ${exp_path}/logs/${datestamp}_nodelog]
+   puts "logreader execution on ${exp_path}/logs/${datestamp}_nodelog"
+   if { ![file exists ${exp_path}/logs/${datestamp}_nodelog] } {
+      puts "${exp_path}/logs/${datestamp}_nodelog does not exist"
+      return
+   }
+   set line [exec logreader -i ${exp_path}/logs/${datestamp}_nodelog -e ${exp_path} -d ${datestamp}]
    set tsvlist [split $line "\\"]
    set var "SharedFlowNode_${exp_path}_${datestamp}_runtime"
    set stats_var "SharedFlowNode_${exp_path}_${datestamp}_stats"
@@ -185,6 +190,11 @@ proc LogReader_readTsv { exp_path datestamp } {
                set newMax [string length [lindex [split ${stored_member} +] end ] ]
                if { $newMax > $tmp_max_ext_value } {
                   set tmp_max_ext_value $newMax
+               }
+               if { $stored_member == "null" } {
+                  set statuses(all) $status
+                  unset statuses($stored_member)
+                  tsv::keylset ${var} ${flowNode} statuses "[array get statuses]"
                }
             }
             tsv::keylset ${var} ${flowNode} max_ext_value $tmp_max_ext_value

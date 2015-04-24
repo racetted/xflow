@@ -802,6 +802,46 @@ proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
    return ${execTime}
 }
 
+proc SharedFlowNode_getMiscAvgTime { exp_path node datestamp member type } {
+   if { ${member} == "" } {
+      set member null
+   }
+   set miscTime ""
+   array set avg [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} avg]
+   if { [info exists avg($member)] } {
+      set memberAvgList $avg($member)
+      set miscTimeIndex [lsearch -exact ${memberAvgList} $type]
+      set miscTime [lindex ${memberAvgList} [expr ${miscTimeIndex} + 1]]
+   }
+   return ${miscTime}
+}
+
+proc SharedFlowNode_getRelativeExecTime { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   if { [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} avg {}] == 0 } {
+      return ""
+   }
+   set relativeExecTime ""
+   set timeDisplayFormat {%H:%M:%S}
+   set execTime [SharedFlowNode_getExecTime $exp_path $node $datestamp $member]
+   set avgExecTime [SharedFlowNode_getMiscAvgTime $exp_path $node $datestamp $member exectime]
+
+   if { $execTime != "" && $avgExecTime != "" } {
+      if { [clock scan ${execTime} -format ${timeDisplayFormat}] > [clock scan ${avgExecTime} -format ${timeDisplayFormat}] } {
+         set relativeExecTimeString [expr [clock scan ${execTime} -format ${timeDisplayFormat}] -  [clock scan ${avgExecTime} -format ${timeDisplayFormat}] ]
+         set relativeExecTime +[clock format ${relativeExecTimeString} -timezone :UTC -format ${timeDisplayFormat}]
+      } elseif { [clock scan ${execTime} -format ${timeDisplayFormat}] < [clock scan ${avgExecTime} -format ${timeDisplayFormat}] } {
+         set relativeExecTimeString [expr [clock scan ${avgExecTime} -format ${timeDisplayFormat}] - [clock scan ${execTime} -format ${timeDisplayFormat}] ]
+         set relativeExecTime -[clock format ${relativeExecTimeString} -timezone :UTC -format ${timeDisplayFormat}]
+      } else {
+         set relativeExecTime "00:00:00"
+      }
+   }
+   return $relativeExecTime
+}
+
 proc SharedFlowNode_isStatsInfoExists {  exp_path node datestamp } {
    set isExists false
    catch {
