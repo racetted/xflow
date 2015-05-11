@@ -79,7 +79,7 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
 
    ${displayMenu} add separator
 
-   set itemList [list "Execution Time" "Begin Time" "End Time" "Submission Delay" "Delta Time From Start" "Relative Execution Time"]
+   set itemList [list "Execution Time" "Begin Time" "End Time" "Submission Delay" "Delta Time From Start" "Relative Progress" "Relative Execution Time"]
    foreach item ${itemList} {
       set value ${item}
       ${displayMenu} add radiobutton -label ${item} -variable NODE_DISPLAY_PREF -value ${value} \
@@ -825,6 +825,10 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
 
       "Delta Time From Start" {
          set attrValue [SharedFlowNode_getDeltaFromStart ${exp_path} ${node} ${datestamp} ${member}]
+      }
+
+      "Relative Progress" {
+         set attrValue [SharedFlowNode_getRelativeProgress ${exp_path} ${node} ${datestamp} ${member}]
       }
 
       "Relative Execution Time" {
@@ -4214,7 +4218,7 @@ proc xflow_toFront { toplevel_w } {
 }
 
 proc xflow_isNodePrefResourceRequired { exp_path datestamp } {
-   set notRequiredList {normal "Execution Time" "Begin Time" "End Time" "Submission Delay" "Delta Time From Start" "Relative Execution Time"}
+   set notRequiredList {normal "Execution Time" "Begin Time" "End Time" "Submission Delay" "Delta Time From Start" "Relative Progress" "Relative Execution Time"}
    set currentPref [xflow_getNodeDisplayPref ${exp_path} ${datestamp}]
    set value false
    if { [lsearch -exact ${notRequiredList} ${currentPref}] == -1 } {

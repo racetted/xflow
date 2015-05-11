@@ -971,9 +971,8 @@ proc SharedFlowNode_getDeltaFromStart { exp_path node datestamp member } {
       set member null
    }
    set deltaFromStart ""
-   set timestampFormat {%Y%m%d.%H:%M:%S}
    set timeDisplayFormat {%H:%M:%S}
-   set beginStatus begin
+   set submitStatus submit
    if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
       # tasks node
       set endStatus end
@@ -986,32 +985,63 @@ proc SharedFlowNode_getDeltaFromStart { exp_path node datestamp member } {
         [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${node}] != "" } {
       array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
       set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
-      set rootNodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${rootNode} ${datestamp} type]
       if { [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${rootNode}] != "" } {
          array set rootnode_statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${rootNode} stats_info]
       } else {
          return ""
       }
-      if { ${rootNodeType} == "loop" } {
-         set rootNodeMember all
-      } else {
-         set rootNodeMember null
-      }
       if { [info exists statsinfo($member)] && [info exists rootnode_statsinfo($rootNodeMember)] } {
          set memberInfoList $statsinfo($member)
          set endIndex [lsearch -exact ${memberInfoList} ${endStatus}]
          set rootNodeInfoList $rootnode_statsinfo($rootNodeMember)
-         set beginIndex [lsearch -exact ${rootNodeInfoList} ${beginStatus}]
-         if { ${endIndex} != -1 && ${beginIndex} != -1 } {
+         set submitIndex [lsearch -exact ${rootNodeInfoList} ${submitStatus}]
+         if { ${endIndex} != -1 && ${submitIndex} != -1 } {
             set endTime [lindex ${memberInfoList} [expr ${endIndex} + 1]]
-            set beginTime [lindex ${rootNodeInfoList} [expr ${beginIndex} + 1]]
-            set deltaFromStartString [expr [clock scan ${endTime} -format ${timestampFormat}] -  [clock scan ${beginTime} -format ${timestampFormat}] ]
-	    set deltaFromStart [clock format ${deltaFromStartString} -timezone :UTC -format ${timeDisplayFormat}]
+            set rootSubmitTime [lindex ${rootNodeInfoList} [expr ${submitIndex} + 1]]
+            set deltaFromStartString [expr [clock scan ${endTime} -format ${timeDisplayFormat}] -  [clock scan ${rootSubmitTime} -format ${timeDisplayFormat}] ]
+	         set deltaFromStart [clock format ${deltaFromStartString} -timezone :UTC -format ${timeDisplayFormat}]
          }
+      } else {
+
+        array set stats [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats]
+        if { [info exists stats($member)] } {
+            set memberStatsList $stats($member)
+            set deltaFromStartIndex [lsearch -exact ${memberStatsList} deltafromstart]
+            set deltaFromStart [lindex ${memberStatsList} [expr ${deltaFromStartIndex} + 1]]
+        }
       }
    }
    return ${deltaFromStart}
 }
+
+#relative progress --> average time from submit of root node to end of target node
+proc SharedFlowNode_getRelativeProgress { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   if { [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} avg {}] == 0 } {
+      return ""
+   }
+   set relativeProgress ""
+   set timeDisplayFormat {%H:%M:%S}
+   set progress [SharedFlowNode_getDeltaFromStart $exp_path $node $datestamp $member]
+   set avgProgress [SharedFlowNode_getMiscAvgTime $exp_path $node $datestamp $member deltafromstart]
+
+   if { $progress != "" && $avgProgress != "" } {
+      if { [clock scan ${progress} -format ${timeDisplayFormat}] > [clock scan ${avgProgress} -format ${timeDisplayFormat}] } {
+         set relativeProgressString [expr [clock scan ${progress} -format ${timeDisplayFormat}] -  [clock scan ${avgProgress} -format ${timeDisplayFormat}] ]
+         set relativeProgress +[clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]
+      } elseif { [clock scan ${progress} -format ${timeDisplayFormat}] < [clock scan ${avgProgress} -format ${timeDisplayFormat}] } {
+         set relativeProgressString [expr [clock scan ${avgProgress} -format ${timeDisplayFormat}] - [clock scan ${progress} -format ${timeDisplayFormat}] ]
+         set relativeProgress -[clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]
+      } else {
+         set relativeProgress "00:00:00"
+      }
+   }
+   return $relativeProgress
+}
+
+
 
 # If time_a is older than time_b return 1, else return 0
 proc SharedFlowNode_isTimestampOlder { time_a time_b } {
