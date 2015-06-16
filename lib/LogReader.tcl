@@ -217,31 +217,33 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
          # position yourself in the file
          seek $f_logfile $logFileOffset
 	 set sameRead false
-         while {[gets $f_logfile line] > 0} {
-            if [ catch { 
-	       if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}] != 0 } {
-	          # something went wrong reading the line
-		  # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
-		  # writing to it... a retry seems to do the trick
-		  if { ${sameRead} == false } {
-		     set sameRead true
-		     # go to previous spot in the file
-                     seek $f_logfile $logFileOffset
-		     after 500
-		  } else {
-		     # only retry once... after that we log the error
-                     ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: ${logFileOffset} after 1 retry."
-		     break
-		  }
-	       } else {
-	          set sameRead false
-	          set logFileOffset [tell ${f_logfile}]
+         while {[gets $f_logfile line] >= 0} {
+	    if { ${line} != "" } {
+               if [ catch { 
+	          if { [LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}] != 0 } {
+	             # something went wrong reading the line
+		     # retry second read in .5 second... once in a while, I get junk when reading from the file... maybe the server is in the processing of
+		     # writing to it... a retry seems to do the trick
+		     if { ${sameRead} == false } {
+		        set sameRead true
+		        # go to previous spot in the file
+                        seek $f_logfile $logFileOffset
+		        after 500
+		     } else {
+		        # only retry once... after that we log the error
+                        ::log::log notice "WARNING: LogReader_readFile() invalid line ignored:${line} exp_path:${exp_path} datestamp:${datestamp} thread_id:[thread::id] file_offset: ${logFileOffset} after 1 retry."
+		        break
+		     }
+	          } else {
+	             set sameRead false
+	             set logFileOffset [tell ${f_logfile}]
+	          }
+               } message ] {
+	          ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
+	          ::log::log notice "ERROR: message: ${message}"
+	          puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
 	       }
-            } message ] {
-	       ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
-	       ::log::log notice "ERROR: message: ${message}"
-	       puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
-	    }
+            }
          }
 	 if { ${isTopLogRead} == false } {
 	    set logFileOffset [tell ${f_logfile}]
