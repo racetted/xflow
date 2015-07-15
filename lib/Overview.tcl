@@ -289,7 +289,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
                      set refTimeLateSeconds [clock add ${refTimeStartSeconds} ${expSubmitLateThreshold} minute]
 
                      # check if exp box is passed current time and that is not within the log span discard
-	             if { ${currentTime} > ${refTimeLateSeconds} && ${refTimeStartSeconds} > [SharedData_getMiscData LOG_SPAN_THRESHOLD_TIME] } {
+	             if {  [Overview_isExpScheduled ${expPath} ${hour} ${refStartTime}] == true && ${currentTime} > ${refTimeLateSeconds} && ${refTimeStartSeconds} > [SharedData_getMiscData LOG_SPAN_THRESHOLD_TIME] } {
 		        # we need to send a warning dialog
                         set shortName [SharedData_getExpShortName ${expPath}]
                         set expLabel "${shortName}-${hour}"
