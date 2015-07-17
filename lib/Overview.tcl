@@ -535,34 +535,31 @@ proc Overview_processInitStatus { canvas exp_path datestamp {status init} } {
    ::log::log debug "Overview_processInitStatus ${exp_path} ${datestamp} ${status}"
    set statusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
    set statusDateTime [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} init]
-   set currentDateTime [clock seconds]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
    set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
-   set refEndDateTime [clock scan ${refEndTime}]
    set currentTime [Utils_getCurrentTime]
-   set shiftDay false
 
-   
-   if { [expr ${statusDateTime} < ${xoriginDateTime}] } {
-      # start time is prior to visible hour, move it 0
-      Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} [Overview_GraphGetXOriginTime]
-   } else {
-      Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} ${statusTime}
-   }
-
-   if { ${refEndTime} != "" } {
-      if { [Overview_getXCoordTime ${currentTime}] < [Overview_getXCoordTime ${refEndTime}] } {
-         # the reference end is still coming
-         Overview_ExpCreateReferenceBox ${canvas} ${exp_path} ${datestamp} ${currentTime}
-         Overview_ExpCreateEndIcon ${canvas} ${exp_path} ${datestamp} ${refEndTime}
+   if { ${statusTime} != "" && ${statusDateTime} != "" } {
+      if { [expr ${statusDateTime} < ${xoriginDateTime}] } {
+         # start time is prior to visible hour, move it 0
+         Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} [Overview_GraphGetXOriginTime]
+      } else {
+         Overview_ExpCreateStartIcon ${canvas} ${exp_path} ${datestamp} ${statusTime}
       }
-   } else {
-      # the reference end time is still ahead
-      Overview_ExpCreateMiddleBox ${canvas} ${exp_path} ${datestamp} ${currentTime} false true
-      set newcoords [Overview_getRunBoxBoundaries  ${canvas} ${exp_path} ${datestamp}]
-      set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
-      Overview_ExpCreateEndIcon ${canvas} ${exp_path} ${datestamp} ${endTime}
+
+      if { ${refEndTime} != "" } {
+         if { [Overview_getXCoordTime ${currentTime}] < [Overview_getXCoordTime ${refEndTime}] } {
+            # the reference end is still coming
+            Overview_ExpCreateReferenceBox ${canvas} ${exp_path} ${datestamp} ${currentTime}
+            Overview_ExpCreateEndIcon ${canvas} ${exp_path} ${datestamp} ${refEndTime}
+         }
+      } else {
+         # the reference end time is still ahead
+         Overview_ExpCreateMiddleBox ${canvas} ${exp_path} ${datestamp} ${currentTime} false true
+         set newcoords [Overview_getRunBoxBoundaries  ${canvas} ${exp_path} ${datestamp}]
+         set endTime [Overview_getTimeFromCoord [lindex ${newcoords} 2]]
+         Overview_ExpCreateEndIcon ${canvas} ${exp_path} ${datestamp} ${endTime}
+      }
    }
 }
 
@@ -2364,7 +2361,6 @@ proc Overview_addGroup { canvas displayGroup } {
       foreach datestamp ${datestamps} {
          set currentStatus [OverviewExpStatus_getLastStatus ${exp} ${datestamp}]
          set statusTime [OverviewExpStatus_getLastStatusTime ${exp} ${datestamp}]
-         set statusDateTime [OverviewExpStatus_getStatusClockValue ${exp} ${datestamp} ${currentStatus}]
 	 if { ${statusTime} != "" } {
             Overview_updateExpBox ${canvas} ${exp} ${datestamp} ${currentStatus} ${statusTime}
          }
