@@ -4,7 +4,6 @@ package require cmdline
 package require Thread
 namespace import ::tooltip::tooltip
 namespace import ::struct::record::record
-package require keynav
 package require log
 package require img::png
 package require autoscroll
@@ -1498,7 +1497,7 @@ proc Overview_OptimizeExpBoxes { displayGroup } {
                      # DisplayGrp_processEmptyRows ${displayGroup}
                      set done true
                   } else {
-                     if { [expr ${ySlotStart} == [${displayGroup} cget -maxy]] } {
+                     if { [expr ${ySlotStart} == [${displayGroup} cget -max_y]] } {
                         set done true
                      }
                      set ySlotStart [DisplayGrp_getNextSlotY ${displayGroup} ${ySlotStart}]
@@ -2011,11 +2010,11 @@ proc Overview_checkGridLimit {} {
    set displayGroups [ExpXmlReader_getGroups]
    set lastGroup [lindex ${displayGroups} end]
    if { ${lastGroup} != "" } {
-      #puts "Overview_checkGridLimit last group y:[${lastGroup} cget -y] maxy:[${lastGroup} cget -maxy]"
-      #puts "Overview_checkGridLimit grid maxy: [[Overview_getCanvas] coords grid_max_y]"
+      #puts "Overview_checkGridLimit last group y:[${lastGroup} cget -y] max_y:[${lastGroup} cget -max_y]"
+      #puts "Overview_checkGridLimit grid max_y: [[Overview_getCanvas] coords grid_max_y]"
       set canvasW [Overview_getCanvas]
       # get the max y from the exp boxes
-      set maxExpBoxY [${lastGroup} cget -maxy]
+      set maxExpBoxY [${lastGroup} cget -max_y]
       # get the max y coord of the grid
       set maxGridCoords [${canvasW} coords grid_max_y]
       if { ${maxGridCoords} != "" } {
@@ -2189,34 +2188,6 @@ proc Overview_getRunBoxBoundaries { canvas exp_path datestamp } {
    return ${boundaries}
 }
 
-# returns the boundaries of a DisplayGroup record
-# that covers the entire rows that are used by the display group
-# the Display Group + every rows used by its exp boxes
-proc Overview_getGroupBoundaries { canvas display_group } {
-   global graphX graphStartX graphHourX
-
-   set startx ${graphStartX}
-   set endX [expr ${startx} + 24 * ${graphHourX}]
-   set boundaries [${canvas} bbox ${display_group}]
-   set y1 [lindex ${boundaries} 1]
-   set y2 [lindex ${boundaries} 3]
-
-   set expBoxTags [$canvas find withtag exp_box.${display_group}]
-   foreach expBoxTag ${expBoxTags} {
-      set boxBoundaries [${canvas} coords ${expBoxTag}]
-      set expy1 [lindex ${boxBoundaries} 1]
-      set expy2 [lindex ${boxBoundaries} 3]
-      if { ${expy1} != "" && ${y1} > ${expy1} } {
-         set y1 ${expy1}
-      }
-      if { ${expy2} != "" && ${y2} < ${expy2} } {
-         set y2 ${expy2}
-      }
-   }
-   set boundaries [list ${startx} $y1 ${endX} $y2]
-
-   return ${boundaries}
-}
 
 # this function sets the exp box mouse over tooltip information.
 # it is updated everytime the exp node root status changes
@@ -2290,9 +2261,9 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
          # set the new min and max if group exists
          if { [${overviewCanvas} gettags ${displayGroup}] != "" } {
             set newMin [expr [${displayGroup} cget -y] + ${delta_y}]
-            set newMax [expr [${displayGroup} cget -maxy] + ${delta_y}]
+            set newMax [expr [${displayGroup} cget -max_y] + ${delta_y}]
             ${displayGroup} configure -y ${newMin}
-            ${displayGroup} configure -maxy ${newMax}
+            ${displayGroup} configure -max_y ${newMax}
 
             # move the group and exp boxes that belongs to it
             ::log::log debug "Overview_moveGroups ${overviewCanvas} moving ${displayGroup} delta_y:${delta_y}"
@@ -2303,58 +2274,41 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
    }
 }
 
-# returns the y position that a group should be displayed based on the
-# group already displayed prior to itself. This function should be useful
-# at startup when we add the display groups one by one
-proc Overview_getGroupDisplayY { group_display } {
-   global entryStartY expEntryHeight
-   set displayGroups [ExpXmlReader_getGroups]
-   set myIndex [lsearch ${displayGroups} ${group_display}]
-   if { ${myIndex} == -1 || ${myIndex} == 0 } {
-      # not found or first group, return the start y
-      return ${entryStartY}
-   }
-
-   # get the previous group from the list
-   set prevGroup [lindex ${displayGroups} [expr ${myIndex} - 1]]
-   set prevGroupBoundaries  [Overview_getGroupBoundaries [Overview_getCanvas] ${prevGroup}]
-
-   set prevGroupY [lindex ${prevGroupBoundaries} 3]
-   #set thisGroupY [Overview_GroupNextY ${prevGroupY}]
-   set thisGroupY [DisplayGrp_getNextSlotY ${prevGroup} ${prevGroupY}]
-   ::log::log debug "Overview_getGroupDisplayY value: ${thisGroupY}"
-   return ${thisGroupY}
-}
-
 proc Overview_addGroup { canvas displayGroup } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
-   #puts "Overview_addGroup displayGroup:${displayGroup}"
+   # puts "Overview_addGroup displayGroup:${displayGroup}"
    set groupDname [$displayGroup cget -dname]
    set groupName [$displayGroup cget -name]
    set tagName ${displayGroup}
    set groupLevel [$displayGroup cget -level]
-   set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
+   set groupEntryCurrentY [DisplayGrp_getGroupDisplayY ${displayGroup}]
+   set expList [$displayGroup cget -exp_list]
+
+   set deltaName ""
+   if { [${displayGroup} cget -parent] != "" } {
+      set deltaName "-"
+   }
 
    #puts "Overview_addGrouppLevel  groupEntryCurrentY:$groupEntryCurrentY"
 
-   # add indentation for each different level
-   set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
+   set expEntryCurrentX [DisplayGrp_getGroupDisplayX ${displayGroup}]
 
    #puts "Overview_addGroupsplayGroup groupDname:$groupDname groupEntryCurrentY:$groupEntryCurrentY"
    set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
-      -text $groupName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
+      -text "${deltaName}${groupName}" -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
 
+   # puts "Overview_addGroup displayGroup:${displayGroup} groupEntryCurrentY:$groupEntryCurrentY groupIdY: [expr $groupEntryCurrentY + $expEntryHeight/2]"
    # get the font for each level
    set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
 
    $canvas itemconfigure displayGroup_${tagName} -font $newFont
 
-   $displayGroup configure -x [expr $graphStartX + 20]
+   # get the exps for each group if exists
+
+   DisplayGrp_setMaxX ${displayGroup}
    DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
 
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   # get the exps for each group if exists
-   set expList [$displayGroup cget -exp_list]
    foreach exp $expList {
       Overview_addExpDefaultBoxes ${canvas} ${exp}
       set datestamps [OverviewExpStatus_getDatestamps ${exp}]
@@ -2649,8 +2603,10 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
    $canvas create line $x1 [expr $y1 + $graphy] $x2 [expr $y2 + $graphy ] -tag "grid_item grid_hour ${tagHour}"
    $canvas create line $x1 [expr $y1 + 5] $x2 [expr $y2 + $graphy - 5 ] -dash 2 -fill grey60 -tag  "grid_item grid_hour ${tagHour}"
 
-   $canvas create text $x2 [expr $y1 - 20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour}"
-   $canvas create text $x2 [expr $y2 + $graphy +20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour} grid_footer"
+   # $canvas create text $x2 [expr $y1 - 20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour}"
+   # $canvas create text $x2 [expr $y2 + $graphy +20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour} grid_footer"
+   $canvas create text $x2 [expr $y1 - 8 ] -text $xLabel -tag "grid_item grid_hour ${tagHour}"
+   $canvas create text $x2 [expr $y2 + $graphy +8 ] -text $xLabel -tag "grid_item grid_hour ${tagHour} grid_footer"
 
 }
 
@@ -2694,9 +2650,6 @@ proc Overview_init {} {
    set startEndIconSize 10
 
    set expBoxOutlineWidth 1.5
-
-   keynav::enableMnemonics .
-
 }
 
 # this function reads an xml configuration file that
@@ -3392,8 +3345,8 @@ proc Overview_main {} {
    grid rowconfigure ${topOverview} 1 -weight 0
    grid rowconfigure ${topOverview} 2 -weight 1
 
-   set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
-   grid ${sizeGripWidget} -sticky se
+   # set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
+   # grid ${sizeGripWidget} -sticky se
 
    Overview_createGraph ${topCanvas}
 

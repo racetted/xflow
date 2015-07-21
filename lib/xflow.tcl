@@ -2,7 +2,6 @@
 #set auto_path [linsert $auto_path 0 [exec pwd]]
 #package require Tk
 #package require tile
-package require keynav
 package require struct::record
 package require autoscroll
 package require tooltip
@@ -4497,7 +4496,6 @@ proc xflow_init { {exp_path ""} } {
          SharedData_setMiscData SUBMIT_POPUP ${SUBMIT_POPUP}
       }
       xflow_setTkOptions
-      keynav::enableMnemonics .
 
       set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
       set NODE_DISPLAY_PREF  [SharedData_getMiscData NODE_DISPLAY_PREF]
@@ -4511,10 +4509,7 @@ proc xflow_init { {exp_path ""} } {
    }
 
    xflow_setWidgetNames 
-
    xflow_setErrorMessages
-
-   keynav::enableMnemonics .
 
    # xflow_createTmpDir
 }
