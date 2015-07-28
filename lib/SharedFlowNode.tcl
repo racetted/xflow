@@ -612,7 +612,7 @@ proc SharedFlowNode_setMemberStatus { exp_path node datestamp member status orig
    # puts "SharedFlowNode_setMemberStatus ${exp_path} ${node} ${datestamp} ${member} ${status} ${status_msg}"
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
       # puts "SharedFlowNode_setMemberStatus SharedFlowNode_initNodeDatestamp"
-      SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp} 
+      SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp}
    }
 
    set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
@@ -691,7 +691,7 @@ proc SharedFlowNode_setStatInfo { exp_path node datestamp member status timestam
    array set statsinfo {}
    # puts "SharedFlowNode_setStatInfo node:$node member:$member status:$status timestamp:$timestamp "
 
-   catch { array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info] }
+   catch { array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info] }
 
    if { ${status} != "submit" && [info exists statsinfo($member)] } {
          set memberInfoList $statsinfo($member)
@@ -739,7 +739,7 @@ proc SharedFlowNode_setStatInfo { exp_path node datestamp member status timestam
       set statsinfo($member) [list ${status} ${timestamp}]
    }
    # puts "SharedFlowNode_setStatInfo node:$node member:$member set statsinfo:[array get statsinfo]"
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info "[array get statsinfo]"
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info "[array get statsinfo]"
 }
 
 # for loop, member could be the member iteration (+24) or "all" for the
@@ -752,7 +752,7 @@ proc SharedFlowNode_getStatInfo { exp_path node datestamp member } {
       set member null
    }
    if { [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
-      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
       if { [info exists statsinfo($member)] } {
          set result $statsinfo($member)
       }
@@ -778,8 +778,8 @@ proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
    }
 
    if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
-        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
-      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
       if { [info exists statsinfo($member)] } {
          set memberInfoList $statsinfo($member)
          set beginIndex [lsearch -exact ${memberInfoList} ${beginStatus}]
@@ -790,15 +790,62 @@ proc SharedFlowNode_getExecTime { exp_path node datestamp member } {
 	    set execTimeString [expr [clock scan ${endTime} -format ${timestampFormat}] -  [clock scan ${beginTime} -format ${timestampFormat}] ]
 	    set execTime [clock format ${execTimeString} -timezone :UTC -format ${timeDisplayFormat}]
 	 }
+      } else {
+         array set stats [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats]
+         if { [info exists stats($member)] } {
+            set memberStatsList $stats($member)
+            set execTimeIndex [lsearch -exact ${memberStatsList} exectime]
+            set execTime [lindex ${memberStatsList} [expr ${execTimeIndex} + 1]]
+         }
       }
    }
    return ${execTime}
 }
 
+proc SharedFlowNode_getMiscAvgTime { exp_path node datestamp member type } {
+   if { ${member} == "" } {
+      set member null
+   }
+   set miscTime ""
+   array set avg [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} avg]
+   if { [info exists avg($member)] } {
+      set memberAvgList $avg($member)
+      set miscTimeIndex [lsearch -exact ${memberAvgList} $type]
+      set miscTime [lindex ${memberAvgList} [expr ${miscTimeIndex} + 1]]
+   }
+   return ${miscTime}
+}
+
+proc SharedFlowNode_getRelativeExecTime { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   if { [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} avg {}] == 0 } {
+      return ""
+   }
+   set relativeExecTime ""
+   set timeDisplayFormat {%H:%M:%S}
+   set execTime [SharedFlowNode_getExecTime $exp_path $node $datestamp $member]
+   set avgExecTime [SharedFlowNode_getMiscAvgTime $exp_path $node $datestamp $member exectime]
+
+   if { $execTime != "" && $avgExecTime != "" } {
+      if { [clock scan ${execTime} -format ${timeDisplayFormat}] > [clock scan ${avgExecTime} -format ${timeDisplayFormat}] } {
+         set relativeExecTimeString [expr [clock scan ${execTime} -format ${timeDisplayFormat}] -  [clock scan ${avgExecTime} -format ${timeDisplayFormat}] ]
+         set relativeExecTime +[clock format ${relativeExecTimeString} -timezone :UTC -format ${timeDisplayFormat}]
+      } elseif { [clock scan ${execTime} -format ${timeDisplayFormat}] < [clock scan ${avgExecTime} -format ${timeDisplayFormat}] } {
+         set relativeExecTimeString [expr [clock scan ${avgExecTime} -format ${timeDisplayFormat}] - [clock scan ${execTime} -format ${timeDisplayFormat}] ]
+         set relativeExecTime -[clock format ${relativeExecTimeString} -timezone :UTC -format ${timeDisplayFormat}]
+      } else {
+         set relativeExecTime "00:00:00"
+      }
+   }
+   return $relativeExecTime
+}
+
 proc SharedFlowNode_isStatsInfoExists {  exp_path node datestamp } {
    set isExists false
    catch {
-      set keys [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}]
+      set keys [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${node}]
       if { [lsearch ${keys} stats_info] != -1 } {
          set isExists true
       }
@@ -821,7 +868,7 @@ proc SharedFlowNode_getBeginTime { exp_path node datestamp member } {
    }
 
    if { [SharedFlowNode_isStatsInfoExists ${exp_path} ${node} ${datestamp}] == true } {
-      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
       if { [info exists statsinfo($member)] } {
          set memberInfoList $statsinfo($member)
          set beginIndex [lsearch -exact ${memberInfoList} ${beginStatus}]
@@ -830,6 +877,13 @@ proc SharedFlowNode_getBeginTime { exp_path node datestamp member } {
 	    set beginTimeString [clock scan ${beginTimeValue} -format ${timestampFormat}]
 	    set beginTime [clock format ${beginTimeString} -format ${timeDisplayFormat}]
 	 }
+      }  else {
+         array set stats [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats]
+         if { [info exists stats($member)] } {
+            set memberStatsList $stats($member)
+            set beginTimeIndex [lsearch -exact ${memberStatsList} begintime]
+            set beginTime [lindex [split [lindex ${memberStatsList} [expr ${beginTimeIndex} + 1]] .] 1]
+         }
       }
    }
    return ${beginTime}
@@ -851,8 +905,8 @@ proc SharedFlowNode_getEndTime { exp_path node datestamp member } {
    }
 
    if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
-        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
-      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
       if { [info exists statsinfo($member)] } {
          set memberInfoList $statsinfo($member)
          set endIndex [lsearch -exact ${memberInfoList} ${endStatus}]
@@ -861,6 +915,13 @@ proc SharedFlowNode_getEndTime { exp_path node datestamp member } {
 	    set endTimeString [clock scan ${endTimeValue} -format ${timestampFormat}]
 	    set endTime [clock format ${endTimeString} -format ${timeDisplayFormat}]
 	 }
+      } else {
+         array set stats [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats]
+         if { [info exists stats($member)] } {
+            set memberStatsList $stats($member)
+            set endTimeIndex [lsearch -exact ${memberStatsList} endtime]
+            set endTime [lindex [split [lindex ${memberStatsList} [expr ${endTimeIndex} + 1]] .] 1]
+         }
       }
    }
    return ${endTime}
@@ -882,7 +943,7 @@ proc SharedFlowNode_getSubmitDelay { exp_path node datestamp member } {
    }
 
    if { [SharedFlowNode_isStatsInfoExists ${exp_path} ${node} ${datestamp}] == true } {
-      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
       if { [info exists statsinfo($member)] } {
          set memberInfoList $statsinfo($member)
          set beginIndex [lsearch -exact ${memberInfoList} ${beginStatus}]
@@ -892,10 +953,113 @@ proc SharedFlowNode_getSubmitDelay { exp_path node datestamp member } {
 	    set beginTime [lindex ${memberInfoList} [expr ${beginIndex} + 1]]
 	    set delayTimeString [expr [clock scan ${beginTime} -format ${timestampFormat}] -  [clock scan ${submitTime} -format ${timestampFormat}] ]
 	    set submitDelay [clock format ${delayTimeString} -format ${timeDisplayFormat}]
-	 }
+	 } 
+      } else {
+         array set stats [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats]
+         if { [info exists stats($member)] } {
+            set memberStatsList $stats($member)
+            set submitDelayIndex [lsearch -exact ${memberStatsList} submitdelay]
+            set submitDelay [lindex ${memberStatsList} [expr ${submitDelayIndex} + 1]]
+         }
       }
    }
    return ${submitDelay}
+}
+
+proc SharedFlowNode_getDeltaFromStart { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   set deltaFromStart ""
+   set timeDisplayFormat {%H:%M:%S}
+   set submitStatus submit
+   if { [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
+      # tasks node
+      set endStatus end
+   } else {
+      # container node
+      set endStatus endx
+   }
+
+   if { [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${member}] == "end" && 
+        [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${node}] != "" } {
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
+      set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
+      if { [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${rootNode}] != "" } {
+         array set rootnode_statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${rootNode} stats_info]
+      } else {
+         return ""
+      }
+      if { [info exists statsinfo($member)] && [info exists rootnode_statsinfo($rootNodeMember)] } {
+         set memberInfoList $statsinfo($member)
+         set endIndex [lsearch -exact ${memberInfoList} ${endStatus}]
+         set rootNodeInfoList $rootnode_statsinfo($rootNodeMember)
+         set submitIndex [lsearch -exact ${rootNodeInfoList} ${submitStatus}]
+         if { ${endIndex} != -1 && ${submitIndex} != -1 } {
+            set endTime [lindex ${memberInfoList} [expr ${endIndex} + 1]]
+            set rootSubmitTime [lindex ${rootNodeInfoList} [expr ${submitIndex} + 1]]
+            set deltaFromStartString [expr [clock scan ${endTime} -format ${timeDisplayFormat}] -  [clock scan ${rootSubmitTime} -format ${timeDisplayFormat}] ]
+	         set deltaFromStart [clock format ${deltaFromStartString} -timezone :UTC -format ${timeDisplayFormat}]
+         }
+      } else {
+
+        array set stats [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats]
+        if { [info exists stats($member)] } {
+            set memberStatsList $stats($member)
+            set deltaFromStartIndex [lsearch -exact ${memberStatsList} deltafromstart]
+            set deltaFromStart [lindex ${memberStatsList} [expr ${deltaFromStartIndex} + 1]]
+        }
+      }
+   }
+   return ${deltaFromStart}
+}
+
+#relative progress --> average time from submit of root node to end of target node
+proc SharedFlowNode_getRelativeProgress { exp_path node datestamp member } {
+   if { ${member} == "" } {
+      set member null
+   }
+   if { [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} avg {}] == 0 } {
+      return ""
+   }
+   set relativeProgress ""
+   set timeDisplayFormat {%H:%M:%S}
+   set progress [SharedFlowNode_getDeltaFromStart $exp_path $node $datestamp $member]
+   set avgProgress [SharedFlowNode_getMiscAvgTime $exp_path $node $datestamp $member deltafromstart]
+
+   if { $progress != "" && $avgProgress != "" } {
+      if { [clock scan ${progress} -format ${timeDisplayFormat}] > [clock scan ${avgProgress} -format ${timeDisplayFormat}] } {
+         set relativeProgressString [expr [clock scan ${progress} -format ${timeDisplayFormat}] -  [clock scan ${avgProgress} -format ${timeDisplayFormat}] ]
+         set relativeProgress +[clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]
+      } elseif { [clock scan ${progress} -format ${timeDisplayFormat}] < [clock scan ${avgProgress} -format ${timeDisplayFormat}] } {
+         set relativeProgressString [expr [clock scan ${avgProgress} -format ${timeDisplayFormat}] - [clock scan ${progress} -format ${timeDisplayFormat}] ]
+         set relativeProgress -[clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]
+      } else {
+         set relativeProgress "00:00:00"
+      }
+   }
+   return $relativeProgress
+}
+
+
+
+# If time_a is older than time_b return 1, else return 0
+proc SharedFlowNode_isTimestampOlder { time_a time_b } {
+   set tmp_time_a [split $time_a {}]
+   set tmp_time_b [split $time_b {}]
+   set i 0
+   set max_field [llength $tmp_time_a]
+   while {$i < $max_field} {
+      if {[lindex $tmp_time_a $i] != "." && [lindex $tmp_time_a $i] != ":"} {
+         if {[lindex $tmp_time_a $i] > [lindex $tmp_time_b $i]} {
+            return 1
+         } elseif {[lindex $tmp_time_a $i] < [lindex $tmp_time_b $i]} {
+            return 0
+         }
+      }
+      incr i
+   }
+   return 0
 }
 
 proc SharedFlowNode_setNptMemberStatus { exp_path node datestamp member status timestamp {status_msg ""}} {
@@ -1782,7 +1946,7 @@ proc SharedFlowNode_printNodeMembers { exp_path node datestamp } {
    if { [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp} ${node}] != "" } {
       set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
       array set statuses [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses]
-      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} stats_info]
+      array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
       if { [SharedFlowNode_getLoops ${exp_path} ${node} ${datestamp}] != "" } {
          foreach { member } [lsort -integer [array names statuses]] {
             puts "   member:${member} status:$statuses($member) stats_info:$statsinfo($member)"
