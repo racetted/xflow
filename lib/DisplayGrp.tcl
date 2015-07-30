@@ -53,9 +53,10 @@ proc DisplayGrp_getGroupLevel { level } {
    return ${result}
 }
 
+# set the maximum x value of the group
 proc DisplayGrp_setMaxX { display_group } {
    set canvas [Overview_getCanvas]
-   set groupTag [${canvas} find withtag ${display_group}]
+   set groupTag [${canvas} find withtag [DisplayGrp_getTagName ${display_group}]]
    set groupBoundaries [${canvas} bbox ${groupTag}]
    # puts "DisplayGrp_setMaxX:$groupTag groupBoundaries:$groupBoundaries"
 
@@ -63,6 +64,21 @@ proc DisplayGrp_setMaxX { display_group } {
       ${display_group} configure -x [lindex ${groupBoundaries} 0] 
       ${display_group} configure -max_x [lindex ${groupBoundaries} 2] 
    }
+}
+
+proc DisplayGrp_getAllGroupMaxX { canvas } {
+   set maxX 0
+   set coords [${canvas} bbox DisplayGroup]
+   if { ${coords} != "" } {
+      set maxX [lindex ${coords} 2]
+   }
+
+   # puts "DisplayGrp_getAllGroupMaxX maxX:$maxX"
+   return ${maxX}
+}
+
+proc DisplayGrp_getTagName { display_group } {
+   return displayGroup_${display_group}
 }
 
 # this function locates the y slot that based on a
@@ -202,8 +218,8 @@ proc DisplayGrp_processOverlap { display_group } {
       if { ${groupIndex} != [llength ${displayGroups}] } {
          # only do something if not the last group, otherwise nothing to do
          set checkGroup [lindex ${displayGroups} ${groupIndex}]
-   
-         if { [${canvas} gettags ${checkGroup}] != "" } {
+         set checkGroupTag [DisplayGrp_getTagName ${checkGroup}] 
+         if { [${canvas} gettags ${checkGroupTag}] != "" } {
             set goodY [DisplayGrp_getGroupDisplayY ${checkGroup}]
             set currentY [${checkGroup} cget -y]
             ::log::log debug "DisplayGrp_processOverlap display_group:$display_group goodY:$goodY currentY:$currentY"
@@ -229,6 +245,7 @@ proc DisplayGrp_getGroupDisplayX { group_display } {
    if { ${parentGroup} != "" } {
       set displayX [expr [${parentGroup} cget -max_x] + 5]
    }
+   ::log::log debug "DisplayGrp_getGroupDisplayX group_display:${group_display} displayX:${displayX}" 
    return ${displayX}
 }
 
@@ -238,16 +255,18 @@ proc DisplayGrp_getGroupDisplayX { group_display } {
 proc DisplayGrp_getGroupDisplayY { group_display } {
    global entryStartY expEntryHeight
    set displayGroups [ExpXmlReader_getGroups]
-   set myIndex [lsearch ${displayGroups} ${group_display}]
+   set myIndex [lsearch -exact ${displayGroups} ${group_display}]
    if { ${myIndex} == -1 || ${myIndex} == 0 } {
+      # puts "DisplayGrp_getGroupDisplayY group_display;$group_display first group"
       # not found or first group, return the start y
+      ::log::log debug "DisplayGrp_getGroupDisplayY group_display:${group_display} first group" 
       return ${entryStartY}
    }
 
    # get the previous group from the list
    set prevGroup [lindex ${displayGroups} [expr ${myIndex} - 1]]
    set prevGroupLevel [${prevGroup} cget -level]
-   set prevGroupBoundaries  [DisplayGrp_getGroupBoundaries [Overview_getCanvas] ${prevGroup}]
+   set prevGroupBoundaries  [DisplayGrp_getOneGroupBoundaries [Overview_getCanvas] ${prevGroup}]
    set prevGroupY [lindex ${prevGroupBoundaries} 3]
 
    set thisGroupLevel [$group_display cget -level]
@@ -255,25 +274,27 @@ proc DisplayGrp_getGroupDisplayY { group_display } {
    if { ${prevGroupLevel} < ${thisGroupLevel} } {
       # we are changing group level
       # the current group will be located just next to the previous one, on the same line to optimize spacing
+      # puts "DisplayGrp_getGroupDisplayY changing group_display;$group_display"
       set thisGroupY [${prevGroup} cget -y]
    } else {
       set thisGroupY [DisplayGrp_getNextSlotY ${prevGroup} ${prevGroupY}]
+      # puts "DisplayGrp_getGroupDisplayY group_display;$group_display prevGroup:$prevGroup prevGroupY:$prevGroupY next slot:$thisGroupY"
    }
 
    #set thisGroupY [Overview_GroupNextY ${prevGroupY}]
-   ::log::log debug "DisplayGrp_getGroupDisplayY value: ${thisGroupY}"
+   ::log::log debug "DisplayGrp_getGroupDisplayY group_display:${group_display} value: ${thisGroupY}"
    return ${thisGroupY}
 }
 
 # returns the boundaries of a DisplayGroup record
 # that covers the entire rows that are used by the display group
 # the Display Group + every rows used by its exp boxes
-proc DisplayGrp_getGroupBoundaries { canvas display_group } {
+proc DisplayGrp_getOneGroupBoundaries { canvas display_group } {
    global graphX graphStartX graphHourX
 
    set startx ${graphStartX}
    set endX [expr ${startx} + 24 * ${graphHourX}]
-   set boundaries [${canvas} bbox ${display_group}]
+   set boundaries [${canvas} bbox [DisplayGrp_getTagName ${display_group}]]
    set y1 [lindex ${boundaries} 1]
    set y2 [lindex ${boundaries} 3]
 
@@ -293,6 +314,7 @@ proc DisplayGrp_getGroupBoundaries { canvas display_group } {
 
    return ${boundaries}
 }
+
 
 proc DisplayGrp_getWindowsLabel { {exp_path ""} } {
    global WINDOWS_LABEL
