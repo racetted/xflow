@@ -985,10 +985,16 @@ proc SharedFlowNode_getDeltaFromStart { exp_path node datestamp member } {
         [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${node}] != "" } {
       array set statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${node} stats_info]
       set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
+      set rootNodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${rootNode} ${datestamp} type]
       if { [tsv::keylkeys SharedFlowNode_${exp_path}_${datestamp}_stats ${rootNode}] != "" } {
          array set rootnode_statsinfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_stats ${rootNode} stats_info]
       } else {
          return ""
+      }
+      if { ${rootNodeType} == "loop" } {
+         set rootNodeMember all
+      } else {
+         set rootNodeMember null
       }
       if { [info exists statsinfo($member)] && [info exists rootnode_statsinfo($rootNodeMember)] } {
          set memberInfoList $statsinfo($member)

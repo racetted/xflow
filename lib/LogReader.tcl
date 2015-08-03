@@ -162,7 +162,7 @@ proc LogReader_readTsv { exp_path datestamp } {
       puts "${exp_path}/logs/${datestamp}_nodelog does not exist"
       return
    }
-   set line [exec logreader -i ${exp_path}/logs/${datestamp}_nodelog -e ${exp_path} -d ${datestamp}]
+   set line [exec logreader -e ${exp_path} -d ${datestamp}]
    set tsvlist [split $line "\\"]
    set var "SharedFlowNode_${exp_path}_${datestamp}_runtime"
    set stats_var "SharedFlowNode_${exp_path}_${datestamp}_stats"
