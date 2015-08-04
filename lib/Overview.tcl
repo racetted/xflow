@@ -495,11 +495,11 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
    set x2 ${currentTimeCoordx}
    set y1 [expr $graphStartY - 4]
    set y2 [expr $graphStartY + 4]
-   set lineId [$canvas create line $x1 [expr $y1 - 40] $x2 [expr $y2 + $graphy + 40 ] -tag "grid_time current_timeline" -fill DarkGreen]
+   set lineId [$canvas create line $x1 [expr $y1 - 25] $x2 [expr $y2 + $graphy + 25] -tag "grid_time current_timeline" -fill DarkGreen]
    ::tooltip::tooltip $canvas -item "${lineId}" "Current Time:${current_time}Z\nUpdated every 30 seconds"
 
    if { [$canvas gettags current_timetext] == "" } {
-      $canvas create text $x1 [expr $y2 + $graphy + 45] -fill DarkGreen -anchor w -justify left -tag "grid_item current_timetext"
+      $canvas create text [expr $x1 +2] [expr $y2 + $graphy + 25] -fill DarkGreen -anchor w -justify left -tag "grid_item current_timetext"
    }
 
    $canvas itemconfigure current_timetext -text "Current Time: ${current_time}Z"
@@ -2032,13 +2032,13 @@ proc Overview_checkGridLimit {} {
          if { ${maxGridY} <= [expr ${maxExpBoxY} + ${expEntryHeight}] } {
             # grid is too small, increase it
             #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
-            set graphy [expr ${maxExpBoxY} + ${expEntryHeight}]
+            set graphy [expr ${maxExpBoxY} + ${expEntryHeight}/2]
             ::log::log debug "Overview_checkGridLimit expanding grid to graphy:$graphy"
             Overview_redrawGrid
          } elseif { ${graphy} > ${defaultGraphY} && ${graphy} >  [expr ${maxExpBoxY} + ${expEntryHeight}] } {
 	    # shring the grid to default value
             ::log::log debug "Overview_checkGridLimit reducing grid to graphy:$graphy"
-	    set graphy [expr ${maxExpBoxY} + ${expEntryHeight}]
+	    set graphy [expr ${maxExpBoxY} + ${expEntryHeight}/2]
             Overview_redrawGrid
 	 }
       }
@@ -2457,7 +2457,7 @@ proc Overview_createGraph { canvas } {
       [expr $graphStartX + $graphX] [expr $graphStartY + $graphy] -arrow last -tags "grid_item grid_footer grid_max_y"
 
    # x axis title
-   $canvas create text [expr ${x2}/2 ] [expr $graphStartY + $graphy + 60] -text "Time (UTC)" -tag "grid_item grid_footer"
+   $canvas create text [expr ${x2}/2 ] [expr $graphStartY + $graphy + 40] -text "Time (UTC)" -tag "grid_item grid_footer"
    
    # y axe origin
    $canvas create line $graphStartX [expr $graphStartY - 20] $graphStartX [expr $graphStartY + $graphy] -arrow first -tag "grid_item"
@@ -2482,6 +2482,86 @@ proc Overview_createGraph { canvas } {
 
    # put the groups on top of the grid
    $canvas lower grid_item DisplayGroup
+}
+
+proc Overview_createHiddenMessageIcons { canvas } {
+   global SHOW_TOOLBAR
+   set hiddenX 55 
+   set hiddenY 35
+
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   image create photo ${canvas}.msg_center_img -file ${imageDir}/open_mail_sh_16x16.png
+   image create photo ${canvas}.msg_center_new_img -file ${imageDir}/open_mail_new_16x16.png
+   image create photo ${canvas}.toggle_expand_top_img -file ${imageDir}/toggle_expand.png
+   image create photo ${canvas}.toggle_top_img -file ${imageDir}/toggle.png
+
+   set normMsgB [button ${canvas}.msg_center_b -image ${canvas}.msg_center_img -command [list MsgCenter_show true] -relief raised ]
+   set newMsgB [button ${canvas}.msg_center_new_b -image ${canvas}.msg_center_new_img -command [list MsgCenter_show true] -relief raised ]
+   set toggleTopB [button ${canvas}.toggle_top_b -image ${canvas}.toggle_top_img -command [list Overview_toggleToolbarCallback]]
+   set toggleExpandTopB [button ${canvas}.toggle_expand_top_b -image ${canvas}.toggle_expand_top_img -command [list Overview_toggleToolbarCallback]]
+   ::tooltip::tooltip ${normMsgB} "Show Message Center."
+   ::tooltip::tooltip ${newMsgB} "Show Message Center."
+   ::tooltip::tooltip ${toggleTopB} "Hide Toolbar & Menus."
+   ::tooltip::tooltip ${toggleExpandTopB} "Show Toolbar & Menus."
+   ${canvas} create window $hiddenX $hiddenY -window ${normMsgB} -tag canvas_mail_normal
+   ${canvas} create window $hiddenX $hiddenY -window ${newMsgB} -tag canvas_mail_new
+
+   ${canvas} create window 30 35 -window ${toggleTopB} -tag toggle_top_up
+   ${canvas} create window 30 35 -window ${toggleExpandTopB} -tag toggle_expand_top_up
+
+   Overview_toggleMessageIcons ${canvas}
+}
+
+proc Overview_toggleToolbarCallback {} {
+   global SHOW_TOOLBAR
+   if { ${SHOW_TOOLBAR} == true } {
+      set SHOW_TOOLBAR false
+   } else {
+      set SHOW_TOOLBAR true
+   }
+   Overview_showToolbarCallback
+}
+
+proc Overview_toggleMessageIcons { canvas } {
+   global OVERVIEW_HAS_NEW_MSG SHOW_TOOLBAR
+   set xDelta 200
+   set yDelta 0
+   ::log::log debug "Overview_toggleMessageIcons SHOW_TOOLBAR:$SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG:$OVERVIEW_HAS_NEW_MSG"
+   set normalMailCoordsX [lindex [${canvas} coords canvas_mail_normal] 0]
+   set newMailCoordsX [lindex [${canvas} coords canvas_mail_new] 0]
+
+   ::log::log debug "Overview_toggleMessageIcons normalMailCoordsX:$normalMailCoordsX newMailCoordsX:$newMailCoordsX"
+
+   # first hide them all
+   if { ${normalMailCoordsX} > 0 } {
+      ${canvas} move canvas_mail_normal -$xDelta $yDelta
+   }
+
+   if { ${newMailCoordsX} > 0 } {
+      ${canvas} move canvas_mail_new -$xDelta $yDelta
+   }
+
+   if { [lindex [${canvas} coords toggle_top_up] 0] > 0 } {
+      ${canvas} move toggle_top_up -$xDelta $yDelta
+   }
+
+   if { [lindex [${canvas} coords toggle_expand_top_up] 0] > 0 } {
+      ${canvas} move toggle_expand_top_up -$xDelta $yDelta
+   }
+
+   # then show the appropriate
+   if { ${SHOW_TOOLBAR} == false } {
+      # hide toolbar so show canvas icons
+      if { ${OVERVIEW_HAS_NEW_MSG} } {
+         # show new msg icon
+         ${canvas} move canvas_mail_new $xDelta $yDelta
+      } else {
+         ${canvas} move canvas_mail_normal $xDelta $yDelta
+      }
+      ${canvas} move toggle_expand_top_up $xDelta $yDelta
+   } else {
+      ${canvas} move toggle_top_up $xDelta $yDelta
+   }
 }
 
 # checks if the starting point of an exp box in the overview
@@ -2603,10 +2683,14 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 }
 
 proc Overview_init {} {
-   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE 
+   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
    global expBoxLength startEndIconSize expBoxOutlineWidth
 
+   set SHOW_TOOLBAR [SharedData_getMiscData OVERVIEW_SHOW_TOOLBAR]
+   puts "Overview_init SHOW_TOOLBAR:$SHOW_TOOLBAR"
+
+   set OVERVIEW_HAS_NEW_MSG false
    set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
    set CHECK_EXP_IDLE [SharedData_getMiscData OVERVIEW_CHECK_EXP_IDLE]
    set NODE_DISPLAY_PREF [SharedData_getMiscData NODE_DISPLAY_PREF]
@@ -2831,6 +2915,8 @@ proc Overview_addPrefMenu { parent } {
    menubutton $menuButtonW -text Preferences -underline 0 -menu $menuW
    menu $menuW -tearoff 0
 
+   set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
+
    $menuW add checkbutton -label "Auto Launch" -variable AUTO_LAUNCH \
       -onvalue true -offvalue false
    trace add variable AUTO_LAUNCH write [list Overview_changeSettings AUTO_LAUNCH]
@@ -2854,6 +2940,8 @@ proc Overview_addPrefMenu { parent } {
       -onvalue true -offvalue false
    trace add variable CHECK_EXP_IDLE write [list Overview_changeSettings CHECK_EXP_IDLE]
 
+   $menuW add checkbutton -label "Show Toolbar" -variable SHOW_TOOLBAR \
+      -onvalue true -offvalue false -command [list Overview_showToolbarCallback]
 
    # Node Display submenu
    set displayMenu $menuW.displayMenu
@@ -2877,6 +2965,22 @@ proc Overview_addPrefMenu { parent } {
    pack $menuButtonW -side left -padx 2
 }
 
+proc Overview_showToolbarCallback {} {
+   global SHOW_TOOLBAR
+
+   set topOverview [Overview_getToplevel]
+   set topFrame ${topOverview}.topframe
+   set toolbarW ${topOverview}.toolbar
+   if { ${SHOW_TOOLBAR} == true } {
+       grid ${topFrame} -row 0 -column 1 -sticky nsew -padx 2
+       grid ${toolbarW} -row 1 -column 1 -sticky w -padx 2 
+   } else {
+      grid forget ${topFrame}
+      grid forget ${toolbarW}
+   }
+   Overview_toggleMessageIcons [Overview_getCanvas]
+}
+
 proc Overview_addHelpMenu { parent } {
    set menuButtonW ${parent}.help_menub
    set menuW $menuButtonW.menu
@@ -2892,7 +2996,9 @@ proc Overview_addHelpMenu { parent } {
 proc Overview_createMenu { _toplevelW } {
    set topFrame ${_toplevelW}.topframe
    frame ${topFrame} -relief [SharedData_getMiscData MENU_RELIEF]
-   grid ${topFrame} -row 0 -column 0 -sticky nsew -padx 2
+   # grid ${topFrame} -row 0 -column 0 -sticky nsew -padx 2
+   # grid ${topFrame} -row 0 -column 1 -sticky nsew -padx 2
+   grid ${topFrame} -row 0 -column 1 -sticky ew -padx 2
    Overview_addFileMenu ${topFrame}
    Overview_addPrefMenu ${topFrame}
    Overview_addHelpMenu ${topFrame}
@@ -2903,7 +3009,8 @@ proc Overview_createMenu { _toplevelW } {
 proc Overview_createLabel { parentWidget } {
    set labelFrame [frame ${parentWidget}.label_frame]
    set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [DisplayGrp_getWindowsLabel]]
-   grid ${labelW} -sticky nesw
+   # grid ${labelW} -sticky nesw
+   grid ${labelW} -sticky ew 
    pack ${labelFrame} -side left -padx {20 0}
 }
 
@@ -2919,7 +3026,10 @@ proc Overview_setAutoMsgDisplay {} {
 # to notify the overview main thread of a new message.
 # The overview highlights the msg center icon in the toolbar
 proc Overview_newMessageCallback { has_new_msg } {
+   global OVERVIEW_HAS_NEW_MSG
+
    ::log::log debug "Overview_newMessageCallback has_new_msg:$has_new_msg"
+   set OVERVIEW_HAS_NEW_MSG ${has_new_msg}
    set msgCenterWidget .overview_top.toolbar.core.button_msgcenter
    set noNewMsgImage .overview_top.toolbar.core.msg_center_img
    set hasNewMsgImage .overview_top.toolbar.core.msg_center_new_img
@@ -2933,6 +3043,7 @@ proc Overview_newMessageCallback { has_new_msg } {
          ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor}
       }
    }
+   Overview_toggleMessageIcons [Overview_getCanvas]
 }
 
 proc Overview_nodeDisplayCallback {} {
@@ -2957,7 +3068,8 @@ proc Overview_createToolbar { _toplevelW } {
    set colorLegendW ${toolbarW}.button_colorlegend
    
    # create frame main toolbar
-   frame ${mainToolbarW} -bd 1
+   # frame ${mainToolbarW} -bd 1
+   labelframe ${mainToolbarW} -text Toolbar
 
    # create frame core toolbar
    frame ${toolbarW} -bd 1
@@ -2996,13 +3108,14 @@ proc Overview_createToolbar { _toplevelW } {
       tooltip::tooltip ${testBellW} "Test Bell"
    }
 
-   eval grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${testBellW} ${closeW} -sticky w -padx 2 
+   eval grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${testBellW} ${closeW} -sticky w -padx \[list 2 0\] 
 
    # core toolbar stis on column 0 
-   grid ${toolbarW} -row 0 -column 0 -sticky nsew
+   grid ${toolbarW} -row 0 -column 0 -sticky ew
 
    # place the main toolbar frame on the grid
-   grid ${mainToolbarW} -row 1 -column 0 -sticky nsew -padx 2
+   # grid ${mainToolbarW} -row 1 -column 0 -sticky nsew -padx 2
+   grid ${mainToolbarW} -row 1 -column 1 -sticky ew -padx 2
 }
 
 
@@ -3043,7 +3156,8 @@ proc Overview_createCanvas { _toplevelW } {
    grid columnconfigure ${canvasFrame} 0 -weight 1
    grid rowconfigure ${canvasFrame} 0 -weight 1
 
-   grid ${canvasFrame} -row 2 -column 0 -sticky nsew
+   # grid ${canvasFrame} -row 2 -column 0 -sticky nsew
+   grid ${canvasFrame} -row 2 -column 1 -sticky nsew -rowspan 2
 }
 
 # this is called when a configure event is triggered on a widget to resize, iconified a window.
@@ -3292,7 +3406,7 @@ proc Overview_createPluginToolbar { parentToolbar } {
 }
 
 proc Overview_main {} {
-   global env startupExp
+   global env startupExp SHOW_TOOLBAR
    global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
 
@@ -3325,17 +3439,34 @@ proc Overview_main {} {
       Overview_readExperiments
    }
 
+   set labelValue [DisplayGrp_getWindowsLabel]
+   if { ${labelValue} != "" } {
+      set labelBgColor [SharedData_getMiscData WINDOWS_LABEL_BG]
+      if { ${labelBgColor} != "" } {
+         set labelW [label ${topOverview}.expLabel -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
+      } else {
+         set labelW [label ${topOverview}.expLabel -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont]]
+      }
+      grid ${labelW} -column 0 -row 1 -sticky ew -rowspan 2
+   }
+
+
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}
    set plugin_toolbar [Overview_createPluginToolbar ${topOverview}.toolbar]
-   grid ${plugin_toolbar} -row 0 -column 1 -sticky nsew -padx 2
+   grid ${plugin_toolbar} -row 0 -column 1 -sticky nsew
+   # grid ${plugin_toolbar} -row 1 -column 1 -sticky ew -padx 2
 
    Overview_createCanvas ${topOverview}
 
    # grid ${topCanvas} -row 2 -column 0 -sticky nsew -padx 2
-   grid columnconfigure ${topOverview} 0 -weight 1
+
+   # grid columnconfigure ${topOverview} 0 -weight 1
+   grid columnconfigure ${topOverview} 0 -weight 0 -uniform b 
+   grid columnconfigure ${topOverview} 1 -weight 75 -uniform b 
+   grid rowconfigure ${topOverview} 0 -weight 0
    grid rowconfigure ${topOverview} 1 -weight 0
-   grid rowconfigure ${topOverview} 2 -weight 1
+   grid rowconfigure ${topOverview} 2 -weight 15 -uniform a
 
    # set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
    # grid ${sizeGripWidget} -sticky se
@@ -3359,6 +3490,9 @@ proc Overview_main {} {
 
    # create the grid
    Overview_createGraph ${topCanvas}
+
+   Overview_createHiddenMessageIcons ${topCanvas}
+
    Overview_setCurrentTime ${topCanvas}
 
    # add the exps on the grid and load the log files
@@ -3385,6 +3519,7 @@ proc Overview_main {} {
    }
 
    Overview_checkStartupOptions
+   Overview_showToolbarCallback
 
    # periodic idle check interval in minutes
    set expIdleInterval [SharedData_getMiscData OVERVIEW_EXP_IDLE_INTERVAL]

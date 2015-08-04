@@ -20,8 +20,10 @@ proc ExpXmlReader_readExperiments { xml_file } {
    set folders [$d getElementsByTagName GroupList]
 
    set labelValue [${folders} getAttribute label ""]
+   set labelBgValue [${folders} getAttribute label_bg ""]
    
-   DisplayGrp_setWindowsLabel ${labelValue}
+   SharedData_setMiscData WINDOWS_LABEL ${labelValue}
+   SharedData_setMiscData WINDOWS_LABEL_BG ${labelBgValue}
 
    set level 0
    # get the list of Group
