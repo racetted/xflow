@@ -3611,7 +3611,8 @@ proc xflow_createFlowCanvas { exp_path datestamp parent } {
       grid columnconfigure ${drawFrame} 0 -weight 1
       grid rowconfigure ${drawFrame} 0 -weight 1
 
-      grid ${drawFrame} -row 0 -column 0 -sticky nsew
+      # grid ${drawFrame} -row 0 -column 0 -sticky nsew
+      grid ${drawFrame} -row 0 -column 1 -sticky nsew
    }
    return $canvas
 }
@@ -3990,12 +3991,29 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    xflow_addViewMenu ${exp_path} ${datestamp} $topFrame
    xflow_addHelpMenu ${exp_path} ${datestamp} $topFrame
    puts "xflow_createWidgets  ${exp_path} ${datestamp} menu done..."
-   # exp label frame
+
+   # creates exp label right side of menu
    set expLabelFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  exp_label_frame]]
    set expLabel [label ${expLabelFrame}.exp_label -font [xflow_getExpLabelFont]]
-
    grid ${expLabel} -sticky nesw
    pack ${expLabelFrame} -side left -padx {20 0}
+
+
+   # creates label on the left side of the canvas
+   set expSideLabelFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  exp_side_label_frame]]
+   set labelValue ""
+   if { [DisplayGrp_getWindowsLabel ${exp_path}] != "" } {
+      set labelValue "[DisplayGrp_getWindowsLabel]"
+   }
+
+   set labelBgColor [SharedData_getMiscData WINDOWS_LABEL_BG]
+   if { ${labelBgColor} != "" } {
+      set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
+   } else {
+      set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont]]
+   }
+   grid ${expSideLabel}
+   grid ${expSideLabelFrame} -column 0 -row 3
 
    set secondFrame [frame  [xflow_getWidgetName ${exp_path} ${datestamp}  second_frame]]
    set toolbarFrame [xflow_getWidgetName ${exp_path} ${datestamp}  toolbar_frame]
@@ -4021,23 +4039,23 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    set flowFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  flow_frame]]
    set drawFrame [frame ${flowFrame}.draw_frame]
 
-   grid columnconfigure ${flowFrame} 0 -weight 1
+   grid columnconfigure ${flowFrame} 1 -weight 1
    grid rowconfigure ${flowFrame} 0 -weight 1
 
    # this displays the widgets in the main window layout
-   grid $topFrame -row 0 -column 0 -sticky w -padx 2
-   grid ${secondFrame} -row 1 -column 0  -sticky nsew -pady 2
-   grid ${findFrame} -row 2 -column 0  -sticky nsew -pady 2 -padx 2
+   grid $topFrame -row 0 -column 1 -sticky w -padx 2
+   grid ${secondFrame} -row 1 -column 1  -sticky nsew -pady 2
+   grid ${findFrame} -row 2 -column 1  -sticky nsew -pady 2 -padx 2
    grid remove ${findFrame}
-   grid ${flowFrame}  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
-   grid columnconfigure ${toplevelW} 0 -weight 1
-   grid columnconfigure ${toplevelW} 1 -weight 1
+   grid ${flowFrame}  -row 3 -column 1 -columnspan 2 -sticky nsew -padx 2 -pady 2
+   grid columnconfigure ${toplevelW} 2 -weight 1
+   grid columnconfigure ${toplevelW} 2 -weight 1
    grid rowconfigure ${toplevelW} 3 -weight 2
 
    set sizeGripW [xflow_getWidgetName ${exp_path}  ${datestamp} main_size_grip]
    ttk::sizegrip ${sizeGripW}
 
-   grid ${sizeGripW} -row 4 -column 1 -sticky se
+   grid ${sizeGripW} -row 4 -column 2 -sticky se
    
    wm geometry ${toplevelW} =1200x800
 }
@@ -4052,6 +4070,7 @@ proc xflow_getExpLabelFont {} {
    return ${expLabelFont}
 }
 
+# sets the label on the right side of the menus
 proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
    ::log::log debug "xflow_setExpLabel _displayName:${_displayName} datestamp:${_datestamp}"
    set expLabelFrame [xflow_getWidgetName ${_exp_path} ${_datestamp} exp_label_frame]
@@ -4061,9 +4080,6 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
       set displayValue ${_displayName}-${hour}
    }
 
-   if { [DisplayGrp_getWindowsLabel ${_exp_path}] != "" } {
-      set displayValue "[DisplayGrp_getWindowsLabel] ${displayValue}"
-   }
    ${expLabelFrame}.exp_label configure -text ${displayValue}
 }
 
@@ -4416,14 +4432,15 @@ proc xflow_setWidgetNames {} {
    if { ! [info exists XflowWidgetNames] } {
       array set XflowWidgetNames {
 
+         exp_side_label_frame .exp_side_label_frame
          top_frame .top_frame
          second_frame .second_frame
          find_frame .find_frame
          flow_frame .flow_frame
          main_size_grip .size_grip
 
-         exp_label_frame .top_frame.exp_label_frame
 
+         exp_label_frame .top_frame.exp_label_frame
          toolbar_frame .second_frame.toolbar
          msgcenter_button .second_frame.toolbar.button_msgcenter
          nodekill_button .second_frame.toolbar.button_nodekill

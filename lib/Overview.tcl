@@ -3002,10 +3002,11 @@ proc Overview_createMenu { _toplevelW } {
    Overview_addFileMenu ${topFrame}
    Overview_addPrefMenu ${topFrame}
    Overview_addHelpMenu ${topFrame}
-   Overview_createLabel ${topFrame}
+   # Overview_createLabel ${topFrame}
 }
 
 # display is to right of menu as bold text
+# NOT USED
 proc Overview_createLabel { parentWidget } {
    set labelFrame [frame ${parentWidget}.label_frame]
    set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [DisplayGrp_getWindowsLabel]]
@@ -3439,13 +3440,14 @@ proc Overview_main {} {
       Overview_readExperiments
    }
 
+   # create label on left side of window
    set labelValue [DisplayGrp_getWindowsLabel]
    if { ${labelValue} != "" } {
       set labelBgColor [SharedData_getMiscData WINDOWS_LABEL_BG]
       if { ${labelBgColor} != "" } {
-         set labelW [label ${topOverview}.expLabel -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
+         set labelW [label ${topOverview}.exp_label -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
       } else {
-         set labelW [label ${topOverview}.expLabel -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont]]
+         set labelW [label ${topOverview}.exp_label -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont]]
       }
       grid ${labelW} -column 0 -row 1 -sticky ew -rowspan 2
    }
