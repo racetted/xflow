@@ -486,10 +486,12 @@ proc MsgCenter_ackMessages { table_w_ } {
    global MsgTableColMap
    #wm attributes . -topmost 0
    MsgCenter_stopBell ${table_w_}
-   # look for rows that have unack state
    set normalFg [SharedData_getColor MSG_CENTER_NORMAL_FG]
+   # look for rows that have unacknowledge state
    foreach row [${table_w_} searchcolumn $MsgTableColMap(UnackColNumber) 1 -exact -all] {
          ${table_w_} rowconfigure ${row} -fg ${normalFg}
+	 # set unacknowledge to false
+         ${table_w_} cellconfigure ${row},$MsgTableColMap(UnackColNumber) -text 0
    }
    MsgCenter_setHeaderStatus ${table_w_} normal
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
