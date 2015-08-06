@@ -772,6 +772,7 @@ proc SharedData_init {} {
    AUTO_MSG_DISPLAY true \
    SUBMIT_POPUP true \
    NODE_DISPLAY_PREF normal \
+   COLLAPSE_DISABLED_NODES false \
    STARTUP_DONE false \
    FLOW_SCALE 1 \
    XFLOW_EXP_LABEL_SIZE 25 \

@@ -2683,7 +2683,7 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 }
 
 proc Overview_init {} {
-   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG
+   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG COLLAPSE_DISABLED_NODES
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
    global expBoxLength startEndIconSize expBoxOutlineWidth
 
@@ -2695,6 +2695,7 @@ proc Overview_init {} {
    set CHECK_EXP_IDLE [SharedData_getMiscData OVERVIEW_CHECK_EXP_IDLE]
    set NODE_DISPLAY_PREF [SharedData_getMiscData NODE_DISPLAY_PREF]
    set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
+   set COLLAPSE_DISABLED_NODES [SharedData_getMiscData COLLAPSE_DISABLED_NODES]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 
@@ -2713,6 +2714,7 @@ proc Overview_init {} {
    set graphStartY 50
    # x size of each hour
    set graphHourX 48
+
    # y size of each entry on the left side of y axis
    set expEntryHeight 20
 
@@ -2909,7 +2911,7 @@ proc Overview_changeSettings { varName {name1 ""} {name2 ""} {op ""} } {
 }
 
 proc Overview_addPrefMenu { parent } {
-   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SUBMIT_POPUP
+   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SUBMIT_POPUP COLLAPSE_DISABLED_NODES
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
    menubutton $menuButtonW -text Preferences -underline 0 -menu $menuW
@@ -2942,6 +2944,9 @@ proc Overview_addPrefMenu { parent } {
 
    $menuW add checkbutton -label "Show Toolbar" -variable SHOW_TOOLBAR \
       -onvalue true -offvalue false -command [list Overview_showToolbarCallback]
+
+   $menuW add checkbutton -label "Collapse Catchup/Discreet Nodes" -variable COLLAPSE_DISABLED_NODES \
+      -onvalue true -offvalue false
 
    # Node Display submenu
    set displayMenu $menuW.displayMenu

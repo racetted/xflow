@@ -118,7 +118,7 @@ proc ::DrawUtils::clearBranch { exp_path node datestamp canvas { cmd_list "" } }
    }
 
    set pady [SharedData_getMiscData CANVAS_PAD_Y]
-   set displayInfo [SharedFlowNode_getDisplayCoords ${exp_path} ${node} ${datestamp} ${canvas}]
+   set displayInfo [SharedFlowNode_getDisplayCoords ${exp_path} ${node} ${datestamp}]
 
    set allBoxInfo [${canvas} bbox all]
    if { $allBoxInfo == "" } {
@@ -164,7 +164,7 @@ proc ::DrawUtils::clearCanvas { canvas } {
 
 # canvas = "" means we draw the status on all canvases that
 # the node might appear
-proc ::DrawUtils::drawNodeStatus { exp_path node datestamp {shadow_status 0} } {
+proc ::DrawUtils::drawNodeStatus { exp_path node datestamp canvas {shadow_status 0} } {
    variable nodeStatusColorMap
    variable nodeTypeMap
    set type [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
@@ -187,8 +187,6 @@ proc ::DrawUtils::drawNodeStatus { exp_path node datestamp {shadow_status 0} } {
    # puts "::DrawUtils::drawNodeStatus node=$node canvasTag=$canvasTag canvasTextTag=$canvasTextTag status=$status font=[lindex $colors 0] fill=[lindex $colors 1]"
 
    # get the list of all canvases where the node appears
-   set canvasList [SharedFlowNode_getDisplayList ${exp_path} ${node} ${datestamp}]
-   foreach canvas $canvasList {
       if { [winfo exists $canvas] } {
          if { $shadow_status == "1" } {
             $canvas itemconfigure $canvasTextTag -fill "black"
@@ -205,7 +203,6 @@ proc ::DrawUtils::drawNodeStatus { exp_path node datestamp {shadow_status 0} } {
             $canvas itemconfigure $canvasTag -fill [lindex $colors 1]
          }
       }
-   }
 }
 
 proc out {} {
@@ -277,7 +274,7 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    }
 
    SharedData_setExpDisplayData ${exp_path} ${datestamp} $canvas ${nextY} ${maximX} ${maximY}
-   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp} [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
 }
 
 proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
@@ -326,7 +323,7 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
       set maxY ${ny2}
    }
 
-   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp} [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 
    # this part adds a combo box to hold the index values of a loop node
    if {  [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "loop" } {
@@ -593,7 +590,7 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
       SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${nx2} ${ny2}
    }
 
-   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp} [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 }
 
 proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
@@ -645,7 +642,7 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
       SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${nx2} ${ny2}
    }
 
-   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp} [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 }
 
 proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
@@ -684,7 +681,7 @@ proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext te
       set maxY ${sy2}
    }
 
-   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp}  $canvas [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
+   SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp} [list $nx1 $ny1 $nx2 $ny2 $nx2 $ny2]
 
    set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
    if { ! [winfo exists ${indexListW}] } {
@@ -890,7 +887,7 @@ proc ::DrawUtils::getNodeDeltaX { exp_path node datestamp canvas } {
    # puts "::DrawUtils::getNodeDeltaX SharedFlowNode_getNodeType ${exp_path} ${node}"
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
-      foreach { px1 py1 px2 py2 } [SharedFlowNode_getDisplayCoords ${exp_path} ${node} ${datestamp} ${canvas}] {break}
+      foreach { px1 py1 px2 py2 } [SharedFlowNode_getDisplayCoords ${exp_path} ${node} ${datestamp}] {break}
       foreach { nx1 ny1 nx2 ny2 } [${canvas} bbox ${node}.index_widget] { break }
       if { ${nx2} > ${px2} } {
          set deltax [expr ${nx2} - ${px2}]
