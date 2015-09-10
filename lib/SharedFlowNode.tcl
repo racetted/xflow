@@ -523,10 +523,15 @@ proc SharedFlowNode_getLatestExt { exp_path node datestamp } {
 	         set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} ${latestMemberKey}]
 	      }
 	 } else {
-            set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member]
+            if { [ catch { set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member] } ] } {
+               tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member "" 
+            } 
 	 }
       } else {
-         set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member]
+         if { [ catch { set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member] } ] } { 
+            tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member "" 
+         }
+
       }
    }
    return ${value}
