@@ -4,7 +4,6 @@ package require cmdline
 package require Thread
 namespace import ::tooltip::tooltip
 namespace import ::struct::record::record
-package require keynav
 package require log
 package require img::png
 package require autoscroll
@@ -444,6 +443,7 @@ proc Overview_getXCoordTime { timevalue {shift_day false} } {
    set timeHour [Utils_getPaddedValue [Utils_getHourFromTime ${timevalue}]]
    set timeMinute [Utils_getMinuteFromTime ${timevalue}]
 
+   # puts "Overview_getXCoordTime timevalue:$timevalue graphStartX:$graphStartX"
    if { ${timeHour} > 24 } {
       # return max of grid
       set xoord [expr ${graphStartX} + 24 * ${graphHourX} ]
@@ -495,11 +495,11 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
    set x2 ${currentTimeCoordx}
    set y1 [expr $graphStartY - 4]
    set y2 [expr $graphStartY + 4]
-   set lineId [$canvas create line $x1 [expr $y1 - 40] $x2 [expr $y2 + $graphy + 40 ] -tag "grid_time current_timeline" -fill DarkGreen]
+   set lineId [$canvas create line $x1 [expr $y1 - 25] $x2 [expr $y2 + $graphy + 25] -tag "grid_time current_timeline" -fill DarkGreen]
    ::tooltip::tooltip $canvas -item "${lineId}" "Current Time:${current_time}Z\nUpdated every 30 seconds"
 
    if { [$canvas gettags current_timetext] == "" } {
-      $canvas create text $x1 [expr $y2 + $graphy + 45] -fill DarkGreen -anchor w -justify left -tag "grid_item current_timetext"
+      $canvas create text [expr $x1 +2] [expr $y2 + $graphy + 25] -fill DarkGreen -anchor w -justify left -tag "grid_item current_timetext"
    }
 
    $canvas itemconfigure current_timetext -text "Current Time: ${current_time}Z"
@@ -886,6 +886,7 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    set startX2 [expr $startX + ${startEndIconSize}]
    set startY2 [expr $startY + ${startEndIconSize}]
 
+   # puts "Overview_ExpCreateStartIcon $exp_path $datestamp $timevalue startX:$startX"
    set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
 
    # delete previous box
@@ -1498,7 +1499,7 @@ proc Overview_OptimizeExpBoxes { displayGroup } {
                      # DisplayGrp_processEmptyRows ${displayGroup}
                      set done true
                   } else {
-                     if { [expr ${ySlotStart} == [${displayGroup} cget -maxy]] } {
+                     if { [expr ${ySlotStart} == [${displayGroup} cget -max_y]] } {
                         set done true
                      }
                      set ySlotStart [DisplayGrp_getNextSlotY ${displayGroup} ${ySlotStart}]
@@ -1925,16 +1926,24 @@ proc Overview_childInitDone { exp_thread_id exp_path datestamp } {
    }
 }
 
-proc Overview_addChildInit { exp_path datestamp } {
+proc Overview_getStartupNofDatestamps {} {
+   global EXP_THREAD_STARTUP_DONE
+   if { [array names EXP_THREAD_STARTUP_DONE] != "" } {
+      return [array size EXP_THREAD_STARTUP_DONE]
+   }
+   return 0
+}
+
+proc Overview_addStartupDatestamp { exp_path datestamp } {
    global EXP_THREAD_STARTUP_DONE
    set EXP_THREAD_STARTUP_DONE(${exp_path}_${datestamp}) "${exp_path} ${datestamp}"
 }
 
-proc Overview_waitChildInitDone {} {
+proc Overview_waitStartupDatestamps {} {
    global EXP_THREAD_STARTUP_DONE
    
    if { [array names EXP_THREAD_STARTUP_DONE] != "" } {
-      ::log::log debug "Overview_waitChildInitDone ..."
+      ::log::log debug "Overview_waitStartupDatestamps ..."
       vwait ALL_CHILD_INIT_DONE
    }
 }
@@ -2011,11 +2020,11 @@ proc Overview_checkGridLimit {} {
    set displayGroups [ExpXmlReader_getGroups]
    set lastGroup [lindex ${displayGroups} end]
    if { ${lastGroup} != "" } {
-      #puts "Overview_checkGridLimit last group y:[${lastGroup} cget -y] maxy:[${lastGroup} cget -maxy]"
-      #puts "Overview_checkGridLimit grid maxy: [[Overview_getCanvas] coords grid_max_y]"
+      #puts "Overview_checkGridLimit last group y:[${lastGroup} cget -y] max_y:[${lastGroup} cget -max_y]"
+      #puts "Overview_checkGridLimit grid max_y: [[Overview_getCanvas] coords grid_max_y]"
       set canvasW [Overview_getCanvas]
       # get the max y from the exp boxes
-      set maxExpBoxY [${lastGroup} cget -maxy]
+      set maxExpBoxY [${lastGroup} cget -max_y]
       # get the max y coord of the grid
       set maxGridCoords [${canvasW} coords grid_max_y]
       if { ${maxGridCoords} != "" } {
@@ -2023,13 +2032,13 @@ proc Overview_checkGridLimit {} {
          if { ${maxGridY} <= [expr ${maxExpBoxY} + ${expEntryHeight}] } {
             # grid is too small, increase it
             #puts "Overview_checkGridLimit adjust grid from ${maxGridY} to ${maxExpBoxY}"
-            set graphy [expr ${maxExpBoxY} + ${expEntryHeight}]
+            set graphy [expr ${maxExpBoxY} + ${expEntryHeight}/2]
             ::log::log debug "Overview_checkGridLimit expanding grid to graphy:$graphy"
             Overview_redrawGrid
          } elseif { ${graphy} > ${defaultGraphY} && ${graphy} >  [expr ${maxExpBoxY} + ${expEntryHeight}] } {
 	    # shring the grid to default value
             ::log::log debug "Overview_checkGridLimit reducing grid to graphy:$graphy"
-	    set graphy [expr ${maxExpBoxY} + ${expEntryHeight}]
+	    set graphy [expr ${maxExpBoxY} + ${expEntryHeight}/2]
             Overview_redrawGrid
 	 }
       }
@@ -2057,13 +2066,6 @@ proc Overview_setCanvasScrollArea { canvasW } {
    ${canvasW} configure -scrollregion [list $x1 $y1 $x2 $y2] -yscrollincrement 5 -xscrollincrement 5
 }
 
-proc Overview_addStartupProgressMax { numberToAdd } {
-   set progressWidget .overview_progress
-   if { [winfo exists ${progressWidget}] } {
-      set currentMax [${progressWidget} cget -maximum]
-      ${progressWidget} configure -maximum [expr ${currentMax} + ${numberToAdd}]
-   }
-}
 
 # this function is called to add a new experiment to be monitored by the overview
 proc Overview_addExp { display_group canvas exp_path } {
@@ -2074,12 +2076,9 @@ proc Overview_addExp { display_group canvas exp_path } {
    set key [regsub -all {[\.]} ${key} _]
    SharedData_setExpData ${exp_path} EXP_PATH_KEY ${key}
 
-   set mainid [thread::id]
-
    # create startup threads to process log datestamps
    # get the list of datestamps visible from the left side of the overview for this exp
    set visibleDatestamps [LogMonitor_getDatestamps ${exp_path} [expr -[SharedData_getMiscData LOG_SPAN_IN_HOURS]*60] ]
-   Overview_addStartupProgressMax [llength ${visibleDatestamps}]
 
    ::log::log debug "Overview_addExp exp_path:$exp_path visibleDatestamps:$visibleDatestamps"
 
@@ -2094,7 +2093,7 @@ proc Overview_addExp { display_group canvas exp_path } {
    # build the list of valid datestamps
    foreach datestamp ${visibleDatestamps} {
       if { [Utils_validateRealDatestamp ${datestamp}] == true } {
-         Overview_addChildInit ${exp_path} ${datestamp}
+         Overview_addStartupDatestamp ${exp_path} ${datestamp}
       }
    }
 
@@ -2189,34 +2188,6 @@ proc Overview_getRunBoxBoundaries { canvas exp_path datestamp } {
    return ${boundaries}
 }
 
-# returns the boundaries of a DisplayGroup record
-# that covers the entire rows that are used by the display group
-# the Display Group + every rows used by its exp boxes
-proc Overview_getGroupBoundaries { canvas display_group } {
-   global graphX graphStartX graphHourX
-
-   set startx ${graphStartX}
-   set endX [expr ${startx} + 24 * ${graphHourX}]
-   set boundaries [${canvas} bbox ${display_group}]
-   set y1 [lindex ${boundaries} 1]
-   set y2 [lindex ${boundaries} 3]
-
-   set expBoxTags [$canvas find withtag exp_box.${display_group}]
-   foreach expBoxTag ${expBoxTags} {
-      set boxBoundaries [${canvas} coords ${expBoxTag}]
-      set expy1 [lindex ${boxBoundaries} 1]
-      set expy2 [lindex ${boxBoundaries} 3]
-      if { ${expy1} != "" && ${y1} > ${expy1} } {
-         set y1 ${expy1}
-      }
-      if { ${expy2} != "" && ${y2} < ${expy2} } {
-         set y2 ${expy2}
-      }
-   }
-   set boundaries [list ${startx} $y1 ${endX} $y2]
-
-   return ${boundaries}
-}
 
 # this function sets the exp box mouse over tooltip information.
 # it is updated everytime the exp node root status changes
@@ -2287,146 +2258,112 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
       set groupsToMove [lrange ${displayGroups} ${foundIndex} end]
       set overviewCanvas [Overview_getCanvas]
       foreach displayGroup ${groupsToMove} {
+         set groupTagName [DisplayGrp_getTagName ${displayGroup}]
          # set the new min and max if group exists
-         if { [${overviewCanvas} gettags ${displayGroup}] != "" } {
+         if { [${overviewCanvas} gettags ${groupTagName}] != "" } {
             set newMin [expr [${displayGroup} cget -y] + ${delta_y}]
-            set newMax [expr [${displayGroup} cget -maxy] + ${delta_y}]
+            set newMax [expr [${displayGroup} cget -max_y] + ${delta_y}]
             ${displayGroup} configure -y ${newMin}
-            ${displayGroup} configure -maxy ${newMax}
+            ${displayGroup} configure -max_y ${newMax}
 
             # move the group and exp boxes that belongs to it
             ::log::log debug "Overview_moveGroups ${overviewCanvas} moving ${displayGroup} delta_y:${delta_y}"
-            ${overviewCanvas} move ${displayGroup} ${delta_x} ${delta_y}
+            ${overviewCanvas} move ${groupTagName} ${delta_x} ${delta_y}
             ${overviewCanvas} move exp_box.${displayGroup} ${delta_x} ${delta_y}
          }
       }
    }
 }
 
-# returns the y position that a group should be displayed based on the
-# group already displayed prior to itself. This function should be useful
-# at startup when we add the display groups one by one
-proc Overview_getGroupDisplayY { group_display } {
-   global entryStartY expEntryHeight
-   set displayGroups [ExpXmlReader_getGroups]
-   set myIndex [lsearch ${displayGroups} ${group_display}]
-   if { ${myIndex} == -1 || ${myIndex} == 0 } {
-      # not found or first group, return the start y
-      return ${entryStartY}
+# lay out the group 
+proc Overview_addGroup { canvas displayGroup } {
+   global expEntryHeight
+
+   # puts "Overview_addGroup displayGroup:${displayGroup}"
+   set groupName [$displayGroup cget -name]
+
+   # the tagName is used to refer the group in the canvas
+   set tagName [DisplayGrp_getTagName ${displayGroup}]
+   set groupLevel [$displayGroup cget -level]
+   set groupEntryCurrentY [DisplayGrp_getGroupDisplayY ${displayGroup}]
+
+   set deltaName ""
+   if { [${displayGroup} cget -parent] != "" } {
+      set deltaName "-"
    }
 
-   # get the previous group from the list
-   set prevGroup [lindex ${displayGroups} [expr ${myIndex} - 1]]
-   set prevGroupBoundaries  [Overview_getGroupBoundaries [Overview_getCanvas] ${prevGroup}]
+   set expEntryCurrentX [DisplayGrp_getGroupDisplayX ${displayGroup}]
 
-   set prevGroupY [lindex ${prevGroupBoundaries} 3]
-   #set thisGroupY [Overview_GroupNextY ${prevGroupY}]
-   set thisGroupY [DisplayGrp_getNextSlotY ${prevGroup} ${prevGroupY}]
-   ::log::log debug "Overview_getGroupDisplayY value: ${thisGroupY}"
-   return ${thisGroupY}
-}
-
-proc Overview_addGroup { canvas displayGroup } {
-   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
-   #puts "Overview_addGroup displayGroup:${displayGroup}"
-   set groupDname [$displayGroup cget -dname]
-   set groupName [$displayGroup cget -name]
-   set tagName ${displayGroup}
-   set groupLevel [$displayGroup cget -level]
-   set groupEntryCurrentY [Overview_getGroupDisplayY ${displayGroup}]
-
-   #puts "Overview_addGrouppLevel  groupEntryCurrentY:$groupEntryCurrentY"
-
-   # add indentation for each different level
-   set expEntryCurrentX [expr $entryStartX + 4 + $groupLevel * 15]
-
-   #puts "Overview_addGroupsplayGroup groupDname:$groupDname groupEntryCurrentY:$groupEntryCurrentY"
-   set groupId [$canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
-      -text $groupName -justify left -anchor w -fill grey20 -tag "${tagName} displayGroup_${tagName}"]
+   $canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
+      -text "${deltaName}${groupName}" -justify left -anchor w -fill grey20 -tag "DisplayGroup ${tagName}"
 
    # get the font for each level
-   set newFont [Overview_getLevelFont $canvas displayGroup_${tagName} $groupLevel]
+   set newFont [Overview_getLevelFont $canvas ${tagName} $groupLevel]
 
-   $canvas itemconfigure displayGroup_${tagName} -font $newFont
+   $canvas itemconfigure ${tagName} -font $newFont
 
-   $displayGroup configure -x [expr $graphStartX + 20]
+   DisplayGrp_setMaxX ${displayGroup}
    DisplayGrp_setSlotY ${displayGroup} ${groupEntryCurrentY}
-
-   set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   # get the exps for each group if exists
-   set expList [$displayGroup cget -exp_list]
-   foreach exp $expList {
-      Overview_addExpDefaultBoxes ${canvas} ${exp}
-      set datestamps [OverviewExpStatus_getDatestamps ${exp}]
-      foreach datestamp ${datestamps} {
-         set currentStatus [OverviewExpStatus_getLastStatus ${exp} ${datestamp}]
-         set statusTime [OverviewExpStatus_getLastStatusTime ${exp} ${datestamp}]
-	 if { ${statusTime} != "" } {
-            Overview_updateExpBox ${canvas} ${exp} ${datestamp} ${currentStatus} ${statusTime}
-         }
-      }
-   }
 
    foreach grp [${displayGroup} cget -grp_list] {
       Overview_addGroup $canvas ${grp}
    }
 }
 
-# this function creates the group labels at the left of the graph
-# the values of the labels are read from an exp list
-proc Overview_addGroups { canvas } {
-   global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY
-   global STARTUP_PROGRESS_VALUE STARTUP_PROGRESS_TXT STARTUP_MAX
+proc Overview_addGroupExps { canvas } {
+   global STARTUP_PROGRESS_VALUE STARTUP_PROGRESS_TXT
+
+   set currentTime [clock seconds]
    set displayGroups [ExpXmlReader_getGroups]
 
-   set groupEntryCurrentY $entryStartY
-   set expEntryCurrentX $entryStartX
-   ::log::log debug "Overview_addGroups groupEntryCurrentY:$groupEntryCurrentY"
-
-   set expNumber 0
+   # lay out the exps on the grid
    foreach displayGroup $displayGroups {
       set expList [$displayGroup cget -exp_list]
       foreach exp $expList {
-         incr expNumber
-      }
-   }
-   # startup progress bar
-   set STARTUP_PROGRESS_VALUE 0
-   set STARTUP_MAX 0
-   set progressBar [ProgressDlg .overview_progress \
-    -title "Xflow_overview - Loading Experiments Data" -maximum ${expNumber} \
-    -variable STARTUP_PROGRESS_VALUE -textvariable STARTUP_PROGRESS_TXT]
-   wm geometry .overview_progress =600x200
-
-   ${progressBar} configure -foreground blue
-
-   #set currentTime [clock format [clock seconds]]
-
-   foreach displayGroup $displayGroups {
-      set expList [$displayGroup cget -exp_list]
-      foreach exp $expList {
-         set currentTime [clock seconds]
          Overview_addExp $displayGroup $canvas $exp
+         Overview_addExpDefaultBoxes ${canvas} ${exp}
          LogMonitor_setLastCheckTime ${exp} ${currentTime}
       }
    }
-   # read all valid datestamp logs 
-   Overview_readExpLogs
 
-   # wait for all child to be done with their reads
-   Overview_waitChildInitDone
+   # nof datestamp log files to be loaded
+   set progressMax [Overview_getStartupNofDatestamps]
 
-   Overview_checkStartupError
+   if { ${progressMax} > 0 } {
+      # puts "Overview_addGroupExps: nof log files to be loaded: [array size EXP_THREAD_STARTUP_DONE]"
+      # startup progress bar
+      set STARTUP_PROGRESS_VALUE 0
+      set progressBar [ProgressDlg .overview_progress \
+       -title "Xflow_overview - Loading Experiments Data" -maximum ${progressMax} \
+       -variable STARTUP_PROGRESS_VALUE -textvariable STARTUP_PROGRESS_TXT]
+      wm geometry .overview_progress =600x200
 
-   # get the root groups and display from there
-   set rootGroups [DisplayGrp_getGroupLevel 0]
-   foreach rootGroup ${rootGroups} {
-      Overview_addGroup ${canvas} ${rootGroup}
+      ${progressBar} configure -foreground blue
+
+      # read all valid datestamp logs 
+      Overview_readExpLogs
+
+      # wait for all child to be done with their reads
+      Overview_waitStartupDatestamps
+
+      Overview_checkStartupError
+
+      foreach displayGroup $displayGroups {
+         set expList [$displayGroup cget -exp_list]
+         foreach exp $expList {
+            set datestamps [OverviewExpStatus_getDatestamps ${exp}]
+            foreach datestamp ${datestamps} {
+               set currentStatus [OverviewExpStatus_getLastStatus ${exp} ${datestamp}]
+               set statusTime [OverviewExpStatus_getLastStatusTime ${exp} ${datestamp}]
+	       if { ${statusTime} != "" } {
+                  Overview_updateExpBox ${canvas} ${exp} ${datestamp} ${currentStatus} ${statusTime}
+               }
+	    }
+         }
+      }
+      Overview_checkGridLimit
+      destroy ${progressBar}
    }
-   # check if we need to resize the grid based on exp data
-   Overview_checkGridLimit
-
-   destroy ${progressBar}
 }
 
 # this procedure is called by exp threads when an error is detected
@@ -2451,7 +2388,7 @@ proc Overview_checkStartupError {} {
 # this function is a place holder to add logic to
 # display different font for each level
 proc Overview_getLevelFont { canvas item_tag level } {
-   #puts "Overview_getLevelFont item_tag:$item_tag"
+   # puts "Overview_getLevelFont item_tag:$item_tag"
    set searchFont canvas_level_${level}_font
    if { [lsearch [font names] $searchFont] == -1 } {
       set canvasFont [$canvas itemcget "${item_tag}" -font]
@@ -2490,6 +2427,12 @@ proc Overview_getBoxLabelFont {} {
 proc Overview_createGraph { canvas } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX
 
+   # get the max x of the exp groupings to know where to start the grid
+   set groupDisplayMaxX [DisplayGrp_getAllGroupMaxX ${canvas}]
+   if { ${groupDisplayMaxX} != 0 } {
+      set graphStartX [expr ${groupDisplayMaxX} + 10]
+   }
+
    # adds horiz shaded grid
    set x1 $entryStartX
    set x2  [expr $graphStartX + $graphX]
@@ -2514,7 +2457,7 @@ proc Overview_createGraph { canvas } {
       [expr $graphStartX + $graphX] [expr $graphStartY + $graphy] -arrow last -tags "grid_item grid_footer grid_max_y"
 
    # x axis title
-   $canvas create text [expr ${x2}/2 ] [expr $graphStartY + $graphy + 60] -text "Time (UTC)" -tag "grid_item grid_footer"
+   $canvas create text [expr ${x2}/2 ] [expr $graphStartY + $graphy + 40] -text "Time (UTC)" -tag "grid_item grid_footer"
    
    # y axe origin
    $canvas create line $graphStartX [expr $graphStartY - 20] $graphStartX [expr $graphStartY + $graphy] -arrow first -tag "grid_item"
@@ -2535,6 +2478,89 @@ proc Overview_createGraph { canvas } {
       if { ${hourTag} == "25" } {
          set hourTag 1
       }
+   }
+
+   # put the groups on top of the grid
+   $canvas lower grid_item DisplayGroup
+}
+
+proc Overview_createHiddenMessageIcons { canvas } {
+   global SHOW_TOOLBAR
+   set hiddenX 55 
+   set hiddenY 35
+
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   image create photo ${canvas}.msg_center_img -file ${imageDir}/open_mail_sh_16x16.png
+   image create photo ${canvas}.msg_center_new_img -file ${imageDir}/open_mail_new_16x16.png
+   image create photo ${canvas}.toggle_expand_top_img -file ${imageDir}/toggle_expand.png
+   image create photo ${canvas}.toggle_top_img -file ${imageDir}/toggle.png
+
+   set normMsgB [button ${canvas}.msg_center_b -image ${canvas}.msg_center_img -command [list MsgCenter_show true] -relief raised ]
+   set newMsgB [button ${canvas}.msg_center_new_b -image ${canvas}.msg_center_new_img -command [list MsgCenter_show true] -relief raised ]
+   set toggleTopB [button ${canvas}.toggle_top_b -image ${canvas}.toggle_top_img -command [list Overview_toggleToolbarCallback]]
+   set toggleExpandTopB [button ${canvas}.toggle_expand_top_b -image ${canvas}.toggle_expand_top_img -command [list Overview_toggleToolbarCallback]]
+   ::tooltip::tooltip ${normMsgB} "Show Message Center."
+   ::tooltip::tooltip ${newMsgB} "Show Message Center."
+   ::tooltip::tooltip ${toggleTopB} "Hide Toolbar & Menus."
+   ::tooltip::tooltip ${toggleExpandTopB} "Show Toolbar & Menus."
+   ${canvas} create window $hiddenX $hiddenY -window ${normMsgB} -tag canvas_mail_normal
+   ${canvas} create window $hiddenX $hiddenY -window ${newMsgB} -tag canvas_mail_new
+
+   ${canvas} create window 30 35 -window ${toggleTopB} -tag toggle_top_up
+   ${canvas} create window 30 35 -window ${toggleExpandTopB} -tag toggle_expand_top_up
+
+   Overview_toggleMessageIcons ${canvas}
+}
+
+proc Overview_toggleToolbarCallback {} {
+   global SHOW_TOOLBAR
+   if { ${SHOW_TOOLBAR} == true } {
+      set SHOW_TOOLBAR false
+   } else {
+      set SHOW_TOOLBAR true
+   }
+   Overview_showToolbarCallback
+}
+
+proc Overview_toggleMessageIcons { canvas } {
+   global OVERVIEW_HAS_NEW_MSG SHOW_TOOLBAR
+   set xDelta 200
+   set yDelta 0
+   ::log::log debug "Overview_toggleMessageIcons SHOW_TOOLBAR:$SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG:$OVERVIEW_HAS_NEW_MSG"
+   set normalMailCoordsX [lindex [${canvas} coords canvas_mail_normal] 0]
+   set newMailCoordsX [lindex [${canvas} coords canvas_mail_new] 0]
+
+   ::log::log debug "Overview_toggleMessageIcons normalMailCoordsX:$normalMailCoordsX newMailCoordsX:$newMailCoordsX"
+
+   # first hide them all
+   if { ${normalMailCoordsX} > 0 } {
+      ${canvas} move canvas_mail_normal -$xDelta $yDelta
+   }
+
+   if { ${newMailCoordsX} > 0 } {
+      ${canvas} move canvas_mail_new -$xDelta $yDelta
+   }
+
+   if { [lindex [${canvas} coords toggle_top_up] 0] > 0 } {
+      ${canvas} move toggle_top_up -$xDelta $yDelta
+   }
+
+   if { [lindex [${canvas} coords toggle_expand_top_up] 0] > 0 } {
+      ${canvas} move toggle_expand_top_up -$xDelta $yDelta
+   }
+
+   # then show the appropriate
+   if { ${SHOW_TOOLBAR} == false } {
+      # hide toolbar so show canvas icons
+      if { ${OVERVIEW_HAS_NEW_MSG} } {
+         # show new msg icon
+         ${canvas} move canvas_mail_new $xDelta $yDelta
+      } else {
+         ${canvas} move canvas_mail_normal $xDelta $yDelta
+      }
+      ${canvas} move toggle_expand_top_up $xDelta $yDelta
+   } else {
+      ${canvas} move toggle_top_up $xDelta $yDelta
    }
 }
 
@@ -2649,20 +2675,27 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
    $canvas create line $x1 [expr $y1 + $graphy] $x2 [expr $y2 + $graphy ] -tag "grid_item grid_hour ${tagHour}"
    $canvas create line $x1 [expr $y1 + 5] $x2 [expr $y2 + $graphy - 5 ] -dash 2 -fill grey60 -tag  "grid_item grid_hour ${tagHour}"
 
-   $canvas create text $x2 [expr $y1 - 20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour}"
-   $canvas create text $x2 [expr $y2 + $graphy +20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour} grid_footer"
+   # $canvas create text $x2 [expr $y1 - 20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour}"
+   # $canvas create text $x2 [expr $y2 + $graphy +20 ] -text $xLabel -tag "grid_item grid_hour ${tagHour} grid_footer"
+   $canvas create text $x2 [expr $y1 - 8 ] -text $xLabel -tag "grid_item grid_hour ${tagHour}"
+   $canvas create text $x2 [expr $y2 + $graphy +8 ] -text $xLabel -tag "grid_item grid_hour ${tagHour} grid_footer"
 
 }
 
 proc Overview_init {} {
-   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE 
+   global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG COLLAPSE_DISABLED_NODES
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
    global expBoxLength startEndIconSize expBoxOutlineWidth
 
+   set SHOW_TOOLBAR [SharedData_getMiscData OVERVIEW_SHOW_TOOLBAR]
+   puts "Overview_init SHOW_TOOLBAR:$SHOW_TOOLBAR"
+
+   set OVERVIEW_HAS_NEW_MSG false
    set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
    set CHECK_EXP_IDLE [SharedData_getMiscData OVERVIEW_CHECK_EXP_IDLE]
    set NODE_DISPLAY_PREF [SharedData_getMiscData NODE_DISPLAY_PREF]
    set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
+   set COLLAPSE_DISABLED_NODES [SharedData_getMiscData COLLAPSE_DISABLED_NODES]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 
@@ -2681,6 +2714,7 @@ proc Overview_init {} {
    set graphStartY 50
    # x size of each hour
    set graphHourX 48
+
    # y size of each entry on the left side of y axis
    set expEntryHeight 20
 
@@ -2694,9 +2728,6 @@ proc Overview_init {} {
    set startEndIconSize 10
 
    set expBoxOutlineWidth 1.5
-
-   keynav::enableMnemonics .
-
 }
 
 # this function reads an xml configuration file that
@@ -2880,11 +2911,13 @@ proc Overview_changeSettings { varName {name1 ""} {name2 ""} {op ""} } {
 }
 
 proc Overview_addPrefMenu { parent } {
-   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SUBMIT_POPUP
+   global AUTO_MSG_DISPLAY AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SUBMIT_POPUP COLLAPSE_DISABLED_NODES
    set menuButtonW ${parent}.pref_menub
    set menuW $menuButtonW.menu
    menubutton $menuButtonW -text Preferences -underline 0 -menu $menuW
    menu $menuW -tearoff 0
+
+   set AUTO_LAUNCH [SharedData_getMiscData AUTO_LAUNCH]
 
    $menuW add checkbutton -label "Auto Launch" -variable AUTO_LAUNCH \
       -onvalue true -offvalue false
@@ -2909,6 +2942,11 @@ proc Overview_addPrefMenu { parent } {
       -onvalue true -offvalue false
    trace add variable CHECK_EXP_IDLE write [list Overview_changeSettings CHECK_EXP_IDLE]
 
+   $menuW add checkbutton -label "Show Toolbar" -variable SHOW_TOOLBAR \
+      -onvalue true -offvalue false -command [list Overview_showToolbarCallback]
+
+   $menuW add checkbutton -label "Collapse Catchup/Discreet Nodes" -variable COLLAPSE_DISABLED_NODES \
+      -onvalue true -offvalue false
 
    # Node Display submenu
    set displayMenu $menuW.displayMenu
@@ -2932,6 +2970,22 @@ proc Overview_addPrefMenu { parent } {
    pack $menuButtonW -side left -padx 2
 }
 
+proc Overview_showToolbarCallback {} {
+   global SHOW_TOOLBAR
+
+   set topOverview [Overview_getToplevel]
+   set topFrame ${topOverview}.topframe
+   set toolbarW ${topOverview}.toolbar
+   if { ${SHOW_TOOLBAR} == true } {
+       grid ${topFrame} -row 0 -column 1 -sticky nsew -padx 2
+       grid ${toolbarW} -row 1 -column 1 -sticky w -padx 2 
+   } else {
+      grid forget ${topFrame}
+      grid forget ${toolbarW}
+   }
+   Overview_toggleMessageIcons [Overview_getCanvas]
+}
+
 proc Overview_addHelpMenu { parent } {
    set menuButtonW ${parent}.help_menub
    set menuW $menuButtonW.menu
@@ -2947,18 +3001,22 @@ proc Overview_addHelpMenu { parent } {
 proc Overview_createMenu { _toplevelW } {
    set topFrame ${_toplevelW}.topframe
    frame ${topFrame} -relief [SharedData_getMiscData MENU_RELIEF]
-   grid ${topFrame} -row 0 -column 0 -sticky nsew -padx 2
+   # grid ${topFrame} -row 0 -column 0 -sticky nsew -padx 2
+   # grid ${topFrame} -row 0 -column 1 -sticky nsew -padx 2
+   grid ${topFrame} -row 0 -column 1 -sticky ew -padx 2
    Overview_addFileMenu ${topFrame}
    Overview_addPrefMenu ${topFrame}
    Overview_addHelpMenu ${topFrame}
-   Overview_createLabel ${topFrame}
+   # Overview_createLabel ${topFrame}
 }
 
 # display is to right of menu as bold text
+# NOT USED
 proc Overview_createLabel { parentWidget } {
    set labelFrame [frame ${parentWidget}.label_frame]
    set labelW [label ${labelFrame}.label -font [xflow_getExpLabelFont] -text [DisplayGrp_getWindowsLabel]]
-   grid ${labelW} -sticky nesw
+   # grid ${labelW} -sticky nesw
+   grid ${labelW} -sticky ew 
    pack ${labelFrame} -side left -padx {20 0}
 }
 
@@ -2974,7 +3032,10 @@ proc Overview_setAutoMsgDisplay {} {
 # to notify the overview main thread of a new message.
 # The overview highlights the msg center icon in the toolbar
 proc Overview_newMessageCallback { has_new_msg } {
+   global OVERVIEW_HAS_NEW_MSG
+
    ::log::log debug "Overview_newMessageCallback has_new_msg:$has_new_msg"
+   set OVERVIEW_HAS_NEW_MSG ${has_new_msg}
    set msgCenterWidget .overview_top.toolbar.core.button_msgcenter
    set noNewMsgImage .overview_top.toolbar.core.msg_center_img
    set hasNewMsgImage .overview_top.toolbar.core.msg_center_new_img
@@ -2988,6 +3049,7 @@ proc Overview_newMessageCallback { has_new_msg } {
          ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor}
       }
    }
+   Overview_toggleMessageIcons [Overview_getCanvas]
 }
 
 proc Overview_nodeDisplayCallback {} {
@@ -3012,7 +3074,8 @@ proc Overview_createToolbar { _toplevelW } {
    set colorLegendW ${toolbarW}.button_colorlegend
    
    # create frame main toolbar
-   frame ${mainToolbarW} -bd 1
+   # frame ${mainToolbarW} -bd 1
+   labelframe ${mainToolbarW} -text Toolbar
 
    # create frame core toolbar
    frame ${toolbarW} -bd 1
@@ -3051,13 +3114,14 @@ proc Overview_createToolbar { _toplevelW } {
       tooltip::tooltip ${testBellW} "Test Bell"
    }
 
-   eval grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${testBellW} ${closeW} -sticky w -padx 2 
+   eval grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${testBellW} ${closeW} -sticky w -padx \[list 2 0\] 
 
    # core toolbar stis on column 0 
-   grid ${toolbarW} -row 0 -column 0 -sticky nsew
+   grid ${toolbarW} -row 0 -column 0 -sticky ew
 
    # place the main toolbar frame on the grid
-   grid ${mainToolbarW} -row 1 -column 0 -sticky nsew -padx 2
+   # grid ${mainToolbarW} -row 1 -column 0 -sticky nsew -padx 2
+   grid ${mainToolbarW} -row 1 -column 1 -sticky ew -padx 2
 }
 
 
@@ -3098,7 +3162,8 @@ proc Overview_createCanvas { _toplevelW } {
    grid columnconfigure ${canvasFrame} 0 -weight 1
    grid rowconfigure ${canvasFrame} 0 -weight 1
 
-   grid ${canvasFrame} -row 2 -column 0 -sticky nsew
+   # grid ${canvasFrame} -row 2 -column 0 -sticky nsew
+   grid ${canvasFrame} -row 2 -column 1 -sticky nsew -rowspan 2
 }
 
 # this is called when a configure event is triggered on a widget to resize, iconified a window.
@@ -3347,7 +3412,7 @@ proc Overview_createPluginToolbar { parentToolbar } {
 }
 
 proc Overview_main {} {
-   global env startupExp
+   global env startupExp SHOW_TOOLBAR
    global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
 
@@ -3380,22 +3445,38 @@ proc Overview_main {} {
       Overview_readExperiments
    }
 
+   # create label on left side of window
+   set labelValue [DisplayGrp_getWindowsLabel]
+   if { ${labelValue} != "" } {
+      set labelBgColor [SharedData_getMiscData WINDOWS_LABEL_BG]
+      if { ${labelBgColor} != "" } {
+         set labelW [label ${topOverview}.exp_label -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
+      } else {
+         set labelW [label ${topOverview}.exp_label -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont]]
+      }
+      grid ${labelW} -column 0 -row 1 -sticky ew -rowspan 2
+   }
+
+
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}
    set plugin_toolbar [Overview_createPluginToolbar ${topOverview}.toolbar]
-   grid ${plugin_toolbar} -row 0 -column 1 -sticky nsew -padx 2
+   grid ${plugin_toolbar} -row 0 -column 1 -sticky nsew
+   # grid ${plugin_toolbar} -row 1 -column 1 -sticky ew -padx 2
 
    Overview_createCanvas ${topOverview}
 
    # grid ${topCanvas} -row 2 -column 0 -sticky nsew -padx 2
-   grid columnconfigure ${topOverview} 0 -weight 1
+
+   # grid columnconfigure ${topOverview} 0 -weight 1
+   grid columnconfigure ${topOverview} 0 -weight 0 -uniform b 
+   grid columnconfigure ${topOverview} 1 -weight 75 -uniform b 
+   grid rowconfigure ${topOverview} 0 -weight 0
    grid rowconfigure ${topOverview} 1 -weight 0
-   grid rowconfigure ${topOverview} 2 -weight 1
+   grid rowconfigure ${topOverview} 2 -weight 15 -uniform a
 
-   set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
-   grid ${sizeGripWidget} -sticky se
-
-   Overview_createGraph ${topCanvas}
+   # set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
+   # grid ${sizeGripWidget} -sticky se
 
    wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
 
@@ -3405,11 +3486,24 @@ proc Overview_main {} {
    # set thread error handler for async calls
    thread::errorproc Overview_threadErrorCallback
 
-   Overview_setCurrentTime ${topCanvas}
-   Overview_addGroups ${topCanvas}
+   # lay out the groups
+   set rootGroups [DisplayGrp_getGroupLevel 0]
+   foreach rootGroup ${rootGroups} {
+      Overview_addGroup ${topCanvas} ${rootGroup}
+   }
 
    # check if we need to release obsolete data
    after 60000 OverviewExpStatus_checkObseleteDatestamps
+
+   # create the grid
+   Overview_createGraph ${topCanvas}
+
+   Overview_createHiddenMessageIcons ${topCanvas}
+
+   Overview_setCurrentTime ${topCanvas}
+
+   # add the exps on the grid and load the log files
+   Overview_addGroupExps ${topCanvas}
 
    Overview_GridAdvanceHour
 
@@ -3432,6 +3526,7 @@ proc Overview_main {} {
    }
 
    Overview_checkStartupOptions
+   Overview_showToolbarCallback
 
    # periodic idle check interval in minutes
    set expIdleInterval [SharedData_getMiscData OVERVIEW_EXP_IDLE_INTERVAL]

@@ -20,8 +20,10 @@ proc ExpXmlReader_readExperiments { xml_file } {
    set folders [$d getElementsByTagName GroupList]
 
    set labelValue [${folders} getAttribute label ""]
+   set labelBgValue [${folders} getAttribute label_bg ""]
    
-   DisplayGrp_setWindowsLabel ${labelValue}
+   SharedData_setMiscData WINDOWS_LABEL ${labelValue}
+   SharedData_setMiscData WINDOWS_LABEL_BG ${labelBgValue}
 
    set level 0
    # get the list of Group
@@ -52,7 +54,7 @@ proc ExpXmlReader_readGroup { xml_node parent_name level} {
       set groupRecordName [regsub -all "/" ${groupDname} _]
       set groupRecordName [regsub -all " " ${groupRecordName} _ ]
       if { ! [record exists instance $groupRecordName] } {
-         set recordId [DisplayGroup $groupRecordName -name ${groupName} -dname ${groupDname} -level $newLevel -parent ${parent_name} -x 0 -y 0 -maxy 0]
+         set recordId [DisplayGroup $groupRecordName -name ${groupName} -dname ${groupDname} -level $newLevel -parent ${parent_name} -x 0 -y 0 -max_y 0]
          lappend DISPLAY_GROUPS ${recordId}
          if { ${parent_name} != "" } {
             DisplayGrp_insertGroup ${parent_name} ${recordId}

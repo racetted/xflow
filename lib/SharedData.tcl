@@ -745,77 +745,54 @@ proc SharedData_setPlugins { parent } {
 proc SharedData_init {} {
    SharedData_initColors
 
-   SharedData_setMiscData COMMON_MUTEX [ thread::mutex create ]
-   SharedData_setMiscData CANVAS_BOX_WIDTH 90
-   SharedData_setMiscData CANVAS_X_START 40
-   SharedData_setMiscData CANVAS_Y_START 40
-   SharedData_setMiscData CANVAS_BOX_HEIGHT 43
-   SharedData_setMiscData CANVAS_PAD_X 30
-   SharedData_setMiscData CANVAS_PAD_Y 15
-   SharedData_setMiscData CANVAS_PAD_TXT_X 4
-   SharedData_setMiscData CANVAS_PAD_TXT_Y 23
-   SharedData_setMiscData CANVAS_SHADOW_OFFSET 5
-
-   SharedData_setMiscData LOOP_OVAL_SIZE 15
-
-   SharedData_setMiscData SHOW_ABORT_TYPE true
-   SharedData_setMiscData SHOW_EVENT_TYPE true
-   SharedData_setMiscData SHOW_INFO_TYPE true
-   SharedData_setMiscData SHOW_SYSINFO_TYPE true
-
-   SharedData_setMiscData MSG_CENTER_BELL_TRIGGER 15
-   SharedData_setMiscData MSG_CENTER_USE_BELL true
-
-   SharedData_setMiscData FONT_BOLD "-*-*-bold-r-normal--11-*-*-*-p-*-iso8859-10"
-   # SharedData_setMiscData FONT_NAME "DejaVu Sans"
-   SharedData_setMiscData FONT_SIZE 10
-
-   SharedData_setMiscData DEBUG_TRACE 0
-   SharedData_setMiscData FLOW_SCALE 1
-   SharedData_setMiscData AUTO_LAUNCH true
-   SharedData_setMiscData AUTO_MSG_DISPLAY true
-   SharedData_setMiscData SUBMIT_POPUP true
-   SharedData_setMiscData NODE_DISPLAY_PREF normal
-   SharedData_setMiscData STARTUP_DONE false
-
-   SharedData_setMiscData FLOW_SCALE 1
-   SharedData_setMiscData XFLOW_EXP_LABEL_SIZE 25
-   SharedData_setMiscData OVERVIEW_MODE false
-   SharedData_setMiscData DEFAULT_CONSOLE "konsole -e"
-   SharedData_setMiscData TEXT_VIEWER default
-   SharedData_setMiscData USER_TMP_DIR default
-
-   SharedData_setMiscData MENU_RELIEF flat
-  
-   # if true, will send notification if exp has been idle for more than 1 hour
-   # idle means exp is not in end status and log has not been modified
-   SharedData_setMiscData OVERVIEW_CHECK_EXP_IDLE false
-
-   # check idle interval in minutes
-   SharedData_setMiscData OVERVIEW_EXP_IDLE_INTERVAL 60
-
-   # check submit late interval in minutes
-   SharedData_setMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL 15
-
-   # check idle threshold in minutes
-   SharedData_setMiscData OVERVIEW_EXP_IDLE_THRESHOLD 60
-
-   # check submit late threshold in minutes
-   SharedData_setMiscData OVERVIEW_EXP_SUBMIT_LATE_THRESHOLD 60
-
-   # number of threads created to process exp log datestamps
-   SharedData_setMiscData OVERVIEW_NUM_THREADS 4
-
-   # default datestamp range value visible in overview box
-   # 8-9 is daetstamp hour
-   SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE "8 9"
-
-   # by default the visible datestamp length is 10 (yyymmddhh) but
-   # is customizable in the maestrorc
-   SharedData_setMiscData DATESTAMP_VISIBLE_LEN 10
-
-   SharedData_setMiscData SEQ_BIN [Sequencer_getPath]
-   SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
+   tsv::array set misc [ list \
+   COMMON_MUTEX [ thread::mutex create ] \
+   CANVAS_BOX_WIDTH 90 \
+   CANVAS_X_START 40 \
+   CANVAS_Y_START 40 \
+   CANVAS_BOX_HEIGHT 43 \
+   CANVAS_PAD_X 30 \
+   CANVAS_PAD_Y 15 \
+   CANVAS_PAD_TXT_X 4 \
+   CANVAS_PAD_TXT_Y 23 \
+   CANVAS_SHADOW_OFFSET 5 \
+   LOOP_OVAL_SIZE 15 \
+   SHOW_ABORT_TYPE true \
+   SHOW_EVENT_TYPE true \
+   SHOW_INFO_TYPE true \
+   SHOW_SYSINFO_TYPE true \
+   MSG_CENTER_BELL_TRIGGER 15 \
+   MSG_CENTER_USE_BELL true \
+   FONT_BOLD "-*-*-bold-r-normal--11-*-*-*-p-*-iso8859-10" \
+   FONT_SIZE 10 \
+   DEBUG_TRACE 0 \
+   FLOW_SCALE 1 \
+   AUTO_LAUNCH true \
+   AUTO_MSG_DISPLAY true \
+   AUTO_MSG_DISPLAY true \
+   SUBMIT_POPUP true \
+   NODE_DISPLAY_PREF normal \
+   COLLAPSE_DISABLED_NODES false \
+   STARTUP_DONE false \
+   FLOW_SCALE 1 \
+   XFLOW_EXP_LABEL_SIZE 25 \
+   OVERVIEW_MODE false \
+   DEFAULT_CONSOLE "konsole -e" \
+   TEXT_VIEWER default \
+   USER_TMP_DIR default \
+   MENU_RELIEF flat \
+   OVERVIEW_CHECK_EXP_IDLE false \
+   OVERVIEW_EXP_IDLE_INTERVAL 60 \
+   OVERVIEW_EXP_SUBMIT_LATE_INTERVAL 15 \
+   OVERVIEW_EXP_IDLE_THRESHOLD 60 \
+   OVERVIEW_EXP_SUBMIT_LATE_THRESHOLD 60 \
+   OVERVIEW_NUM_THREADS 4 \
+   OVERVIEW_DATESTAMP_RANGE "8 9" \
+   OVERVIEW_SHOW_TOOLBAR true \
+   DATESTAMP_VISIBLE_LEN 10 \
+   SEQ_BIN [Sequencer_getPath] \
+   SEQ_UTILS_BIN [Sequencer_getUtilsPath] \
+   ]
 
    # SharedData_readProperties
 }

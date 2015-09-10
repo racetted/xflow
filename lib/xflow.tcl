@@ -2,7 +2,6 @@
 #set auto_path [linsert $auto_path 0 [exec pwd]]
 #package require Tk
 #package require tile
-package require keynav
 package require struct::record
 package require autoscroll
 package require tooltip
@@ -42,7 +41,7 @@ proc xflow_addFileMenu { exp_path datestamp parent } {
 }
 
 proc xflow_addViewMenu { exp_path datestamp parent } {
-   global AUTO_MSG_DISPLAY SUBMIT_POPUP FLOW_SCALE_${exp_path}_${datestamp}
+   global AUTO_MSG_DISPLAY SUBMIT_POPUP COLLAPSE_DISABLED_NODES FLOW_SCALE_${exp_path}_${datestamp}
    if { $parent == "." } {
       set parent ""
    }
@@ -61,8 +60,11 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
       $menuW add checkbutton -label "Submit Popup" -variable SUBMIT_POPUP \
          -command [list xflow_setSubmitPopup] \
          -onvalue true -offvalue false
-   }
 
+      $menuW add checkbutton -label "Collapse Catchup/Discreet Nodes" -variable COLLAPSE_DISABLED_NODES \
+      -onvalue true -offvalue false
+
+   }
 
    $menuW add checkbutton -label "Show Shadow Status" -variable SHADOW_STATUS \
       -onvalue 1 -offvalue 0 -command [list xflow_redrawAllFlow ${exp_path} ${datestamp}]
@@ -440,7 +442,7 @@ proc xflow_findCallback { _exp_path _datestamp _entry_w _next_or_previous } {
       set foundNode [lindex ${XFLOW_FIND_RESULTS} ${XFLOW_FIND_INDEX}]
       set mainFlowCanvas [xflow_getMainFlowCanvas ${_exp_path} ${_datestamp}]
       # if the node is collapsed, uncollapse it
-      if { [SharedFlowNode_uncollapseBranch ${_exp_path} ${foundNode} ${_datestamp} ${mainFlowCanvas}] != "" } {
+      if { [SharedFlowNode_uncollapseBranch ${_exp_path} ${foundNode} ${_datestamp}] != "" } {
          xflow_drawflow ${_exp_path} ${_datestamp} ${mainFlowCanvas} false
       }
 
@@ -914,7 +916,7 @@ proc xflow_findNode { exp_path datestamp real_node } {
       }
       incr indexCount
    }
-   set collapsedParentNode [SharedFlowNode_uncollapseBranch ${exp_path} ${flowNode} ${datestamp} [xflow_getMainFlowCanvas ${exp_path} ${datestamp}] ]
+   set collapsedParentNode [SharedFlowNode_uncollapseBranch ${exp_path} ${flowNode} ${datestamp}]
    if { ${refreshNode} != "" || ${collapsedParentNode} != "" } {
       xflow_drawflow ${exp_path} ${datestamp} [xflow_getMainFlowCanvas ${exp_path} ${datestamp}]
    }
@@ -931,10 +933,10 @@ proc xflow_findNode { exp_path datestamp real_node } {
 #   position: specifies the position of the node within its parent
 #   first_node: set to true only for the experiment root node.
 proc xflow_drawNode { exp_path datestamp canvas node position {first_node false} } {
-   global FLOW_SCALE_${exp_path}_${datestamp}
+   global FLOW_SCALE_${exp_path}_${datestamp} COLLAPSE_DISABLED_NODES
    ::log::log debug "xflow_drawNode drawing sub node:$node position:$position "
    set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
-   if { [SharedFlowNode_isParentCollapsed ${exp_path} ${node} ${datestamp} ${canvas}] } {
+   if { [SharedFlowNode_isParentCollapsed ${exp_path} ${node} ${datestamp}] } {
       ::log::log debug "xflow_drawNode parent is collapsed, not drawing node:$node"
       return;
    }
@@ -951,14 +953,13 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       set drawshadow off
    }
 
-   SharedFlowNode_initNodeDatestampCanvas ${exp_path} ${node} ${datestamp} ${canvas}
    set submitter [SharedFlowNode_getSubmitter ${exp_path} ${node} ${datestamp}]
    if { ${submitter} == "" || ${first_node} == "true" } {
       set linex2 [SharedData_getMiscData CANVAS_X_START]
       set liney2 [expr [SharedData_getMiscData CANVAS_Y_START] + ${deltaY}]
       ::log::log debug "xflow_drawNode linex2:$linex2 liney2:$liney2"
    } else {
-      SharedFlowNode_initNode ${exp_path} ${submitter} ${datestamp} ${canvas}
+      SharedFlowNode_initNode ${exp_path} ${submitter} ${datestamp}
       # use a dashline leading to modules, elsewhere use a solid line
       set lineColor [SharedData_getColor FLOW_SUBMIT_ARROW]
       switch ${nodeType} {
@@ -971,7 +972,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       }
 
       # get the coordinates of the submitter
-      foreach { px1 py1 px2 py2 } [SharedFlowNode_getDisplayCoords ${exp_path} ${submitter} ${datestamp} $canvas] { break }
+      foreach { px1 py1 px2 py2 } [SharedFlowNode_getDisplayCoords ${exp_path} ${submitter} ${datestamp}] { break }
 
       # first draw left arrow, the shape depends on the position of the
       # subnode and previous nodes being drawn
@@ -990,11 +991,11 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
          # first draw vertical line
          if { [xflow_isRefreshMode ${exp_path} ${datestamp}] == "true" } {
             # drawing at same position
-            set nextY [SharedFlowNode_getDisplayY ${exp_path} ${node} ${datestamp} ${canvas}]
+            set nextY [SharedFlowNode_getDisplayY ${exp_path} ${node} ${datestamp}]
          } else {
             set nextY [SharedData_getExpDisplayNextY ${exp_path} ${datestamp} $canvas]
          }
-         SharedFlowNode_setDisplayY  ${exp_path} ${node} ${datestamp} ${canvas} ${nextY}
+         SharedFlowNode_setDisplayY  ${exp_path} ${node} ${datestamp} ${nextY}
 
          #set linex1 [expr $px2 + $boxW/4/3]
          set linex1 [expr $px2 + $boxW/2/${flowScale}/3]
@@ -1008,7 +1009,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
          ::DrawUtils::$drawline $canvas $linex1 $liney1 $linex2 $liney2 last $lineColor  $drawshadow $shadowColor ${lineTagName}
       }
    }
-   set isCollapsed [ SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp} ${canvas}]
+   set isCollapsed [ SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp}]
    set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}]
    set normalTxtFill [SharedData_getColor NORMAL_RUN_TEXT]
    set normalFill [::DrawUtils::getBgStatusColor init]
@@ -1020,6 +1021,10 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
 
    set text [SharedFlowNode_getName ${exp_path} ${node} ${datestamp}]
    set nodeExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
+   set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${nodeExtension} ]
+   if { ${isCollapsed} == 0 && ${COLLAPSE_DISABLED_NODES} == true && (${status} == "discret" || ${status} == "catchup") } {
+      set isCollapsed 1
+   }
    set extDisplay [SharedFlowNode_getExtDisplay ${exp_path} ${node} ${datestamp} $nodeExtension]
    if { $extDisplay != "" } {
       set text "${text}${extDisplay}"
@@ -1072,10 +1077,10 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       }
    }
    if { ${flowScale} != "1" } { ::tooltip::tooltip $canvas -item ${node} ${text} }
-   ::DrawUtils::drawNodeStatus ${exp_path} ${node} ${datestamp} [xflow_getShawdowStatus]
+   ::DrawUtils::drawNodeStatus ${exp_path} ${node} ${datestamp} ${canvas} [xflow_getShawdowStatus]
    xflow_MouseWheelCheck ${canvas}
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
-   $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed ${exp_path} ${datestamp} $canvas $node %X %Y]
+   $canvas bind $node <Double-Button-1> [ list xflow_changeCollapsed ${exp_path} ${datestamp} ${node} ${canvas}]
    $canvas bind $node <Button-2> [ list xflow_historyCallback ${exp_path} ${datestamp} $node ${currentExtension} $canvas  48] 
    $canvas bind $node <Button-3> [ list xflow_nodeMenu ${exp_path} ${datestamp} $canvas $node ${currentExtension} %X %Y]
 
@@ -1186,7 +1191,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    ${miscMenu} add cascade -label "Force status" -underline 0 -menu [menu ${statusMenu}]
 
    set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp} ]
-   set isCollapsed [SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp} ${canvas}]
+   set isCollapsed [SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp}]
    if { ${submits} != "" && ${isCollapsed} } {
       ${popMenu} add command -label "Expand All" -command [list xflow_expandAllCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
    }
@@ -3146,24 +3151,24 @@ proc xflow_indexedNodeSelectionCallback { exp_path node datestamp canvas combobo
 
 # this function is called to expand a node and all of its child nodes
 proc xflow_expandAllCallback { exp_path datestamp node canvas caller_menu } {
-   SharedFlowNode_uncollapseAll ${exp_path} ${node} ${datestamp} ${canvas}
+   SharedFlowNode_uncollapseAll ${exp_path} ${node} ${datestamp}
    destroy $caller_menu
    xflow_drawflow ${exp_path} ${datestamp} $canvas
 }
 
 # callback when user click on a box with button 1 to collapse/expand a node
-proc xflow_changeCollapsed { exp_path datestamp canvas node x y } {
+proc xflow_changeCollapsed { exp_path datestamp node canvas } {
    
    if { [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}] == "" } {
       ::log::log debug "changeCollapse: node has no children"
       return
    }
 
-   set isCollapsed [SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp} ${canvas}]
+   set isCollapsed [SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp}]
    if { $isCollapsed == 0 } {
-      SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} ${canvas} 1
+      SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} 1
    } else {
-      SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} ${canvas} 0
+      SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} 0
    }
 
    xflow_drawflow ${exp_path} ${datestamp} $canvas false
@@ -3182,23 +3187,19 @@ proc xflow_redrawNodes { exp_path datestamp node {canvas ""} } {
    # update idletasks
    catch {
       if { $canvas == "" } {
-         # get the list of all canvases where the node appears
-         set canvasList [SharedFlowNode_getDisplayList ${exp_path} ${node} ${datestamp}]
-      } else {
-         set canvasList $canvas
-      }
-      foreach canvas $canvasList {
-         set cmdList_${exp_path}_${datestamp} {}
-         # instead of removing the nodes one by one, I'm collecting all the cmds
-         # and run it at once to avoid less flickering on the gui
-         ::DrawUtils::clearBranch ${exp_path} ${node} ${datestamp} ${canvas} cmdList_${exp_path}_${datestamp}
-         set nodePosition [SharedFlowNode_getSubmitPosition ${exp_path} ${node} ${datestamp}]
-         eval [set cmdList_${exp_path}_${datestamp}]
-         xflow_drawNode ${exp_path} ${datestamp} ${canvas} ${node} ${nodePosition}
-         xflow_resetScrollRegion ${canvas}
-         if { [xflow_needBgImageRefresh ${exp_path} ${datestamp} ${canvas}] == true } {
-	    xflow_addBgImage ${exp_path} ${datestamp} ${canvas} [winfo width ${canvas}] [winfo height ${canvas}]
-         }
+         set canvas [xflow_getMainFlowCanvas ${exp_path} ${datestamp}]
+      } 
+
+      set cmdList_${exp_path}_${datestamp} {}
+      # instead of removing the nodes one by one, I'm collecting all the cmds
+      # and run it at once to avoid less flickering on the gui
+      ::DrawUtils::clearBranch ${exp_path} ${node} ${datestamp} ${canvas} cmdList_${exp_path}_${datestamp}
+      set nodePosition [SharedFlowNode_getSubmitPosition ${exp_path} ${node} ${datestamp}]
+      eval [set cmdList_${exp_path}_${datestamp}]
+      xflow_drawNode ${exp_path} ${datestamp} ${canvas} ${node} ${nodePosition}
+      xflow_resetScrollRegion ${canvas}
+      if { [xflow_needBgImageRefresh ${exp_path} ${datestamp} ${canvas}] == true } {
+         xflow_addBgImage ${exp_path} ${datestamp} ${canvas} [winfo width ${canvas}] [winfo height ${canvas}]
       }
    }
    xflow_setRefreshMode ${exp_path} ${datestamp} false
@@ -3211,10 +3212,8 @@ proc xflow_redrawAllFlow { exp_path datestamp } {
    set NODE_DISPLAY_PREF_${exp_path}_${datestamp} ${NODE_DISPLAY_PREF}
    # the active suite could be empty if the redraw is
    # called from the LogReader in overview mode
-   set canvasList [SharedData_getExpCanvasList ${exp_path} ${datestamp}]
-   foreach canvasW $canvasList {
-      xflow_drawflow ${exp_path} ${datestamp} $canvasW false
-   }
+   set canvas [xflow_getMainFlowCanvas ${exp_path} ${datestamp}]
+   xflow_drawflow ${exp_path} ${datestamp} ${canvas} false
 }
 
 # user clicks on refresh button in the
@@ -3237,9 +3236,7 @@ proc xflow_refreshFlow { exp_path datestamp } {
       set LOOP_RESOURCES_DONE_${exp_path}_${datestamp} false
       set NODE_RESOURCE_DONE_${exp_path}_${datestamp} false
 
-      SharedFlowNode_clearAllNodes ${exp_path} ${datestamp}
-
-      # SharedData_setExpDatestampOffset ${exp_path} ${datestamp} 0
+      # SharedFlowNode_clearAllNodes ${exp_path} ${datestamp}
       if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
          LogReader_startExpLogReader ${exp_path} ${datestamp} no_overview
       } else {
@@ -3656,7 +3653,8 @@ proc xflow_createFlowCanvas { exp_path datestamp parent } {
       grid columnconfigure ${drawFrame} 0 -weight 1
       grid rowconfigure ${drawFrame} 0 -weight 1
 
-      grid ${drawFrame} -row 0 -column 0 -sticky nsew
+      # grid ${drawFrame} -row 0 -column 0 -sticky nsew
+      grid ${drawFrame} -row 0 -column 1 -sticky nsew
    }
    return $canvas
 }
@@ -4035,12 +4033,29 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    xflow_addViewMenu ${exp_path} ${datestamp} $topFrame
    xflow_addHelpMenu ${exp_path} ${datestamp} $topFrame
    puts "xflow_createWidgets  ${exp_path} ${datestamp} menu done..."
-   # exp label frame
+
+   # creates exp label right side of menu
    set expLabelFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  exp_label_frame]]
    set expLabel [label ${expLabelFrame}.exp_label -font [xflow_getExpLabelFont]]
-
    grid ${expLabel} -sticky nesw
    pack ${expLabelFrame} -side left -padx {20 0}
+
+
+   # creates label on the left side of the canvas
+   set expSideLabelFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  exp_side_label_frame]]
+   set labelValue ""
+   if { [DisplayGrp_getWindowsLabel ${exp_path}] != "" } {
+      set labelValue "[DisplayGrp_getWindowsLabel]"
+   }
+
+   set labelBgColor [SharedData_getMiscData WINDOWS_LABEL_BG]
+   if { ${labelBgColor} != "" } {
+      set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
+   } else {
+      set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont]]
+   }
+   grid ${expSideLabel}
+   grid ${expSideLabelFrame} -column 0 -row 3
 
    set secondFrame [frame  [xflow_getWidgetName ${exp_path} ${datestamp}  second_frame]]
    set toolbarFrame [xflow_getWidgetName ${exp_path} ${datestamp}  toolbar_frame]
@@ -4066,23 +4081,23 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    set flowFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  flow_frame]]
    set drawFrame [frame ${flowFrame}.draw_frame]
 
-   grid columnconfigure ${flowFrame} 0 -weight 1
+   grid columnconfigure ${flowFrame} 1 -weight 1
    grid rowconfigure ${flowFrame} 0 -weight 1
 
    # this displays the widgets in the main window layout
-   grid $topFrame -row 0 -column 0 -sticky w -padx 2
-   grid ${secondFrame} -row 1 -column 0  -sticky nsew -pady 2
-   grid ${findFrame} -row 2 -column 0  -sticky nsew -pady 2 -padx 2
+   grid $topFrame -row 0 -column 1 -sticky w -padx 2
+   grid ${secondFrame} -row 1 -column 1  -sticky nsew -pady 2
+   grid ${findFrame} -row 2 -column 1  -sticky nsew -pady 2 -padx 2
    grid remove ${findFrame}
-   grid ${flowFrame}  -row 3 -column 0 -columnspan 2 -sticky nsew -padx 2 -pady 2
-   grid columnconfigure ${toplevelW} 0 -weight 1
-   grid columnconfigure ${toplevelW} 1 -weight 1
+   grid ${flowFrame}  -row 3 -column 1 -columnspan 2 -sticky nsew -padx 2 -pady 2
+   grid columnconfigure ${toplevelW} 2 -weight 1
+   grid columnconfigure ${toplevelW} 2 -weight 1
    grid rowconfigure ${toplevelW} 3 -weight 2
 
    set sizeGripW [xflow_getWidgetName ${exp_path}  ${datestamp} main_size_grip]
    ttk::sizegrip ${sizeGripW}
 
-   grid ${sizeGripW} -row 4 -column 1 -sticky se
+   grid ${sizeGripW} -row 4 -column 2 -sticky se
    
    wm geometry ${toplevelW} =1200x800
 }
@@ -4097,6 +4112,7 @@ proc xflow_getExpLabelFont {} {
    return ${expLabelFont}
 }
 
+# sets the label on the right side of the menus
 proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
    ::log::log debug "xflow_setExpLabel _displayName:${_displayName} datestamp:${_datestamp}"
    set expLabelFrame [xflow_getWidgetName ${_exp_path} ${_datestamp} exp_label_frame]
@@ -4106,9 +4122,6 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
       set displayValue ${_displayName}-${hour}
    }
 
-   if { [DisplayGrp_getWindowsLabel ${_exp_path}] != "" } {
-      set displayValue "[DisplayGrp_getWindowsLabel] ${displayValue}"
-   }
    ${expLabelFrame}.exp_label configure -text ${displayValue}
 }
 
@@ -4461,14 +4474,15 @@ proc xflow_setWidgetNames {} {
    if { ! [info exists XflowWidgetNames] } {
       array set XflowWidgetNames {
 
+         exp_side_label_frame .exp_side_label_frame
          top_frame .top_frame
          second_frame .second_frame
          find_frame .find_frame
          flow_frame .flow_frame
          main_size_grip .size_grip
 
-         exp_label_frame .top_frame.exp_label_frame
 
+         exp_label_frame .top_frame.exp_label_frame
          toolbar_frame .second_frame.toolbar
          msgcenter_button .second_frame.toolbar.button_msgcenter
          nodekill_button .second_frame.toolbar.button_nodekill
@@ -4514,7 +4528,7 @@ proc xflow_msgCenterThreadReady {} {
 
 proc xflow_init { {exp_path ""} } {
    global env DEBUG_TRACE XFLOW_STANDALONE
-   global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF SUBMIT_POPUP
+   global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF SUBMIT_POPUP COLLAPSE_DISABLED_NODES
    global SHADOW_STATUS
    global SESSION_TMPDIR FLOW_SCALE
 
@@ -4540,8 +4554,14 @@ proc xflow_init { {exp_path ""} } {
          ::log::log debug "xflow_init SharedData_setMiscData SUBMIT_POPUP ${SUBMIT_POPUP}"
          SharedData_setMiscData SUBMIT_POPUP ${SUBMIT_POPUP}
       }
+
+      if { ! [info exists COLLAPSE_DISABLED_NODES] } {
+         set COLLAPSE_DISABLED_NODES [SharedData_getMiscData COLLAPSE_DISABLED_NODES]
+      } else {
+         ::log::log debug "xflow_init SharedData_setMiscData COLLAPSE_DISABLED_NODES ${COLLAPSE_DISABLED_NODES}"
+         SharedData_setMiscData COLLAPSE_DISABLED_NODES ${COLLAPSE_DISABLED_NODES}
+      }
       xflow_setTkOptions
-      keynav::enableMnemonics .
 
       set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
       set NODE_DISPLAY_PREF  [SharedData_getMiscData NODE_DISPLAY_PREF]
@@ -4555,10 +4575,7 @@ proc xflow_init { {exp_path ""} } {
    }
 
    xflow_setWidgetNames 
-
    xflow_setErrorMessages
-
-   keynav::enableMnemonics .
 
    # xflow_createTmpDir
 }
