@@ -19,13 +19,14 @@ package require Thread
 # submitter: flow node path of the node that submits the new node
 # type: one of task, family, module, npass_task, loop
 proc SharedFlowNode_createNode { exp_path node datestamp submitter type } {
-   # puts "SharedFlowNode_createNode $exp_path $node $submitter $type"
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp} ${node} name [file tail ${node}] type ${type} submitter ${submitter} loops {} submits {} \
       catchup 4 memory 120M cpu 1 queue "" work_unit 0
 
    if { {$type} == "module" } {
       SharedData_addExpModule ${exp_path} ${node} ${datestamp}
    }
+
+   SharedFlowNode_initNodeDatestampDisplay $exp_path $node $datestamp
 }
 
 # remove the datestamp completely... This is called to cleanup data for a datestamp that is not viewed anymore
@@ -36,6 +37,9 @@ proc SharedFlowNode_removeDatestamp { exp_path datestamp } {
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime"
    catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime }
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime DONE"
+
+   catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime }
+   catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp}_stats }
 
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp}"
    catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp} }
@@ -420,7 +424,16 @@ proc SharedFlowNode_clearAllNodes { exp_path datestamp } {
    catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime }
 }
 
+proc SharedFlowNode_initNodeDatestampDisplay {  exp_path node datestamp } {
+   # if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_gui_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node}] == ""} {
+   #    # the dislpays_infos is only iniated once throught he init
+   #    tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos [list 0 0 0 0 0 0 0 0 40]
+   # }
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos [list 0 0 0 0 0 0 0 0 40]
+}
+
 proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } {
+
    set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
 
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
@@ -452,18 +465,8 @@ proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } 
         tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current +[Utils_getDayOfWeekFromDatestamp ${datestamp}]
    }
 
-   # puts "SharedFlowNode_initNodeDatestamp done" 
-}
-
-proc SharedFlowNode_initNodeDatestampCanvas { exp_path node datestamp {force false} } {
-   if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
-      SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp} ${force}
-   }
    set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
-   if { ${displayInfo} == "" || ${force} == true } {
-      set displayInfo [list 0 0 0 0 0 0 0 0 40]
-      tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos $displayInfo
-   }
+   # puts "SharedFlowNode_initNodeDatestamp done" 
 }
 
 proc SharedFlowNode_resetAllStatus { exp_path node datestamp {is_recursive 0} } {
@@ -1173,12 +1176,13 @@ proc SharedFlowNode_getNptExtensions { exp_path node datestamp } {
 ################################################################################################3
 proc SharedFlowNode_isCollapsed { exp_path node datestamp } {
    set value 0
-   if { [tsv::exists SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == 1 } {
+   if { [tsv::exists SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node}] == 1 } {
       catch {
-         set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+         set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos]
          set value [lindex $displayInfo 0]
       }
    }
+
    return $value
 }
 
@@ -1194,11 +1198,10 @@ proc SharedFlowNode_isParentCollapsed { exp_path node datestamp } {
 }
 
 proc SharedFlowNode_setCollapsed { exp_path node datestamp value } {
-   # puts "SharedFlowNode_setCollapsed exp_path:$exp_path node:$node datestamp:$datestamp value:$value"
-   if { [tsv::exists SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == 1 } {
-      set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+   if { [tsv::exists SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node}] == 1 } {
+      set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos]
       set displayInfo [lreplace $displayInfo 0 0 $value]
-      tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos ${displayInfo}
+      tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos ${displayInfo}
 
       set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}]
       foreach submitName ${submits} {
@@ -1222,7 +1225,7 @@ proc SharedFlowNode_uncollapseBranch { exp_path node datestamp } {
    set nextNode [tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} submitter]
    set found false
    while { ${nextNode} != "" && ${found} == false } {
-      set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${nextNode} display_infos]
+      set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${nextNode} display_infos]
       set value [lindex $displayInfo 0]
       if { $value == 0 } {
          set found true ; break
@@ -1240,63 +1243,51 @@ proc SharedFlowNode_uncollapseAll { exp_path node datestamp } {
 
 # values must be a list of {x1 y1 x2 y2 max_x max_y}
 proc SharedFlowNode_setDisplayCoords { exp_path node datestamp values } {
-   # puts "SharedFlowNode_setDisplayCoords ${exp_path} ${node} ${datestamp} $values"
-   if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
-      SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp} 
+   if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_gui_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node}] == ""} {
+      SharedFlowNode_initNodeDatestampDisplay ${exp_path} ${node} ${datestamp} 
    }
-   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos]
    set displayInfo [join [lreplace $displayInfo 2 7 $values]]
 
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos ${displayInfo}
-   # puts "SharedFlowNode_setDisplayCoords ${exp_path} ${node} ${datestamp} after [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]"
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos ${displayInfo}
 }
 
 proc SharedFlowNode_setDisplayY { exp_path node datestamp value } {
-   if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
-      SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp} 
+   if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_gui_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node}] == ""} {
+      SharedFlowNode_initNodeDatestampDisplay ${exp_path} ${node} ${datestamp} 
    }
    # set value for current node to be used by children node
-   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos]
    set displayInfo [lreplace $displayInfo 8 8 ${value}]
 
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos ${displayInfo}
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos ${displayInfo}
 }
 
 proc SharedFlowNode_getDisplayY { exp_path node datestamp } {
 
-   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos]
    return [lindex ${displayInfo} 8]
 }
 
 proc SharedFlowNode_getDisplayCoords { exp_path node datestamp } {
-   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos]
    return [lrange $displayInfo 2 7]
 }
 
 proc  SharedFlowNode_setIsRootNode { exp_path node datestamp value} {
-   if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == ""} {
-      SharedFlowNode_initNodeDatestamp ${exp_path} ${node} ${datestamp} 
+   if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_gui_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node}] == ""} {
+      SharedFlowNode_initNodeDatestampDisplay ${exp_path} ${node} ${datestamp} 
    }
-   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos]
    set displayInfo [lreplace $displayInfo 1 1 $value]
 
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos ${displayInfo}
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos ${displayInfo}
 }
 
 proc  SharedFlowNode_isRootNode { exp_path node datestamp } {
-   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
+   set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos]
    set value [lindex $displayInfo 1]
    return $value
-}
-
-proc SharedFlowNode_initNode { exp_path node datestamp } {
-   if { [tsv::exists SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] == 1 } {
-      set displayInfo [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos]
-   } else {
-      set displayInfo {}
-      set displayInfo [list 0 0 0 0 0 0 0 0 40]
-      tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} display_infos $displayInfo
-   }
 }
 
 proc SharedFlowNode_resetNodeStatus { exp_path node datestamp } {

@@ -959,7 +959,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       set liney2 [expr [SharedData_getMiscData CANVAS_Y_START] + ${deltaY}]
       ::log::log debug "xflow_drawNode linex2:$linex2 liney2:$liney2"
    } else {
-      SharedFlowNode_initNode ${exp_path} ${submitter} ${datestamp}
+      # SharedFlowNode_initNodeDatestampDisplay ${exp_path} ${submitter} ${datestamp}
       # use a dashline leading to modules, elsewhere use a solid line
       set lineColor [SharedData_getColor FLOW_SUBMIT_ARROW]
       switch ${nodeType} {
