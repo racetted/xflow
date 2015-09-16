@@ -229,6 +229,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
 proc MsgCenter_addSubmitAction { table_widget row action } {
    global SubmitImgIcon SubmitStopImgIcon
    global MsgTableColMap
+
    if { ! [info exists SubmitImgIcon] } {
       set imageDir [SharedData_getMiscData IMAGE_DIR]
       set SubmitImgIcon [image create photo -file ${imageDir}/bulk_submit_small.png]
@@ -244,25 +245,26 @@ proc MsgCenter_addSubmitAction { table_widget row action } {
    ${table_widget} cellconfigure ${row},$MsgTableColMap(ActionColNumber) -image ${actionImg}
 }
 proc MsgCenter_createNotebook { table_w_ } {
-  set note_bookW [MsgCenter_getToplevel].note
+  set TNotebook [MsgCenter_getToplevel].note
   global MsgCenterMainGridRowMap
+  global BGAll BGAbort BGEvent BGInfo  BGSysinfo
 
-  ttk::frame ${note_bookW} 
-  ttk::notebook ${note_bookW}.nb
+  ttk::frame ${TNotebook} 
+  ttk::notebook ${TNotebook}.nb
 
-  
   # Invoke the widget only if it is currently pressed and enabled:
-  ${note_bookW}.nb add [frame ${note_bookW}.nb.all] -text "All"
-  ${note_bookW}.nb add [frame ${note_bookW}.nb.abort] -text "Abort"
-  ${note_bookW}.nb add [frame ${note_bookW}.nb.event] -text "Event"
-  ${note_bookW}.nb add [frame ${note_bookW}.nb.info] -text "Info" 
-  ${note_bookW}.nb add [frame ${note_bookW}.nb.sysinfo] -text "Sysinfo"
-  ${note_bookW}.nb select ${note_bookW}.nb.all
-  ttk::notebook::enableTraversal ${note_bookW}.nb
-
-  bind ${note_bookW}.nb <<NotebookTabChanged>> [list MsgCenter_refreshActiveMessages ${table_w_} 0]
-  pack ${note_bookW}.nb -side left -padx {5 0} 
-  grid ${note_bookW} -row $MsgCenterMainGridRowMap(Notetab) -column 0 -sticky nsew -padx 2 -pady 2
+  ${TNotebook}.nb add [frame ${TNotebook}.nb.all]     -text "All" -image $BGAll -compound center
+  ${TNotebook}.nb add [frame ${TNotebook}.nb.abort]   -text "Abort" -image $BGAbort  -compound center
+  ${TNotebook}.nb add [frame ${TNotebook}.nb.event]   -text "Event" -image $BGEvent -compound center
+  ${TNotebook}.nb add [frame ${TNotebook}.nb.info]    -text "Info"   -image  $BGInfo -compound center
+  ${TNotebook}.nb add [frame ${TNotebook}.nb.sysinfo] -text "Sysinfo" -image $BGSysinfo -compound center
+  ${TNotebook}.nb select ${TNotebook}.nb.all
+  ttk::notebook::enableTraversal ${TNotebook}.nb
+ 
+  bind ${TNotebook}.nb <<NotebookTabChanged>> [list MsgCenter_refreshActiveMessages ${table_w_} 0]
+  pack ${TNotebook}.nb -side left -padx {5 0} 
+  grid ${TNotebook} -row $MsgCenterMainGridRowMap(Notetab) -column 0 -sticky nsew -padx 2 -pady 2
+ 
 }
 
 
@@ -392,24 +394,27 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    global MSG_CENTER_NEW MSG_ACTIVE_TABLE
   
    if { ${MSG_CENTER_NEW} == "true" } {
-      set isUnack 0
       set istoadd false 
    } else {
-      set isUnack 1
       set istoadd true 
    }
+   
+   set isUnack 0
    set is_exist [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_} ${isUnack}]
    if { [lsearch -exact ${MSG_TABLE} ${is_exist} ] < 0 } {
      #incr MSG_COUNTER
+     
      ::log::log debug "MsgCenter_newMessage node_:$node_ type_:$type_ msg_:$msg_"
      lappend MSG_TABLE [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_} ${isUnack}]
      set MSG_COUNTER   [llength ${MSG_TABLE}]
      set isMsgActive   [MsgCenter_addActiveMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} ${isUnack} ${istoadd}]
 
      if { ${isMsgActive} == "true" } {
-        if { [SharedData_getMiscData STARTUP_DONE] == true } {
+        set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+        if { [SharedData_getMiscData STARTUP_DONE] == true || $isOverviewMode == true} {
           set notebookW [MsgCenter_getNoteBookWidget]
           set label [string tolower  [$notebookW tab [$notebookW index current] -text]]
+          
           if { ${label} == ${type_}} {
              MsgCenter_refreshActiveMessages ${table_w_} 0
           } else {
@@ -496,25 +501,23 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ is
       set is_exist [lsearch -exact ${MSG_ACTIVE_TABLE} [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} ${isMsgack_}]]
       #puts "OK ${is_exist}"
       if { ${is_exist} == "-1"} { 
-        #incr MSG_ACTIVE_COUNTER
         lappend MSG_ACTIVE_TABLE [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} ${isMsgack_}]
       }
    }
    set MSG_ACTIVE_COUNTER [llength ${MSG_ACTIVE_TABLE}]
    return ${isMsgActive}
 }
-proc MsgCenter_Color {} {
+proc MsgCenter_Color {notebookW_} {
 
-   set note_bookW [MsgCenter_getNoteBookWidget]
-   ttk::style configure ${note_bookW} -background "green"
-   ttk::style configure ${note_bookW}.all -background "green"
-   ttk::style configure ${note_bookW}.all -foreground "blue"
-  #ttk::style map ${note_bookW}.nb -background \
-  #   [list selected ${alarmBgColor}  active ${alarmBgColor} disabled normalBgColor]
-  #ttk::style map ${note_bookW}.nb -foreground \
+   ttk::style configure ${notebookW_} -background "green"
+   ttk::style configure ${notebookW_}.all -background "green"
+   ttk::style configure ${notebookW_}.all -foreground "blue"
+   ttk::style map ${notebookW_} -background \
+     [list selected "green"  active "blue" disabled "black"]
+  #ttk::style map ${TNotebook}.nb -foreground \
   #   [list selected ${alarmBgColor}  active ${alarmBgColor} disabled normalBgColor]
    
-#ttk::style configure TNotebook.Tab -font namedfont
+   ttk::style configure ${notebookW_}.all -font "Helvetica"
 #ttk::style map TNotebook.Tab -font \
 #    [list selected namedfont active namedfont disabled namedfont]
 
@@ -545,60 +548,84 @@ proc MsgCenter_Color {} {
 proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
    global MSG_TABLE MSG_COUNTER MSG_ALARM_ON
    global MSG_ALARM_ID MSG_ALARM_AFTER_ID
-
+   global BGAll BGAbort BGEvent BGInfo  BGSysinfo
+ 
+   set NB_ACTIVE_ELM {}
    set notebookW [MsgCenter_getNoteBookWidget]
    set label  [string tolower [$notebookW tab [$notebookW index current] -text]]
-   #MsgCenter_Color
    # reset active messages
    MsgCenter_initActiveMessages
    set counter 0
    set isMsgNotack false
    # reprocess all received messages
+   set cmp [llength ${MSG_TABLE}]
+ 
    while { ${counter} < ${MSG_COUNTER} } {
       foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
-      
       if { ${label} == ${type} || ${label} == "all"} {
         ::log::log debug "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp"
         MsgCenter_addActiveMessage ${datestamp} ${timestamp} ${type} ${node} ${msg} ${exp} ${isMsgack} true
         if { ${isMsgack} == "0"} {
+          if { [lsearch -exact ${NB_ACTIVE_ELM} ${type}] == "-1"} { 
+            lappend NB_ACTIVE_ELM  ${type}
+          }
           set isMsgNotack true
         }
       }
       incr counter
    }
    if { ${isMsgNotack} == "true"} {
-      MsgCengter_processAlarm ${table_w_}
-   } else {
-      MsgCenter_stopBell ${table_w_}
-   }
-   #puts "BOOL ${bool_}"
+      $BGAll  put red -to 0 0 50 15
+      foreach elm ${NB_ACTIVE_ELM} {	    
+        switch ${elm} {
+          abort   {$BGAbort   put red -to 0 0 50 15}
+          event   {$BGEvent   put red -to 0 0 50 15} 
+          info    {$BGInfo    put red -to 0 0 50 15}
+          sysinfo {$BGSysinfo put red -to 0 0 50 15}
+        }
+      }
+      #MsgCengter_processAlarm ${table_w_}
+   } 
    if {${bool_} == "0"} {
-     if { [info exists  MSG_ALARM_ID] && [info exists MSG_ALARM_AFTER_ID] && ${MSG_ALARM_ON} == "true" }  { 
-        MsgCenter_AckMessages ${table_w_}
-     } else {  
-        MsgCenter_ackMessages ${table_w_} ${bool_}
-     }
+      MsgCenter_AckMessages ${table_w_}
    } else { 
        MsgCenter_ackMessages ${table_w_} ${bool_}
    }  
    MsgCenter_initialSort ${table_w_}
 }
 proc Ack_MsgCenter_List {} {
+  global BGAll BGAbort BGEvent BGInfo BGSysinfo
   global MSG_TABLE MSG_COUNTER
-
-  set nb_item [llength ${MSG_TABLE}]
   
+  set NB_ACTIVE_ELM {}
+  set nb_item [llength ${MSG_TABLE}]
   set notebookW [MsgCenter_getNoteBookWidget]
   set label  [string tolower [$notebookW tab [$notebookW index current] -text]] 
-  #puts "${label} ${MSG_COUNTER} ${nb_item}"  
+  set isMsg_notack false 
   set counter 0
   while { ${counter} < ${MSG_COUNTER} } {
     foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
     if { ${isMsgack} == "0" && (${label} == ${type} || ${label} == "all")} {
       set MSG_TABLE [lreplace ${MSG_TABLE} ${counter} ${counter} [lreplace [lindex ${MSG_TABLE} ${counter}] end end 1]]
+      if { [lsearch -exact ${NB_ACTIVE_ELM} ${type}] == "-1"} { 
+         lappend NB_ACTIVE_ELM  ${type}
+      }
+    } elseif {${isMsgack} == "0"} {
+       set isMsg_notack true
     }
     incr counter
   } 
+  foreach elm ${NB_ACTIVE_ELM} {	    
+     switch ${elm} {
+        abort   {$BGAbort   put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15}
+        event   {$BGEvent   put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15} 
+        info    {$BGInfo    put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15}
+        sysinfo {$BGSysinfo put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15}
+     }
+  }
+  if {${isMsg_notack} == "false"} {
+    $BGAll  put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
+  }
 }
 proc MsgCenter_initActiveMessages {} {
    global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
@@ -1001,7 +1028,7 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
 
 # returns current time as argument expected by processNewMessage function
 proc MsgCenter_getCurrentTime {} {
-   return [clock format [clock seconds] -format "%Y%m%d.%H:%M:%S"]
+   return [clock format [clock seconds] -format "%y%m%d.%H:%M:%S"]
 }
 
 ########################################
@@ -1009,11 +1036,12 @@ proc MsgCenter_getCurrentTime {} {
 ########################################
 
 proc MsgCenter_init {} {
-   global MSG_ALARM_ON MsgCenterMainGridRowMap 
-   global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE SHOW_EVENT_TYPE
    global DEBUG_TRACE MSG_BELL_TRIGGER MSG_CENTER_USE_BELL MSG_CENTER_NEW
-
+   global BGAll BGAbort BGEvent BGInfo  BGSysinfo
+   global MSG_ALARM_ON MsgCenterMainGridRowMap 
+   global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
+  
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
@@ -1052,6 +1080,17 @@ proc MsgCenter_init {} {
    set SHOW_SYSINFO_TYPE [SharedData_getMiscData SHOW_SYSINFO_TYPE]
    set SHOW_EVENT_TYPE [SharedData_getMiscData SHOW_EVENT_TYPE]
 
+   set BGAll     [image create photo -width 50]
+   set BGAbort   [image create photo -width 50]
+   set BGEvent   [image create photo -width 50]
+   set BGInfo    [image create photo -width 50]
+   set BGSysinfo [image create photo -width 50]
+   #$BGAll  configure -foreground "black" -background blue
+   $BGAll     put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
+   $BGAbort   put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
+   $BGEvent   put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15 
+   $BGInfo    put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
+   $BGSysinfo put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
    # is bell activated?
    set MSG_CENTER_USE_BELL true
    if { [SharedData_getMiscData USE_BELL] == false } {
