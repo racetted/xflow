@@ -18,6 +18,19 @@ proc MsgCenter_setTkOptions {} {
    #ttk::style configure Xflow.Menu -background cornsilk4
 }
 
+proc MsgCenter_SetNotebOption {notebookW_} {
+   set font12 [list Helvetica 12 bold]
+   set font10 [list Helvetica 10 bold]
+   
+   ttk::style configure msg.TNotebook   
+   ttk::style configure msg.TNotebook.Tab 
+   ttk::style configure msg.TNotebook.Tab -foreground black
+   ttk::style map msg.TNotebook.Tab -background  [list selected [SharedData_getColor SELECT_BG] active [SharedData_getColor ACTIVE_BG] disabled black]
+   ttk::style map msg.TNotebook.Tab -foreground [list selected white active white disabled black]
+   ttk::style configure msg.TNotebook.Tab -font $font12
+   ttk::style map msg.TNotebook.Tab -font [list selected $font12 active $font10 disabled $font12]
+   ${notebookW_} configure -style msg.TNotebook
+}
 proc MsgCenter_createMenus {} {
    global MsgCenterMainGridRowMap
    set topFrame [MsgCenter_getToplevel].topframe
@@ -264,7 +277,7 @@ proc MsgCenter_createNotebook { table_w_ } {
   bind ${TNotebook}.nb <<NotebookTabChanged>> [list MsgCenter_refreshActiveMessages ${table_w_} 0]
   pack ${TNotebook}.nb -side left -padx {5 0} 
   grid ${TNotebook} -row $MsgCenterMainGridRowMap(Notetab) -column 0 -sticky nsew -padx 2 -pady 2
- 
+  MsgCenter_SetNotebOption ${TNotebook}.nb
 }
 
 
@@ -451,7 +464,8 @@ proc MsgCenter_sendNotification {} {
    global MSG_ACTIVE_COUNTER MsgTableColMap
 
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
-   if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 0] } {
+   
+   if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 0] } { 
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       if { ${isOverviewMode} == "true" } {
          Overview_newMessageCallback true
@@ -507,41 +521,7 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ is
    set MSG_ACTIVE_COUNTER [llength ${MSG_ACTIVE_TABLE}]
    return ${isMsgActive}
 }
-proc MsgCenter_Color {notebookW_} {
 
-   ttk::style configure ${notebookW_} -background "green"
-   ttk::style configure ${notebookW_}.all -background "green"
-   ttk::style configure ${notebookW_}.all -foreground "blue"
-   ttk::style map ${notebookW_} -background \
-     [list selected "green"  active "blue" disabled "black"]
-  #ttk::style map ${TNotebook}.nb -foreground \
-  #   [list selected ${alarmBgColor}  active ${alarmBgColor} disabled normalBgColor]
-   
-   ttk::style configure ${notebookW_}.all -font "Helvetica"
-#ttk::style map TNotebook.Tab -font \
-#    [list selected namedfont active namedfont disabled namedfont]
-
-#Style().configure("TNotebook", background=myTabBarColor);
-#Style().map("TNotebook.Tab", background=[("selected", myActiveTabBackgroundColor)], foreground=[("selected", myActiveTabForegroundColor)]);
-#Style().configure("TNotebook.Tab", background=myTabBackgroundColor, foreground=myTabForegroundColor);
-
-#ttk::style configure TNotebook -background color
-#ttk::style configure TNotebook.Tab -background color
-#ttk::style configure TNotebook.Tab -foreground color
-#ttk::style map TNotebook.Tab -background \
-#    [list selected color active color disabled color]
-#ttk::style map TNotebook.Tab -foreground \
-#    [list selected color active color disabled color]
-#ttk::style configure TNotebook.Tab -font namedfont
-#ttk::style map TNotebook.Tab -font \
-#    [list selected namedfont active namedfont disabled namedfont]
-
-#'selected' is the current tab.
-
-#'active' is the color displayed when hovering over an unselected tab.
-
-#'disabled' colors are used when the tab is disabled.
-}
 # refresh shown messages based on user message type filters
 # this function is called when the user changes the "Message Type" settings
 # under the Preferences menunodelogger -n /post_processing_misc/loop_sm_00-120 -s event -m test -d 20141002000000 
@@ -549,7 +529,8 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
    global MSG_TABLE MSG_COUNTER MSG_ALARM_ON
    global MSG_ALARM_ID MSG_ALARM_AFTER_ID
    global BGAll BGAbort BGEvent BGInfo  BGSysinfo
- 
+
+   set bg_color [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set NB_ACTIVE_ELM {}
    set notebookW [MsgCenter_getNoteBookWidget]
    set label  [string tolower [$notebookW tab [$notebookW index current] -text]]
@@ -575,21 +556,20 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
       incr counter
    }
    if { ${isMsgNotack} == "true"} {
-      $BGAll  put red -to 0 0 50 15
+      $BGAll  put $bg_color -to 0 0 55 15
       foreach elm ${NB_ACTIVE_ELM} {	    
         switch ${elm} {
-          abort   {$BGAbort   put red -to 0 0 50 15}
-          event   {$BGEvent   put red -to 0 0 50 15} 
-          info    {$BGInfo    put red -to 0 0 50 15}
-          sysinfo {$BGSysinfo put red -to 0 0 50 15}
+          abort   {$BGAbort   put $bg_color -to 0 0 55 15}
+          event   {$BGEvent   put $bg_color -to 0 0 55 15} 
+          info    {$BGInfo    put $bg_color -to 0 0 55 15}
+          sysinfo {$BGSysinfo put $bg_color -to 0 0 55 15}
         }
       }
-      #MsgCengter_processAlarm ${table_w_}
    } 
    if {${bool_} == "0"} {
       MsgCenter_AckMessages ${table_w_}
    } else { 
-       MsgCenter_ackMessages ${table_w_} ${bool_}
+      MsgCenter_ackMessages ${table_w_} ${bool_}
    }  
    MsgCenter_initialSort ${table_w_}
 }
@@ -598,9 +578,9 @@ proc Ack_MsgCenter_List {} {
   global MSG_TABLE MSG_COUNTER
   
   set NB_ACTIVE_ELM {}
-  set nb_item [llength ${MSG_TABLE}]
+  set nb_item   [llength ${MSG_TABLE}]
   set notebookW [MsgCenter_getNoteBookWidget]
-  set label  [string tolower [$notebookW tab [$notebookW index current] -text]] 
+  set label     [string tolower [$notebookW tab [$notebookW index current] -text]] 
   set isMsg_notack false 
   set counter 0
   while { ${counter} < ${MSG_COUNTER} } {
@@ -617,15 +597,16 @@ proc Ack_MsgCenter_List {} {
   } 
   foreach elm ${NB_ACTIVE_ELM} {	    
      switch ${elm} {
-        abort   {$BGAbort   put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15}
-        event   {$BGEvent   put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15} 
-        info    {$BGInfo    put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15}
-        sysinfo {$BGSysinfo put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15}
+        abort   {$BGAbort   put gray55 -to 0 0 55 15}
+        event   {$BGEvent   put gray55 -to 0 0 55 15} 
+        info    {$BGInfo    put gray55 -to 0 0 55 15}
+        sysinfo {$BGSysinfo put gray55 -to 0 0 55 15}
      }
   }
   if {${isMsg_notack} == "false"} {
-    $BGAll  put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
+    $BGAll  put gray55 -to 0 0 55 15
   }
+  MsgCenter_SetNotebOption ${notebookW}
 }
 proc MsgCenter_initActiveMessages {} {
    global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
@@ -646,14 +627,6 @@ proc MsgCenter_AckMessages { table_w_ } {
       ${table_w_} rowconfigure ${row} -fg ${normalFg}        
    }
    MsgCenter_setHeaderStatus ${table_w_} alarm_bg
-   set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-   if { ${isOverviewMode} == "true" } {
-      Overview_newMessageCallback false
-   } else {
-      set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
-      set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
-      xflow_newMessageCallback ${exp} ${datestamp} false
-   }
 }
 proc MsgCenter_ackMessages { table_w_ unack_} {
    global MsgTableColMap MSG_CENTER_NEW
@@ -682,6 +655,7 @@ proc MsgCenter_ackMessages { table_w_ unack_} {
       xflow_newMessageCallback ${exp} ${datestamp} false
    }
    set MSG_CENTER_NEW false
+   
 }
 
 proc MsgCenter_clearAllMessages {} {
@@ -1080,17 +1054,18 @@ proc MsgCenter_init {} {
    set SHOW_SYSINFO_TYPE [SharedData_getMiscData SHOW_SYSINFO_TYPE]
    set SHOW_EVENT_TYPE [SharedData_getMiscData SHOW_EVENT_TYPE]
 
-   set BGAll     [image create photo -width 50]
-   set BGAbort   [image create photo -width 50]
-   set BGEvent   [image create photo -width 50]
-   set BGInfo    [image create photo -width 50]
-   set BGSysinfo [image create photo -width 50]
-   #$BGAll  configure -foreground "black" -background blue
-   $BGAll     put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
-   $BGAbort   put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
-   $BGEvent   put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15 
-   $BGInfo    put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
-   $BGSysinfo put [SharedData_getColor MSG_CENTER_NORMAL_BG] -to 0 0 50 15
+   set BGAll     [image create photo -width 55]
+   set BGAbort   [image create photo -width 55]
+   set BGEvent   [image create photo -width 55]
+   set BGInfo    [image create photo -width 55]
+   set BGSysinfo [image create photo -width 55]
+ 
+   $BGAll     put gray55 -to 0 0 55 15 
+   $BGAbort   put gray55 -to 0 0 55 15
+   $BGEvent   put gray55 -to 0 0 55 15 
+   $BGInfo    put gray55 -to 0 0 55 15
+   $BGSysinfo put gray55 -to 0 0 55 15
+   
    # is bell activated?
    set MSG_CENTER_USE_BELL true
    if { [SharedData_getMiscData USE_BELL] == false } {
@@ -1112,7 +1087,6 @@ proc MsgCenter_init {} {
       #MsgCenter_setTkOptions
 
       MsgCenter_createWidgets
-
       MsgCenter_close
       
       wm protocol ${topLevelW} WM_DELETE_WINDOW [list MsgCenter_close]
@@ -1123,7 +1097,6 @@ proc MsgCenter_init {} {
       # active menu on right-click
       # bind [${tableW} bodytag] <Button-3> [list MsgCenter_rightClickCallback ${tableW} %W %x %y]
       bind [${tableW} bodypath] <Button-3> [list MsgCenter_rightClickCallback ${tableW} %W %x %y]
-      
       MsgCenter_setTitle ${topLevelW}
 
       # give full space to message table
