@@ -2945,7 +2945,7 @@ proc Overview_addPrefMenu { parent } {
    $menuW add checkbutton -label "Show Toolbar" -variable SHOW_TOOLBAR \
       -onvalue true -offvalue false -command [list Overview_showToolbarCallback]
 
-   $menuW add checkbutton -label "Collapse Catchup/Discreet Nodes" -variable COLLAPSE_DISABLED_NODES \
+   $menuW add checkbutton -label "Collapse Catchup State Nodes" -variable COLLAPSE_DISABLED_NODES \
       -onvalue true -offvalue false
 
    # Node Display submenu

@@ -61,7 +61,7 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
          -command [list xflow_setSubmitPopup] \
          -onvalue true -offvalue false
 
-      $menuW add checkbutton -label "Collapse Catchup/Discreet Nodes" -variable COLLAPSE_DISABLED_NODES \
+      $menuW add checkbutton -label "Collapse Catchup State Nodes" -variable COLLAPSE_DISABLED_NODES \
       -onvalue true -offvalue false
 
    }
