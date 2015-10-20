@@ -527,8 +527,8 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    }
    
    set isUnack 0
-   set is_exist [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_} ${isUnack}]
-   if { [lsearch -exact ${MSG_TABLE} ${is_exist} ] < 0 } {
+   set is_exist [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_}]
+   if { [lsearch -glob ${MSG_TABLE} ${is_exist}* ] < 0 } {
      #incr MSG_COUNTER
      ::log::log debug "MsgCenter_newMessage node_:$node_ type_:$type_ msg_:$msg_"
      lappend MSG_TABLE [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_} ${isUnack}]
@@ -547,7 +547,7 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
              ${notebookW} select ${notebookW}.${type_}
           }
           set MSG_ACTIVE_COUNTER [llength ${MSG_ACTIVE_TABLE}]
-          ${table_w_} see ${MSG_ACTIVE_COUNTER}
+          #${table_w_} see ${MSG_ACTIVE_COUNTER}
         }
         # for sysinfo, we don't flash or beep
         switch ${type_} {
@@ -558,8 +558,9 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
            }
         }
      }
+     MsgCenter_ModifText
    }
-   MsgCenter_ModifText
+   
 }
 
 proc MsgCenter_getFieldFromLastMessage { field_index } {
@@ -576,9 +577,20 @@ proc MsgCenter_getFieldFromLastMessage { field_index } {
 # for new messages
 proc MsgCenter_sendNotification {} {
    global MSG_ACTIVE_COUNTER MsgTableColMap
-
+   global MSG_TABLE  MSG_COUNTER
+   
+   set counter 0
+   set nb_elm false
+   while { ${counter} < ${MSG_COUNTER} && ${nb_elm} == "false"} {
+      foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
+      if {!$isMsgack} {
+        set nb_elm true
+      }
+      incr counter
+   }
+  
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
-   if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 0] } { 
+   if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 0] && ${nb_elm} == "true"} { 
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       if { ${isOverviewMode} == "true" } {
          Overview_newMessageCallback true
@@ -625,13 +637,14 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ is
       set displayedTimestamp [join [split ${timestamp_} .] "  "]
       # show only first 10 digits of datestamp
       set displayedDatestamp [Utils_getVisibleDatestampValue ${datestamp_} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
-      set is_exist [lsearch -exact ${MSG_ACTIVE_TABLE} [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} ${isMsgack_}]]
+      set is_exist [lsearch -glob ${MSG_ACTIVE_TABLE} [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} *]]
       #puts "OK ${is_exist}"
       if { ${is_exist} == "-1"} { 
+        incr MSG_ACTIVE_COUNTER
         lappend MSG_ACTIVE_TABLE [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} ${isMsgack_}]
       }
    }
-   set MSG_ACTIVE_COUNTER [llength ${MSG_ACTIVE_TABLE}]
+   #set MSG_ACTIVE_COUNTER [llength ${MSG_ACTIVE_TABLE}]
    return ${isMsgActive}
 }
 
@@ -642,7 +655,7 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ is
 proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
    global MSG_TABLE MSG_COUNTER MSG_ALARM_ON LOG_ACTIVATION_IDS
    global BGAll BGAbort BGEvent BGInfo  BGSysinfo
-   global array NB_ACTIVE_ELM
+   global array NB_ACTIVE_ELM MSG_ACTIVE_COUNTER
 
    set bg_color [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    array set NB_ACTIVE_ELM { 
@@ -658,7 +671,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
    MsgCenter_initActiveMessages
    set counter 0
    set isMsgNotack false
-   set  normal_color gray55
+   set normal_color gray55
  
    # reprocess all received messages
    while { ${counter} < ${MSG_COUNTER} } {
@@ -712,7 +725,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
       MsgCenter_ackMessages ${table_w_} ${bool_}
    }  
    MsgCenter_initialSort ${table_w_}
-   
+   ${table_w_} see ${MSG_ACTIVE_COUNTER}
 }
 proc Ack_MsgCenter_List {} {
   global BGAll BGAbort BGEvent BGInfo BGSysinfo
@@ -783,7 +796,8 @@ proc MsgCenter_AckMessages { table_w_ } {
    MsgCenter_setHeaderStatus ${table_w_} alarm_bg
 }
 proc MsgCenter_ackMessages { table_w_ unack_} {
-   global MsgTableColMap MSG_CENTER_NEW
+   global MsgTableColMap MSG_CENTER_NEW 
+   global MSG_ACTIVE_COUNTER
 
    #wm attributes . -topmost 0
    MsgCenter_stopBell ${table_w_}
@@ -809,7 +823,8 @@ proc MsgCenter_ackMessages { table_w_ unack_} {
       xflow_newMessageCallback ${exp} ${datestamp} false
    }
    set MSG_CENTER_NEW false
-   
+   MsgCenter_sendNotification
+   ${table_w_} see ${MSG_ACTIVE_COUNTER}
 }
 
 proc MsgCenter_clearAllMessages {} {
@@ -1191,7 +1206,7 @@ proc MsgCenter_init {} {
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE SHOW_EVENT_TYPE
    global DEBUG_TRACE MSG_BELL_TRIGGER MSG_CENTER_USE_BELL MSG_CENTER_NEW
    global BGAll BGAbort BGEvent BGInfo  BGSysinfo LOG_ACTIVATION_IDS
-   global MSG_ALARM_ON MsgCenterMainGridRowMap 
+   global MSG_ALARM_ON MsgCenterMainGridRowMap  
    global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
   
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
