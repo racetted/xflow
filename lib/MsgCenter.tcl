@@ -1195,7 +1195,7 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
 
 # returns current time as argument expected by processNewMessage function
 proc MsgCenter_getCurrentTime {} {
-   return [clock format [clock seconds] -format "%y%m%d.%H:%M:%S"]
+   return [clock format [clock seconds] -format "%Y%m%d.%H:%M:%S"]
 }
 
 ########################################
