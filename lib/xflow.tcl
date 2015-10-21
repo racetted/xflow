@@ -922,6 +922,13 @@ proc xflow_findNode { exp_path datestamp real_node } {
    }
    update idletasks
     ::DrawUtils::pointNode ${exp_path} ${datestamp} ${flowNode}
+
+
+          # if the node is collapsed, uncollapse it
+      if { [SharedFlowNode_uncollapseBranch ${exp_path} ${flowNode} ${datestamp}] != "" } {
+         xflow_drawflow ${exp_path} ${datestamp} [xflow_getMainFlowCanvas ${exp_path} ${datestamp}]
+ false
+      }
 }
 
 # this function is the starting point to draw the experiment flow.
@@ -936,7 +943,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    global FLOW_SCALE_${exp_path}_${datestamp} COLLAPSE_DISABLED_NODES
    ::log::log debug "xflow_drawNode drawing sub node:$node position:$position "
    set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
-   if { [SharedFlowNode_isParentCollapsed ${exp_path} ${node} ${datestamp}] } {
+   if { [SharedFlowNode_isParentCollapsed ${exp_path} ${node} ${datestamp}] == 1 } {
       ::log::log debug "xflow_drawNode parent is collapsed, not drawing node:$node"
       return;
    }
@@ -1022,8 +1029,9 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    set text [SharedFlowNode_getName ${exp_path} ${node} ${datestamp}]
    set nodeExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${nodeExtension} ]
-   if { ${isCollapsed} == 0 && ${COLLAPSE_DISABLED_NODES} == true && (${status} == "discret" || ${status} == "catchup") } {
+   if { ${isCollapsed} == 2 && ${COLLAPSE_DISABLED_NODES} == true && (${status} == "discret" || ${status} == "catchup") } {
       set isCollapsed 1
+      SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} 1
    }
    set extDisplay [SharedFlowNode_getExtDisplay ${exp_path} ${node} ${datestamp} $nodeExtension]
    if { $extDisplay != "" } {
@@ -1084,7 +1092,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    $canvas bind $node <Button-2> [ list xflow_historyCallback ${exp_path} ${datestamp} $node ${currentExtension} $canvas  48] 
    $canvas bind $node <Button-3> [ list xflow_nodeMenu ${exp_path} ${datestamp} $canvas $node ${currentExtension} %X %Y]
 
-   if { $isCollapsed == 0 } {
+   if { $isCollapsed == 0 || $isCollapsed == 2 } {
       # get the childs to display
       if { !((${submits} == "none") ||  (${submits} == ""))} {
          set nodePosition 0
@@ -1291,6 +1299,7 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
 
    set waitStatusMsg [SharedFlowNode_getMemberStatusMsg ${exp_path} ${node} ${datestamp} ${extension}]
 
+   ::log::log debug "xflow_followDependency waitStatusMsg:$waitStatusMsg"
    set depExp [exec true_path ${exp_path}]
    set isOcmDep false
    if { ${waitStatusMsg} != "" } {
@@ -1341,6 +1350,7 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
 	 }
 
          # ask the suite to take care of showing the selected node in it's flow
+	 ::log::log debug "xflow_followDependency calling xflow_findNode ${depExp} ${depDatestamp} ${depNode}"
          xflow_findNode ${depExp} ${depDatestamp} ${depNode}
       } else {
          # ocm dependencies... send a dialog with dependency info
@@ -3158,14 +3168,14 @@ proc xflow_expandAllCallback { exp_path datestamp node canvas caller_menu } {
 
 # callback when user click on a box with button 1 to collapse/expand a node
 proc xflow_changeCollapsed { exp_path datestamp node canvas } {
-   
    if { [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}] == "" } {
       ::log::log debug "changeCollapse: node has no children"
       return
    }
 
    set isCollapsed [SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp}]
-   if { $isCollapsed == 0 } {
+   ::log::log debug" xflow_changeCollapsed ${exp_path} ${node} ${datestamp} isCollapsed:$isCollapsed"
+   if { $isCollapsed == 0 || $isCollapsed == 2 } {
       SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} 1
    } else {
       SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} 0
