@@ -104,8 +104,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
          ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
       }
    } message ] {
-      set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message"
-      puts "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message"
+      set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message\nInfo: $::errorInfo"
+      puts "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message\n$::errorInfo"
       ::log::log notice "ERROR: LogReader_startExpLogReader Parsing flow.xml file ${exp_path}:\n$message."
       error ${message}
       return
@@ -165,6 +165,7 @@ proc LogReader_readTsv { exp_path datestamp } {
    set line [exec logreader -e ${exp_path} -d ${datestamp}]
    set tsvlist [split $line "\\"]
    set var "SharedFlowNode_${exp_path}_${datestamp}_runtime"
+   set displayInfoVar "SharedFlowNode_${exp_path}_${datestamp}_gui_runtime"
    set stats_var "SharedFlowNode_${exp_path}_${datestamp}_stats"
    set pair 0
    set cmd ""
@@ -197,7 +198,7 @@ proc LogReader_readTsv { exp_path datestamp } {
                   tsv::keylset ${var} ${flowNode} statuses "[array get statuses]"
                }
             }
-            tsv::keylset ${var} ${flowNode} max_ext_value $tmp_max_ext_value
+            tsv::keylset ${displayInfoVar} ${flowNode} max_ext_value $tmp_max_ext_value
          }
          if { ${nodeType} == "switch_case" && 
               [SharedFlowNode_getGenericAttribute ${exp_path} ${flowNode} ${datestamp} switching_type] == "datestamp_hour" && ${datestamp} != "" } {
@@ -209,7 +210,7 @@ proc LogReader_readTsv { exp_path datestamp } {
          }
 
          if { ${nodeType} == "npass_task" } {
-            tsv::keylset ${var} ${flowNode} latest_member ""
+            tsv::keylset ${displayInfoVar} ${flowNode} latest_member ""
             # how many parent loops do I have
             set nofParentLoops [llength [SharedFlowNode_getGenericAttribute ${exp_path} ${flowNode} ${datestamp} loops]]
             if { ${nofParentLoops} != "" } {
@@ -220,15 +221,15 @@ proc LogReader_readTsv { exp_path datestamp } {
                       set baseExt [SharedFlowNode_getExtBasePart ${stored_member}]
                       if { ${baseExt} != "" } {
                         set latestMemberKey latest_member_${baseExt}
-                        if { [tsv::keylget ${var} ${flowNode} ${latestMemberKey} {}] == 0 || [tsv::keylget ${var} ${flowNode} ${latestMemberKey}] == "" } {
-                           tsv::keylset ${var} ${flowNode} ${latestMemberKey} $stored_member
-                           tsv::keylset ${var} ${flowNode} ${latestMemberKey}_timestamp [lindex $status 1]
-                        } elseif { [tsv::keylget ${var} ${flowNode} ${latestMemberKey}_timestamp {}] != 0 } {
-                           set oldtime [tsv::keylget ${var} ${flowNode} ${latestMemberKey}_timestamp]
+                        if { [tsv::keylget ${displayInfoVar} ${flowNode} ${latestMemberKey} {}] == 0 || [tsv::keylget ${displayInfoVar} ${flowNode} ${latestMemberKey}] == "" } {
+                           tsv::keylset ${displayInfoVar} ${flowNode} ${latestMemberKey} $stored_member
+                           tsv::keylset ${displayInfoVar} ${flowNode} ${latestMemberKey}_timestamp [lindex $status 1]
+                        } elseif { [tsv::keylget ${displayInfoVar} ${flowNode} ${latestMemberKey}_timestamp {}] != 0 } {
+                           set oldtime [tsv::keylget ${displayInfoVar} ${flowNode} ${latestMemberKey}_timestamp]
                            set newtime [lindex $status 1]
                            if { [SharedFlowNode_isTimestampOlder $newtime $oldtime] == 1 } {
-                              tsv::keylset ${var} ${flowNode} ${latestMemberKey} $stored_member
-                              tsv::keylset ${var} ${flowNode} ${latestMemberKey}_timestamp [lindex $status 1]
+                              tsv::keylset ${displayInfoVar} ${flowNode} ${latestMemberKey} $stored_member
+                              tsv::keylset ${displayInfoVar} ${flowNode} ${latestMemberKey}_timestamp [lindex $status 1]
                            }
                         }
                      }
@@ -240,22 +241,22 @@ proc LogReader_readTsv { exp_path datestamp } {
             }
          }
          if { ${nodeType} == "loop" } {
-            tsv::keylset ${var} ${flowNode} latest_member ""
+            tsv::keylset ${displayInfoVar} ${flowNode} latest_member ""
             set nofParentLoops [llength [SharedFlowNode_getGenericAttribute ${exp_path} ${flowNode} ${datestamp} loops]]
             if { ${nofParentLoops} > 1 } {
                foreach { stored_member status } [array get statuses] {
                   set nofSeparators [expr [llength [split ${stored_member} +]] - 1]
                   if { [expr ${nofParentLoops} - 1] == ${nofSeparators} } {
-                     if { [tsv::keylget ${var} ${flowNode} latest_member {}] == 0 || [tsv::keylget ${var} ${flowNode} latest_member] == "" } {
-                        tsv::keylset ${var} ${flowNode} latest_member $stored_member
+                     if { [tsv::keylget ${displayInfoVar} ${flowNode} latest_member {}] == 0 || [tsv::keylget ${displayInfoVar} ${flowNode} latest_member] == "" } {
+                        tsv::keylset ${displayInfoVar} ${flowNode} latest_member $stored_member
                         tsv::keylset ${var} ${flowNode} ${stored_member}_timestamp [lindex $status 1]
                      } else {
-                        set tmp_latest_member [tsv::keylget ${var} ${flowNode} latest_member]
-                        if { [tsv::keylget ${var} ${flowNode} ${tmp_latest_member}_timestamp {}] != 0 } {
-                           set oldtime [tsv::keylget ${var} ${flowNode} ${tmp_latest_member}_timestamp]
+                        set tmp_latest_member [tsv::keylget ${displayInfoVar} ${flowNode} latest_member]
+                        if { [tsv::keylget ${displayInfoVar} ${flowNode} ${tmp_latest_member}_timestamp {}] != 0 } {
+                           set oldtime [tsv::keylget ${displayInfoVar} ${flowNode} ${tmp_latest_member}_timestamp]
                            set newtime [lindex $status 1]
                            if { [SharedFlowNode_isTimestampOlder $newtime $oldtime] == 1 } {
-                              tsv::keylset ${var} ${flowNode} latest_member $stored_member
+                              tsv::keylset ${displayInfoVar} ${flowNode} latest_member $stored_member
                               tsv::keylset ${var} ${flowNode} ${stored_member}_timestamp [lindex $status 1]
                            }
                         }
@@ -266,16 +267,16 @@ proc LogReader_readTsv { exp_path datestamp } {
          } else {
             foreach { stored_member status } [array get statuses] {
                if { $stored_member != "null" && $stored_member != "all" } {
-                  if { [tsv::keylget ${var} ${flowNode} latest_member {}] == 0 || [tsv::keylget ${var} ${flowNode} latest_member] == "" } {
-                     tsv::keylset ${var} ${flowNode} latest_member $stored_member
+                  if { [tsv::keylget ${displayInfoVar} ${flowNode} latest_member {}] == 0 || [tsv::keylget ${displayInfoVar} ${flowNode} latest_member] == "" } {
+                     tsv::keylset ${displayInfoVar} ${flowNode} latest_member $stored_member
                      tsv::keylset ${var} ${flowNode} ${stored_member}_timestamp [lindex $status 1]
                   } else {
-                     set tmp_latest_member [tsv::keylget ${var} ${flowNode} latest_member]
-                     if { [tsv::keylget ${var} ${flowNode} ${tmp_latest_member}_timestamp {}] != 0 } {
-                        set oldtime [tsv::keylget ${var} ${flowNode} ${tmp_latest_member}_timestamp]
+                     set tmp_latest_member [tsv::keylget ${displayInfoVar} ${flowNode} latest_member]
+                     if { [tsv::keylget ${displayInfoVar} ${flowNode} ${tmp_latest_member}_timestamp {}] != 0 } {
+                        set oldtime [tsv::keylget ${displayInfoVar} ${flowNode} ${tmp_latest_member}_timestamp]
                         set newtime [lindex $status 1]
                         if { [SharedFlowNode_isTimestampOlder $newtime $oldtime] == 1 } {
-                           tsv::keylset ${var} ${flowNode} latest_member $stored_member
+                           tsv::keylset ${displayInfoVar} ${flowNode} latest_member $stored_member
                            tsv::keylset ${var} ${flowNode} ${stored_member}_timestamp [lindex $status 1]
                         }
                      }
