@@ -258,10 +258,10 @@ proc MsgCenter_addSubmitAction { table_widget row action } {
    ${table_widget} cellconfigure ${row},$MsgTableColMap(ActionColNumber) -image ${actionImg}
 }
 proc MsgCenter_createNotebook { table_w_ } {
-  set TNotebook [MsgCenter_getToplevel].note
-  global MsgCenterMainGridRowMap
   global BGAll BGAbort BGEvent BGInfo  BGSysinfo
-   
+  global MsgCenterMainGridRowMap
+  
+  set TNotebook [MsgCenter_getToplevel].note
   ttk::frame ${TNotebook} 
   ttk::notebook ${TNotebook}.nb
 
@@ -277,17 +277,29 @@ proc MsgCenter_createNotebook { table_w_ } {
   bind ${TNotebook}.nb <<NotebookTabChanged>> [list MsgCenter_refreshActiveMessages ${table_w_} 0]
   bind ${TNotebook}.nb  <Button-2> [list displayMsgTabMenu ${table_w_} %W %x %y %X %Y]
   bind ${TNotebook}.nb  <Button-3> [list displayMsgTabMenu ${table_w_} %W %x %y %X %Y ]
+  bind ${TNotebook}.nb  <Double-1> [list SetMsg_Active     ${table_w_} %W %x %y]
 
   pack ${TNotebook}.nb -side left -padx {5 0} 
   grid ${TNotebook} -row $MsgCenterMainGridRowMap(Notetab) -column 0 -sticky nsew -padx 2 -pady 2
+  ::tooltip::tooltip ${TNotebook}.nb.all "Acknowledge new messages."
+
   MsgCenter_SetNotebOption ${TNotebook}.nb
 }
-
+proc SetMsg_Active {table_w_ parent x y} {
+  global LOG_ACTIVATION_IDS
+  
+  set message_type   [lindex [string tolower [$parent tab [$parent index @$x,$y] -text]] 0]
+  if { ![info exists LOG_ACTIVATION_IDS(${message_type})] } { 
+      changeMsgLogActivation ${table_w_} $parent $x $y $message_type deactivate always
+   } else {
+      changeMsgLogActivation ${table_w_} $parent $x $y $message_type activate
+   }
+}
 proc displayMsgTabMenu {table_w_ parent x y X Y} {
   global LOG_ACTIVATION_IDS
   
   set message_type   [lindex [string tolower [$parent tab [$parent index @$x,$y] -text]] 0]
-  set isMsgLogActive [$parent tab [$parent index @$x,$y] -state]
+  #set isMsgLogActive [$parent tab [$parent index @$x,$y] -state]
 
   set widget ${parent}.message_log_menu
   if { [winfo exists $widget] } {
@@ -319,18 +331,29 @@ proc displayMsgTabMenu {table_w_ parent x y X Y} {
    $widget add command -label "Close" -command [list destroy ${widget}]
    tk_popup $widget $X $Y
 }
-proc changeMsgLogActivation {table_w_  parent x y message_type change_type {period always} } { 
-   global BGAbort BGEvent BGInfo BGSysinfo
-   global array LOG_ACTIVATION_IDS
+
+proc changeMsgLogActivation {table_w_  parent x y message_type change_type {period always} } {
+  global LOG_ACTIVATION_IDS
 
    set notebookW [MsgCenter_getNoteBookWidget]
    ::log::log debug "changeMsgLogActivation parent:$parent change_type:$change_type period:$period"
    switch $change_type {
-      activate  { if { [info exists LOG_ACTIVATION_IDS(${message_type})] } {
-                     after cancel $LOG_ACTIVATION_IDS(${message_type})           
-                     unset LOG_ACTIVATION_IDS(${message_type})
-                     MsgCenter_refreshActiveMessages ${table_w_} 0
+      activate  { if { !($message_type == "all") } {
+                    if { [info exists LOG_ACTIVATION_IDS(${message_type})] } {
+                       after cancel $LOG_ACTIVATION_IDS(${message_type})           
+                       unset LOG_ACTIVATION_IDS(${message_type})
+                     }
+                  } else {
+                     foreach tab [$parent tabs] { 
+                       set txt [lindex [string tolower [$parent tab $tab -text]] 0]
+                       if { [info exists LOG_ACTIVATION_IDS(${txt})] } {
+                         after cancel $LOG_ACTIVATION_IDS(${txt})           
+                         unset LOG_ACTIVATION_IDS(${txt})
+                       } 
+                     }
                   }
+                  MsgCenter_refreshActiveMessages ${table_w_} 0
+
                 }
       deactivate { if { !($message_type == "all") } {
                      set txt [lindex [string tolower [$parent tab [$parent index @$x,$y] -text]] 0]
@@ -338,9 +361,7 @@ proc changeMsgLogActivation {table_w_  parent x y message_type change_type {peri
                    } else {
                      foreach tab [$parent tabs] { 
                        set txt [lindex [string tolower [$parent tab $tab -text]] 0] 
-                       if { !($message_type == $txt) } {  
-                         Msg_Center_Active ${table_w_} $parent $x $y $txt $period
-                       }
+                       Msg_Center_Active ${table_w_} $parent $x $y $txt $period
                      }    
                    }
                  }
@@ -350,16 +371,23 @@ proc changeMsgLogActivation {table_w_  parent x y message_type change_type {peri
 }
 
 proc Msg_Center_Active {table_w_ W x y txt period } {
-  global BGAbort BGEvent BGInfo BGSysinfo
+  global BGAbort BGEvent BGInfo BGSysinfo BGAll
   global LOG_ACTIVATION_IDS
 
   set imageDir [SharedData_getMiscData IMAGE_DIR]
+  if { ($period == "always") } {
+    set img_name ${imageDir}/deactiv.png
+  } else {
+    set img_name ${imageDir}/deactiv_perm.png
+  }
   switch ${txt} {
-    abort   {$BGAbort   configure -file ${imageDir}/deactiv.png -width 16 -height 16}
-    event   {$BGEvent   configure -file ${imageDir}/deactiv.png -width 16 -height 16} 
-    info    {$BGInfo    configure -file ${imageDir}/deactiv.png -width 16 -height 16}
-    sysinfo {$BGSysinfo configure -file ${imageDir}/deactiv.png -width 16 -height 16}
+    all     {$BGAll     configure -file ${img_name} -width 16 -height 16}
+    abort   {$BGAbort   configure -file ${img_name} -width 16 -height 16}
+    event   {$BGEvent   configure -file ${img_name} -width 16 -height 16} 
+    info    {$BGInfo    configure -file ${img_name} -width 16 -height 16}
+    sysinfo {$BGSysinfo configure -file ${img_name} -width 16 -height 16}
   } 
+
   if { !($period == "always") } {
     catch { set LOG_ACTIVATION_IDS(${txt}) [after $period [list changeMsgLogActivation ${table_w_} $W $x $y $txt activate]]}
   } elseif { ($period == "always") } {
@@ -659,6 +687,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
 
    set bg_color [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    array set NB_ACTIVE_ELM { 
+         all     0
          abort   0
          event   0
          info    0
@@ -678,6 +707,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
       foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
       if { ${isMsgack} == "0" && !$NB_ACTIVE_ELM($type)} {
          set NB_ACTIVE_ELM(${type}) 1
+         set NB_ACTIVE_ELM(all) 1
          set isMsgNotack true
       }
       if { [lindex ${label} 0] == ${type} || [lindex ${label} 0] == "all"} {
@@ -686,12 +716,15 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
       }
       incr counter
    }
-   if { ${isMsgNotack} == "true"} {
-       $BGAll  put $bg_color -to 0 0 16 16
-   }
    
    foreach elm [array names NB_ACTIVE_ELM] {
        switch ${elm} {
+           all    { if { ![info exists LOG_ACTIVATION_IDS($elm)] && !$NB_ACTIVE_ELM($elm)} {
+                       $BGAll put $normal_color -to 0 0 16 16
+                     } elseif { ![info exists LOG_ACTIVATION_IDS(${elm})] } {
+                       $BGAll put $bg_color -to 0 0 16 16
+                     }
+                   }
            abort   { if { ![info exists LOG_ACTIVATION_IDS($elm)] && !$NB_ACTIVE_ELM($elm)} {
                        $BGAbort put $normal_color -to 0 0 16 16
                      } elseif { ![info exists LOG_ACTIVATION_IDS(${elm})] } {
