@@ -425,19 +425,44 @@ proc SharedFlowNode_clearAllNodes { exp_path datestamp } {
    catch { tsv::unset SharedFlowNode_${exp_path}_${datestamp}_runtime }
 }
 
-# display_infos
-# element 0: collapse values: 0=user uncollapsed, 1=user collapsed, 2=default
-# element 1: is root node flag: 1=node is exp root node
-# element 2-7: node display coords (3 x,y points) x1 y1 x2 y2 x3 y3
-# element 8: display Y value
+# tsv gui_runtime array is used to store display attributes needed by xflow
+#
+# display_infos: this is a list that contains the following for each node
+#    element 0: collapse values: 0=user uncollapsed, 1=user collapsed, 2=default
+#    element 1: is root node flag: 1=node is exp root node
+#    element 2-7: node display coords (3 x,y points) x1 y1 x2 y2 x3 y3
+#    element 8: display Y value
+# 
+# current: for node with iterations, this holds the value of the current iteration selected by the user; it defaults to latest
+# latest:  for node with iterations, this holds the value of the latest iteration that was updated; used to display when user selects latest as iteration
+#
+# ext_max_value: holds the value of the largest iteration (in terms of nof characters) for a node; used to set the field length of the widget
+#
 proc SharedFlowNode_initNodeDatestampDisplay {  exp_path node datestamp } {
    if { [tsv::names SharedFlowNode_${exp_path}_${datestamp}_gui_runtime] == "" || [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node}] == ""} {
       tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} display_infos [list 2 0 0 0 0 0 0 0 40]
+
+      SharedFlowNode_setLatestExt ${exp_path} ${node} ${datestamp} ""
+      SharedFlowNode_setCurrentExt ${exp_path} ${node} ${datestamp} latest
+
+      set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
+      if { ${nodeType} == "npass_task" || ${nodeType} == "loop" } {
+         SharedFlowNode_setMaxExtValue  ${exp_path} ${node} ${datestamp} 5
+      }
+
+      if { ${nodeType} == "switch_case" && 
+        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "datestamp_hour" && ${datestamp} != "" } {
+         SharedFlowNode_setCurrentExt ${exp_path} ${node} ${datestamp} +[Utils_getHourFromDatestamp ${datestamp}]
+      }
+   
+      if { ${nodeType} == "switch_case" && 
+        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "day_of_week" && ${datestamp} != "" } {
+         SharedFlowNode_setCurrentExt ${exp_path} ${node} ${datestamp} +[Utils_getDayOfWeekFromDatestamp ${datestamp}]
+      }
    }
 }
 
 proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } {
-   set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
 
     SharedFlowNode_initNodeDatestampDisplay ${exp_path} ${node} ${datestamp} 
 
@@ -448,23 +473,7 @@ proc SharedFlowNode_initNodeDatestamp { exp_path node datestamp {force false} } 
       }
    }
 
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses {} current latest
-   # tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member ""
-   SharedFlowNode_setLatestExt ${exp_path} ${node} ${datestamp} ""
-
-   if { ${nodeType} == "npass_task" || ${nodeType} == "loop" } {
-      SharedFlowNode_setMaxExtValue  ${exp_path} ${node} ${datestamp} 5
-   }
-   set nodeType [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} type]
-   if { ${nodeType} == "switch_case" && 
-        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "datestamp_hour" && ${datestamp} != "" } {
-      tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current +[Utils_getHourFromDatestamp ${datestamp}]
-   }
-   
-   if { ${nodeType} == "switch_case" && 
-        [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} switching_type] == "day_of_week" && ${datestamp} != "" } {
-        tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current +[Utils_getDayOfWeekFromDatestamp ${datestamp}]
-   }
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} statuses {}
 
    # puts "SharedFlowNode_initNodeDatestamp done" 
 }
@@ -486,8 +495,10 @@ proc SharedFlowNode_resetAllStatus { exp_path node datestamp {is_recursive 0} } 
 # for a loop or npass_task node
 proc SharedFlowNode_getCurrentExt { exp_path node datestamp } {
    set value ""
-   if { [tsv::keylget  SharedFlowNode_${exp_path}_${datestamp}_runtime ${node}] != "" } {
-      set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current]
+   if { [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node}] != "" } {
+      if { [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} current dummy_var] != 0 } {
+         set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} current]
+      }
    }
    return ${value}
 }
@@ -495,7 +506,7 @@ proc SharedFlowNode_getCurrentExt { exp_path node datestamp } {
 # sets the current iteration for the loop or npass_task node
 # the value must be in the format +${iteration_value} i.e. +1 or +1+000000018
 proc SharedFlowNode_setCurrentExt { exp_path node datestamp value } {
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current ${value}
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} current ${value}
 }
 
 # returns the latest iteration that was modified
@@ -1875,8 +1886,8 @@ proc SharedFlowNode_printNodeStatus  { exp_path node datestamp} {
          puts "   member:${member} status:${status}"
       }
       if { ${nodeType} == "npass_task" || ${nodeType} == "loop" } {
-         puts "   max_ext_value:[tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} max_ext_value]"
-         puts "   current:[tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} current]"
+         puts "   max_ext_value:[tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} max_ext_value]"
+         puts "   current:[tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_gui_runtime ${node} current]"
          # puts "   latest:[tsv::keylget SharedFlowNode_${exp_path}_${datestamp}_runtime ${node} latest_member]"
       }
       if { [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {

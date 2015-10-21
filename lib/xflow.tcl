@@ -3174,7 +3174,7 @@ proc xflow_changeCollapsed { exp_path datestamp node canvas } {
    }
 
    set isCollapsed [SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp}]
-   ::log::log debug" xflow_changeCollapsed ${exp_path} ${node} ${datestamp} isCollapsed:$isCollapsed"
+   ::log::log debug "xflow_changeCollapsed ${exp_path} ${node} ${datestamp} isCollapsed:$isCollapsed"
    if { $isCollapsed == 0 || $isCollapsed == 2 } {
       SharedFlowNode_setCollapsed ${exp_path} ${node} ${datestamp} 1
    } else {
