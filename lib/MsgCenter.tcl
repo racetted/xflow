@@ -361,7 +361,13 @@ proc changeMsgLogActivation {table_w_  parent x y message_type change_type {peri
                    } else {
                      foreach tab [$parent tabs] { 
                        set txt [lindex [string tolower [$parent tab $tab -text]] 0] 
+                       if { [info exists LOG_ACTIVATION_IDS(${txt})] } {
+                         after cancel $LOG_ACTIVATION_IDS(${txt})           
+                         unset LOG_ACTIVATION_IDS(${txt})
+                         MsgCenter_refreshActiveMessages ${table_w_} 0
+                       } 
                        Msg_Center_Active ${table_w_} $parent $x $y $txt $period
+                      
                      }    
                    }
                  }

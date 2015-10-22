@@ -2568,9 +2568,9 @@ proc xflow_viewOutputFile { exp_path datestamp node extension canvas } {
       set winTitle "Node Output ${seqNode}${nodeExt}- Exp=${exp_path}"
 
       if { ${listingViewer} == "default" } {
-         TextEditor_createWindow ${winTitle} ${output_file} top .
+         TextEditor_createWindow ${winTitle} ${outputFile} top .
       } else {
-         set editorCmd "${listingViewer} ${output_file}"
+         set editorCmd "${listingViewer} ${outputFile}"
          TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
       }
    } else {
@@ -3460,8 +3460,6 @@ proc xflow_getNodeResources { exp_path node datestamp {is_recursive 0} } {
    if [ catch { eval [exec cat ${outputFile}] } message ] {
       ::log::log notice "\nERROR: xflow_getNodeResources() exp_path:${exp_path} node:${node} datestamp:${datestamp} $message"
    }
-
-   catch { close $fileId }
 
    if { $is_recursive } {
       set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}]
