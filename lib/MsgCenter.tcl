@@ -375,25 +375,39 @@ proc changeMsgLogActivation {table_w_  parent x y message_type change_type {peri
    MsgCenter_SetNotebOption ${notebookW}
    update
 }
+proc Msg_Center_SetImgTab {txt car period} {
+   global BGAbort BGEvent BGInfo BGSysinfo BGAll
+   
+  set imageDir [SharedData_getMiscData IMAGE_DIR]
+  switch ${car} {
+        Active  { if { ($period == "always") } {
+                     set img_name ${imageDir}/deactiv.png
+                  } else {
+                      set img_name ${imageDir}/deactiv_perm.png
+                  }
+                  switch ${txt} {
+                     all     {$BGAll     configure -file ${img_name} -width 16 -height 16}
+                     abort   {$BGAbort   configure -file ${img_name} -width 16 -height 16}
+                     event   {$BGEvent   configure -file ${img_name} -width 16 -height 16} 
+                     info    {$BGInfo    configure -file ${img_name} -width 16 -height 16}
+                     sysinfo {$BGSysinfo configure -file ${img_name} -width 16 -height 16}
+                   }
+                } 
+        Initial { $BGAll     put gray55 -to 0 0 16 16 
+                  $BGAbort   put gray55 -to 0 0 16 16
+                  $BGEvent   put gray55 -to 0 0 16 16 
+                  $BGInfo    put gray55 -to 0 0 16 16
+                  $BGSysinfo put gray55 -to 0 0 16 16
+                 }
+       
+  }
 
+}
 proc Msg_Center_Active {table_w_ W x y txt period } {
   global BGAbort BGEvent BGInfo BGSysinfo BGAll
   global LOG_ACTIVATION_IDS
-
-  set imageDir [SharedData_getMiscData IMAGE_DIR]
-  if { ($period == "always") } {
-    set img_name ${imageDir}/deactiv.png
-  } else {
-    set img_name ${imageDir}/deactiv_perm.png
-  }
-  switch ${txt} {
-    all     {$BGAll     configure -file ${img_name} -width 16 -height 16}
-    abort   {$BGAbort   configure -file ${img_name} -width 16 -height 16}
-    event   {$BGEvent   configure -file ${img_name} -width 16 -height 16} 
-    info    {$BGInfo    configure -file ${img_name} -width 16 -height 16}
-    sysinfo {$BGSysinfo configure -file ${img_name} -width 16 -height 16}
-  } 
-
+  
+  Msg_Center_SetImgTab $txt Active $period
   if { !($period == "always") } {
     catch { set LOG_ACTIVATION_IDS(${txt}) [after $period [list changeMsgLogActivation ${table_w_} $W $x $y $txt activate]]}
   } elseif { ($period == "always") } {
@@ -705,7 +719,6 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
    # reset active messages
    MsgCenter_initActiveMessages
    set counter 0
-   set isMsgNotack false
    set normal_color gray55
  
    # reprocess all received messages
@@ -714,7 +727,6 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
       if { ${isMsgack} == "0" && !$NB_ACTIVE_ELM($type)} {
          set NB_ACTIVE_ELM(${type}) 1
          set NB_ACTIVE_ELM(all) 1
-         set isMsgNotack true
       }
       if { [lindex ${label} 0] == ${type} || [lindex ${label} 0] == "all"} {
         ::log::log debug "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp"
@@ -770,46 +782,38 @@ proc Ack_MsgCenter_List {} {
   global BGAll BGAbort BGEvent BGInfo BGSysinfo
   global MSG_TABLE MSG_COUNTER LOG_ACTIVATION_IDS
   
-  set NB_ACTIVE_ELM {}
-  #set nb_item   [llength ${MSG_TABLE}]
+  array set NB_ACTIVE_ELM { 
+         all     0
+         abort   0
+         event   0
+         info    0
+         sysinfo 0
+  }
   set notebookW [MsgCenter_getNoteBookWidget]
   set label     [string tolower [$notebookW tab [$notebookW index current] -text]] 
-  set isMsg_notack false 
   set counter 0
   while { ${counter} < ${MSG_COUNTER} } {
     foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
     if { ${isMsgack} == "0" && ([lindex ${label} 0] == ${type} || [lindex ${label} 0] == "all")} {
       set MSG_TABLE [lreplace ${MSG_TABLE} ${counter} ${counter} [lreplace [lindex ${MSG_TABLE} ${counter}] end end 1]]
-      if { [lsearch -exact ${NB_ACTIVE_ELM} ${type}] == "-1"} { 
-         lappend NB_ACTIVE_ELM  ${type}
+      if { !$NB_ACTIVE_ELM($type)} {
+         set NB_ACTIVE_ELM(${type}) 1
+         set NB_ACTIVE_ELM(all) 1
       }
-    } elseif {${isMsgack} == "0"} {
-       set isMsg_notack true
-    }
+    } 
     incr counter
   } 
-  foreach elm ${NB_ACTIVE_ELM} {
+  foreach elm [array names NB_ACTIVE_ELM] {
      switch ${elm} {
-        abort   { if { ![info exists LOG_ACTIVATION_IDS(${elm})] } {
-                    $BGAbort   put gray55 -to 0 0 16 16
-                  }
-                }
-        event   { if { ![info exists LOG_ACTIVATION_IDS(${elm})] } {
-                    $BGEvent   put gray55 -to 0 0 16 16
-                  }
-                } 
-        info    { if { ![info exists LOG_ACTIVATION_IDS(${elm})] } {
-                    $BGInfo    put gray55 -to 0 0 16 16
-                  }
-                }
-        sysinfo { if { ![info exists LOG_ACTIVATION_IDS(${elm})] } {
-                    $BGSysinfo put gray55 -to 0 0 16 16
-                  }
-                }
-     }   
-  }
-  if {${isMsg_notack} == "false"} {
-    $BGAll  put gray55 -to 0 0 16 16
+        all     { $BGAll     put gray55 -to 0 0 16 16}
+        abort   { $BGAbort   put gray55 -to 0 0 16 16}
+        event   { $BGEvent   put gray55 -to 0 0 16 16} 
+        info    { $BGInfo    put gray55 -to 0 0 16 16}
+        sysinfo { $BGSysinfo put gray55 -to 0 0 16 16}
+     }  
+     if { [info exists LOG_ACTIVATION_IDS(${elm})] } {
+       Msg_Center_SetImgTab ${elm} Active $LOG_ACTIVATION_IDS(${elm})
+     } 
   }
   MsgCenter_SetNotebOption ${notebookW}
   MsgCenter_ModifText
@@ -1291,13 +1295,7 @@ proc MsgCenter_init {} {
    set BGEvent   [image create photo -width 16]
    set BGInfo    [image create photo -width 16]
    set BGSysinfo [image create photo -width 16]
- 
-   $BGAll     put gray55 -to 0 0 16 16 
-   $BGAbort   put gray55 -to 0 0 16 16
-   $BGEvent   put gray55 -to 0 0 16 16 
-   $BGInfo    put gray55 -to 0 0 16 16
-   $BGSysinfo put gray55 -to 0 0 16 16
- 
+   Msg_Center_SetImgTab null Initial  null
    # is bell activated?
    set MSG_CENTER_USE_BELL true
    if { [SharedData_getMiscData USE_BELL] == false } {
