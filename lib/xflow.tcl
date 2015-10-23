@@ -954,7 +954,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    set padTx [SharedData_getMiscData CANVAS_PAD_TXT_X]
    set padTy [SharedData_getMiscData CANVAS_PAD_TXT_Y]
    set shadowColor [SharedData_getColor SHADOW_COLOR]
-   set deltaY [::DrawUtils::getLineDeltaSpace ${exp_path} ${node} ${datestamp}]
+   set deltaY [::DrawUtils::getLineDeltaSpace ${exp_path} ${node} ${datestamp}  [xflow_getNodeDisplayPref ${exp_path} ${datestamp}]]
    set drawshadow on
    if { ${flowScale} != "1" } {
       set drawshadow off
@@ -1076,6 +1076,8 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       "switch_case" {
          set text "${text}\n[SharedFlowNode_getSwitchingInfo ${exp_path} ${node} ${datestamp}]"
          ::DrawUtils::drawLosange ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
+         set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
+         ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${exp_path} ${node} ${datestamp} ${canvas} ${indexListW}]
       }
       "outlet" {
          ::DrawUtils::drawOval ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor

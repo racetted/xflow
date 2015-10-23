@@ -237,6 +237,15 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
       -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
 
+   #    
+   #
+   #        x2,y2     x3,y3
+   #         --------
+   #       /        /
+   #      /        /
+   #      ---------
+   #   x1,y1      x4,y4
+   #
    set boxArea [$canvas bbox ${binder}.text]
    set nx1 [expr [lindex $boxArea 0] -30/${flowScale}]
    set nx2 [lindex $boxArea 0]
@@ -249,9 +258,9 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    set ny4 $ny1
    $canvas create polygon ${nx1} ${ny1} ${nx2} ${ny2} ${nx3} ${ny3} ${nx4} ${ny4} \
          -outline $outline -fill $fill -tags "flow_element $binder ${binder}.losange"
-   set maximX ${nx2}
-   set maximY ${ny3}
-   set nextY  [expr $ny4 + 10]
+   set maximX ${nx3}
+   set maximY ${ny1}
+   set nextY  [expr $ny4 + 5]
 
    $canvas lower ${binder}.losange ${binder}.text
 
@@ -275,6 +284,44 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
 
    SharedData_setExpDisplayData ${exp_path} ${datestamp} $canvas ${nextY} ${maximX} ${maximY}
    SharedFlowNode_setDisplayCoords ${exp_path} ${binder} ${datestamp} [list $nx1 $ny1 $nx3 $ny3 $nx3 $ny4]
+
+   # this part adds a combo box to hold the index values of a switch node
+   if {  [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "switch_case" } {
+      set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
+      if { ! [winfo exists ${indexListW}] } {
+         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
+            -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
+         ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
+         ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
+      }
+      set listboxW [${indexListW} getlistbox]
+      set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
+
+      # only modify listbox value on the fly if the listbox is not currently mapped
+      # i.e. not being selected by the user
+      if { ! [winfo ismapped ${listboxW}] } {
+         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
+            ${indexListW} configure -values {latest} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+         } else {
+            set indexValue [SharedFlowNode_getIndexValue ${currentExt}] 
+            ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+         }
+         ${indexListW} setvalue first
+      }
+
+      pack ${indexListW} -fill both
+      set barY [expr ${nextY} + 5]
+      set barX [expr (${nx1} + ${nx3}) / 2 ]
+      $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget"
+
+      # update idletasks
+      if { [winfo height ${indexListW}] == "1" } {
+         set nextY [expr $barY + 10]
+      } else {
+         set nextY [expr $barY + [winfo height ${indexListW}]]
+      }
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maximX} ${maximY}
+   }
 }
 
 proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
@@ -377,15 +424,22 @@ proc ::DrawUtils::setIndexWidgetStatuses { exp_path node datestamp index_widget 
    variable nodeTypeMap
 
    set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
-   if { ${nodeType} == "npass_task" } {
-      set extensions [SharedFlowNode_getNptExtensions ${exp_path} ${node} ${datestamp}]
-   } else {
-      set extensions [SharedFlowNode_getLoopExtensions ${exp_path} ${node} ${datestamp}]
+   switch ${nodeType} {
+      npass_task {
+         set extensions [SharedFlowNode_getNptExtensions ${exp_path} ${node} ${datestamp}]
+      }
+      switch_case {
+         set extensions [SharedFlowNode_getSwitchingExtensions ${exp_path} ${node} ${datestamp}]
+      }
+      loop {
+         set extensions [SharedFlowNode_getLoopExtensions ${exp_path} ${node} ${datestamp}]
+      }
    }
+
    set extensions [linsert ${extensions} 0 latest]
 
    # assign the extensions to the widget
-   ${index_widget} configure -values $extensions
+   ${index_widget} configure -values ${extensions}
 
    set listboxW [${index_widget} getlistbox]
 
@@ -845,9 +899,9 @@ proc ::DrawUtils::pointOverviewExp { exp_path datestamp canvasW expSearchTag } {
 # to the current node that might require more space than
 # usual ones Example loop. Used mainly to know where to draw the first
 # node of a branch
-proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp {delta_value 0} } {
+proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp display_pref {delta_value 0} } {
    global FLOW_SCALE_${exp_path}_${datestamp}
-   ::log::log debug "::DrawUtils::getLineDeltaSpace ${exp_path} ${node} delta_value: $delta_value"
+   ::log::log debug "::DrawUtils::getLineDeltaSpace ${exp_path} ${node} display_pref:$display_pref delta_value: $delta_value"
    set value ${delta_value}
    set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    # I only need to calculate extra space if the current node is not in position 0
@@ -857,13 +911,30 @@ proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp {delta_value 0} } 
       set done 0
       while { ! ${done} } {
          set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
-         # for now only loops needs be treated
-         if { ${nodeType} == "loop" } {
-            if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
-               set value [SharedData_getMiscData LOOP_OVAL_SIZE]
-            }
-         } elseif { ${nodeType} == "npass_task" } {
-            if { [expr ${value} < 5] && ${flowScale} != "1" } { set value 5 }
+	 switch ${nodeType} {
+	    loop {
+               if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
+                  set value [SharedData_getMiscData LOOP_OVAL_SIZE]
+               }
+	    }
+	    npass_task {
+               if { [expr ${value} < 5] && ${flowScale} != "1" } { set value 5 }
+	    }
+	    module {
+	       set moduleName [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} name]
+               set moduleLocalName [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} local_name]
+               if { ${moduleName} != ${moduleLocalName} &&  [expr ${value} < 5 ] } {
+	          set value 5
+	          if { ${display_pref} != "normal" } {
+		     set value 8
+		  }
+               }
+	    }
+	    switch_case {
+	       if { ${display_pref} != "normal" && [ expr ${value} < 5 ] } {
+	          set value 5
+	       }
+	    }
          }
 
          set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp}]
@@ -879,6 +950,11 @@ proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp {delta_value 0} } 
          }
       }
    }
+
+   # if { ${value} != 0 } {
+    # puts "::DrawUtils::getLineDeltaSpace ${exp_path} ${node} display_pref:$display_pref delta_value: $value"
+   # }
+
    return $value
 }
 

@@ -247,9 +247,11 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
       }
       "SWITCH" {
          set newParentNode [FlowXml_createNodeFromXml ${exp_path}  ${datestamp} ${parent_flow_node} ${current_xml_node}]
-         set switchType [${current_xml_node} getAttribute type "datestamp_hour"]
-	 #puts "FlowXml_parseNode got SWITCH: newParentNode:${newParentNode} switchType:${switchType}"
-	 SharedFlowNode_setSwitchingData  ${exp_path} ${newParentNode} ${datestamp} ${switchType}
+	 if { ${current_xml_node} != "" } {
+            set switchType [${current_xml_node} getAttribute type "datestamp_hour"]
+	    # puts "FlowXml_parseNode got SWITCH: newParentNode:${newParentNode} switchType:${switchType}"
+	    SharedFlowNode_setSwitchingType ${exp_path} ${newParentNode} ${datestamp} ${switchType}
+         }
       }
       "DEPENDS_ON" -
       "SUBMITS" -
@@ -273,6 +275,10 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
          # for a switch node, we need to get the matching switch item and continue from there
          set switchItemNode [FlowXml_getSwitchingItemNode ${exp_path} ${datestamp} ${current_xml_node}]
          set current_xml_node ${switchItemNode}
+	 if { ${current_xml_node} != "" } {
+            set switchItem [$current_xml_node getAttribute name]
+	    SharedFlowNode_setSwitchingItem ${exp_path} ${newParentNode} ${datestamp} ${switchItem}
+         }
       }
       if { ${current_xml_node} != "" && [${current_xml_node} hasChildNodes] && ${parseChild} == 1 } {
          set xmlChildren [${current_xml_node} childNodes]

@@ -1834,8 +1834,20 @@ proc SharedFlowNode_convertFromDisplayFormat { node_with_ext } {
    return ${newNodeName}
 }
 
-proc SharedFlowNode_setSwitchingData { exp_path node datestamp switching_type } {
+proc SharedFlowNode_setSwitchingType { exp_path node datestamp switching_type } {
    tsv::keylset SharedFlowNode_${exp_path}_${datestamp} ${node} switching_type ${switching_type}
+}
+
+proc SharedFlowNode_setSwitchingItem { exp_path node datestamp switching_item } {
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp} ${node} switching_item ${switching_item}
+}
+
+proc SharedFlowNode_getSwitchingExtensions { exp_path node datestamp } {
+   set extensions {}
+   if { [tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} switching_item dummy_var] != 0 } {
+      lappend extensions ${dummy_var}
+   }
+   return ${extensions}
 }
 
 proc SharedFlowNode_getSwitchingInfo { exp_path node datestamp } {

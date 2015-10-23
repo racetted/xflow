@@ -202,11 +202,11 @@ proc LogReader_readTsv { exp_path datestamp } {
          }
          if { ${nodeType} == "switch_case" && 
               [SharedFlowNode_getGenericAttribute ${exp_path} ${flowNode} ${datestamp} switching_type] == "datestamp_hour" && ${datestamp} != "" } {
-            tsv::keylset ${displayInfoVar} ${flowNode} current +[Utils_getHourFromDatestamp ${datestamp}]
+            # tsv::keylset ${displayInfoVar} ${flowNode} current +[Utils_getHourFromDatestamp ${datestamp}]
          }
          if { ${nodeType} == "switch_case" && 
               [SharedFlowNode_getGenericAttribute ${exp_path} ${flowNode} ${datestamp} switching_type] == "day_of_week" && ${datestamp} != "" } {
-            tsv::keylset ${displayInfoVar} ${flowNode} current +[Utils_getDayOfWeekFromDatestamp ${datestamp}]
+            # tsv::keylset ${displayInfoVar} ${flowNode} current +[Utils_getDayOfWeekFromDatestamp ${datestamp}]
          }
 
          if { ${nodeType} == "npass_task" } {
