@@ -13,7 +13,12 @@ proc FlowXml_parse { xml_file exp_path datestamp parent_flow_node } {
 
 # returns the xml node that matches the switching case
 # if no match, an empty string is returned
-proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
+#
+# The out_match_item parameter is treated as an output variable
+# it holds the value of the matched item based on the switch type
+proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node out_match_item } {
+   upvar 1 ${out_match_item} myMatchItem
+
    set returnedValue ""
    set switchItemFound 0
    ::log::log debug "FlowXml_getSwitchingItemNode() exp_path:${exp_path} datestamp:${datestamp}"
@@ -27,6 +32,7 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
                set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${datestampHour}\]]
                if { ${switchItemNode} != "" } {
                    set switchItemFound 1
+		   set myMatchItem ${datestampHour}
                } else {
                    #if no exact match, search for switch item within multiple values
                    set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[contains(@name,${datestampHour})\]]  
@@ -38,6 +44,7 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
                                if { ${singleName} == ${datestampHour} } {
                                    set switchItemFound 1
                                    set switchItemNode ${node}
+				   set myMatchItem ${singleName}
                                }
                            }
                        }
@@ -45,7 +52,11 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
                }
                #if no match, look for default switch item
                if { ${switchItemFound} == 0 } {
-                   set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name='default'\]]
+                  set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name='default'\]]
+		  if { ${switchItemNode} != "" } {
+                     set switchItemFound 1
+		     set myMatchItem default
+                  }
                }
 	       set returnedValue ${switchItemNode}
 	    }
@@ -56,6 +67,7 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
                set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name=${dow}\]]
                if { ${switchItemNode} != "" } {
                    set switchItemFound 1
+		   set myMatchItem ${dow}
                } else {
                    #if no exact match, search for switch item within multiple values
                    set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[contains(@name,${dow})\]]  
@@ -67,6 +79,7 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
                                if { ${singleName} == ${dow} } {
                                    set switchItemFound 1
                                    set switchItemNode ${node}
+		                   set myMatchItem ${dow}
                                }
                            }
                        }
@@ -74,7 +87,10 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node } {
                }
                #if no match, look for default switch item
                if { ${switchItemFound} == 0 } {
-                   set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name='default'\]]
+                  set switchItemNode [${xml_node} selectNodes ./SWITCH_ITEM\[@name='default'\]]
+		  if { ${switchItemNode} != "" } {
+		     set myMatchItem default
+                  }
                }
 	       set returnedValue ${switchItemNode}
 	    }
@@ -95,7 +111,8 @@ proc FlowXml_getSubmits { exp_path datestamp flow_node xml_node } {
    #puts "FlowXml_getSubmits ${exp_path} ${flow_node}"
    if { [${xml_node} nodeName] == "SWITCH" } {
       # for a switch node, we need to get the matching switch item and continue from there
-      set switchItemNode [FlowXml_getSwitchingItemNode ${exp_path} ${datestamp} ${xml_node}]
+      set dummy_var ""
+      set switchItemNode [FlowXml_getSwitchingItemNode ${exp_path} ${datestamp} ${xml_node} dummy_var]
       if { ${switchItemNode} != "" } {
          set xml_node ${switchItemNode}
       }
@@ -272,12 +289,13 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
    # do I need to go down further?
    if { ${parseChild} == 1 } {
       if { ${xmlNodeName} == "SWITCH" } {
+         set switchMatchedItem ""
          # for a switch node, we need to get the matching switch item and continue from there
-         set switchItemNode [FlowXml_getSwitchingItemNode ${exp_path} ${datestamp} ${current_xml_node}]
+         set switchItemNode [FlowXml_getSwitchingItemNode ${exp_path} ${datestamp} ${current_xml_node} switchMatchedItem ]
          set current_xml_node ${switchItemNode}
 	 if { ${current_xml_node} != "" } {
             set switchItem [$current_xml_node getAttribute name]
-	    SharedFlowNode_setSwitchingItem ${exp_path} ${newParentNode} ${datestamp} ${switchItem}
+	    SharedFlowNode_setSwitchingItem ${exp_path} ${newParentNode} ${datestamp} ${switchMatchedItem}
          }
       }
       if { ${current_xml_node} != "" && [${current_xml_node} hasChildNodes] && ${parseChild} == 1 } {
