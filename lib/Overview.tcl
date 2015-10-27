@@ -1782,8 +1782,13 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
          # first time, reads the full data
 	 # second time, it checks if data is cached i.e. read log starting from last read
 	 set useLogCache [SharedData_getExpNodeLogCache ${exp_path} ${datestamp}] 
+	 set readType refresh_flow
+	 if { ${useLogCache} == true } {
+	    set readType all
+	 }
          ::log::log notice "Overview_launchExpFlow new exp thread: ${expThreadId}  calling LogReader_startExpLogReader... ${exp_path} ${datestamp} refresh_flow false ${useLogCache}"
-         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow false ${useLogCache}" LogReaderDone
+         # thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" refresh_flow false ${useLogCache}" LogReaderDone
+         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" ${readType} false ${useLogCache}" LogReaderDone
          vwait LogReaderDone
 	 # tell next read to use cache
 	 SharedData_setExpNodeLogCache ${exp_path} ${datestamp} true

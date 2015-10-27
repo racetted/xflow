@@ -28,7 +28,6 @@ proc LogReader_removeMonitorDatestamp { exp_path datestamp } {
 
 # once initiated, this proc monitors all the datestamp that  is registered
 # every 4 seconds
-# read_toplog argument should be set to true only at application startup
 proc LogReader_readMonitorDatestamps { {start_delay -1} } {
    ::log::log debug "LogReader_readMonitorDatestamps called from thread: [thread::id] start_delay:${start_delay}"
    global READ_LOG_AFTER_ID LogReader_Datestamps
@@ -74,12 +73,21 @@ proc LogReader_readMonitorDatestamps { {start_delay -1} } {
 }
 
 # read_type is one of all, no_overview, refresh_flow
-# all: message entries sent to xflow, overview and msg_center when applicable
-# no_overview: message entries sent to xflow and msg_center when applicable
-# refresh_flow: message entries only sent to xflow
+#    all: message entries sent to xflow, overview and msg_center when applicable
+#         this is the default under normal monitoring usage
+#    no_overview: message entries sent to xflow and msg_center when applicable
+#                 you would use this for example, when the user chooses an old datestamp through xflow, the overview does not not to be updated
 #
-# for now, the reading of toplog is only done at overview startup.
-# after startup, it reverts to nodelog for any further updates.
+#    refresh_flow: message entries only sent to xflow
+#                 You would use this for example, when the flow is refreshed by the user, you don't want the overview to be flickering with
+#		  any update status from an already processed log file
+# 
+# read_toplog: is used to read ${datestamp}_toplog file instead of ${datestamp}_nodelog file for performance purpose
+#              usually set to true by overview ; for now, the reading of toplog is only done at overview startup.
+#              after startup, it reverts to nodelog for any further updates.
+#
+# use_log_cache: is used to tell logreader to start reading at a certain point in the log file as opposed to reading from start
+# 
 proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog false} {use_log_cache false} } {
    global MSG_CENTER_THREAD_ID CREADER_FIELD_SEPARATOR
    ::log::log debug "LogReader_startExpLogReader  exp_path:$exp_path datestamp:$datestamp read_type:${read_type} read_toplog:${read_toplog} use_log_cache:${use_log_cache}"
@@ -143,6 +151,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
          # thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] "Overview_addHeartbeatDatestamp ${exp_path} ${datestamp}"
          # SharedData_setExpHeartbeat ${exp_path} ${datestamp} [thread::id] [clock seconds] ${offset}
       }
+
+      # SharedData_setExpNodeLogCache ${exp_path} ${datestamp} true
    }
 
    } message ] {
@@ -306,10 +316,7 @@ proc LogReader_readTsv { exp_path datestamp } {
 }
 
 # read_type is one of all, no_overview, refresh_flow, msg_center
-# all: message entries sent to xflow, overview and msg_center when applicable
-# no_overview: message entries sent to xflow and msg_center when applicable
-# refresh_flow: message entries only sent to xflow
-# msg_center: message entries only sent to message center, used after parsing tsv output sent by the C logreader
+# see LogReader_startExpLogReader for more info
 #
 proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplog false} } {
    global LOGREADER_UPDATE_NODES_${exp_path}_${datestamp} env
