@@ -55,9 +55,15 @@ proc DisplayGrp_getGroupLevel { level } {
 
 # set the maximum x value of the group
 proc DisplayGrp_setMaxX { display_group } {
-   set canvas [Overview_getCanvas]
-   set groupTag [${canvas} find withtag [DisplayGrp_getTagName ${display_group}]]
-   set groupBoundaries [${canvas} bbox ${groupTag}]
+   set expCanvas [Overview_getCanvas]
+   set groupCanvas [Overview_getGroupDisplayCanvas]
+   # set groupTag [${groupCanvas} find withtag [DisplayGrp_getTagName ${display_group}]]
+   set groupTag [DisplayGrp_getTagName ${display_group}]
+
+   set groupBoundaries [${expCanvas} bbox ${groupTag}]
+   if { ${groupBoundaries} == "" } {
+      set groupBoundaries [${groupCanvas} bbox ${groupTag}]
+   }
    # puts "DisplayGrp_setMaxX:$groupTag groupBoundaries:$groupBoundaries"
 
    catch {
@@ -212,6 +218,7 @@ proc DisplayGrp_processOverlap { display_group } {
    ::log::log debug "DisplayGrp_processOverlap display_group:$display_group"
    set displayGroups [ExpXmlReader_getGroups]
    set canvas [Overview_getCanvas]
+   set groupCanvas [Overview_getGroupDisplayCanvas]
    set groupIndex [lsearch ${displayGroups} ${display_group}]
    if { ${groupIndex} != -1 } {
       incr groupIndex
@@ -295,6 +302,11 @@ proc DisplayGrp_getOneGroupBoundaries { canvas display_group } {
    set startx ${graphStartX}
    set endX [expr ${startx} + 24 * ${graphHourX}]
    set boundaries [${canvas} bbox [DisplayGrp_getTagName ${display_group}]]
+   if { ${boundaries} == "" } {
+      set groupCanvas [Overview_getGroupDisplayCanvas]
+      set boundaries [${groupCanvas} bbox [DisplayGrp_getTagName ${display_group}]]
+   } else {
+
    set y1 [lindex ${boundaries} 1]
    set y2 [lindex ${boundaries} 3]
 
@@ -311,6 +323,8 @@ proc DisplayGrp_getOneGroupBoundaries { canvas display_group } {
       }
    }
    set boundaries [list ${startx} $y1 ${endX} $y2]
+
+   }
 
    return ${boundaries}
 }

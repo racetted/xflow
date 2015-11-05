@@ -289,7 +289,9 @@ proc FlowXml_parseNode { exp_path datestamp parent_flow_node current_xml_node } 
    # do I need to go down further?
    if { ${parseChild} == 1 } {
       if { ${xmlNodeName} == "SWITCH" } {
+         # switchMatchedItem value will be set by called procedure
          set switchMatchedItem ""
+
          # for a switch node, we need to get the matching switch item and continue from there
          set switchItemNode [FlowXml_getSwitchingItemNode ${exp_path} ${datestamp} ${current_xml_node} switchMatchedItem ]
          set current_xml_node ${switchItemNode}

@@ -2054,21 +2054,32 @@ proc Overview_redrawGrid {} {
    global expEntryHeight graphy defaultGraphY
    set canvasW [Overview_getCanvas]
    ${canvasW} delete grid_item
-   Overview_createGraph ${canvasW}
+   Overview_createGraph
    ${canvasW} lower grid_item
    ${canvasW} lower canvas_bg_image
    Overview_setCurrentTime ${canvasW}
-   Overview_setCanvasScrollArea ${canvasW}
+   Overview_setCanvasScrollArea
 }
 
 # sets the scrolll area of the overview grid
-proc Overview_setCanvasScrollArea { canvasW } {
+proc Overview_setCanvasScrollArea {} {
    global graphX graphStartX
 
-   # foreach { x1 y1 x2 y2 } [${canvasW} bbox canvas_bg_image] { break }
-   foreach { x1 y1 x2 y2 } [${canvasW} bbox grid_item] { break }
+   set canvasW [Overview_getCanvas]
+   set groupCanvasW [Overview_getGroupDisplayCanvas]
 
-   ${canvasW} configure -scrollregion [list $x1 $y1 $x2 $y2] -yscrollincrement 5 -xscrollincrement 5
+   # set canvasBox [${canvasW} bbox canvas_bg_image]
+   set canvasBox [${canvasW} bbox grid_item ]
+   set groupCanvasBox [${groupCanvasW} bbox all]
+
+   # puts "Overview_setCanvasScrollArea canvasBox:$canvasBox groupCanvasBox:$groupCanvasBox"
+   set canvasX2 [lindex ${canvasBox} 2]
+   set canvasY2 [lindex ${canvasBox} 3]
+   set groupCanvasX2 [lindex ${groupCanvasBox} 2]
+
+   # setting the vertical scroll the same between the two canvas so that the scrolling is smooth between the two
+   ${canvasW} configure -scrollregion [list 0 0 ${canvasX2} ${canvasY2}] -yscrollincrement 2 -xscrollincrement 5
+   ${groupCanvasW} configure -scrollregion [list 0 0 [expr ${groupCanvasX2}] ${canvasY2}] -yscrollincrement 2 -xscrollincrement 5
 }
 
 
@@ -2259,9 +2270,9 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
    set foundIndex [lsearch $displayGroups ${source_group}]
    if { ${foundIndex} != -1 } {
       # get the list of groups to move
-      #set groupsToMove [lrange ${displayGroups} [expr ${foundIndex} + 1] end]
       set groupsToMove [lrange ${displayGroups} ${foundIndex} end]
-      set overviewCanvas [Overview_getCanvas]
+      set canvasW [Overview_getCanvas]
+      set groupCanvasW [Overview_getGroupDisplayCanvas]
       foreach displayGroup ${groupsToMove} {
          set groupTagName [DisplayGrp_getTagName ${displayGroup}]
          # set the new min and max if group exists
@@ -2272,9 +2283,9 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
             ${displayGroup} configure -max_y ${newMax}
 
             # move the group and exp boxes that belongs to it
-            ::log::log debug "Overview_moveGroups ${overviewCanvas} moving ${displayGroup} delta_y:${delta_y}"
-            ${overviewCanvas} move ${groupTagName} ${delta_x} ${delta_y}
-            ${overviewCanvas} move exp_box.${displayGroup} ${delta_x} ${delta_y}
+            ::log::log debug "Overview_moveGroups ${canvasW} moving ${displayGroup} delta_y:${delta_y}"
+            ${groupCanvasW} move ${groupTagName} ${delta_x} ${delta_y}
+            ${canvasW} move exp_box.${displayGroup} ${delta_x} ${delta_y}
          }
       }
    }
@@ -2331,6 +2342,7 @@ proc Overview_addGroupExps { canvas } {
       }
    }
 
+
    # nof datestamp log files to be loaded
    set progressMax [Overview_getStartupNofDatestamps]
 
@@ -2369,6 +2381,7 @@ proc Overview_addGroupExps { canvas } {
       Overview_checkGridLimit
       destroy ${progressBar}
    }
+
 }
 
 # this procedure is called by exp threads when an error is detected
@@ -2429,14 +2442,11 @@ proc Overview_getBoxLabelFont {} {
 
 # this function creates the time grid in the
 # specified canvas.
-proc Overview_createGraph { canvas } {
+proc Overview_createGraph { } {
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX
 
-   # get the max x of the exp groupings to know where to start the grid
-   set groupDisplayMaxX [DisplayGrp_getAllGroupMaxX ${canvas}]
-   if { ${groupDisplayMaxX} != 0 } {
-      set graphStartX [expr ${groupDisplayMaxX} + 10]
-   }
+   set canvasW [Overview_getCanvas]
+   set groupCanvasW [Overview_getGroupDisplayCanvas]
 
    # adds horiz shaded grid
    set x1 $entryStartX
@@ -2446,7 +2456,8 @@ proc Overview_createGraph { canvas } {
    set count 0
    while { ${y1} < [expr $graphy + $graphStartY] } {
       # use a different color for each rectangle
-      $canvas create rectangle $x1 [expr $y1 ] $x2 [expr $y1 + $expEntryHeight ] -fill $fillColor -outline $fillColor -tag "grid_item"
+      ${canvasW} create rectangle $x1 [expr $y1 ] $x2 [expr $y1 + $expEntryHeight ] -fill $fillColor -outline $fillColor -tag "grid_item"
+      $groupCanvasW create rectangle $x1 [expr $y1 ] 400 [expr $y1 + $expEntryHeight ] -fill $fillColor -outline $fillColor -tag "grid_item"
       set y1 [expr $y1 + $expEntryHeight]
       if { $fillColor == "grey90" } {
          set fillColor grey95
@@ -2457,15 +2468,21 @@ proc Overview_createGraph { canvas } {
    }
 
    # creates hor lines at bottom & top
-   $canvas create line $graphStartX $graphStartY [expr $graphStartX + $graphX] $graphStartY -arrow last -tag "grid_item grid_min_y"
-   $canvas create line $graphStartX [expr $graphStartY + $graphy] \
+   ${canvasW} create line $graphStartX $graphStartY [expr $graphStartX + $graphX] $graphStartY -arrow last -tag "grid_item grid_min_y"
+   ${canvasW} create line $graphStartX [expr $graphStartY + $graphy] \
       [expr $graphStartX + $graphX] [expr $graphStartY + $graphy] -arrow last -tags "grid_item grid_footer grid_max_y"
 
    # x axis title
-   $canvas create text [expr ${x2}/2 ] [expr $graphStartY + $graphy + 40] -text "Time (UTC)" -tag "grid_item grid_footer"
-   
+   ${canvasW} create text [expr ${x2}/2 ] [expr $graphStartY + $graphy + 40] -text "Time (UTC)" -tag "grid_item grid_footer"
+  
    # y axe origin
-   $canvas create line $graphStartX [expr $graphStartY - 20] $graphStartX [expr $graphStartY + $graphy] -arrow first -tag "grid_item"
+   # this is now created on the group canvas instead of the grid 
+   # 
+   # get the max x of the exp groupings to know where to position the grid, the y axe is created at the extreme end of the group canvas
+   set groupDisplayMaxX [DisplayGrp_getAllGroupMaxX [Overview_getGroupDisplayCanvas]]
+   set origX [expr ${groupDisplayMaxX} + 2]
+   ${groupCanvasW} create line $origX [expr $graphStartY - 20] $origX [expr $graphStartY + $graphy] -arrow first -tag "grid_item grid_x_origin"
+   ${groupCanvasW} create line $origX  [expr $graphStartY + $graphy] [expr $origX + 3] [expr $graphStartY + $graphy] -tag "grid_item grid_x_origin"
    
    # the grid starts at current_hour - 12 and ends at current_hour + 12
    set currentHour [Utils_getNonPaddedValue [clock format [clock seconds] -format "%H" -gmt 1]]
@@ -2477,7 +2494,7 @@ proc Overview_createGraph { canvas } {
    set count 1
    # adds hour delimiter & ver grid along hour
    while { $count < 25 } {
-      Overview_GraphAddHourLine ${canvas} ${count} ${hourTag}
+      Overview_GraphAddHourLine ${canvasW} ${count} ${hourTag}
       incr count
       incr hourTag
       if { ${hourTag} == "25" } {
@@ -2486,7 +2503,8 @@ proc Overview_createGraph { canvas } {
    }
 
    # put the groups on top of the grid
-   $canvas lower grid_item DisplayGroup
+   ${canvasW} lower grid_item DisplayGroup
+   ${groupCanvasW} lower grid_item DisplayGroup
 }
 
 proc Overview_createHiddenMessageIcons { canvas } {
@@ -2715,7 +2733,7 @@ proc Overview_init {} {
    # vert size of graph
    set graphy 400
    set defaultGraphY ${graphy}
-   set graphStartX 200
+   set graphStartX 0
    set graphStartY 50
    # x size of each hour
    set graphHourX 48
@@ -2726,9 +2744,8 @@ proc Overview_init {} {
    set expBoxLength 40
    
    # creates suite entries
-   #set entryStartY 70
    set entryStartY 50
-   set entryStartX 20
+   set entryStartX 0
 
    set startEndIconSize 10
 
@@ -2988,7 +3005,7 @@ proc Overview_showToolbarCallback {} {
       grid forget ${topFrame}
       grid forget ${toolbarW}
    }
-   Overview_toggleMessageIcons [Overview_getCanvas]
+   Overview_toggleMessageIcons [Overview_getGroupDisplayCanvas]
 }
 
 proc Overview_addHelpMenu { parent } {
@@ -3133,17 +3150,18 @@ proc Overview_createToolbar { _toplevelW } {
 proc Overview_createCanvas { _toplevelW } {
    set canvasFrame [frame ${_toplevelW}.canvas_frame]
    set canvasW ${canvasFrame}.canvas
+   set groupCanvasW [Overview_getGroupDisplayCanvas]
 
    frame ${canvasFrame}.xframe
 
-   scrollbar ${canvasFrame}.yscroll -command [list ${canvasW} yview ]
+   scrollbar ${canvasFrame}.yscroll -command [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW}]
    scrollbar ${canvasFrame}.xscroll -orient horizontal -command [list ${canvasW} xview]
 
    set pad 12
-   frame ${canvasFrame}.pad -width $pad -height $pad
+   frame ${canvasFrame}.pad -width $pad -height $pad -bd 0 -relief flat
 
-   grid ${canvasFrame}.xframe -row 2 -column 0 -columnspan 2 -sticky ewns
-   grid ${canvasFrame}.yscroll -row 0 -column 1 -sticky ns
+   grid ${canvasFrame}.xframe -row 2 -column 1 -columnspan 2 -sticky ewns
+   grid ${canvasFrame}.yscroll -row 0 -column 2 -sticky ns
 
    grid ${canvasFrame}.pad -row 0 -column 1 -in ${canvasFrame}.xframe -sticky es
    grid ${canvasFrame}.xscroll -row 0 -column 0 -sticky ew -in ${canvasFrame}.xframe
@@ -3155,20 +3173,55 @@ proc Overview_createCanvas { _toplevelW } {
    ::autoscroll::autoscroll ${canvasFrame}.yscroll
    ::autoscroll::autoscroll ${canvasFrame}.xscroll
 
-   set canvasW ${canvasFrame}.canvas 
-   canvas ${canvasW} -relief raised -bd 2 -bg [SharedData_getColor CANVAS_COLOR] \
+   canvas ${groupCanvasW} -relief flat -bd 0 -highlightthickness 0
+
+   canvas ${canvasW} -relief flat -bd 0 -bg [SharedData_getColor CANVAS_COLOR]  -highlightthickness 0 \
       -yscrollcommand [list ${canvasFrame}.yscroll set] -xscrollcommand [list ${canvasFrame}.xscroll set]
 
-   bind ${canvasW} <Configure> [list Overview_canvasConfigureCallback ${canvasW} %w %h]
-   
-   grid ${canvasW} -row 0 -column 0 -sticky nsew
+   bind ${canvasW} <Configure> [list Overview_canvasConfigureCallback %w %h %b %D]
+
+   grid ${groupCanvasW} -row 0 -column 0 -sticky nsew
+   grid ${canvasW} -row 0 -column 1 -sticky nsew
 
    # make the canvas expandable to right & bottom
-   grid columnconfigure ${canvasFrame} 0 -weight 1
    grid rowconfigure ${canvasFrame} 0 -weight 1
+   grid columnconfigure ${canvasFrame} 1 -weight 1
 
-   # grid ${canvasFrame} -row 2 -column 0 -sticky nsew
    grid ${canvasFrame} -row 2 -column 1 -sticky nsew -rowspan 2
+}
+
+
+# args parameter has variable number of arguments 
+# in this case args can be "moveto value" or "scroll number what"
+# the args parameter contains arguments to the "yview" command of the canvas
+proc Overview_yScrollCommandCallback { canvas group_canvas args } {
+   ::log::log debug "Overview_yScrollCommandCallback args:$args"
+
+   # synchronize the two canvas vertical scrolling
+   eval ${canvas} yview ${args}
+   eval ${group_canvas} yview ${args}
+
+   Overview_mouseWheelCheck
+}
+
+# prohibits y scrolling when limits are reached
+proc Overview_mouseWheelCheck {} {
+   set canvasW [Overview_getCanvas]
+   set groupCanvasW [Overview_getGroupDisplayCanvas]
+
+   foreach { yviewLow yviewHigh } [${canvasW} yview] {}
+   if { ${yviewLow} == "0.0" } {
+      # reached the lower limit don't allow scrolling
+      bind ${canvasW} <4> ""
+   } else {
+      bind ${canvasW} <4> [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW} scroll -5 units]
+   }
+   if { ${yviewHigh} == "1.0" } {
+      # reached the upper limit don't allow scrolling
+      bind ${canvasW} <5> ""
+   } else {
+      bind ${canvasW} <5> [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW} scroll +5 units]
+   }
 }
 
 # this is called when a configure event is triggered on a widget to resize, iconified a window.
@@ -3176,23 +3229,24 @@ proc Overview_createCanvas { _toplevelW } {
 # be called about 10-15 times when the user drags the mouse to resize; I don't want
 # to redraw the bg 15 times... So let's put a delay and every call cancels the previous one unless the 
 # delay is passed; only the last one will live to execute the image redraw.
-proc Overview_canvasConfigureCallback { canvas width height } {
+proc Overview_canvasConfigureCallback { event_width event_height event_button_number event_delta } {
    global RESIZE_AFTERID
    # cancel the previous event
    catch { after cancel [set RESIZE_AFTERID] }
    # set the event to draw bg
-   set RESIZE_AFTERID [after 100 [list Overview_resizeWindowEvent ${canvas} ${width} ${height}]]
+   set RESIZE_AFTERID [after 100 [list Overview_resizeWindowEvent ${event_width} ${event_height}]]
 }
 
-proc Overview_resizeWindowEvent {  canvas width height } {
-  Overview_addCanvasImage ${canvas} ${width} ${height}
-  Overview_setCanvasScrollArea ${canvas}
-  xflow_MouseWheelCheck ${canvas}
+proc Overview_resizeWindowEvent { width height } {
+  Overview_addCanvasImage ${width} ${height}
+  Overview_setCanvasScrollArea
+  Overview_mouseWheelCheck
 }
 
-proc Overview_addCanvasImage { canvas width height } {
-   global FLOW_BG_SOURCE_IMG OVERVIEW_TILED_IMG
-   set boxCoords [${canvas} bbox all]
+# adds a bg image for both group and exp canvas
+proc Overview_addCanvasImage { width height } {
+   global FLOW_BG_SOURCE_IMG OVERVIEW_TILED_IMG GROUP_OVERVIEW_TILED_IMG
+
    if { [SharedData_getMiscData BACKGROUND_IMAGE] != "" } {
       set imageFile [SharedData_getMiscData BACKGROUND_IMAGE]
    } else {
@@ -3204,36 +3258,43 @@ proc Overview_addCanvasImage { canvas width height } {
       set FLOW_BG_SOURCE_IMG [image create photo -file ${imageFile}]
    }
 
-   if { [${canvas} gettags canvas_bg_image] != "" } {
+   set canvasW [Overview_getCanvas]
+   set groupCanvas [Overview_getGroupDisplayCanvas]
+
+   # delete previous 
+   if { [${canvasW} gettags canvas_bg_image] != "" } {
       image delete ${OVERVIEW_TILED_IMG}
-      ${canvas} delete canvas_bg_image
+      image delete ${GROUP_OVERVIEW_TILED_IMG}
+      ${canvasW} delete canvas_bg_image
+      ${groupCanvas} delete canvas_bg_image
    }
+   # build the image
    set OVERVIEW_TILED_IMG [image create photo]
-   ${canvas} create image 0 0 -anchor nw -image ${OVERVIEW_TILED_IMG} -tags canvas_bg_image
-   
-   Overview_tileBgImage $canvas ${FLOW_BG_SOURCE_IMG} ${OVERVIEW_TILED_IMG} ${width} ${height}
-   ${canvas} lower canvas_bg_image
-}
-
- proc Overview_tileBgImage { canvas sourceImage tiledImage width height } {
-    set canvasBox [${canvas} bbox all]
-    set canvasItemsW [lindex ${canvasBox} 2]
-    set canvasItemsH [lindex ${canvasBox} 3]
-    set canvasW [winfo width ${canvas}]
-    set canvasH [winfo height ${canvas}]
-    set usedW ${canvasItemsW}
-    if { ${width} > ${canvasItemsW} } {
+   set GROUP_OVERVIEW_TILED_IMG [image create photo]
+   ${canvasW} create image 0 0 -anchor nw -image ${OVERVIEW_TILED_IMG} -tags canvas_bg_image
+   ${groupCanvas} create image 0 0 -anchor nw -image ${GROUP_OVERVIEW_TILED_IMG} -tags canvas_bg_image
+  
+   # adjust size
+   set canvasBox [${canvasW} bbox all]
+   set canvasItemsW [lindex ${canvasBox} 2]
+   set canvasItemsH [lindex ${canvasBox} 3]
+   set usedW ${canvasItemsW}
+   if { ${width} > ${canvasItemsW} } {
       set usedW [expr ${width} + 50]
-    }
-    set usedH ${canvasItemsH}
-    if { ${height} > ${canvasItemsH} } {
-      set usedH [expr ${height} + 50]
-    }
+   }
+   set usedH ${canvasItemsH}
+   if { ${height} > ${canvasItemsH} } {
+      set usedH [expr ${height} + 25]
+   }
 
-    # $tiledImage copy $sourceImage \
-    #    -to 0 0 [expr ${usedW} + 20] [expr ${usedH} + 20]
-    $tiledImage copy $sourceImage -to 0 0 ${usedW} ${usedH}
- }
+   # tile the image
+   ${OVERVIEW_TILED_IMG} copy ${FLOW_BG_SOURCE_IMG} -to 0 0 ${usedW} ${usedH}
+   ${GROUP_OVERVIEW_TILED_IMG} copy ${FLOW_BG_SOURCE_IMG} -to 0 0 [winfo width ${groupCanvas}] ${usedH}
+
+   # put the img below the grid
+   ${canvasW} lower canvas_bg_image
+   ${groupCanvas} lower canvas_bg_image
+}
 
 proc Overview_setTitle { top_w time_value } {
    global env
@@ -3243,6 +3304,10 @@ proc Overview_setTitle { top_w time_value } {
 
 proc Overview_getCanvas {} {
    return .overview_top.canvas_frame.canvas
+}
+
+proc Overview_getGroupDisplayCanvas {} {
+   return .overview_top.canvas_frame.group_canvas
 }
 
 proc Overview_getToplevel {} {
@@ -3467,13 +3532,9 @@ proc Overview_main {} {
    Overview_createToolbar ${topOverview}
    set plugin_toolbar [Overview_createPluginToolbar ${topOverview}.toolbar]
    grid ${plugin_toolbar} -row 0 -column 1 -sticky nsew
-   # grid ${plugin_toolbar} -row 1 -column 1 -sticky ew -padx 2
 
    Overview_createCanvas ${topOverview}
 
-   # grid ${topCanvas} -row 2 -column 0 -sticky nsew -padx 2
-
-   # grid columnconfigure ${topOverview} 0 -weight 1
    grid columnconfigure ${topOverview} 0 -weight 0 -uniform b 
    grid columnconfigure ${topOverview} 1 -weight 75 -uniform b 
    grid rowconfigure ${topOverview} 0 -weight 0
@@ -3483,6 +3544,7 @@ proc Overview_main {} {
    # set sizeGripWidget [ttk::sizegrip ${topOverview}.sizeGrip]
    # grid ${sizeGripWidget} -sticky se
 
+   # trap windows kill to gracefully exit
    wm protocol ${topOverview} WM_DELETE_WINDOW [list Overview_quit ]
 
    # create pool of threads to parse and launch exp flows
@@ -3492,18 +3554,24 @@ proc Overview_main {} {
    thread::errorproc Overview_threadErrorCallback
 
    # lay out the groups
+   set groupCanvasW [Overview_getGroupDisplayCanvas]
    set rootGroups [DisplayGrp_getGroupLevel 0]
    foreach rootGroup ${rootGroups} {
-      Overview_addGroup ${topCanvas} ${rootGroup}
+      Overview_addGroup ${groupCanvasW} ${rootGroup}
    }
 
-   # check if we need to release obsolete data
+   # set the max width of the group canvas display based on the groups max length
+   set groupDisplayMaxX [DisplayGrp_getAllGroupMaxX ${groupCanvasW}]
+   ${groupCanvasW} configure -width [expr ${groupDisplayMaxX} + 5]
+
+   # check if we need to release obsolete data every hour
    after 60000 OverviewExpStatus_checkObseleteDatestamps
 
    # create the grid
-   Overview_createGraph ${topCanvas}
+   Overview_createGraph
 
-   Overview_createHiddenMessageIcons ${topCanvas}
+   # create icons to open/close toolbar
+   Overview_createHiddenMessageIcons ${groupCanvasW} 
 
    Overview_setCurrentTime ${topCanvas}
 
@@ -3517,6 +3585,9 @@ proc Overview_main {} {
 
    wm geometry ${topOverview} =1500x600
    wm deiconify ${topOverview}
+
+   # check if mouse wheel is allowed
+   Overview_mouseWheelCheck
 
    # start the reader for currently active logs
    # ::thread::broadcast "LogReader_readMonitorDatestamps true"
@@ -3551,6 +3622,7 @@ proc Overview_main {} {
 
    # run a periodic monitor to look for new log files to process
    LogMonitor_checkNewLogFiles
+
 }
 
 # validate required options
