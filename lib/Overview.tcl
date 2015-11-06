@@ -2075,7 +2075,7 @@ proc Overview_setCanvasScrollArea {} {
    # puts "Overview_setCanvasScrollArea canvasBox:$canvasBox groupCanvasBox:$groupCanvasBox"
    set canvasX2 [lindex ${canvasBox} 2]
    set canvasY2 [lindex ${canvasBox} 3]
-   set groupCanvasX2 [lindex ${groupCanvasBox} 2]
+   set groupCanvasX2 [expr [lindex ${groupCanvasBox} 2] - 2]
 
    # setting the vertical scroll the same between the two canvas so that the scrolling is smooth between the two
    ${canvasW} configure -scrollregion [list 0 0 ${canvasX2} ${canvasY2}] -yscrollincrement 2 -xscrollincrement 5
@@ -2448,16 +2448,20 @@ proc Overview_createGraph { } {
    set canvasW [Overview_getCanvas]
    set groupCanvasW [Overview_getGroupDisplayCanvas]
 
+   # get the max x of the exp groupings to know where to position the grid, the y axe is created at the extreme end of the group canvas
+   set groupDisplayMaxX [DisplayGrp_getAllGroupMaxX [Overview_getGroupDisplayCanvas]]
+
    # adds horiz shaded grid
    set x1 $entryStartX
    set x2  [expr $graphStartX + $graphX]
    set y1 $graphStartY
    set fillColor grey90
    set count 0
+   set groupMaxX [expr ${groupDisplayMaxX} + 5]
    while { ${y1} < [expr $graphy + $graphStartY] } {
       # use a different color for each rectangle
       ${canvasW} create rectangle $x1 [expr $y1 ] $x2 [expr $y1 + $expEntryHeight ] -fill $fillColor -outline $fillColor -tag "grid_item"
-      $groupCanvasW create rectangle $x1 [expr $y1 ] 400 [expr $y1 + $expEntryHeight ] -fill $fillColor -outline $fillColor -tag "grid_item"
+      $groupCanvasW create rectangle $x1 [expr $y1 ] ${groupMaxX} [expr $y1 + $expEntryHeight ] -fill $fillColor -outline $fillColor -tag "grid_item"
       set y1 [expr $y1 + $expEntryHeight]
       if { $fillColor == "grey90" } {
          set fillColor grey95
@@ -2478,8 +2482,6 @@ proc Overview_createGraph { } {
    # y axe origin
    # this is now created on the group canvas instead of the grid 
    # 
-   # get the max x of the exp groupings to know where to position the grid, the y axe is created at the extreme end of the group canvas
-   set groupDisplayMaxX [DisplayGrp_getAllGroupMaxX [Overview_getGroupDisplayCanvas]]
    set origX [expr ${groupDisplayMaxX} + 2]
    ${groupCanvasW} create line $origX [expr $graphStartY - 20] $origX [expr $graphStartY + $graphy] -arrow first -tag "grid_item grid_x_origin"
    ${groupCanvasW} create line $origX  [expr $graphStartY + $graphy] [expr $origX + 3] [expr $graphStartY + $graphy] -tag "grid_item grid_x_origin"
@@ -3148,48 +3150,84 @@ proc Overview_createToolbar { _toplevelW } {
 
 
 proc Overview_createCanvas { _toplevelW } {
-   set canvasFrame [frame ${_toplevelW}.canvas_frame]
-   set canvasW ${canvasFrame}.canvas
+   # set canvasFrame [frame ${_toplevelW}.canvas_frame]
+   set canvasPanedW [panedwindow ${_toplevelW}.canvas_pane -showhandle 1 -orient horizontal -handlesize 2 -sashwidth 2]
+   set canvasFrame [frame ${canvasPanedW}.canvas_frame]
+   set groupCanvasFrame [frame ${canvasPanedW}.group_canvas_frame]
+
+   ${canvasPanedW} add ${groupCanvasFrame} ${canvasFrame}
+
    set groupCanvasW [Overview_getGroupDisplayCanvas]
+   set group_xScrollW [scrollbar ${groupCanvasFrame}.group_xscroll]
+   ::autoscroll::autoscroll ${group_xScrollW}
+   canvas ${groupCanvasW} -relief flat -bd 0 -highlightthickness 0 -xscrollcommand [list ${group_xScrollW} set]
+   ${group_xScrollW} configure -orient horizontal -command [list ${groupCanvasW} xview]
+   grid ${groupCanvasW} -row 0 -column 0 -sticky nsew
+   grid ${group_xScrollW} -row 1 -column 0 -sticky ew 
+   grid rowconfigure ${groupCanvasFrame} 0 -weight 1
+   grid columnconfigure ${groupCanvasFrame} 0 -weight 1
+
+   set canvasW ${canvasFrame}.canvas
 
    frame ${canvasFrame}.xframe
 
-   scrollbar ${canvasFrame}.yscroll -command [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW}]
-   scrollbar ${canvasFrame}.xscroll -orient horizontal -command [list ${canvasW} xview]
+   set yScrollW [scrollbar ${canvasFrame}.yscroll -command [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW}]]
+   set xScrollW [scrollbar ${canvasFrame}.xscroll -orient horizontal -command [list ${canvasW} xview]]
 
    set pad 12
    frame ${canvasFrame}.pad -width $pad -height $pad -bd 0 -relief flat
 
-   grid ${canvasFrame}.xframe -row 2 -column 1 -columnspan 2 -sticky ewns
-   grid ${canvasFrame}.yscroll -row 0 -column 2 -sticky ns
+   grid ${canvasFrame}.xframe -row 2 -column 0 -columnspan 2 -sticky ewns
+   grid ${yScrollW} -row 0 -column 1 -sticky ns
 
    grid ${canvasFrame}.pad -row 0 -column 1 -in ${canvasFrame}.xframe -sticky es
-   grid ${canvasFrame}.xscroll -row 0 -column 0 -sticky ew -in ${canvasFrame}.xframe
+   grid ${xScrollW} -row 0 -column 0 -sticky ew -in ${canvasFrame}.xframe
 
    grid columnconfigure ${canvasFrame}.xframe 0 -weight 1
    grid rowconfigure ${canvasFrame}.xframe 1 -weight 1
 
    # only show the scrollbars if required
-   ::autoscroll::autoscroll ${canvasFrame}.yscroll
-   ::autoscroll::autoscroll ${canvasFrame}.xscroll
-
-   canvas ${groupCanvasW} -relief flat -bd 0 -highlightthickness 0
+   ::autoscroll::autoscroll ${yScrollW}
+   ::autoscroll::autoscroll ${xScrollW}
 
    canvas ${canvasW} -relief flat -bd 0 -bg [SharedData_getColor CANVAS_COLOR]  -highlightthickness 0 \
-      -yscrollcommand [list ${canvasFrame}.yscroll set] -xscrollcommand [list ${canvasFrame}.xscroll set]
+      -yscrollcommand [list ${yScrollW} set] -xscrollcommand [list ${xScrollW} set]
 
    bind ${canvasW} <Configure> [list Overview_canvasConfigureCallback %w %h %b %D]
 
-   grid ${groupCanvasW} -row 0 -column 0 -sticky nsew
-   grid ${canvasW} -row 0 -column 1 -sticky nsew
+   grid ${canvasW} -row 0 -column 0 -sticky nsew
 
    # make the canvas expandable to right & bottom
    grid rowconfigure ${canvasFrame} 0 -weight 1
-   grid columnconfigure ${canvasFrame} 1 -weight 1
+   grid columnconfigure ${canvasFrame} 0 -weight 1
+   # grid columnconfigure ${canvasFrame} 0 -weight 1
 
-   grid ${canvasFrame} -row 2 -column 1 -sticky nsew -rowspan 2
+   grid ${canvasPanedW} -row 2 -column 1 -sticky nsew -rowspan 2
+   
+   bind ${canvasPanedW} <ButtonRelease-1> [list Overview_PaneHandleEvent %W %x %y]
 }
 
+proc Overview_PaneHandleEvent { widget x y } {
+   global HANDLE_INIT_POSITION
+   # puts "Overview_PaneHandleMotionEvent $widget x:$x y:$y"
+   set canvasPane [Overview_getCanvasPane]
+   foreach {posX posY} [${canvasPane} sash coord 0] {}
+
+   # prevent user from dragging to the right... does not really make sense
+   if { [info exists HANDLE_INIT_POSITION] } {
+      if { ${posX} > ${HANDLE_INIT_POSITION} } {
+         ${canvasPane} sash place 0 ${HANDLE_INIT_POSITION} 1
+      }
+   }
+}
+
+proc Overview_savePaneInitialState {} {
+   global HANDLE_INIT_POSITION
+   set canvasPane [Overview_getCanvasPane]
+   foreach {posX posY} [${canvasPane} sash coord 0] {}
+
+   set HANDLE_INIT_POSITION ${posX}
+}
 
 # args parameter has variable number of arguments 
 # in this case args can be "moveto value" or "scroll number what"
@@ -3287,9 +3325,10 @@ proc Overview_addCanvasImage { width height } {
       set usedH [expr ${height} + 25]
    }
 
+   set groupCanvasWidth [lindex [${groupCanvas} bbox DisplayGroup] 2]
    # tile the image
    ${OVERVIEW_TILED_IMG} copy ${FLOW_BG_SOURCE_IMG} -to 0 0 ${usedW} ${usedH}
-   ${GROUP_OVERVIEW_TILED_IMG} copy ${FLOW_BG_SOURCE_IMG} -to 0 0 [winfo width ${groupCanvas}] ${usedH}
+   ${GROUP_OVERVIEW_TILED_IMG} copy ${FLOW_BG_SOURCE_IMG} -to 0 0 ${groupCanvasWidth} ${usedH}
 
    # put the img below the grid
    ${canvasW} lower canvas_bg_image
@@ -3302,12 +3341,16 @@ proc Overview_setTitle { top_w time_value } {
    wm title [winfo toplevel ${top_w}] ${winTitle}
 }
 
+proc Overview_getCanvasPane {} {
+   return .overview_top.canvas_pane
+}
+
 proc Overview_getCanvas {} {
-   return .overview_top.canvas_frame.canvas
+   return .overview_top.canvas_pane.canvas_frame.canvas
 }
 
 proc Overview_getGroupDisplayCanvas {} {
-   return .overview_top.canvas_frame.group_canvas
+   return .overview_top.canvas_pane.group_canvas_frame.group_canvas
 }
 
 proc Overview_getToplevel {} {
@@ -3585,6 +3628,8 @@ proc Overview_main {} {
 
    wm geometry ${topOverview} =1500x600
    wm deiconify ${topOverview}
+
+   Overview_savePaneInitialState
 
    # check if mouse wheel is allowed
    Overview_mouseWheelCheck
