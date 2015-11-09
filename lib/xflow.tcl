@@ -2658,6 +2658,9 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
 
       ##set fullList [list showAllListings $node $canvas $canvas.list]
       set listingW .listing_${node}
+      regsub -all " " ${listingW} _
+      regsub -all "/" ${listingW} _
+      regsub -all "." ${listingW} _
       if { [winfo exists ${listingW}] } {
          destroy ${listingW}
       }
