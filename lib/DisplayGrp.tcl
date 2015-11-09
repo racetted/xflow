@@ -149,7 +149,8 @@ proc DisplayGrp_setMaxY { display_group y_value {force ""} } {
 proc DisplayGrp_calcMaxY { display_group } {
    set canvas [Overview_getCanvas]
    set maxY [${display_group} cget -y]
-   set expBoxTags [${canvas} find withtag exp_box.${display_group}]
+   set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${display_group}]
+   set expBoxTags [${canvas} find withtag ${expGroupBoxTag}]
    foreach expBoxTag ${expBoxTags} {
       set boxBoundaries [${canvas} coords ${expBoxTag}]
       if { [lindex ${boxBoundaries} 3] > ${maxY} } {
@@ -226,7 +227,7 @@ proc DisplayGrp_processOverlap { display_group } {
          # only do something if not the last group, otherwise nothing to do
          set checkGroup [lindex ${displayGroups} ${groupIndex}]
          set checkGroupTag [DisplayGrp_getTagName ${checkGroup}] 
-         if { [${canvas} gettags ${checkGroupTag}] != "" } {
+         if { [${groupCanvas} gettags ${checkGroupTag}] != "" } {
             set goodY [DisplayGrp_getGroupDisplayY ${checkGroup}]
             set currentY [${checkGroup} cget -y]
             ::log::log debug "DisplayGrp_processOverlap display_group:$display_group goodY:$goodY currentY:$currentY"
@@ -260,6 +261,7 @@ proc DisplayGrp_getGroupDisplayX { group_display } {
 # group already displayed prior to itself. This function should be useful
 # at startup when we add the display groups one by one
 proc DisplayGrp_getGroupDisplayY { group_display } {
+   # puts "DisplayGrp_getGroupDisplayY ${group_display}"
    global entryStartY expEntryHeight
    set displayGroups [ExpXmlReader_getGroups]
    set myIndex [lsearch -exact ${displayGroups} ${group_display}]
@@ -293,37 +295,33 @@ proc DisplayGrp_getGroupDisplayY { group_display } {
    return ${thisGroupY}
 }
 
+#  the name tag that is associated with every exp box in the exp canvas
+proc DisplayGrp_getGroupExpBoxTagName { display_group } {
+   return exp_box.${display_group}
+}
+
 # returns the boundaries of a DisplayGroup record
 # that covers the entire rows that are used by the display group
 # the Display Group + every rows used by its exp boxes
 proc DisplayGrp_getOneGroupBoundaries { canvas display_group } {
    global graphX graphStartX graphHourX
-
+   set groupCanvas [Overview_getGroupDisplayCanvas]
+   set groupTagName [DisplayGrp_getTagName ${display_group}]
+   set groupExpTagName [DisplayGrp_getGroupExpBoxTagName ${display_group}]
    set startx ${graphStartX}
    set endX [expr ${startx} + 24 * ${graphHourX}]
-   set boundaries [${canvas} bbox [DisplayGrp_getTagName ${display_group}]]
-   if { ${boundaries} == "" } {
-      set groupCanvas [Overview_getGroupDisplayCanvas]
-      set boundaries [${groupCanvas} bbox [DisplayGrp_getTagName ${display_group}]]
+   # get the boundaries from the exp canvas
+   # it would only contain the box around the exp boxes
+   set boundaries [${canvas} bbox ${groupExpTagName}]
+   if { ${boundaries} != "" } {
    } else {
-
-   set y1 [lindex ${boundaries} 1]
-   set y2 [lindex ${boundaries} 3]
-
-   set expBoxTags [$canvas find withtag exp_box.${display_group}]
-   foreach expBoxTag ${expBoxTags} {
-      set boxBoundaries [${canvas} coords ${expBoxTag}]
-      set expy1 [lindex ${boxBoundaries} 1]
-      set expy2 [lindex ${boxBoundaries} 3]
-      if { ${expy1} != "" && ${y1} > ${expy1} } {
-         set y1 ${expy1}
-      }
-      if { ${expy2} != "" && ${y2} < ${expy2} } {
-         set y2 ${expy2}
-      }
+      # not found try from the group canvas
+      set groupCanvas [Overview_getGroupDisplayCanvas]
+      set boundaries [${groupCanvas} bbox ${groupTagName}]
    }
-   set boundaries [list ${startx} $y1 ${endX} $y2]
 
+   if { ${boundaries} != "" } {
+      set boundaries [list ${startx} [lindex ${boundaries} 1] ${endX} [lindex ${boundaries} 3]]
    }
 
    return ${boundaries}

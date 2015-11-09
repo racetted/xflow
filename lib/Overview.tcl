@@ -830,7 +830,7 @@ proc Overview_setExpLate { canvas exp_path datestamp } {
 
    # puts "Overview_setExpLate  $exp_path $datestamp status:$status refEndTime:${refEndTime}" 
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${status}]
-
+   set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
    ${canvas} itemconfigure ${expBoxTag}.text -fill DarkViolet
 
    set middleBoxCoords [${canvas} coords ${expBoxTag}.middle]
@@ -842,7 +842,7 @@ proc Overview_setExpLate { canvas exp_path datestamp } {
       set startY [lindex ${middleBoxCoords} 1]
       set endY [lindex ${middleBoxCoords} 3]
       # ${canvas} create line ${refEndTimeX} ${startY} ${refEndTimeX} ${endY} -width 4 -fill [::DrawUtils::getOutlineStatusColor end]
-      ${canvas} create line ${refEndTimeX} ${startY} ${refEndTimeX} ${endY} -width 4 -fill DarkViolet -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.late_line"
+      ${canvas} create line ${refEndTimeX} ${startY} ${refEndTimeX} ${endY} -width 4 -fill DarkViolet -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.late_line"
    }
 }
 
@@ -879,6 +879,8 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    ::log::log debug "Overview_ExpCreateStartIcon $exp_path $datestamp $timevalue shift_day:$shift_day"
    set displayGroup [SharedData_getExpGroupDisplay ${exp_path}]
+   set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
+   
    set startY [expr [${displayGroup} cget -y] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
    set startX [Overview_getXCoordTime ${timevalue} ${shift_day}]
 
@@ -915,12 +917,12 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
    ::log::log debug "Overview_ExpCreateStartIcon ${expBoxTag}.start at ${startX} ${startY} ${startX2} ${startY2} outlineColor:${outlineColor} bgColor:${bgColor}"
    # create the left box      
    set startBoxId [$canvas create oval ${startX} ${startY} ${startX2} ${startY2} -width 1.0 \
-      -fill ${bgColor} -outline ${outlineColor} -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.start"]
+      -fill ${bgColor} -outline ${outlineColor} -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.start"]
 
    # create the exp label
    set labelY [expr ${startY} + (${startEndIconSize}/2)]
    set expLabelId [$canvas create text ${labelX} ${labelY} -font [Overview_getBoxLabelFont] \
-      -text ${expLabel} -fill black -anchor w -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.text"]
+      -text ${expLabel} -fill black -anchor w -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.text"]
 }
 
 # this function creates an experiment end icon
@@ -931,6 +933,7 @@ proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day 
    ::log::log debug "Overview_ExpCreateEndIcon ${exp_path} ${datestamp} ${timevalue} shift_day:$shift_day"
    global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    set displayGroup [SharedData_getExpGroupDisplay ${exp_path}]
+   set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
    set currentCoords [Overview_getRunBoxBoundaries  ${canvas} ${exp_path} ${datestamp}]
    set startX [Overview_getXCoordTime ${timevalue} ${shift_day}]
    set startY [expr [lindex ${currentCoords} 1] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
@@ -957,7 +960,7 @@ proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day 
       
       # create the left box
       set endBoxId [${canvas} create oval ${startX} ${startY} ${startX2} ${startY2} -width 1 \
-         -fill ${bgColor} -outline ${outlineColor} -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.end"]
+         -fill ${bgColor} -outline ${outlineColor} -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.end"]
 
       if { [${canvas} coords ${expBoxTag}.reference] != "" } {
          $canvas lower ${expBoxTag}.end ${expBoxTag}.reference
@@ -975,6 +978,8 @@ proc Overview_ExpCreateReferenceBox { canvas exp_path datestamp timevalue {late_
    ::log::log debug "Overview_ExpCreateReferenceBox ${exp_path} ${datestamp} ${timevalue} late_reference:$late_reference"
    global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    set displayGroup [SharedData_getExpGroupDisplay ${exp_path}]
+   set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
+   
    set currentCoords [Overview_getRunBoxBoundaries  ${canvas} ${exp_path} ${datestamp}]   
    set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
@@ -1007,7 +1012,7 @@ proc Overview_ExpCreateReferenceBox { canvas exp_path datestamp timevalue {late_
          ${canvas} itemconfigure ${expBoxTag}.text -fill DarkViolet
    } else {
       set refBoxId [${canvas} create rectangle ${startX} ${startY} ${endX} ${endY} -width 1 \
-         -dash { 4 3 } -outline ${outlineColor} -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.reference"]
+         -dash { 4 3 } -outline ${outlineColor} -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.reference"]
 
       if { [${canvas} coords ${expBoxTag}.middle] != "" } {
          ${canvas} lower ${expBoxTag}.reference  ${expBoxTag}.middle
@@ -1021,6 +1026,7 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
    ::log::log debug "Overview_ExpCreateMiddleBox ${exp_path} ${datestamp} ${timevalue} shift_day:${shift_day}"
    global expEntryHeight startEndIconSize expBoxOutlineWidth
    set displayGroup [SharedData_getExpGroupDisplay ${exp_path}]
+   set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
    set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
    set startIconCoords [${canvas} coords ${expBoxTag}.start]
@@ -1050,7 +1056,7 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
       set endY [expr ${startY} + $expEntryHeight/2 + 8]
    
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
-         -outline ${outlineColor} -fill white -tags "exp_box.${displayGroup} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
+         -outline ${outlineColor} -fill white -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
 
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
 
@@ -1245,7 +1251,7 @@ proc Overview_getScheduledDatestamp { exp_path hour {start_time ""} } {
    ::log::log debug "Overview_getScheduledDatestamp myx:$myx currentTimeX:$currentTimeX today00ZX:$today00ZX myStartHour:$myStartHour"
    set deltaDay 0
    if { ${currentTimeX} >= ${today00ZX} && ${myx} < ${today00ZX} } {
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp deltaDay -1"
+      ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp deltaDay -1"
 
       # 00z is to the left of current time and my start time is prior to 00Z so need -24H
       set deltaDay -1 
@@ -1262,15 +1268,15 @@ proc Overview_getScheduledDatestamp { exp_path hour {start_time ""} } {
    if { ${myDateTime} >= ${originDateTime} && ${myDateTime} < ${endDateTime} } {
       # value is within visible grid
       set datestamp [Utils_getDatestamp ${hour} ${deltaDay}]
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp here"
+      ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp here"
    } elseif { ${myDateTime} < ${originDateTime} } {
       # add extra day to datestamp and check if visible
       # shift to the right of the grid
       set myDateTime [clock add ${myDateTime} 24 hours]
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp add 24 hours"
+      ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp add 24 hours"
       if { ${myDateTime} >= ${originDateTime} && ${myDateTime} < ${endDateTime} } {
          set datestamp [Utils_getDatestamp ${hour} 1]
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp here 2"
+         ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp here 2"
       }
    }
    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
@@ -1350,18 +1356,28 @@ proc Overview_removeExpBox { canvas exp_path datestamp status } {
    ${canvas} delete ${expBoxTag}.end
    ${canvas} delete ${expBoxTag}.late_line
 
+   # do we need to delete the default box?
    if { ! [string match "default*" ${datestamp}] } {
-      # try delete default_${hour} tag
-      set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
-      # puts "Overview_removeExpBox deleting ${expDefaultTag}"
-      ${canvas} delete ${expBoxTag}.text
-      ${canvas} delete ${expBoxTag}.start
-      ${canvas} delete ${expBoxTag}.middle
-      ${canvas} delete ${expBoxTag}.reference
-      ${canvas} delete ${expBoxTag}.end
-      ${canvas} delete ${expBoxTag}.late_line
+      set hour [Utils_getHourFromDatestamp ${datestamp}]
+      set schedDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour}]
+      # delete the default box only if the datestamp matches the one that should be launched
+      # for instance if I resubmit a run from yesterday's datestamp, the default one for today
+      # should be untouched
+      if { ${datestamp} == ${schedDatestamp} } {
+         # try delete default_${hour} tag
+         set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
+         # puts "Overview_removeExpBox deleting ${expDefaultTag}"
+         ${canvas} delete ${expBoxTag}.text
+         ${canvas} delete ${expBoxTag}.start
+         ${canvas} delete ${expBoxTag}.middle
+         ${canvas} delete ${expBoxTag}.reference
+         ${canvas} delete ${expBoxTag}.end
+         ${canvas} delete ${expBoxTag}.late_line
+      }
    }
+
 }
+
 
 proc Overview_removeAllExpBoxes { canvas exp_path } {
    ${canvas} delete ${exp_path}
@@ -1458,6 +1474,7 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
 }
 
 # this function places exp run boxes on the same y slot if there is enough space for it
+# NOTE: not used right now
 proc Overview_OptimizeExpBoxes { displayGroup } {
    ::log::log debug "Overview_OptimizeExpBoxes..."
 
@@ -2275,8 +2292,9 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
       set groupCanvasW [Overview_getGroupDisplayCanvas]
       foreach displayGroup ${groupsToMove} {
          set groupTagName [DisplayGrp_getTagName ${displayGroup}]
+	 set expBoxGroupTagName [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
          # set the new min and max if group exists
-         if { [${overviewCanvas} gettags ${groupTagName}] != "" } {
+         if { [${groupCanvasW} gettags ${groupTagName}] != "" } {
             set newMin [expr [${displayGroup} cget -y] + ${delta_y}]
             set newMax [expr [${displayGroup} cget -max_y] + ${delta_y}]
             ${displayGroup} configure -y ${newMin}
@@ -2285,7 +2303,7 @@ proc Overview_moveGroups { source_group delta_x delta_y } {
             # move the group and exp boxes that belongs to it
             ::log::log debug "Overview_moveGroups ${canvasW} moving ${displayGroup} delta_y:${delta_y}"
             ${groupCanvasW} move ${groupTagName} ${delta_x} ${delta_y}
-            ${canvasW} move exp_box.${displayGroup} ${delta_x} ${delta_y}
+            ${canvasW} move ${expBoxGroupTagName} ${delta_x} ${delta_y}
          }
       }
    }
