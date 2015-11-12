@@ -1212,7 +1212,7 @@ proc Overview_addExpDefaultBoxes { canvas exp_path {myhour ""} } {
 # returns the datestamp of the run based
 # on the run hour and it's referenced start time
 # and the current date
-proc Overview_getScheduledDatestamp { exp_path hour {start_time ""} } {
+proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } {
    global graphStartX
    set datestamp ""
 
@@ -1222,63 +1222,41 @@ proc Overview_getScheduledDatestamp { exp_path hour {start_time ""} } {
       set refTimings [SharedData_getExpTimings ${exp_path}]
       foreach refTiming ${refTimings} {
          foreach { myhour myStartTime myEndTime } ${refTiming} {
-	    if { ${hour} == ${myhour} } {
+	    if { ${datestamp_hour} == ${myhour} } {
 	       set start_time ${myStartTime}
 	    }
 	 }
       }
    }
 
-   # date value at grid x origin
-   set originDateTime [Overview_GraphGetXOriginDateTime]
-
    set myStartHour [Utils_getPaddedValue [Utils_getHourFromTime ${start_time}]]
-   set myx [Overview_getXCoordTime ${start_time}]
+   set myStartTimeX [Overview_getXCoordTime ${start_time}]
+   set myDatestampHourX [Overview_getXCoordTime ${datestamp_hour}:00]
 
-   # date value currently
-   set currentDateTime [clock seconds]
    set currentTimeX [Overview_getCurrentTimeX]
 
-   # date value at grid x end
-   set endDateTime [Overview_GraphGetXEndDateTime]
-
-   # date value at 00Z
-   set today00ZDateTime [Overview_GraphGetCurrentDayTime]
    set today00ZX [Overview_getZeroHourX]
 
-
    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
-   ::log::log debug "Overview_getScheduledDatestamp myx:$myx currentTimeX:$currentTimeX today00ZX:$today00ZX myStartHour:$myStartHour"
+   ::log::log debug "Overview_getScheduledDatestamp myDatestampHourX:$myDatestampHourX currentTimeX:$currentTimeX today00ZX:$today00ZX myStartHour:$myStartHour"
+
    set deltaDay 0
-   if { ${currentTimeX} >= ${today00ZX} && ${myx} < ${today00ZX} } {
-      ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp deltaDay -1"
 
-      # 00z is to the left of current time and my start time is prior to 00Z so need -24H
-      set deltaDay -1 
+   # if both start time and datestamp hour is passed the 00Z, then it's for tomorrow
+   if { ${myStartTimeX} >= ${today00ZX} && ${myDatestampHourX} > ${currentTimeX} && ${myDatestampHourX} >= ${today00ZX} } {
+      ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay +1"
+
+      set deltaDay 1
    }
 
-   # date value of current processed hour
-   if { ${myStartHour} == "00" } {
-      set myDateTime ${today00ZDateTime}
-   } else {
-      set myStartHour [string trimleft ${myStartHour} 0]
-      set myDateTime [clock add ${today00ZDateTime} ${myStartHour} hours ${deltaDay} day]
+   # this is to handle cases like capa-final or sfcfinal where the datestamp hour and the start time is on different day
+   # i.e. capafinal-23 actually starts at 6am the next day
+   if { ${datestamp_hour} > ${myStartHour} && ${currentTimeX} > ${myStartTimeX} } {
+      set deltaDay -1
    }
 
-   if { ${myDateTime} >= ${originDateTime} && ${myDateTime} < ${endDateTime} } {
-      # value is within visible grid
-      set datestamp [Utils_getDatestamp ${hour} ${deltaDay}]
-      ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp here"
-   } elseif { ${myDateTime} < ${originDateTime} } {
-      # add extra day to datestamp and check if visible
-      # shift to the right of the grid
-      set myDateTime [clock add ${myDateTime} 24 hours]
-      ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp add 24 hours"
-      if { ${myDateTime} >= ${originDateTime} && ${myDateTime} < ${endDateTime} } {
-         set datestamp [Utils_getDatestamp ${hour} 1]
-         ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp here 2"
-      }
-   }
+   set datestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}] 
+
    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
    return ${datestamp}
 }
@@ -2248,6 +2226,10 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
 
    if { ${datestamp} != "" && ! [string match "default*" ${datestamp}] } {
       append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]"
+   } else {
+      if { ${datestamp} != "default" } {
+      append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue [Overview_getScheduledDatestamp ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]] [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]"
+      }
    }
    if { ${refStartTime} != "" } {
       append tooltipText "\nref.begin: ${refStartTime}"
@@ -3091,7 +3073,7 @@ proc Overview_newMessageCallback { has_new_msg } {
          ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor}
       }
    }
-   Overview_toggleMessageIcons [Overview_getCanvas]
+   Overview_toggleMessageIcons [Overview_getGroupDisplayCanvas]
 }
 
 proc Overview_nodeDisplayCallback {} {
@@ -3717,6 +3699,6 @@ Overview_parseCmdOptions
 # source $env(SEQ_XFLOW_BIN)/../lib/ClockWrapper.tcl
 # package require ClockWrapper
 # interp alias {} ::clock {} ::ClockWrapper
-# ::ClockWrapper::setDelta "7 hour"
+# ::ClockWrapper::setDelta "4 hour"
 # ::ClockWrapper::setDelta "-5 hour"
 # ::ClockWrapper::setDelta "0 second"

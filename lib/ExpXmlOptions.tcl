@@ -19,7 +19,7 @@ package require tdom
 # idle_threshold : threshold value in minutes after which the application will
 #                        warn if the exp log file is still idle. 
 #                        This is an overwrite at the exp level.
-# submit_late_threshold : threshold value in minuets after which the application will warn
+# submit_late_threshold : threshold value in minutes after which the application will warn
 #                         if the exp run has still not been launched
 # parse the xml file and returns a doc
 proc ExpXmlOptions_parse { _xml_file } {
