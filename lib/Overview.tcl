@@ -3159,7 +3159,8 @@ proc Overview_createCanvas { _toplevelW } {
 
    set groupCanvasW [Overview_getGroupDisplayCanvas]
    set group_xScrollW [scrollbar ${groupCanvasFrame}.group_xscroll]
-   ::autoscroll::autoscroll ${group_xScrollW}
+   # autoscroll messes up the two canvas when scrolling to the end of the canvas... disable for now
+   # ::autoscroll::autoscroll ${group_xScrollW}
    canvas ${groupCanvasW} -relief flat -bd 0 -highlightthickness 0 -xscrollcommand [list ${group_xScrollW} set]
    ${group_xScrollW} configure -orient horizontal -command [list ${groupCanvasW} xview]
    grid ${groupCanvasW} -row 0 -column 0 -sticky nsew
@@ -3188,7 +3189,7 @@ proc Overview_createCanvas { _toplevelW } {
 
    # only show the scrollbars if required
    ::autoscroll::autoscroll ${yScrollW}
-   ::autoscroll::autoscroll ${xScrollW}
+   # ::autoscroll::autoscroll ${xScrollW}
 
    canvas ${canvasW} -relief flat -bd 0 -bg [SharedData_getColor CANVAS_COLOR]  -highlightthickness 0 \
       -yscrollcommand [list ${yScrollW} set] -xscrollcommand [list ${xScrollW} set]
