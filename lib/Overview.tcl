@@ -2048,7 +2048,10 @@ proc Overview_checkGridLimit {} {
 proc Overview_redrawGrid {} {
    global expEntryHeight graphy defaultGraphY
    set canvasW [Overview_getCanvas]
+   set groupCanvasW [Overview_getGroupDisplayCanvas]
    ${canvasW} delete grid_item
+   ${groupCanvasW} delete grid_item
+
    Overview_createGraph
    ${canvasW} lower grid_item
    ${canvasW} lower canvas_bg_image
@@ -2206,7 +2209,8 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
    ::log::log debug "Overview_setExpTooltip exp_path:${exp_path} datestamp:${datestamp}"
    # puts "Overview_setExpTooltip exp_path:${exp_path} datestamp:${datestamp}"
 
-   set expName [file tail ${exp_path}]
+   # set expName [file tail ${exp_path}]
+   set expName [SharedData_getExpShortName ${exp_path}]
    if { [string match "default*" ${datestamp}] } {
       set currentStatus default
       set currentStatusTime ""
@@ -3252,14 +3256,18 @@ proc Overview_mouseWheelCheck {} {
    if { ${yviewLow} == "0.0" } {
       # reached the lower limit don't allow scrolling
       bind ${canvasW} <4> ""
+      bind ${groupCanvasW} <4> ""
    } else {
       bind ${canvasW} <4> [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW} scroll -5 units]
+      bind ${groupCanvasW} <4> [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW} scroll -5 units]
    }
    if { ${yviewHigh} == "1.0" } {
       # reached the upper limit don't allow scrolling
       bind ${canvasW} <5> ""
+      bind ${groupCanvasW} <5> ""
    } else {
       bind ${canvasW} <5> [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW} scroll +5 units]
+      bind ${groupCanvasW} <5> [list Overview_yScrollCommandCallback ${canvasW} ${groupCanvasW} scroll +5 units]
    }
 }
 
