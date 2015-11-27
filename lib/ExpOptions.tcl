@@ -151,6 +151,7 @@ proc ExpOptions_read { _exp_path } {
 
       set scheduleType [ExpXmlOptions_getScheduleInfoType ${domDoc} ${_exp_path}]
       set scheduleValue [ExpXmlOptions_getScheduleInfoValue ${domDoc} ${_exp_path}]
+      set isDailyDatestamp [ExpXmlOptions_getDatestampInfoDaily ${domDoc} ${_exp_path}]
 
       # close xml doc
       ExpXmlOptions_done ${domDoc}
@@ -167,11 +168,13 @@ proc ExpOptions_read { _exp_path } {
       SharedData_setExpSubmitLateThreshold ${_exp_path} ${submitLateThresholdValue}
       SharedData_setExpScheduleType ${_exp_path} ${scheduleType}
       SharedData_setExpScheduleValue ${_exp_path} ${scheduleValue}
+      SharedData_setExpIsDailyDatestamp ${_exp_path} ${isDailyDatestamp}
    } else {
       SharedData_setExpDisplayName ${_exp_path} [file tail ${_exp_path}]
       SharedData_setExpShortName ${_exp_path} [file tail ${_exp_path}]
       SharedData_setExpScheduleType ${_exp_path} "DAY_OF_WEEK"
       SharedData_setExpScheduleValue ${_exp_path} "0 1 2 3 4 5 6"
+      SharedData_setExpIsDailyDatestamp ${_exp_path} true
    }
 }
 

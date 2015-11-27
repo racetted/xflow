@@ -361,6 +361,15 @@ proc SharedData_getExpScheduleValue { _exp_path } {
    return ${info}
 }
 
+proc SharedData_setExpIsDailyDatestamp { _exp_path _isDaily } {
+   SharedData_setExpData ${_exp_path} daily_datestamp ${_isDaily}
+}
+
+proc SharedData_getExpIsDailyDatestamp { _exp_path } {
+   set info [SharedData_getExpData ${_exp_path} daily_datestamp]
+   return ${info}
+}
+
 # true | false
 proc SharedData_setExpModules { _exp_path _datestamp _modules } {
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} modules ${_modules}

@@ -2,6 +2,7 @@ package require tdom
 # sample ExpOptions.xml file
 #
 #<ExpOptions displayName="HRDPS/West/forecast" shortName="hrdps">
+#   <DatestampInfo daily="false"/>
 #   <ScheduleInfo sched_type="day_of_week" sched_value="0 1 2 3 4 5 6" />
 #   <MonitorInfo auto_launch="false" check_idle="false" idle_threshold="60" submit_late_threshold="15" show_exp="false"/>
 #   <SupportInfo executing="Yes" status="All Full Support"/>
@@ -219,6 +220,21 @@ proc ExpXmlOptions_getScheduleInfoValue { _dom_doc _exp_path } {
    if { ${scheduleInfoNode} != "" } {
       set value [${scheduleInfoNode} getAttribute sched_value]
    }
+   return ${value}
+}
+
+# does the exp uses daily datestamps or others like reforecast (historical datestamps)
+# or reforecast_stats (future datestamps)
+# default is daily datestamp = true
+proc ExpXmlOptions_getDatestampInfoDaily { _dom_doc _exp_path } {
+   set value true
+   set root [${_dom_doc} documentElement root]
+   set query "/ExpOptions/DatestampInfo"
+   set datestampInfoNode [${root} selectNodes ${query}]
+   if { ${datestampInfoNode} != "" } {
+      set value [${datestampInfoNode} getAttribute daily true]
+   }
+   # puts "ExpXmlOptions_getDatestampInfoDaily value:$value"
    return ${value}
 }
 

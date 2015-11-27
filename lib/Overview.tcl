@@ -1341,7 +1341,9 @@ proc Overview_removeExpBox { canvas exp_path datestamp status } {
       # delete the default box only if the datestamp matches the one that should be launched
       # for instance if I resubmit a run from yesterday's datestamp, the default one for today
       # should be untouched
-      if { ${datestamp} == ${schedDatestamp} } {
+      # The default box is also deleted if the exp does not use daily datestamp i.e. for exps
+      # like geps reforecast & reforecast_stat
+      if { ${datestamp} == ${schedDatestamp} || [SharedData_getExpIsDailyDatestamp ${exp_path}] == false } {
          # try delete default_${hour} tag
          set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
          # puts "Overview_removeExpBox deleting ${expDefaultTag}"
