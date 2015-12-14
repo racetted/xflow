@@ -31,6 +31,10 @@ show_info_type = true
 # supported values normal | catchup | cpu | machine_queue | memory | mpi | wallclock
 # node_display_pref = machine_queue
 node_display_pref = normal
+# User can configure his Progress node  
+# possible values can be in ExpOptions.xml 
+#<TimingProgres ref_orange="00:10:00" ref_rouge="00:15:00"/>
+timings_progress = normal
 
 # text viewer: viewer to be used for listings, node config, node batch, etc
 # possible values can be default|vi|emacs|kate or others but non tested
@@ -40,6 +44,7 @@ text_viewer= default
 #text_viewer= vi
 #text_viewer= emacs --no-windows
 #text_viewer= kate -u -s maestro_kate_session
+
 
 # default_console: console to be used to display text files
 # supported: konsole (default) | xterm | etc
