@@ -1062,6 +1062,8 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
 
       $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
       $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+      $canvas bind $middleBoxId <Button-1> [list Overview_addMsgcenterWidget ${exp_path} ${datestamp}]
+      $canvas bind ${expBoxTag}.text <Button-1> [list Overview_addMsgcenterWidget ${exp_path} ${datestamp}]
    }
 
 }
@@ -2257,7 +2259,22 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
          }
       }
    }
-
+   set Abort  [OverviewExpMsgCenter_getInfo ${exp_path} abort ${datestamp}]
+   if { ${Abort} != "" } {
+      append tooltipText "\nAbort: ${Abort}"
+   }
+   set Event  [OverviewExpMsgCenter_getInfo ${exp_path} event ${datestamp}]
+   if { ${Event} != "" } {
+      append tooltipText "\nEvent: ${Event}"
+   }
+   set Info   [OverviewExpMsgCenter_getInfo ${exp_path} info ${datestamp}]
+   if { ${Info} != "" } {
+      append tooltipText "\nInfo: ${Info}"
+   }
+   set Sysinfo  [OverviewExpMsgCenter_getInfo ${exp_path} sysinfo ${datestamp}]
+   if { ${Sysinfo} != "" } {
+      append tooltipText "\nSysinfo: ${Sysinfo}"
+   }
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
    ::log::log debug "Overview_setExpTooltip exp_path:${exp_path} datestamp:${datestamp} currentStatus:${currentStatus} currentStatusTime:${currentStatusTime} expBoxTag:${expBoxTag}"
 
@@ -3006,12 +3023,22 @@ proc Overview_showToolbarCallback {} {
    set topOverview [Overview_getToplevel]
    set topFrame ${topOverview}.topframe
    set toolbarW ${topOverview}.toolbar
+   set msgbarW  ${topOverview}.msgbar
+   set msgFrame  ${topOverview}.msg_frame
    if { ${SHOW_TOOLBAR} == true } {
        grid ${topFrame} -row 0 -column 1 -sticky nsew -padx 2
-       grid ${toolbarW} -row 1 -column 1 -sticky w -padx 2 
+       grid ${toolbarW} -row 1 -column 1 -sticky w -padx 2
+       grid ${msgbarW} -row 1 -column 3 -sticky w -padx 2
+       if { [winfo exists $msgFrame] } { 
+         grid ${msgFrame}  -row 1 -column 2 -sticky nsew -padx 2
+       } 
    } else {
       grid forget ${topFrame}
       grid forget ${toolbarW}
+      grid forget ${msgbarW}
+      if { [winfo exists $msgFrame] } { 
+        grid forget ${msgFrame}
+      }
    }
    Overview_toggleMessageIcons [Overview_getGroupDisplayCanvas]
 }
@@ -3091,7 +3118,141 @@ proc Overview_flowScaleCallback {} {
    global FLOW_SCALE
    SharedData_setMiscData FLOW_SCALE ${FLOW_SCALE}
 }
+# this function creates the widgets that allows
+# the user to set/query the current datestamp
+proc Overview_addMsgcenterWidget { exp_path datestamp} {
+   global SHOW_TOOLBAR
 
+   set Abort  [OverviewExpMsgCenter_getInfo ${exp_path} abort ${datestamp}]
+   set color  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+   set topOverview [Overview_getToplevel]
+   set msgFrame ${topOverview}.msg_frame
+   set labelFrame ${msgFrame}.msg_frame_label
+   if { [winfo exists $msgFrame] } { 
+     destroy $msgFrame
+   } 
+   set expName [file tail ${exp_path}]
+   labelframe ${msgFrame} -text "${expName} Message Center"
+   tooltip::tooltip ${msgFrame} "Current Info Message Center"
+   frame ${labelFrame}
+   if { ${Abort} != "" } {
+      set labeltext  "Abort: ${Abort}"
+      set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext} -bg $color -fg white]
+   } else {
+      set labeltext  "Abort: 0"
+      set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext}]
+   }
+   set Event  [OverviewExpMsgCenter_getInfo ${exp_path} event ${datestamp}]
+   if { ${Event} != "" } {
+      set labeltext " Event: ${Event}"
+      set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext} -bg $color -fg white]
+   } else {
+      set labeltext " Event: 0"
+      set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext}]
+   }
+   set Info   [OverviewExpMsgCenter_getInfo ${exp_path} info ${datestamp}]
+   if { ${Info} != "" } {
+      set labeltext " Info: ${Info}"
+      set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext} -bg $color -fg white]
+   } else {
+      set labeltext " Info: 0"
+      set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext}]
+   }
+   set Sysinfo  [OverviewExpMsgCenter_getInfo ${exp_path} sysinfo ${datestamp}]
+   if { ${Sysinfo} != "" } {
+      set labeltext  " Sysinfo: ${Sysinfo}"
+      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext} -bg $color -fg white]
+   } else {
+      set labeltext " Sysinfo: 0"
+      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext}]
+   }
+   eval grid $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
+   grid ${labelFrame} -row 0 -column 0 -sticky ew
+   grid ${msgFrame}  -row 1 -column 2 -sticky nsew -padx 2
+   if { ${SHOW_TOOLBAR} == false } {
+     grid forget ${msgFrame}
+   }
+}
+proc Overview_createMsgCenterbar { _toplevelW } {
+   variable infoText
+
+   set nb_all     [OverviewExpMsgCenter_getactiveInfo all]
+   set nb_abort   [OverviewExpMsgCenter_getactiveInfo abort]
+   set nb_event   [OverviewExpMsgCenter_getactiveInfo event]
+   set nb_info    [OverviewExpMsgCenter_getactiveInfo info]   
+   set nb_sysinfo [OverviewExpMsgCenter_getactiveInfo sysinfo]
+   set tt_all     [OverviewExpMsgCenter_gettotalInfo all]
+   set tt_abort   [OverviewExpMsgCenter_gettotalInfo abort]
+   set tt_event   [OverviewExpMsgCenter_gettotalInfo event]
+   set tt_info    [OverviewExpMsgCenter_gettotalInfo info]   
+   set tt_sysinfo [OverviewExpMsgCenter_gettotalInfo sysinfo]
+   set color      [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+   # create the frame to hold the core icons and plugin icons
+   set msgbarFrame ${_toplevelW}.msgbar
+   # core icons is childe of main toolbar frame
+   set labelFrame ${msgbarFrame}.msgbar_frame_label
+
+   if { [winfo exists $msgbarFrame] } { 
+      destroy $msgbarFrame
+   } 
+   labelframe ${msgbarFrame} -text "Message Center Overview"
+   # create frame main toolbar
+   frame ${labelFrame} -bd 1
+
+   if { ${nb_all} != "0" && ${tt_all} != "0"} {
+      set infoText "All : $nb_all/($tt_all) "
+      set label_totalW [label ${labelFrame}.total -justify center -text ${infoText} -bg $color -fg white]
+   } elseif { ${nb_all} == "0" && ${tt_all} != "0"} {
+      set infoText "All : 0/($tt_all) "
+      set label_totalW [label ${labelFrame}.total -justify center -text ${infoText}]
+   } else {
+      set infoText "All : 0 "
+      set label_totalW [label ${labelFrame}.total -justify center -text ${infoText}]
+   }
+   if { ${nb_abort} != "0" && ${tt_abort} != "0"} {
+      set infoText " Abort : ${nb_abort}/($tt_abort) "
+      set label_abortW [label ${labelFrame}.abort -justify center -text ${infoText} -bg $color -fg white]
+   } elseif { ${nb_abort} == "0" && ${tt_abort} != "0"} {
+      set infoText " Abort : 0/($tt_abort) "
+      set label_abortW [label ${labelFrame}.abort -justify center -text ${infoText}]
+   } else {
+      set infoText " Abort : 0 "
+      set label_abortW [label ${labelFrame}.abort -justify center -text ${infoText}]
+   }
+   if { ${nb_event} != "0" && ${tt_event} != "0"} {
+      set infoText " Event : ${nb_event}/($tt_event) "
+      set label_eventW [label ${labelFrame}.event -justify center -text ${infoText} -bg $color -fg white]
+   } elseif { ${nb_event} == "0" && ${tt_event} != "0"} {
+      set infoText " Event : 0/($tt_event) "
+      set label_eventW [label ${labelFrame}.event -justify center -text ${infoText}]
+   } else {
+      set infoText " Event : 0 "
+      set label_eventW [label ${labelFrame}.event -justify center -text ${infoText}]
+   }
+   if { ${nb_info} != "0" && ${tt_info} != "0"} {
+      set infoText " Info : ${nb_info}/($tt_info) "
+      set label_infoW [label ${labelFrame}.info -justify center -text ${infoText} -bg $color -fg white]
+   } elseif { ${nb_info} == "0" && ${tt_info} != "0"} {
+      set infoText " Info : 0/($tt_info) "
+      set label_infoW [label ${labelFrame}.info -justify center -text ${infoText}]
+   } else {
+      set infoText " Info : 0 "
+      set label_infoW [label ${labelFrame}.info -justify center -text ${infoText}]
+   }
+   if { ${nb_sysinfo} != "0" && ${tt_sysinfo} != "0"} {
+      set infoText " Sysinfo : $nb_sysinfo/($tt_sysinfo)"
+      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${infoText} -bg $color -fg white]
+   } elseif { ${nb_all} == "0" && ${tt_sysinfo} != "0"} {
+      set infoText " Sysinfo : 0/($tt_sysinfo) "
+      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${infoText}]
+   } else {
+      set infoText " Sysinfo : 0 "
+      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${infoText}]
+   }
+   eval grid ${label_totalW} ${label_abortW} ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
+   grid ${labelFrame} -row 0 -column 0 -sticky ew
+   grid ${msgbarFrame} -row 1 -column 3 -sticky nsew -padx 2
+}
 proc Overview_createToolbar { _toplevelW } {
    # create the frame to hold the core icons and plugin icons
    set mainToolbarW ${_toplevelW}.toolbar
@@ -3209,7 +3370,7 @@ proc Overview_createCanvas { _toplevelW } {
    grid columnconfigure ${canvasFrame} 0 -weight 1
    # grid columnconfigure ${canvasFrame} 0 -weight 1
 
-   grid ${canvasPanedW} -row 2 -column 1 -sticky nsew -rowspan 2
+   grid ${canvasPanedW} -row 2 -column 1 -sticky nsew -rowspan 2 -columnspan 4
    
    bind ${canvasPanedW} <ButtonRelease-1> [list Overview_PaneHandleEvent %W %x %y]
 }

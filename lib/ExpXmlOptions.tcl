@@ -78,7 +78,24 @@ proc ExpXmlOptions_getSupport { _dom_doc _exp_path _exp_name { _exp_hour "" } } 
    }
    return ${results}
 }
+proc ExpXmlOptions_getRefTimings_Progress { _dom_doc } {
 
+   # point to the root element
+   set root [${_dom_doc} documentElement root]
+
+   # retrieve the Exp elements
+   # if exp_name is set, we filter it
+   # if not set get all exps from the document
+   set query "/ExpOptions/TimingProgres"
+   set timingInfoNodes [${root} selectNodes ${query}]
+   set results {}
+   foreach timingInfoNode ${timingInfoNodes} {
+      set ref_orange [${timingInfoNode} getAttribute ref_orange]
+      set ref_rouge  [${timingInfoNode} getAttribute ref_rouge]
+      lappend results [list ${ref_orange} ${ref_rouge}]
+   }
+   return ${results}
+}
 proc ExpXmlOptions_getRefTimings { _dom_doc } {
 
    # point to the root element

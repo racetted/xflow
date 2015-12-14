@@ -532,9 +532,19 @@ proc MsgCenter_setHeaderStatus { table_w_ status_ } {
       }
    }
 }
+proc Msg_IncrArrayElement {var key key2 key3 {incr 1}} {
+    upvar $var a 
+    if {[info exists a(${key}_${key2}_${key3})]} {
+        incr a(${key}_${key2}_${key3}) $incr
+    } else {
+        set a(${key}_${key2}_${key3}) $incr
+    } 
+}
 proc MsgCenter_ModifText  {} {
    global MSG_COUNTER MSG_TABLE
-   
+   global msg_info_List msg_tt_list
+   global msg_active_List 
+
    set notebookW [MsgCenter_getNoteBookWidget]
    set counter    0
    array set ll_nb {
@@ -544,9 +554,19 @@ proc MsgCenter_ModifText  {} {
        info    0
        sysinfo 0
    }
-   
+   array set l_total {
+       all     0
+       abort   0
+       event   0
+       info    0
+       sysinfo 0
+   }
+   array set List_Msg_text {}
    while { ${counter} < ${MSG_COUNTER} } {
       foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
+      Msg_IncrArrayElement List_Msg_text $exp $type $datestamp
+      incr l_total($type)
+      incr l_total(all)
       if {!$isMsgack} {
         incr ll_nb($type)
         incr ll_nb(all)
@@ -558,7 +578,13 @@ proc MsgCenter_ModifText  {} {
       set Txt    [string tolower $label]
       set txt    [list $label "($ll_nb($Txt))"]
       $notebookW tab $tab -text ${txt}
-   }    
+   }
+   array set msg_info_List   [array get List_Msg_text]
+   array set msg_active_List [array get ll_nb]
+   array set msg_tt_list     [array get l_total]
+
+   set topOverview [Overview_getToplevel]
+   Overview_createMsgCenterbar ${topOverview}
 }
 
 #
@@ -783,7 +809,7 @@ proc Ack_MsgCenter_List {} {
   global MSG_TABLE MSG_COUNTER LOG_ACTIVATION_IDS
   
   array set NB_ACTIVE_ELM { 
-         all     0
+         all     1
          abort   0
          event   0
          info    0
@@ -798,19 +824,22 @@ proc Ack_MsgCenter_List {} {
       set MSG_TABLE [lreplace ${MSG_TABLE} ${counter} ${counter} [lreplace [lindex ${MSG_TABLE} ${counter}] end end 1]]
       if { !$NB_ACTIVE_ELM($type)} {
          set NB_ACTIVE_ELM(${type}) 1
-         set NB_ACTIVE_ELM(all) 1
       }
-    } 
+    } elseif { ${isMsgack} == "0" && [lindex ${label} 0] != ${type}} {
+        set NB_ACTIVE_ELM(all) 0
+    }
     incr counter
   } 
   foreach elm [array names NB_ACTIVE_ELM] {
-     switch ${elm} {
-        all     { $BGAll     put gray55 -to 0 0 16 16}
-        abort   { $BGAbort   put gray55 -to 0 0 16 16}
-        event   { $BGEvent   put gray55 -to 0 0 16 16} 
-        info    { $BGInfo    put gray55 -to 0 0 16 16}
-        sysinfo { $BGSysinfo put gray55 -to 0 0 16 16}
-     }  
+     if { $NB_ACTIVE_ELM($elm)} {
+       switch ${elm} {
+         all     { $BGAll     put gray55 -to 0 0 16 16}
+         abort   { $BGAbort   put gray55 -to 0 0 16 16}
+         event   { $BGEvent   put gray55 -to 0 0 16 16} 
+         info    { $BGInfo    put gray55 -to 0 0 16 16}
+         sysinfo { $BGSysinfo put gray55 -to 0 0 16 16}
+       }  
+     }
      if { [info exists LOG_ACTIVATION_IDS(${elm})] } {
        Msg_Center_SetImgTab ${elm} Active $LOG_ACTIVATION_IDS(${elm})
      } 

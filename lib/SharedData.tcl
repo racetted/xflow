@@ -220,7 +220,14 @@ proc SharedData_getExpTimings { _exp_path } {
    set timings [SharedData_getExpData ${_exp_path} ref_timings]
    return ${timings}
 }
+proc SharedData_setExpTimings_Progress { _exp_path _timings } {
+   SharedData_setExpData ${_exp_path} ref_timings_progres ${_timings}
+}
 
+proc SharedData_getExpTimings_Progress { _exp_path } {
+   set timings_progress [SharedData_getExpData ${_exp_path} ref_timings_progres]
+   return ${timings_progress}
+}
 proc SharedData_setExpHeartbeat { _exp_path _datestamp _threadId _timeSeconds _offset } {
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} heartbeat "${_threadId} ${_timeSeconds} ${_offset}"
 }

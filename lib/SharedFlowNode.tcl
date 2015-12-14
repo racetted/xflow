@@ -1072,14 +1072,37 @@ proc SharedFlowNode_getRelativeProgress { exp_path node datestamp member } {
    set avgProgress [SharedFlowNode_getMiscAvgTime $exp_path $node $datestamp $member deltafromstart]
 
    if { $progress != "" && $avgProgress != "" } {
+      set refTimings_progress [SharedData_getExpTimings_Progress ${exp_path}]
+      set tim_progres "CALCUL" 
+      if { ${refTimings_progress} == "" } {
+         set tim_progres [SharedData_getMiscData TIMINGS_PROGRESS]
+       } else {
+         foreach refprogress ${refTimings_progress} {
+           foreach { ref_orange ref_rouge } ${refprogress} {
+              set ref_org [Utils_getMinuteFromTime $ref_orange]
+              set ref_rge [Utils_getMinuteFromTime $ref_rouge]  
+           }
+         }
+      }
       if { [clock scan ${progress} -format ${timeDisplayFormat}] > [clock scan ${avgProgress} -format ${timeDisplayFormat}] } {
          set relativeProgressString [expr [clock scan ${progress} -format ${timeDisplayFormat}] -  [clock scan ${avgProgress} -format ${timeDisplayFormat}] ]
-         set relativeProgress +[clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]
+         set tm_minute [Utils_getMinuteFromTime [clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]]
+         switch ${tim_progres} {
+                normal  {set relativeProgress [list +${tm_minute} "min" "normal"]}
+                default {if { ${tm_minute} >= ${ref_org} && ${tm_minute} < ${ref_rge}} {
+                           set relativeProgress [list +${tm_minute} "min" "orange"]
+                         } elseif { ${tm_minute} >= ${ref_rge}} {
+                           set relativeProgress [list +${tm_minute} "min" "red"]
+                         } else {
+                           set relativeProgress [list +${tm_minute} "min" "normal"]
+                         }
+                        }
+         }
       } elseif { [clock scan ${progress} -format ${timeDisplayFormat}] < [clock scan ${avgProgress} -format ${timeDisplayFormat}] } {
          set relativeProgressString [expr [clock scan ${avgProgress} -format ${timeDisplayFormat}] - [clock scan ${progress} -format ${timeDisplayFormat}] ]
-         set relativeProgress -[clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]
+         set relativeProgress [list -[Utils_getMinuteFromTime [clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]] "min" "normal"] 
       } else {
-         set relativeProgress "00:00:00"
+         set relativeProgress [list [Utils_getMinuteFromTime "00:00:00"] "min" "normal"]
       }
    }
    return $relativeProgress

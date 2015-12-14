@@ -224,7 +224,36 @@ proc ::DrawUtils::drawFamily { node canvas } {
    }
 }
 }
+proc DrawUtils::drawTextBox { exp_path canvas tx1 ty1 text  textfill binder } {
+  set l_txt [split $text "\n"]
+  set size   6
+  set color  "normal"
+  set i      0
+  set ok     false
 
+  while {$i < [llength $l_txt] && $ok == "false"} {
+     if {[string match *min* [lindex $l_txt $i]]} {
+        set color [lindex [lindex $l_txt $i] 2] 
+        set rpy [expr {$ty1 + $size * $i }]
+        set ok  true
+     }
+     incr i
+  }
+  if {[lsearch -exact $text ${color}] != "-1"} {
+    switch ${color} {
+          normal {set text [string map {normal ""} ${text}]}
+          orange {set text [string map {orange ""} ${text}]}
+          red    {set text [string map {red ""}    ${text}]}
+    }
+  }
+  
+  $canvas create text ${tx1} ${ty1} -text $text -fill $textfill \
+          -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
+  if {$color != "normal"} {  
+     $canvas create rectangle [expr {${tx1}-2}] [expr {$rpy-2}] [expr {$tx1 + $size}] [expr {$rpy + $size}] -fill $color \
+            -outline black -tags "flow_element $binder ${binder}.rect"
+   }
+}
 proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill outline fill binder drawshadow shadowColor} {
    global FLOW_SCALE_${exp_path}_${datestamp}
    set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
@@ -234,8 +263,36 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    }
 
    set newtx1 [expr ${tx1} + 30/${flowScale}]
+    set newty1 [expr ${ty1} - 5]
+  # $canvas delete ${binder}.rect
+   set l_txt [split $text "\n"]
+   set size   6
+   set color  "normal" 
+   set i      0
+   set ok     false
+
+   while {$i < [llength $l_txt] && $ok == "false"} {
+      if {[string match *min* [lindex $l_txt $i]]} {
+         set color [lindex [lindex $l_txt $i] 2] 
+         set rpy   [expr {$newty1 + $i}]
+         set ok    true
+      }
+      incr i
+   }
+   if {[lsearch -exact $text ${color}] != "-1"} {
+       switch ${color} {
+          normal {set text [string map {normal ""} ${text}]}
+          orange {set text [string map {orange ""} ${text}]}
+          red    {set text [string map {red ""}    ${text}]}
+       }
+   } 
+  
    $canvas create text ${newtx1} ${ty1} -text $text -fill $textfill \
       -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
+   if {$color != "normal"} {  
+      $canvas create rectangle [expr {${newtx1}-2}] [expr {$rpy-2}] [expr {$newtx1 + $size}] [expr {$rpy + $size}] -fill $color \
+              -outline black -tags "flow_element $binder ${binder}.rect"
+   }
 
    #    
    #
@@ -333,11 +390,36 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
 
    set newtx1 [expr ${tx1} + 10]
    set newty1 $ty1
+   set newrpy [expr ${ty1} - 5]
+   set l_txt  [split $maxtext "\n"]
+   set size   6
+   set color  "normal"
+   set i      0
+   set ok     false
+
+   while {$i < [llength $l_txt] && $ok == "false"} {
+     if {[string match *min* [lindex $l_txt $i]]} {
+       set color [lindex [lindex $l_txt $i] 2] 
+       set rpy   [expr {$newrpy + $i }]
+       set ok    true 
+     }
+     incr i
+   }
+   if {[lsearch -exact $maxtext ${color}] != "-1"} {
+       switch ${color} {
+          normal {set maxtext [string map {normal ""} ${maxtext}]}
+          orange {set maxtext [string map {orange ""} ${maxtext}]}
+          red    {set maxtext [string map {red ""}    ${maxtext}]}
+       }
+   } 
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
       -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
-
+   if {$color != "normal"} {  
+      $canvas create rectangle [expr {${newtx1}-2}] [expr {$rpy-2}] [expr {$newtx1 + $size}] [expr {$rpy + $size}] -fill $color \
+             -outline black -tags "flow_element $binder ${binder}.rect"
+   }
    set boxArea [$canvas bbox ${binder}.text]
-   $canvas itemconfigure ${binder}.text -text $txt
+   #$canvas itemconfigure ${binder}.text -text $txt
 
    set ovalSize [SharedData_getMiscData LOOP_OVAL_SIZE]
    set nx1 [expr [lindex $boxArea 0] - ${ovalSize}]
@@ -613,8 +695,7 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
    } else {
       set text /$maxtext
    }
-   $canvas create text ${tx1} ${ty1} -text ${text} -fill $textfill \
-      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
+   DrawUtils::drawTextBox  ${exp_path} ${canvas} ${tx1} ${ty1} ${text}  ${textfill} ${binder}
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
@@ -662,9 +743,7 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
       set pady 5
       set text /$maxtext
    }
-
-   $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
-      -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
+   DrawUtils::drawTextBox  ${exp_path} ${canvas} ${tx1} ${ty1} ${maxtext}  ${textfill} ${binder}
 
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
@@ -700,14 +779,13 @@ proc ::DrawUtils::drawBox { exp_path datestamp canvas tx1 ty1 text maxtext textf
 }
 
 proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
-   $canvas create text ${tx1} ${ty1} -text $maxtext -fill $textfill \
-      -justify center -font [::DrawUtils::getBoxLabelFont ${canvas}] -anchor w -tags "flow_element $binder ${binder}.text"
+   
+   DrawUtils::drawTextBox  ${exp_path} ${canvas} ${tx1} ${ty1} ${maxtext}  ${textfill} ${binder}
+ 
    set shadowOffset [SharedData_getMiscData CANVAS_SHADOW_OFFSET]
    # draw a box around the text
    set boxArea [$canvas bbox ${binder}.text]
    set radius 45
-
-   $canvas itemconfigure ${binder}.text -text $text
 
    set nx1 [expr [lindex $boxArea 0] -5]
    set ny1 [expr [lindex $boxArea 1] -5]
