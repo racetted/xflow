@@ -3133,7 +3133,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    } 
    set expName [file tail ${exp_path}]
    labelframe ${msgFrame} -text "${expName} Message Center"
-   tooltip::tooltip ${msgFrame} "Current Info Message Center"
+   tooltip::tooltip ${msgFrame} "${expName} Current Info Message Center"
    frame ${labelFrame}
    if { ${Abort} != "" } {
       set labeltext  "Abort: ${Abort}"

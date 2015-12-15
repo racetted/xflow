@@ -584,7 +584,9 @@ proc MsgCenter_ModifText  {} {
    array set msg_tt_list     [array get l_total]
 
    set topOverview [Overview_getToplevel]
-   Overview_createMsgCenterbar ${topOverview}
+   if { [winfo exists $topOverview] } { 
+     Overview_createMsgCenterbar ${topOverview}
+   }
 }
 
 #
