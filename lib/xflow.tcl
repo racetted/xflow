@@ -3795,7 +3795,7 @@ proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height } {
    # if standalone mode and not original exp don't add  bg
    if [ catch {
       if { (${isOverviewMode} == true && [SharedData_getExpGroupDisplay ${_exp_path}] == "") ||
-           (${isOverviewMode} == false && ([exec true_path $_exp_path] != $env(SEQ_EXP_HOME))) } {
+           (${isOverviewMode} == false && (${_exp_path} != $env(SEQ_EXP_HOME))) } {
 	   set addImg false
       }
    } message ] {
@@ -4080,18 +4080,19 @@ proc xflow_validateExp { startup_exp } {
    }
 
    set entryModTruePath ""
-   set expPath [file normalize ${myExp}]
-   catch { set entryModTruePath [ exec true_path ${expPath}/EntryModule ] }
+   # set expPath [file normalize ${myExp}]
+   catch { set entryModTruePath [ exec true_path ${myExp}/EntryModule ] }
    if { ${entryModTruePath} == "" } {
-      Utils_fatalError . "Startup Error" "Cannot access ${expPath}/EntryModule. Exiting..."
+      Utils_fatalError . "Startup Error" "Cannot access ${myExp}/EntryModule. Exiting..."
    }
 
-   set expPath [exec true_path ${expPath}]
-   if { $XFLOW_STANDALONE == 1 } {
-      set env(SEQ_EXP_HOME) ${expPath}
-   }
+   # set expPath [exec true_path ${expPath}]
+   # if { $XFLOW_STANDALONE == 1 } {
+   #    set env(SEQ_EXP_HOME) ${expPath}
+   # }
 
-   return ${expPath}
+   # return ${expPath}
+   return ${myExp}
 }
 
 # this function is called to create the widgets of the xflow main window
