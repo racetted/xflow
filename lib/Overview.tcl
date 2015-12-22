@@ -2259,19 +2259,19 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
          }
       }
    }
-   set Abort  [OverviewExpMsgCenter_getInfo ${exp_path} abort ${datestamp}]
+   set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
    if { ${Abort} != "" } {
       append tooltipText "\nAbort: ${Abort}"
    }
-   set Event  [OverviewExpMsgCenter_getInfo ${exp_path} event ${datestamp}]
+   set Event  [Utils_getMsgCenter_Info ${exp_path} event ${datestamp}]
    if { ${Event} != "" } {
       append tooltipText "\nEvent: ${Event}"
    }
-   set Info   [OverviewExpMsgCenter_getInfo ${exp_path} info ${datestamp}]
+   set Info   [Utils_getMsgCenter_Info ${exp_path} info ${datestamp}]
    if { ${Info} != "" } {
       append tooltipText "\nInfo: ${Info}"
    }
-   set Sysinfo  [OverviewExpMsgCenter_getInfo ${exp_path} sysinfo ${datestamp}]
+   set Sysinfo  [Utils_getMsgCenter_Info ${exp_path} sysinfo ${datestamp}]
    if { ${Sysinfo} != "" } {
       append tooltipText "\nSysinfo: ${Sysinfo}"
    }
@@ -3022,15 +3022,15 @@ proc Overview_showToolbarCallback {} {
 
    set topOverview [Overview_getToplevel]
    set topFrame ${topOverview}.topframe
-   set toolbarW ${topOverview}.toolbar
-   set msgbarW  ${topOverview}.msgbar
-   set msgFrame  ${topOverview}.msg_frame
+   set toolbarW ${topOverview}.toolbar.label
+   set msgbarW  ${topOverview}.toolbar.msgbar
+   set msgFrame  ${topOverview}.toolbar.msg_frame
    if { ${SHOW_TOOLBAR} == true } {
        grid ${topFrame} -row 0 -column 1 -sticky nsew -padx 2
-       grid ${toolbarW} -row 1 -column 1 -sticky w -padx 2
-       grid ${msgbarW} -row 1 -column 3 -sticky w -padx 2
+       grid ${toolbarW} -row 0 -column 0 -sticky ew -padx 2
+       grid ${msgbarW} -row 0 -column 2 -sticky ew -padx 2
        if { [winfo exists $msgFrame] } { 
-         grid ${msgFrame}  -row 1 -column 2 -sticky nsew -padx 2
+         grid ${msgFrame}  -row 0 -column 4 -sticky ew -padx 2
        } 
    } else {
       grid forget ${topFrame}
@@ -3093,9 +3093,9 @@ proc Overview_newMessageCallback { has_new_msg } {
 
    ::log::log debug "Overview_newMessageCallback has_new_msg:$has_new_msg"
    set OVERVIEW_HAS_NEW_MSG ${has_new_msg}
-   set msgCenterWidget .overview_top.toolbar.core.button_msgcenter
-   set noNewMsgImage .overview_top.toolbar.core.msg_center_img
-   set hasNewMsgImage .overview_top.toolbar.core.msg_center_new_img
+   set msgCenterWidget .overview_top.toolbar.label.core.button_msgcenter
+   set noNewMsgImage .overview_top.toolbar.label.core.msg_center_img
+   set hasNewMsgImage .overview_top.toolbar.label.core.msg_center_new_img
    set normalBgColor [option get ${msgCenterWidget} background Button]
    set newMsgBgColor  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    if { [winfo exists ${msgCenterWidget}] } {
@@ -3123,18 +3123,32 @@ proc Overview_flowScaleCallback {} {
 proc Overview_addMsgcenterWidget { exp_path datestamp} {
    global SHOW_TOOLBAR
 
-   set Abort  [OverviewExpMsgCenter_getInfo ${exp_path} abort ${datestamp}]
+   set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
    set color  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set topOverview [Overview_getToplevel]
-   set msgFrame ${topOverview}.msg_frame
+   set msgFrame ${topOverview}.toolbar.msg_frame
    set labelFrame ${msgFrame}.msg_frame_label
    if { [winfo exists $msgFrame] } { 
      destroy $msgFrame
    } 
-   set expName [file tail ${exp_path}]
-   labelframe ${msgFrame} -text "${expName} Message Center"
-   tooltip::tooltip ${msgFrame} "${expName} Current Info Message Center"
+   
+   set expName [SharedData_getExpShortName ${exp_path}]
+   set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
+   set labeltext "${expName}"
+   if { ${refStartTime} != "" } {
+      set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
+   }
+   labelframe ${msgFrame} -text "${labeltext} Message Center"
+   tooltip::tooltip ${msgFrame} "${labeltext} Current Info Message Center"
    frame ${labelFrame}
+
+   set labelCloseB ${labelFrame}.label_close_button
+   set labelCloseImg  ${labelFrame}.label_close_image]
+   set imageDir [SharedData_getMiscData IMAGE_DIR]
+   image create photo ${labelCloseImg} -file ${imageDir}/[xflow_getImageFile find_close_image_file]
+   Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list grid forget ${msgFrame}]
+   tooltip::tooltip ${labelCloseB} "Close Message Center Info"
+
    if { ${Abort} != "" } {
       set labeltext  "Abort: ${Abort}"
       set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext} -bg $color -fg white]
@@ -3142,7 +3156,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
       set labeltext  "Abort: 0"
       set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext}]
    }
-   set Event  [OverviewExpMsgCenter_getInfo ${exp_path} event ${datestamp}]
+   set Event  [Utils_getMsgCenter_Info ${exp_path} event ${datestamp}]
    if { ${Event} != "" } {
       set labeltext " Event: ${Event}"
       set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext} -bg $color -fg white]
@@ -3150,7 +3164,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
       set labeltext " Event: 0"
       set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext}]
    }
-   set Info   [OverviewExpMsgCenter_getInfo ${exp_path} info ${datestamp}]
+   set Info   [Utils_getMsgCenter_Info ${exp_path} info ${datestamp}]
    if { ${Info} != "" } {
       set labeltext " Info: ${Info}"
       set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext} -bg $color -fg white]
@@ -3158,7 +3172,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
       set labeltext " Info: 0"
       set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext}]
    }
-   set Sysinfo  [OverviewExpMsgCenter_getInfo ${exp_path} sysinfo ${datestamp}]
+   set Sysinfo  [Utils_getMsgCenter_Info ${exp_path} sysinfo ${datestamp}]
    if { ${Sysinfo} != "" } {
       set labeltext  " Sysinfo: ${Sysinfo}"
       set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext} -bg $color -fg white]
@@ -3166,14 +3180,15 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
       set labeltext " Sysinfo: 0"
       set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext}]
    }
-   eval grid $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
-   grid ${labelFrame} -row 0 -column 0 -sticky ew
-   grid ${msgFrame}  -row 1 -column 2 -sticky nsew -padx 2
+   eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky nsew -padx \[list 2 0\] 
+   grid ${labelFrame} -row 0 -column 0 -sticky nsew
+   grid ${msgFrame}  -row 0 -column 4 -sticky ew -padx 2
    if { ${SHOW_TOOLBAR} == false } {
      grid forget ${msgFrame}
    }
 }
 proc Overview_createMsgCenterbar { _toplevelW } {
+   global SHOW_TOOLBAR
    variable infoText
 
    set nb_all     [OverviewExpMsgCenter_getactiveInfo all]
@@ -3188,7 +3203,7 @@ proc Overview_createMsgCenterbar { _toplevelW } {
    set tt_sysinfo [OverviewExpMsgCenter_gettotalInfo sysinfo]
    set color      [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    # create the frame to hold the core icons and plugin icons
-   set msgbarFrame ${_toplevelW}.msgbar
+   set msgbarFrame ${_toplevelW}.toolbar.msgbar
    # core icons is childe of main toolbar frame
    set labelFrame ${msgbarFrame}.msgbar_frame_label
 
@@ -3249,13 +3264,19 @@ proc Overview_createMsgCenterbar { _toplevelW } {
       set infoText " Sysinfo : 0 "
       set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${infoText}]
    }
-   eval grid ${label_totalW} ${label_abortW} ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
-   grid ${labelFrame} -row 0 -column 0 -sticky ew
-   grid ${msgbarFrame} -row 1 -column 3 -sticky nsew -padx 2
+   eval grid ${label_totalW} ${label_abortW} ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky nsew -padx \[list 2 0\] 
+   grid ${labelFrame} -row 0 -column 0 -sticky nsew
+   grid ${msgbarFrame} -row 0 -column 2 -sticky ew -padx 2
+   if { ${SHOW_TOOLBAR} == false } {
+     grid forget ${msgbarFrame}
+   }
 }
 proc Overview_createToolbar { _toplevelW } {
+    # create the frame to hold the core icons and plugin icons
+   set ToolbarW ${_toplevelW}.toolbar
+   frame ${ToolbarW} -relief [SharedData_getMiscData MENU_RELIEF]
    # create the frame to hold the core icons and plugin icons
-   set mainToolbarW ${_toplevelW}.toolbar
+   set mainToolbarW ${ToolbarW}.label
    
    # core icons is childe of main toolbar frame
    set toolbarW ${mainToolbarW}.core
@@ -3309,10 +3330,10 @@ proc Overview_createToolbar { _toplevelW } {
 
    # core toolbar stis on column 0 
    grid ${toolbarW} -row 0 -column 0 -sticky ew
-
    # place the main toolbar frame on the grid
    # grid ${mainToolbarW} -row 1 -column 0 -sticky nsew -padx 2
-   grid ${mainToolbarW} -row 1 -column 1 -sticky ew -padx 2
+   grid ${mainToolbarW} -row 0 -column 0 -sticky nsew -padx 2
+   grid ${ToolbarW} -row 1 -column 1 -sticky nsew -padx 2
 }
 
 
@@ -3370,7 +3391,7 @@ proc Overview_createCanvas { _toplevelW } {
    grid columnconfigure ${canvasFrame} 0 -weight 1
    # grid columnconfigure ${canvasFrame} 0 -weight 1
 
-   grid ${canvasPanedW} -row 2 -column 1 -sticky nsew -rowspan 2 -columnspan 4
+   grid ${canvasPanedW} -row 2 -column 1 -sticky nsew -rowspan 2
    
    bind ${canvasPanedW} <ButtonRelease-1> [list Overview_PaneHandleEvent %W %x %y]
 }
@@ -3741,7 +3762,6 @@ proc Overview_main {} {
       }
       grid ${labelW} -column 0 -row 1 -sticky ew -rowspan 2
    }
-
 
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}

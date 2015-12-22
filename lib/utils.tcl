@@ -44,6 +44,14 @@ proc Utils_busyCursor { w } {
    }
 }
 
+proc Utils_getMsgCenter_Info { _exp_path key key2} {
+   global msg_info_List
+   set value ""
+   if { [info exists msg_info_List(${_exp_path}_${key}_${key2})] } {
+     set value $msg_info_List(${_exp_path}_${key}_${key2})
+   } 
+   return ${value}
+}
 
 proc Utils_raiseError { parent title err_msg } {
    tk_messageBox -icon error -parent $parent -title $title -message $err_msg
