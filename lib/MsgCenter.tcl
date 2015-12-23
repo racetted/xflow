@@ -541,9 +541,9 @@ proc Msg_IncrArrayElement {var key key2 key3 {incr 1}} {
     } 
 }
 proc MsgCenter_ModifText  {} {
-   global MSG_COUNTER MSG_TABLE
-   global msg_info_List msg_tt_list
-   global msg_active_List 
+   global MSG_COUNTER MSG_TABLE XFLOW_STANDALONE
+   global msg_info_List msg_tt_list SEQ_DATESTAMP
+   global msg_active_List  env
 
    set notebookW [MsgCenter_getNoteBookWidget]
    set counter    0
@@ -586,6 +586,10 @@ proc MsgCenter_ModifText  {} {
    set topOverview [Overview_getToplevel]
    if { [winfo exists $topOverview] } { 
      Overview_createMsgCenterbar ${topOverview}
+   }
+   if { $XFLOW_STANDALONE == 1 } {
+     set exp_path   $env(SEQ_EXP_HOME)
+     xflow_addMsgcenterWidget ${exp_path} ${SEQ_DATESTAMP}
    }
 }
 

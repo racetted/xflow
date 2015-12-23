@@ -90,9 +90,9 @@ proc ExpXmlOptions_getRefTimings_Progress { _dom_doc } {
    set timingInfoNodes [${root} selectNodes ${query}]
    set results {}
    foreach timingInfoNode ${timingInfoNodes} {
-      set ref_orange [${timingInfoNode} getAttribute ref_orange]
-      set ref_rouge  [${timingInfoNode} getAttribute ref_rouge]
-      lappend results [list ${ref_orange} ${ref_rouge}]
+      set ref_level1 [${timingInfoNode} getAttribute ref_level1]
+      set ref_level2 [${timingInfoNode} getAttribute ref_level2]
+      lappend results [list ${ref_level1} ${ref_level2}]
    }
    return ${results}
 }

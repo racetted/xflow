@@ -311,16 +311,26 @@ proc xflow_newDatestampFound { exp_path datestamp } {
 }
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
-proc xflow_addMsgcenterWidget { exp_path datestamp parent_widget } {
-   set color  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
-   set msgFrame ${parent_widget}
+proc xflow_addMsgcenterWidget { exp_path datestamp} {
+
+   set msgFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_msg_frame]
+   set color    [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+  
+   if { [winfo exists $msgFrame] } { 
+      destroy $msgFrame
+   } 
    set labelFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_msglabel_frame]
-   set expName [file tail ${exp_path}]
-   labelframe ${msgFrame} -text "${expName} Message Center"
-   tooltip::tooltip ${msgFrame} "Current Info Message Center"
+   set expName [SharedData_getExpShortName ${exp_path}]
+   set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
+   set labeltext "${expName}"
+   if { ${refStartTime} != "" } {
+      set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
+   }
+   labelframe ${msgFrame} -text "${labeltext} Message Center"
+   tooltip::tooltip ${msgFrame} "${labeltext} Current Info Message Center"
    frame ${labelFrame}
    
-   set Abort  [OverviewExpMsgCenter_getInfo ${exp_path} abort ${datestamp}]
+   set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
    if { ${Abort} != "" } {
       set labeltext "Abort: ${Abort}"
       set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext} -bg $color -fg white]
@@ -328,7 +338,7 @@ proc xflow_addMsgcenterWidget { exp_path datestamp parent_widget } {
       set labeltext "Abort: 0"
       set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext}]
    }
-   set Event  [OverviewExpMsgCenter_getInfo ${exp_path} event ${datestamp}]
+   set Event  [Utils_getMsgCenter_Info ${exp_path} event ${datestamp}]
    if { ${Event} != "" } {
       set labeltext " Event: ${Event}"
       set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext} -bg $color -fg white]
@@ -336,7 +346,7 @@ proc xflow_addMsgcenterWidget { exp_path datestamp parent_widget } {
       set labeltext " Event: 0"
       set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext}]
    }
-   set Info   [OverviewExpMsgCenter_getInfo ${exp_path} info ${datestamp}]
+   set Info   [Utils_getMsgCenter_Info ${exp_path} info ${datestamp}]
    if { ${Info} != "" } {
       set labeltext " Info: ${Info}"
       set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext} -bg $color -fg white]
@@ -344,7 +354,7 @@ proc xflow_addMsgcenterWidget { exp_path datestamp parent_widget } {
       set labeltext " Info: 0"
       set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext}]
    }
-   set Sysinfo  [OverviewExpMsgCenter_getInfo ${exp_path} sysinfo ${datestamp}]
+   set Sysinfo  [Utils_getMsgCenter_Info ${exp_path} sysinfo ${datestamp}]
    if { ${Sysinfo} != "" } {
       set labeltext " Sysinfo: ${Sysinfo}"
       set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext} -bg $color -fg white]
@@ -356,6 +366,7 @@ proc xflow_addMsgcenterWidget { exp_path datestamp parent_widget } {
    #set labelW [label ${labelFrame}.info -justify center -text ${tooltipText} ]
    #pack $labelW -side left -pady 2 -padx 2
    pack $labelFrame -pady 2 -side left
+   grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2 -pady 0 -ipadx 2
 }
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
@@ -4151,9 +4162,6 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    set expDateFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_frame]
    xflow_addDatestampWidget ${exp_path} ${datestamp} ${expDateFrame}
    
-   set expMsgFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_msg_frame]
-   xflow_addMsgcenterWidget ${exp_path} ${datestamp} ${expMsgFrame}
-   
    # find frame
    set findFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp} find_frame]]
    xflow_createFindWidgets ${exp_path} ${datestamp} ${findFrame}
@@ -4163,7 +4171,7 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    # this displays the widget on the second frame
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
    grid ${expDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
-   grid ${expMsgFrame}  -row 0 -column 4 -sticky nsew -padx 2 -pady 0 -ipadx 2
+   xflow_addMsgcenterWidget ${exp_path} ${datestamp}
 
    # flow_frame is the 3nd widget
    set flowFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  flow_frame]]
@@ -4220,7 +4228,10 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
 proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node ""} } {
-   global env XFLOW_STANDALONE PROGRESS_REPORT_TXT   
+   global env XFLOW_STANDALONE PROGRESS_REPORT_TXT
+   global SEQ_DATESTAMP
+
+   set SEQ_DATESTAMP $datestamp
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} initial_display:${initial_display}"
 
    ::log::log debug "xflow_displayFlow thread id:[thread::id] datestamp:${datestamp}"

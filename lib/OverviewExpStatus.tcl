@@ -94,28 +94,6 @@ proc OverviewExpStatus_getDatestamps { _exp_path } {
    set datestampList [array names datestamps_${_exp_path}]
    return ${datestampList}
 }
-proc OverviewExpMsgCenter_setInfo {_exp_path key {incr 1}} {
-    global msg_info_List
-    # puts "in OverviewExpMsgCenter_setInfo $_exp_path $key"
-    #if { ![info exists msg_info_List] } {
-      #array set msg_info_List {}
-    #}
-    if {[info exists msg_info_List(${_exp_path}_$key)]} {
-        incr msg_info_List(${_exp_path}_$key)
-    } else {
-        set msg_info_List(${_exp_path}_$key) $incr
-    } 
-    puts "${_exp_path} $key $msg_info_List(${_exp_path}_$key)"
-}
-proc OverviewExpMsgCenter_getInfo { _exp_path key key2} {
-   global msg_info_List
-   set value ""
-   if { [info exists msg_info_List(${_exp_path}_${key}_${key2})] } {
-     set value $msg_info_List(${_exp_path}_${key}_${key2})
-   } 
-    
-   return ${value}
-}
 proc OverviewExpMsgCenter_getactiveInfo { key } { 
    global msg_active_List
 

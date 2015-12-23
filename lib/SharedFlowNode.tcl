@@ -1004,7 +1004,6 @@ proc SharedFlowNode_getSubmitDelay { exp_path node datestamp member } {
 }
 
 proc SharedFlowNode_getDeltaFromStart { exp_path node datestamp member } {
-   puts "SharedFlowNode_getDeltaFromStart $exp_path $node $datestamp member=$member"
    if { ${member} == "" } {
       set member null
    }
@@ -1078,9 +1077,9 @@ proc SharedFlowNode_getRelativeProgress { exp_path node datestamp member } {
          set tim_progres [SharedData_getMiscData TIMINGS_PROGRESS]
        } else {
          foreach refprogress ${refTimings_progress} {
-           foreach { ref_orange ref_rouge } ${refprogress} {
-              set ref_org [Utils_getMinuteFromTime $ref_orange]
-              set ref_rge [Utils_getMinuteFromTime $ref_rouge]  
+           foreach { ref_level1 ref_level2 } ${refprogress} {
+              set ref_lev1 [Utils_getMinuteFromTime $ref_level1]
+              set ref_lev2 [Utils_getMinuteFromTime $ref_level2]  
            }
          }
       }
@@ -1089,9 +1088,9 @@ proc SharedFlowNode_getRelativeProgress { exp_path node datestamp member } {
          set tm_minute [Utils_getMinuteFromTime [clock format ${relativeProgressString} -timezone :UTC -format ${timeDisplayFormat}]]
          switch ${tim_progres} {
                 normal  {set relativeProgress [list +${tm_minute} "min" "normal"]}
-                default {if { ${tm_minute} >= ${ref_org} && ${tm_minute} < ${ref_rge}} {
+                default {if { ${tm_minute} >= ${ref_lev1} && ${tm_minute} < ${ref_lev2}} {
                            set relativeProgress [list +${tm_minute} "min" "orange"]
-                         } elseif { ${tm_minute} >= ${ref_rge}} {
+                         } elseif { ${tm_minute} >= ${ref_lev2}} {
                            set relativeProgress [list +${tm_minute} "min" "red"]
                          } else {
                            set relativeProgress [list +${tm_minute} "min" "normal"]
