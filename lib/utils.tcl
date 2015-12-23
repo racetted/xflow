@@ -471,9 +471,13 @@ proc Utils_createTmpDir {} {
 
 # this function displays plugins on the toolbar
 proc Utils_createPluginToolbar { parent parentToolbar pluginEnv } {
-
+   global LAUNCH_XFLOW_MUTEX XFLOW_STANDALONE
    # plugin is child of main toolbar frame
-   set toolbarW ${parentToolbar}.label.plugintoolbar
+   if { $XFLOW_STANDALONE == 1 || [info exists LAUNCH_XFLOW_MUTEX]} {
+     set toolbarW ${parentToolbar}.plugintoolbar
+   } else {
+     set toolbarW ${parentToolbar}.label.plugintoolbar
+   }
    frame ${toolbarW} -bd 1
    
    # add all plugins with icons defined
