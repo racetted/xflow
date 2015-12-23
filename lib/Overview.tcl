@@ -3022,23 +3022,13 @@ proc Overview_showToolbarCallback {} {
 
    set topOverview [Overview_getToplevel]
    set topFrame ${topOverview}.topframe
-   set toolbarW ${topOverview}.toolbar.label
-   set msgbarW  ${topOverview}.toolbar.msgbar
-   set msgFrame  ${topOverview}.toolbar.msg_frame
+   set toolbarW ${topOverview}.toolbar
    if { ${SHOW_TOOLBAR} == true } {
        grid ${topFrame} -row 0 -column 1 -sticky nsew -padx 2
-       grid ${toolbarW} -row 0 -column 0 -sticky nsew -padx 2
-       grid ${msgbarW} -row 0 -column 2 -sticky nsew -padx 2
-       if { [winfo exists $msgFrame] } { 
-         grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
-       } 
+       grid ${toolbarW} -row 1 -column 1 -sticky nsew -padx 0
    } else {
       grid forget ${topFrame}
       grid forget ${toolbarW}
-      grid forget ${msgbarW}
-      if { [winfo exists $msgFrame] } { 
-        grid forget ${msgFrame}
-      }
    }
    Overview_toggleMessageIcons [Overview_getGroupDisplayCanvas]
 }
@@ -3121,8 +3111,6 @@ proc Overview_flowScaleCallback {} {
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
 proc Overview_addMsgcenterWidget { exp_path datestamp} {
-   global SHOW_TOOLBAR
-
    set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
    set color  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set topOverview [Overview_getToplevel]
@@ -3183,12 +3171,8 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
    pack ${labelFrame} -pady 2 -side left
    grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
-   if { ${SHOW_TOOLBAR} == false } {
-     grid forget ${msgFrame}
-   }
 }
 proc Overview_createMsgCenterbar { _toplevelW } {
-   global SHOW_TOOLBAR
    variable infoText
 
    set nb_all     [OverviewExpMsgCenter_getactiveInfo all]
@@ -3267,9 +3251,6 @@ proc Overview_createMsgCenterbar { _toplevelW } {
    eval grid ${label_totalW} ${label_abortW} ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
    pack ${labelFrame} -pady 2 -side left
    grid ${msgbarFrame} -row 0 -column 2 -sticky nsew -padx 2
-   if { ${SHOW_TOOLBAR} == false } {
-     grid forget ${msgbarFrame}
-   }
 }
 proc Overview_createToolbar { _toplevelW } {
     # create the frame to hold the core icons and plugin icons
@@ -3331,9 +3312,8 @@ proc Overview_createToolbar { _toplevelW } {
    # core toolbar stis on column 0 
    grid ${toolbarW} -row 0 -column 0 -sticky ew
    # place the main toolbar frame on the grid
-   # grid ${mainToolbarW} -row 1 -column 0 -sticky nsew -padx 2
-   grid ${mainToolbarW} -row 0 -column 0 -sticky nsew -padx 2
-   grid ${ToolbarW} -row 1 -column 1 -sticky nsew -padx 2
+   grid ${mainToolbarW} -row 0 -column 0 -sticky nsew -padx 0
+   grid ${ToolbarW} -row 1 -column 1 -sticky nsew -padx 0
 }
 
 
