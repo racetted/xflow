@@ -3180,8 +3180,8 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
       set labeltext " Sysinfo: 0"
       set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext}]
    }
-   eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky nsew -padx \[list 2 0\] 
-   grid ${labelFrame} -row 0 -column 0 -sticky nsew
+   eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
+   pack ${labelFrame} -pady 2 -side left
    grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
    if { ${SHOW_TOOLBAR} == false } {
      grid forget ${msgFrame}
@@ -3264,8 +3264,8 @@ proc Overview_createMsgCenterbar { _toplevelW } {
       set infoText " Sysinfo : 0 "
       set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${infoText}]
    }
-   eval grid ${label_totalW} ${label_abortW} ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky nsew -padx \[list 2 0\] 
-   grid ${labelFrame} -row 0 -column 0 -sticky nsew
+   eval grid ${label_totalW} ${label_abortW} ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
+   pack ${labelFrame} -pady 2 -side left
    grid ${msgbarFrame} -row 0 -column 2 -sticky nsew -padx 2
    if { ${SHOW_TOOLBAR} == false } {
      grid forget ${msgbarFrame}
