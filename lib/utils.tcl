@@ -473,7 +473,7 @@ proc Utils_createTmpDir {} {
 proc Utils_createPluginToolbar { parent parentToolbar pluginEnv } {
 
    # plugin is child of main toolbar frame
-   set toolbarW ${parentToolbar}.plugintoolbar
+   set toolbarW ${parentToolbar}.label.plugintoolbar
    frame ${toolbarW} -bd 1
    
    # add all plugins with icons defined
