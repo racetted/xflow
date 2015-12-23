@@ -3027,10 +3027,10 @@ proc Overview_showToolbarCallback {} {
    set msgFrame  ${topOverview}.toolbar.msg_frame
    if { ${SHOW_TOOLBAR} == true } {
        grid ${topFrame} -row 0 -column 1 -sticky nsew -padx 2
-       grid ${toolbarW} -row 0 -column 0 -sticky ew -padx 2
-       grid ${msgbarW} -row 0 -column 2 -sticky ew -padx 2
+       grid ${toolbarW} -row 0 -column 0 -sticky nsew -padx 2
+       grid ${msgbarW} -row 0 -column 2 -sticky nsew -padx 2
        if { [winfo exists $msgFrame] } { 
-         grid ${msgFrame}  -row 0 -column 4 -sticky ew -padx 2
+         grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
        } 
    } else {
       grid forget ${topFrame}
@@ -3182,7 +3182,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    }
    eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky nsew -padx \[list 2 0\] 
    grid ${labelFrame} -row 0 -column 0 -sticky nsew
-   grid ${msgFrame}  -row 0 -column 4 -sticky ew -padx 2
+   grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
    if { ${SHOW_TOOLBAR} == false } {
      grid forget ${msgFrame}
    }
@@ -3266,7 +3266,7 @@ proc Overview_createMsgCenterbar { _toplevelW } {
    }
    eval grid ${label_totalW} ${label_abortW} ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky nsew -padx \[list 2 0\] 
    grid ${labelFrame} -row 0 -column 0 -sticky nsew
-   grid ${msgbarFrame} -row 0 -column 2 -sticky ew -padx 2
+   grid ${msgbarFrame} -row 0 -column 2 -sticky nsew -padx 2
    if { ${SHOW_TOOLBAR} == false } {
      grid forget ${msgbarFrame}
    }
