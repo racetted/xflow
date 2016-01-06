@@ -542,8 +542,9 @@ proc Msg_IncrArrayElement {var key key2 key3 {incr 1}} {
 }
 proc MsgCenter_ModifText  {} {
    global MSG_COUNTER MSG_TABLE XFLOW_STANDALONE
-   global msg_info_List msg_tt_list SEQ_DATESTAMP
-   global msg_active_List  env
+   global msg_info_List msg_tt_list exp_path_frame
+   global msg_active_List  env datestamp_msgframe
+   global LAUNCH_XFLOW_MUTEX List_Xflow
 
    set notebookW [MsgCenter_getNoteBookWidget]
    set counter    0
@@ -564,10 +565,10 @@ proc MsgCenter_ModifText  {} {
    array set List_Msg_text {}
    while { ${counter} < ${MSG_COUNTER} } {
       foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
-      Msg_IncrArrayElement List_Msg_text $exp $type $datestamp
       incr l_total($type)
       incr l_total(all)
       if {!$isMsgack} {
+        Msg_IncrArrayElement List_Msg_text $exp $type $datestamp
         incr ll_nb($type)
         incr ll_nb(all)
       }
@@ -579,6 +580,7 @@ proc MsgCenter_ModifText  {} {
       set txt    [list $label "($ll_nb($Txt))"]
       $notebookW tab $tab -text ${txt}
    }
+   array unset msg_info_List *
    array set msg_info_List   [array get List_Msg_text]
    array set msg_active_List [array get ll_nb]
    array set msg_tt_list     [array get l_total]
@@ -586,11 +588,25 @@ proc MsgCenter_ModifText  {} {
    set topOverview [Overview_getToplevel]
    if { [winfo exists $topOverview] } { 
      Overview_createMsgCenterbar ${topOverview}
+     set msgFrame ${topOverview}.toolbar.msg_frame
+     if { [winfo exists $msgFrame] } {
+       Overview_addMsgcenterWidget ${exp_path_frame} ${datestamp_msgframe}
+     }
    }
-   if { $XFLOW_STANDALONE == 1 } {
-     set exp_path   $env(SEQ_EXP_HOME)
-     xflow_addMsgcenterWidget ${exp_path} ${SEQ_DATESTAMP}
+   if { [info exists LAUNCH_XFLOW_MUTEX] || ${XFLOW_STANDALONE} == "1" } {
+     set counter    0
+     set nb_elm [llength ${List_Xflow}]
+     while { ${counter} < ${nb_elm} } {
+       foreach {exp_path dates topFrame} [lindex ${List_Xflow} ${counter}] {break}
+       if { [winfo exists $topFrame] } {
+         xflow_addMsgcenterWidget ${exp_path} ${dates}
+       } else {
+         set List_Xflow [lreplace ${List_Xflow} ${counter} ${counter}]
+       }
+       incr counter
+     } 
    }
+ 
 }
 
 #

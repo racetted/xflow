@@ -3111,6 +3111,10 @@ proc Overview_flowScaleCallback {} {
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
 proc Overview_addMsgcenterWidget { exp_path datestamp} {
+   global datestamp_msgframe exp_path_frame
+
+   set exp_path_frame      ${exp_path}
+   set datestamp_msgframe  ${datestamp}
    set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
    set color  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set topOverview [Overview_getToplevel]
@@ -3126,7 +3130,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    if { ${refStartTime} != "" } {
       set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
    }
-   labelframe ${msgFrame} -text "${labeltext} Message Center"
+   labelframe ${msgFrame} -text "${labeltext} Active Message Center"
    tooltip::tooltip ${msgFrame} "${labeltext} Current Info Message Center"
    frame ${labelFrame}
 

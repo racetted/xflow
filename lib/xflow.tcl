@@ -326,7 +326,7 @@ proc xflow_addMsgcenterWidget { exp_path datestamp} {
    if { ${refStartTime} != "" } {
       set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
    }
-   labelframe ${msgFrame} -text "${labeltext} Message Center"
+   labelframe ${msgFrame} -text "${labeltext} Active Message Center"
    tooltip::tooltip ${msgFrame} "${labeltext} Current Info Message Center"
    frame ${labelFrame}
    
@@ -4107,6 +4107,7 @@ proc xflow_validateExp { startup_exp } {
 
 # this function is called to create the widgets of the xflow main window
 proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
+   global List_Xflow
 
    ::log::log debug "xflow_createWidgets"
    puts "xflow_createWidgets  ${exp_path} ${datestamp}..."
@@ -4122,6 +4123,7 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    wm iconify ${toplevelW}
 
    set topFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp} top_frame]]
+   lappend List_Xflow  [list ${exp_path} ${datestamp} $topFrame]
    puts "xflow_createWidgets  ${exp_path} ${datestamp} creating menus..."
    xflow_addFileMenu ${exp_path} ${datestamp} $topFrame
    xflow_addViewMenu ${exp_path} ${datestamp} $topFrame
