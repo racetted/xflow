@@ -594,16 +594,21 @@ proc MsgCenter_ModifText  {} {
      }
    }
    if { [info exists LAUNCH_XFLOW_MUTEX] || ${XFLOW_STANDALONE} == "1" } {
-     set counter    0
+     set counter       0
+     set deleteIndexes {}
      set nb_elm [llength ${List_Xflow}]
      while { ${counter} < ${nb_elm} } {
        foreach {exp_path dates topFrame} [lindex ${List_Xflow} ${counter}] {break}
        if { [winfo exists $topFrame] } {
          xflow_addMsgcenterWidget ${exp_path} ${dates}
        } else {
-         set List_Xflow [lreplace ${List_Xflow} ${counter} ${counter}]
+         lappend deleteIndexes ${counter}
        }
        incr counter
+     }
+     set deleteIndexes [lreverse ${deleteIndexes}]
+     foreach deleteIndex ${deleteIndexes} {
+        set List_Xflow [lreplace ${List_Xflow} ${deleteIndex} ${deleteIndex}]
      } 
    }
  
