@@ -545,6 +545,7 @@ proc MsgCenter_ModifText  {} {
    global msg_info_List msg_tt_list exp_path_frame
    global msg_active_List  env datestamp_msgframe
    global LAUNCH_XFLOW_MUTEX List_Xflow
+   global SHOW_MSGBAR
 
    set notebookW [MsgCenter_getNoteBookWidget]
    set counter    0
@@ -589,7 +590,7 @@ proc MsgCenter_ModifText  {} {
    if { [winfo exists $topOverview] } { 
      Overview_createMsgCenterbar ${topOverview}
      set msgFrame ${topOverview}.toolbar.msg_frame
-     if { [winfo exists $msgFrame] } {
+     if { [winfo exists $msgFrame] && ${SHOW_MSGBAR} == "true"} {
        Overview_addMsgcenterWidget ${exp_path_frame} ${datestamp_msgframe}
      }
    }

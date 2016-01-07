@@ -1062,8 +1062,9 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
 
       $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
       $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
-      $canvas bind $middleBoxId <Button-1> [list Overview_addMsgcenterWidget ${exp_path} ${datestamp}]
-      $canvas bind ${expBoxTag}.text <Button-1> [list Overview_addMsgcenterWidget ${exp_path} ${datestamp}]
+  
+      $canvas bind $middleBoxId <Button-1> [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true]
+      $canvas bind ${expBoxTag}.text <Button-1> [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true]
    }
 
 }
@@ -3108,6 +3109,20 @@ proc Overview_flowScaleCallback {} {
    global FLOW_SCALE
    SharedData_setMiscData FLOW_SCALE ${FLOW_SCALE}
 }
+proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar} {
+   global SHOW_MSGBAR
+
+   set topOverview [Overview_getToplevel]
+   set toolbarW ${topOverview}.toolbar.msg_frame
+   set SHOW_MSGBAR ${show_msgbar}
+
+   if { ${SHOW_MSGBAR} == true } {
+      Overview_addMsgcenterWidget ${exp_path} ${datestamp}
+   } else {
+      grid forget ${toolbarW}  
+   }
+}
+
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
 proc Overview_addMsgcenterWidget { exp_path datestamp} {
@@ -3138,7 +3153,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    set labelCloseImg  ${labelFrame}.label_close_image]
    set imageDir [SharedData_getMiscData IMAGE_DIR]
    image create photo ${labelCloseImg} -file ${imageDir}/[xflow_getImageFile find_close_image_file]
-   Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list grid forget ${msgFrame}]
+   Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false]
    tooltip::tooltip ${labelCloseB} "Close Message Center Info"
 
    if { ${Abort} != "" } {
