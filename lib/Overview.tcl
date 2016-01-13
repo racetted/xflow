@@ -1059,12 +1059,12 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
          -outline ${outlineColor} -fill white -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
 
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
-
+       
       $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
       $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
-  
-      $canvas bind $middleBoxId <Button-1> [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true]
-      $canvas bind ${expBoxTag}.text <Button-1> [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true]
+      set list_tag [list $canvas ${expBoxTag} ${expBoxOutlineWidth} ${startX} ${startY} ${endX} ${endY}]
+      $canvas bind $middleBoxId <Button-1> [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
+      $canvas bind ${expBoxTag}.text <Button-1> [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
    }
 
 }
@@ -3109,7 +3109,35 @@ proc Overview_flowScaleCallback {} {
    global FLOW_SCALE
    SharedData_setMiscData FLOW_SCALE ${FLOW_SCALE}
 }
-proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar} {
+# highlights a node that is selected with the find functionality
+# by drawing a yellow rectangle around the node
+proc Overview_HighLightFindNode { ll } {
+   global PassHighLightRestoreCmd_[lindex $ll 1].middle_[lindex $ll 1].text
+   global LIST_TAG
+
+   set selectColor [SharedData_getColor FLOW_FIND_SELECT]
+   set canvas             [lindex $ll 0]
+   set expBoxTag          [lindex $ll 1]
+   set expBoxOutlineWidth [lindex $ll 2]
+
+   # create a rectangle around the node
+   set findBoxDelta 5
+   set x1 [expr [lindex $ll 3] - ${findBoxDelta}]
+   set y1 [expr [lindex $ll 4] - ${findBoxDelta}]
+   set x2 [expr [lindex $ll 5] + ${findBoxDelta}]
+   set y2 [expr [lindex $ll 6] + ${findBoxDelta}]
+ 
+   
+   set selectTag ${canvas}.find_select
+   ${canvas} create rectangle ${x1} ${y1} ${x2} ${y2} -width  ${expBoxOutlineWidth} -fill ${selectColor} -tag ${selectTag}
+   ${canvas} lower ${selectTag} ${expBoxTag}
+ 
+   set LIST_TAG $ll
+   # sets the command to restore the node to its previous state
+   set PassHighLightRestoreCmd_${expBoxTag}.middle_${expBoxTag}.text "${canvas} delete ${selectTag};"
+   return ${selectTag}
+}
+proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar ll} {
    global SHOW_MSGBAR
 
    set topOverview [Overview_getToplevel]
@@ -3117,7 +3145,7 @@ proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar} {
    set SHOW_MSGBAR ${show_msgbar}
 
    if { ${SHOW_MSGBAR} == true } {
-      Overview_addMsgcenterWidget ${exp_path} ${datestamp}
+      Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${ll}
    } else {
       grid forget ${toolbarW}  
    }
@@ -3125,7 +3153,9 @@ proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar} {
 
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
-proc Overview_addMsgcenterWidget { exp_path datestamp} {
+proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
+   global Overview_FIND_AFTER_ID_[lindex ${ll} 1].middle_[lindex ${ll} 1].text
+   global PassHighLightRestoreCmd_[lindex $ll 1].middle_[lindex $ll 1].text
    global datestamp_msgframe exp_path_frame
 
    set exp_path_frame      ${exp_path}
@@ -3135,6 +3165,8 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    set topOverview [Overview_getToplevel]
    set msgFrame ${topOverview}.toolbar.msg_frame
    set labelFrame ${msgFrame}.msg_frame_label
+   set expBoxTag [lindex ${ll} 1]
+
    if { [winfo exists $msgFrame] } { 
      destroy $msgFrame
    } 
@@ -3159,7 +3191,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    set labelCloseImg  ${labelFrame}.label_close_image]
    set imageDir [SharedData_getMiscData IMAGE_DIR]
    image create photo ${labelCloseImg} -file ${imageDir}/[xflow_getImageFile find_close_image_file]
-   Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false]
+   Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false $ll]
    tooltip::tooltip ${labelCloseB} "Close Message Center Info"
 
    if { ${Abort} != "" } {
@@ -3196,6 +3228,8 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
    pack ${labelFrame} -pady 2 -side left
    grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
+   set foundTag [Overview_HighLightFindNode ${ll}]
+   set Overview_FIND_AFTER_ID_${expBoxTag}.middle_${expBoxTag}.text  [after 5000 eval [set PassHighLightRestoreCmd_${expBoxTag}.middle_${expBoxTag}.text]]
 }
 proc Overview_createMsgCenterbar { _toplevelW } {
    variable infoText
