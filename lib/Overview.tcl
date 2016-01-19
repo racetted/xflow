@@ -3133,7 +3133,7 @@ proc Overview_HighLightFindNode { ll } {
 
    set boundaries [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${datestamp}] 
    # create a rectangle around the node
-   set findBoxDelta 1
+   set findBoxDelta 5
    set x1 [expr [lindex ${boundaries} 0] - ${findBoxDelta}]
    set y1 [expr [lindex ${boundaries} 1] - ${findBoxDelta}]
    set x2 [expr [lindex ${boundaries} 2] + ${findBoxDelta}]
@@ -3155,7 +3155,7 @@ proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar ll} {
 
    if { ${SHOW_MSGBAR} == true } {
       Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${ll}
-   } else {
+   } elseif { [winfo exists $toolbarW]} {
       set canvas    [lindex ${ll} 0]
       $canvas delete ${canvas}.find_select
       grid forget ${toolbarW}  
