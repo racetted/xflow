@@ -3,7 +3,7 @@
 # Makefile to work, other versions installed are currently too old!
 #
 # common section definition
-include config.mk
+include ../config/config.mk
 
 ssm: profile.sh
 	echo "Creating SSM package $(SSMPACKAGE)..."
@@ -24,7 +24,7 @@ ssm: profile.sh
 	echo "Description: Unified Tasks Monitor" >> $(SSMPACKAGE)/.ssm.d/control; \
 	tar cvf - $(SSMPACKAGE) | gzip -> $(SSMPACKAGE).ssm
 
-profile.sh: Makefile config.mk
+profile.sh: Makefile ../config/config.mk
 	echo "export SEQ_XFLOW_VERSION=${VERSION}" >$@
 
 clean:
