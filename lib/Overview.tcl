@@ -1059,12 +1059,13 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
          -outline ${outlineColor} -fill white -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
 
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
-       
-      $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
-      $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
       set list_tag [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
-      $canvas bind $middleBoxId <Button-1> [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
-      $canvas bind ${expBoxTag}.text <Button-1> [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
+      $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
+      $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+      $canvas bind $middleBoxId      <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
+      $canvas bind ${expBoxTag}.text <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
+      $canvas bind canvas_bg_image   <ButtonPress-1>   [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false ${list_tag}]
+      $canvas bind grid_item         <ButtonPress-1>   [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false ${list_tag}]
    }
 
 }
@@ -1445,8 +1446,13 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
          Overview_resolveLocation ${canvas} ${exp_path} ${datestamp} ${newx1} ${newy1} ${newx2} ${newy2}
       }
       Overview_setExpTooltip ${canvas} ${exp_path} ${datestamp}
-   
-      $canvas bind ${exp_path}.${datestamp} <Button-3> [ list Overview_boxMenu $canvas ${exp_path} ${datestamp} %X %Y]
+      set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
+      set expBoxTag     [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
+      set list_tag      [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
+
+      $canvas bind ${exp_path}.${datestamp} <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
+      $canvas bind ${exp_path}.${datestamp} <Button-1>        [ list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
+      $canvas bind ${exp_path}.${datestamp} <Button-3>        [ list Overview_boxMenu $canvas ${exp_path} ${datestamp} %X %Y]
    
       if { ${continueStatus} != "" } {
          set afterId [after 60000 [list Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${continueStatus} ]]
