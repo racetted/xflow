@@ -29,3 +29,25 @@ profile.sh: Makefile ../config/config.mk
 
 clean:
 	rm -fr profile.sh $(SSMPACKAGE).ssm $(SSMPACKAGE)
+
+install: ssm
+	if [ ! $(domain) ] ; then \
+	  echo "Define installation path with 'domain='" ; \
+	  exit 1 ; \
+	fi ; \
+	if [ ! -d $(domain) ] ; then \
+	  ssm created -d $(domain) ; \
+	fi ; \
+	if [ -d $(domain)/$(SSMPACKAGE) ] ; then \
+	  $(MAKE) uninstall ; \
+	fi ; \
+	ssm install -d $(domain) -f $(SSMPACKAGE).ssm ; \
+	ssm publish -d $(domain) -p $(SSMPACKAGE)
+
+uninstall:
+	if [ ! $(domain) ] ; then \
+	  echo "Define installation path with 'domain='" ; \
+	  exit 1 ; \
+	fi ; \
+	ssm unpublish -d $(domain) -p $(SSMPACKAGE) ; \
+	ssm uninstall -d $(domain) -p $(SSMPACKAGE) ; \
