@@ -737,8 +737,10 @@ proc xflow_launchFlowNewWindow { exp_path datestamp } {
       # set new window size to current one
       after 25 [list wm geometry ${newTop} =${currentWidth}x${currentHeight}]
 
-      # reset to existing value in current flow
-      ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
+      if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] == "new" } {
+         # reset to existing value in current flow
+         ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
+      }
    }
 
 }
