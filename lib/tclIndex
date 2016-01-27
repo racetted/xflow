@@ -29,6 +29,7 @@ set auto_index(Overview_closeWarningDlg) [list source [file join $dir Overview.t
 set auto_index(Overview_showWarningReminder) [list source [file join $dir Overview.tcl]]
 set auto_index(Overview_getTimeFromCoord) [list source [file join $dir Overview.tcl]]
 set auto_index(Overview_getXCoordTime) [list source [file join $dir Overview.tcl]]
+set auto_index(Overview_addMsgcenterWidget) [list source [file join $dir Overview.tcl]]
 set auto_index(Overview_setCurrentTime) [list source [file join $dir Overview.tcl]]
 set auto_index(Overview_getCurrentTimeX) [list source [file join $dir Overview.tcl]]
 set auto_index(Overview_getZeroHourX) [list source [file join $dir Overview.tcl]]

@@ -1059,11 +1059,13 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
          -outline ${outlineColor} -fill white -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
 
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
-
-      $canvas bind $middleBoxId <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
+      set list_tag [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
+      $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
       $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
-      $canvas bind $middleBoxId <Button-1> [list Overview_addMsgcenterWidget ${exp_path} ${datestamp}]
-      $canvas bind ${expBoxTag}.text <Button-1> [list Overview_addMsgcenterWidget ${exp_path} ${datestamp}]
+      $canvas bind $middleBoxId      <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
+      $canvas bind ${expBoxTag}.text <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
+      $canvas bind canvas_bg_image   <ButtonPress-1>   [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false ${list_tag}]
+      $canvas bind grid_item         <ButtonPress-1>   [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false ${list_tag}]
    }
 
 }
@@ -1444,8 +1446,13 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
          Overview_resolveLocation ${canvas} ${exp_path} ${datestamp} ${newx1} ${newy1} ${newx2} ${newy2}
       }
       Overview_setExpTooltip ${canvas} ${exp_path} ${datestamp}
-   
-      $canvas bind ${exp_path}.${datestamp} <Button-3> [ list Overview_boxMenu $canvas ${exp_path} ${datestamp} %X %Y]
+      set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
+      set expBoxTag     [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
+      set list_tag      [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
+
+      $canvas bind ${exp_path}.${datestamp} <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
+      $canvas bind ${exp_path}.${datestamp} <Button-1>        [ list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
+      $canvas bind ${exp_path}.${datestamp} <Button-3>        [ list Overview_boxMenu $canvas ${exp_path} ${datestamp} %X %Y]
    
       if { ${continueStatus} != "" } {
          set afterId [after 60000 [list Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${continueStatus} ]]
@@ -1637,7 +1644,11 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
 # this function is called to pop-up an exp node menu
 proc Overview_boxMenu { canvas exp_path datestamp x y } {
    global env
+
    ::log::log debug "Overview_boxMenu() exp_path:$exp_path datestamp:${datestamp}"
+   set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
+   set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
+   set list_tag [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
    set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
    if { [string match "default*" ${datestamp}] } {
       set datestamp ""
@@ -1659,6 +1670,7 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
 
     tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
+   Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${list_tag}
 }
 
 proc Overview_xmlOptionsCallback { exp_path } {
@@ -3108,9 +3120,51 @@ proc Overview_flowScaleCallback {} {
    global FLOW_SCALE
    SharedData_setMiscData FLOW_SCALE ${FLOW_SCALE}
 }
+# highlights a node that is selected with the find functionality
+# by drawing a yellow rectangle around the node
+proc Overview_HighLightFindNode { ll } {
+   global LIST_TAG expBoxOutlineWidth
+
+   set selectColor        [SharedData_getColor FLOW_FIND_SELECT]
+   set canvas             [lindex $ll 0]
+   set expBoxTag          [lindex $ll 1]
+   set exp_path           [lindex $ll 2]
+   set datestamp          [lindex $ll 3]
+
+   set boundaries [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${datestamp}] 
+   # create a rectangle around the node
+   set findBoxDelta 5
+   set x1 [expr [lindex ${boundaries} 0] - ${findBoxDelta}]
+   set y1 [expr [lindex ${boundaries} 1] - ${findBoxDelta}]
+   set x2 [expr [lindex ${boundaries} 2] + ${findBoxDelta}]
+   set y2 [expr [lindex ${boundaries} 3] + ${findBoxDelta}]
+   
+   set selectTag ${canvas}.find_select
+   ${canvas} create rectangle ${x1} ${y1} ${x2} ${y2} -width  ${expBoxOutlineWidth} -fill ${selectColor} -tag ${selectTag}
+   ${canvas} lower ${selectTag} ${expBoxTag}
+
+   set LIST_TAG $ll
+}
+
+proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar ll} {
+   global SHOW_MSGBAR
+
+   set topOverview [Overview_getToplevel]
+   set toolbarW ${topOverview}.toolbar.msg_frame
+   set SHOW_MSGBAR ${show_msgbar}
+
+   if { ${SHOW_MSGBAR} == true } {
+      Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${ll}
+   } elseif { [winfo exists $toolbarW]} {
+      set canvas    [lindex ${ll} 0]
+      $canvas delete ${canvas}.find_select
+      grid forget ${toolbarW}  
+   }
+}
+
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
-proc Overview_addMsgcenterWidget { exp_path datestamp} {
+proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
    global datestamp_msgframe exp_path_frame
 
    set exp_path_frame      ${exp_path}
@@ -3120,25 +3174,33 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    set topOverview [Overview_getToplevel]
    set msgFrame ${topOverview}.toolbar.msg_frame
    set labelFrame ${msgFrame}.msg_frame_label
+   set canvas    [lindex ${ll} 0]
+
    if { [winfo exists $msgFrame] } { 
      destroy $msgFrame
    } 
-   
+   $canvas delete ${canvas}.find_select
    set expName [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
-   set labeltext "${expName}"
-   if { ${refStartTime} != "" } {
-      set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
+  
+   if { ${expName} != "" && ${refStartTime} != "" } {
+     set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
+   } elseif {${expName} == "" && ${refStartTime} != ""} {
+     set expName [SharedData_getExpDisplayName ${exp_path}]
+     set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
+   } else {
+     set labeltext "${expName}"
    }
-   labelframe ${msgFrame} -text "${labeltext} Active Message Center"
-   tooltip::tooltip ${msgFrame} "${labeltext} Current Info Message Center"
+   
+   labelframe ${msgFrame} -text "${labeltext} active message count"
+   tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages."
    frame ${labelFrame}
 
    set labelCloseB ${labelFrame}.label_close_button
    set labelCloseImg  ${labelFrame}.label_close_image]
    set imageDir [SharedData_getMiscData IMAGE_DIR]
    image create photo ${labelCloseImg} -file ${imageDir}/[xflow_getImageFile find_close_image_file]
-   Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list grid forget ${msgFrame}]
+   Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false $ll]
    tooltip::tooltip ${labelCloseB} "Close Message Center Info"
 
    if { ${Abort} != "" } {
@@ -3175,6 +3237,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp} {
    eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
    pack ${labelFrame} -pady 2 -side left
    grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
+   Overview_HighLightFindNode ${ll}
 }
 proc Overview_createMsgCenterbar { _toplevelW } {
    variable infoText

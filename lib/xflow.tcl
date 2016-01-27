@@ -322,12 +322,17 @@ proc xflow_addMsgcenterWidget { exp_path datestamp} {
    set labelFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_msglabel_frame]
    set expName [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
-   set labeltext "${expName}"
-   if { ${refStartTime} != "" } {
-      set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
+   if { ${expName} != "" && ${refStartTime} != "" } {
+     set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
+   } elseif {${expName} == "" && ${refStartTime} != ""} {
+     set expName [SharedData_getExpDisplayName ${exp_path}]
+     set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
+   } else {
+     set labeltext "${expName}"
    }
-   labelframe ${msgFrame} -text "${labeltext} Active Message Center"
-   tooltip::tooltip ${msgFrame} "${labeltext} Current Info Message Center"
+   
+   labelframe ${msgFrame} -text "${labeltext} active message count"
+   tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages."
    frame ${labelFrame}
    
    set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]

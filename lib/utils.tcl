@@ -495,7 +495,7 @@ proc Utils_createPluginToolbar { parent parentToolbar pluginEnv } {
 	       set pluginWidgets "${pluginWidgets} ${pluginButton}"
 	       incr count
 	   } else {
-	       puts [concat "Info: Icon " [dict get ${pluginInfo} icon] " does not exist, or helptext not defined in  [dict get ${pluginInfo} file]. Not loading it to taskbar."]
+	       ::log::log debug [concat "Utils_createPluginToolbar: Icon " [dict get ${pluginInfo} icon] " does not exist, or helptext not defined in  [dict get ${pluginInfo} file]. Not loading it to taskbar."]
 	   }
        }
    }
@@ -531,7 +531,7 @@ proc Utils_showPluginMenu { parent parentMenu exp_path datestamp pluginEnv } {
 		${pluginMenu} add command -label [dict get ${pluginInfo} menuitem] -command [ list Utils_runPluginCommandCallback \
 			${fullPluginEnv} [dict get ${pluginInfo} script] [dict get ${pluginInfo} terminal]]
 	    } else {
-		puts [concat "Info: The menuitem entry is not defined in " [dict get ${pluginInfo} file] ". Not loading it to popup menu."]
+	    ::log::log debug [concat "Utils_showPluginMenu: The menuitem entry is not defined in " [dict get ${pluginInfo} file] ". Not loading it to popup menu."]
 	    }
 	}
     }
