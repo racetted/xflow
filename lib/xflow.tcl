@@ -1383,7 +1383,8 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
    set waitStatusMsg [SharedFlowNode_getMemberStatusMsg ${exp_path} ${node} ${datestamp} ${extension}]
 
    ::log::log debug "xflow_followDependency waitStatusMsg:$waitStatusMsg"
-   set depExp [exec true_path ${exp_path}]
+   # set depExp [exec true_path ${exp_path}]
+   set depExp ${exp_path}
    set isOcmDep false
    if { ${waitStatusMsg} != "" } {
       # parse wait msg looking for exp=, node=, index=, datestamp=
@@ -1395,7 +1396,8 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
 	          set isOcmDep true
 	          set depExp [textutil::trimPrefix ${token} exp=]
 	       } else {
-	          set depExp [exec true_path [::textutil::trimPrefix ${token} exp=]]
+	          # set depExp [exec true_path [::textutil::trimPrefix ${token} exp=]]
+	          set depExp [::textutil::trimPrefix ${token} exp=]
 	       }
 	    }
 	    node=* {
@@ -4086,16 +4088,20 @@ proc xflow_validateExp { startup_exp } {
       }
    }
 
+   if { ${XFLOW_STANDALONE} == 1 && ${myExp} != "" && ! [info exists env(SEQ_EXP_HOME)] } {
+      set env(SEQ_EXP_HOME) ${myExp}
+   }
+
    if { ${myExp} == "" } {
       Utils_fatalError . "Startup Error" "No exp defined at startup! SEQ_EXP_HOME environment variable not set! Exiting..."
    }
 
-   set entryModTruePath ""
+   # set entryModTruePath ""
    # set expPath [file normalize ${myExp}]
-   catch { set entryModTruePath [ exec true_path ${myExp}/EntryModule ] }
-   if { ${entryModTruePath} == "" } {
-      Utils_fatalError . "Startup Error" "Cannot access ${myExp}/EntryModule. Exiting..."
-   }
+   # catch { set entryModTruePath [ exec true_path ${myExp}/EntryModule ] }
+   # if { ${entryModTruePath} == "" } {
+   #    Utils_fatalError . "Startup Error" "Cannot access ${myExp}/EntryModule. Exiting..."
+   # }
 
    # set expPath [exec true_path ${expPath}]
    # if { $XFLOW_STANDALONE == 1 } {
