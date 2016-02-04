@@ -161,6 +161,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 # redraws the overview for an exp
 proc Overview_redrawExp { exp_path } {
    set canvasW [Overview_getCanvas]
+   global LIST_TAG
 
    # delete all exp boxes
    Overview_removeAllExpBoxes ${canvasW} ${exp_path}
@@ -179,6 +180,7 @@ proc Overview_redrawExp { exp_path } {
          Overview_updateExpBox ${canvasW} ${exp_path} ${datestamp} ${lastStatus} ${lastStatusTime}
       }
    }
+   Overview_HighLightFindNode ${LIST_TAG}
 }
 
 # sends a notification when an exp/datestamp is in idle state... 
@@ -3125,24 +3127,25 @@ proc Overview_flowScaleCallback {} {
 proc Overview_HighLightFindNode { ll } {
    global LIST_TAG expBoxOutlineWidth
 
-   set selectColor        [SharedData_getColor FLOW_FIND_SELECT]
-   set canvas             [lindex $ll 0]
-   set expBoxTag          [lindex $ll 1]
-   set exp_path           [lindex $ll 2]
-   set datestamp          [lindex $ll 3]
+   if { [llength ${ll}] > 0} {
+     set selectColor        [SharedData_getColor FLOW_FIND_SELECT]
+     set canvas             [lindex $ll 0]
+     set expBoxTag          [lindex $ll 1]
+     set exp_path           [lindex $ll 2]
+     set datestamp          [lindex $ll 3]
 
-   set boundaries [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${datestamp}] 
+     set boundaries [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${datestamp}] 
    # create a rectangle around the node
-   set findBoxDelta 5
-   set x1 [expr [lindex ${boundaries} 0] - ${findBoxDelta}]
-   set y1 [expr [lindex ${boundaries} 1] - ${findBoxDelta}]
-   set x2 [expr [lindex ${boundaries} 2] + ${findBoxDelta}]
-   set y2 [expr [lindex ${boundaries} 3] + ${findBoxDelta}]
+     set findBoxDelta 5
+     set x1 [expr [lindex ${boundaries} 0] - ${findBoxDelta}]
+     set y1 [expr [lindex ${boundaries} 1] - ${findBoxDelta}]
+     set x2 [expr [lindex ${boundaries} 2] + ${findBoxDelta}]
+     set y2 [expr [lindex ${boundaries} 3] + ${findBoxDelta}]
    
-   set selectTag ${canvas}.find_select
-   ${canvas} create rectangle ${x1} ${y1} ${x2} ${y2} -width  ${expBoxOutlineWidth} -fill ${selectColor} -tag ${selectTag}
-   ${canvas} lower ${selectTag} ${expBoxTag}
-
+     set selectTag ${canvas}.find_select
+     ${canvas} create rectangle ${x1} ${y1} ${x2} ${y2} -width  ${expBoxOutlineWidth} -fill ${selectColor} -tag ${selectTag}
+     ${canvas} lower ${selectTag} ${expBoxTag}
+   }
    set LIST_TAG $ll
 }
 
