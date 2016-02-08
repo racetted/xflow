@@ -3771,7 +3771,9 @@ proc Overview_main {} {
    global env startupExp SHOW_TOOLBAR
    global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
+   global SHOW_MSGBAR
 
+   set SHOW_MSGBAR false
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    ::DrawUtils::init
    Overview_init
