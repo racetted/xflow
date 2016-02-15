@@ -476,6 +476,8 @@ proc Overview_getXCoordTime { timevalue {shift_day false} } {
 # refresh the current time line every minute
 proc Overview_setCurrentTime { canvas { current_time "" } } {
    global graphStartX graphStartY graphHourX graphy TimeAfterId
+   global LIST_TAG SHOW_MSGBAR
+
    ::log::log debug "setCurrentTime canvas:$canvas current_time:${current_time}"
    $canvas delete current_timeline
 
@@ -508,7 +510,10 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
 
    # set overview title at the same time
    Overview_setTitle [winfo toplevel ${canvas}] ${current_time}
-
+   #reset the HighLight Node 
+   if {${SHOW_MSGBAR} == "true" } {
+     Overview_HighLightFindNode ${LIST_TAG}
+   }
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
 }
 
@@ -3771,7 +3776,7 @@ proc Overview_main {} {
    global env startupExp SHOW_TOOLBAR
    global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
-   global SHOW_MSGBAR
+   global SHOW_MSGBAR 
 
    set SHOW_MSGBAR false
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
