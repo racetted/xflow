@@ -161,7 +161,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 # redraws the overview for an exp
 proc Overview_redrawExp { exp_path } {
    set canvasW [Overview_getCanvas]
-   global LIST_TAG
 
    # delete all exp boxes
    Overview_removeAllExpBoxes ${canvasW} ${exp_path}
@@ -180,7 +179,6 @@ proc Overview_redrawExp { exp_path } {
          Overview_updateExpBox ${canvasW} ${exp_path} ${datestamp} ${lastStatus} ${lastStatusTime}
       }
    }
-   Overview_HighLightFindNode ${LIST_TAG}
 }
 
 # sends a notification when an exp/datestamp is in idle state... 
@@ -3138,6 +3136,7 @@ proc Overview_HighLightFindNode { ll } {
      set expBoxTag          [lindex $ll 1]
      set exp_path           [lindex $ll 2]
      set datestamp          [lindex $ll 3]
+     $canvas delete ${canvas}.find_select
 
      set boundaries [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${datestamp}] 
    # create a rectangle around the node
@@ -3187,7 +3186,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
    if { [winfo exists $msgFrame] } { 
      destroy $msgFrame
    } 
-   $canvas delete ${canvas}.find_select
+   #$canvas delete ${canvas}.find_select
    set expName [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
   
