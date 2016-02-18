@@ -541,7 +541,7 @@ proc Utils_runPluginCommandCallback { pluginEnv command terminal } {
 
    global env
    set id [clock seconds]
-   set init_dir $env(TMPDIR)
+   set init_dir /tmp/\${USER}/\$$
    set mach  $env(HOST) 
    if { $command != "" } {
        set userCmd "$command"
@@ -556,9 +556,9 @@ proc Utils_runPluginCommandCallback { pluginEnv command terminal } {
    puts "cmd=$command"
    ::log::log debug "Utils_runPluginCommandCallback ksh -c $userCmd"
    if { $terminal > 0 } {
-       set cmd_str "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd}; bash --login -i\""
+       set cmd_str "xterm -ls -T '${title}' -e \"export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; mkdir ${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd}; bash --login -i\""
    } else {
-       set cmd_str "export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd} 2>&1"
+       set cmd_str "export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; mkdir ${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd} 2>&1"
    }
    puts $cmd_str
    exec ksh -c $cmd_str &
