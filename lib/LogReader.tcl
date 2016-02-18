@@ -60,13 +60,13 @@ proc LogReader_readMonitorDatestamps { {start_delay -1} } {
            }
          } message ] {
             ::log::log notice "ERROR in LogReader_readMonitorDatestamps: key:${key} ${message}"
-            puts "ERROR in LogReader_readMonitorDatestamps: key:${key} ${message}"
+            puts stderr "ERROR in LogReader_readMonitorDatestamps: key:${key} ${message}"
          }
       }
 
    } message ] {
       ::log::log notice "ERROR in LogReader_readMonitorDatestamps: ${message}"
-      puts "ERROR in LogReader_readMonitorDatestamps: ${message}"
+      puts stderr "ERROR in LogReader_readMonitorDatestamps: ${message}"
    }
 
    set READ_LOG_AFTER_ID [after 4000 LogReader_readMonitorDatestamps]
@@ -113,7 +113,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
       }
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message\nInfo: $::errorInfo"
-      puts "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message\n$::errorInfo"
+      puts stderr "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message\n$::errorInfo"
       ::log::log notice "ERROR: LogReader_startExpLogReader Parsing flow.xml file ${exp_path}:\n$message."
       error ${message}
       return
@@ -156,7 +156,7 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
    }
 
    } message ] {
-      puts "ERROR: LogReader_startExpLogReader exp_path:${exp_path} datestamp:${datestamp}\n$message"
+      puts stderr "ERROR: LogReader_startExpLogReader exp_path:${exp_path} datestamp:${datestamp}\n$message"
       ::log::log notice "ERROR: LogReader_startExpLogReader ${exp_path}:\n$message."
       error ${message}
       return
@@ -404,7 +404,7 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
                } message ] {
 	          ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
 	          ::log::log notice "ERROR: message: ${message}"
-	          puts "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
+	          puts stderr "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
 	       }
             }
          }
@@ -428,11 +428,13 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
       SharedData_setExpUpdatedNodes ${exp_path} ${datestamp} [set LOGREADER_UPDATE_NODES_${exp_path}_${datestamp}]
       # let gui knows that he needs to redraw the flow
       if { ${isOverviewMode} == true } {
+         # ::log::log notice "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
          ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
          # puts "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp}"
          thread::send -async ${overviewThreadId} "xflow_redrawNodesEvent ${exp_path} ${datestamp}" SendDone
          vwait SendDone
          ::log::log debug "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp} DONE"
+         # ::log::log notice "LogReader_readFile xflow_redrawNodesEvent ${exp_path} ${datestamp} DONE"
       } else {
          # in non-overview mode, xflow and LogReader runs within same thread
          # we are sending the request through the thread messaging  instead of direct call
@@ -580,13 +582,14 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
                }
                if { ${node} == [SharedData_getExpRootNode ${_exp_path} ${_datestamp}] } {
                   ::log::log debug "LogReader_processLine to overview time:$timestamp node=$node type=$type"
-                  ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
+                  # ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type"
                   # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\""
                   # sends the command in async mode to avoid potential deadlock... however the vwait ensures that it waits for the
                   # command to be finished before going further
                   thread::send -async [SharedData_getMiscData OVERVIEW_THREAD_ID] \
                   "Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\"" SendDone
                   vwait SendDone
+                  # ::log::log notice "LogReader_processLine to overview time:$timestamp node=$node datestamp:${_datestamp} type=$type DONE"
                   # puts "LogReader_processLine Overview_updateExp [thread::id] \"${_exp_path}\" \"${_datestamp}\" \"${type}\" \"${timestamp}\" DONE"
                }
             }
@@ -618,7 +621,7 @@ proc LogReader_processFlowLine { _exp_path _node _datestamp _type _loopExt _time
 	    return
 	  }
          if [ catch { set nodeType [SharedFlowNode_getNodeType ${_exp_path} ${flowNode} ${_datestamp}] } message ] {
-            puts "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} message: ${message}"
+            puts stderr "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} message: ${message}"
             ::log::log notice "ERROR: LogReader_processFlowLine() _exp_path:${_exp_path} node:${_node} flowNode:${flowNode} _datestamp:${_datestamp} type:${_type} _loopExt:${_loopExt} message: ${message}"
             return
          }

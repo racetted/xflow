@@ -268,7 +268,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
                set expSubmitLateThreshold [SharedData_getExpSubmitLateThreshold ${expPath}]
                if { [string is integer -strict ${expSubmitLateThreshold}] == 0 || ${expSubmitLateThreshold} <=0 } {
                   ::log::log notice "Overview_checkExpSubmitLate ${expPath} invalid OVERVIEW_SUBMIT_LATE_THRESHOLD value: ${expSubmitLateThreshold}"
-                  puts "ERROR: Overview_checkExpSubmitLate ${expPath} invalid OVERVIEW_SUBMIT_LATE_THRESHOLD value: ${expSubmitLateThreshold}"
+                  puts stderr "ERROR: Overview_checkExpSubmitLate ${expPath} invalid OVERVIEW_SUBMIT_LATE_THRESHOLD value: ${expSubmitLateThreshold}"
 	          set expSubmitLateThreshold 15
                }
 
@@ -1304,7 +1304,7 @@ proc Overview_isExpScheduled { exp_path hour start_time } {
    }
 
    } message ] {
-      puts "Overview_isExpScheduled ERROR: exp_path:$exp_path hour:$hour message:$message"
+      puts stderr "Overview_isExpScheduled ERROR: exp_path:$exp_path hour:$hour message:$message"
       ::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:$hour"
    }
 
@@ -1728,7 +1728,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    }
 
    if [ catch { thread::mutex lock ${LAUNCH_XFLOW_MUTEX} } message ] {
-      puts "Overview_launchExpFlow ERROR locking mutex... trying again later" 
+      puts stderr "Overview_launchExpFlow ERROR locking mutex... trying again later" 
       after 500 Overview_launchExpFlow ${exp_path} ${datestamp}
       return
    }
@@ -2808,7 +2808,7 @@ proc Overview_readExperiments {} {
       ::log::log debug "suiteList: $suiteList"
       ::log::log debug "Overview_readExperiments DONE date: [exec date]"
    } else {
-      puts "ERROR: file not found ${suitesFile}"
+      puts stderr "ERROR: file not found ${suitesFile}"
       Utils_fatalError . "Overview Startup Error" "${suitesFile} does not exists! Exiting..."
    }
 }
@@ -2915,8 +2915,8 @@ proc Overview_parseCmdOptions {} {
 	 set logDir [SharedData_getMiscData APP_LOG_DIR]
          if { $params(logfile) == "" && ${logDir} != "" } {
 	    if { ! [file writable ${logDir}] } {
-	       puts "ERROR: cannot create application log file in directory ${logDir}!"
-	       puts "   Check the APP_LOG_DIR entry from your maestrorc file."
+	       puts stderr "ERROR: cannot create application log file in directory ${logDir}!"
+	       puts stderr "   Check the APP_LOG_DIR entry from your maestrorc file."
 	       exit 0
 	    }
 	    # log in given log directory
@@ -3923,7 +3923,7 @@ proc Overview_checkStartupOptions {} {
    # periodic idle check interval in minutes
    set expIdleInterval [SharedData_getMiscData OVERVIEW_EXP_IDLE_INTERVAL]
    if { ! [string is integer -strict ${expIdleInterval}] || ${expIdleInterval} <=0 } {
-      puts "ERROR: INVALID OVERVIEW_EXP_IDLE_INTERVAL value: ${expIdleInterval} using default 60 minutes"
+      puts stderr "ERROR: INVALID OVERVIEW_EXP_IDLE_INTERVAL value: ${expIdleInterval} using default 60 minutes"
       SharedData_setMiscData OVERVIEW_EXP_IDLE_INTERVAL 60
       ::log::log notice "ERROR: INVALID OVERVIEW_EXP_IDLE_INTERVAL value: ${expIdleInterval} using default 60 minutes"
    }
@@ -3931,7 +3931,7 @@ proc Overview_checkStartupOptions {} {
    # periodic idle check interval in minutes
    set expSubmitLateInterval [SharedData_getMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL]
    if { ! [string is integer -strict ${expSubmitLateInterval}] || ${expSubmitLateInterval} <=0 } {
-      puts "ERROR: INVALID OVERVIEW_EXP_SUBMIT_LATE_INTERVAL value: ${expSubmitLateInterval} using default 15 minutes"
+      puts stderr "ERROR: INVALID OVERVIEW_EXP_SUBMIT_LATE_INTERVAL value: ${expSubmitLateInterval} using default 15 minutes"
       SharedData_setMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL 15
       ::log::log notice "Invalid Exp Submit Late Interval: ${expSubmitLateInterval} using default 15 minutes"
    }
