@@ -3579,7 +3579,7 @@ proc xflow_getAllLoopResourcesCallback { exp_path node datestamp} {
 }
 
 # retrieve loop attributes recursively
-proc xflow_getAllLoopResources { exp_path node datestamp} {
+proc xflow_getAllLoopResources { exp_path node datestamp } {
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "loop" } {
       xflow_getLoopResources ${node} ${exp_path} ${datestamp}
    } 
@@ -3819,7 +3819,7 @@ proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height } {
 	   set addImg false
       }
    } message ] {
-      puts "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
+      puts stderr "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
       set addImg false
    }
 
@@ -3850,7 +3850,7 @@ proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height } {
 
          Utils_normalCursor [winfo toplevel ${_canvas}]
       } message ] {
-         puts "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
+         puts stderr "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
          Utils_normalCursor [winfo toplevel ${_canvas}]
       }
    }
