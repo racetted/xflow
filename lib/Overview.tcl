@@ -1060,10 +1060,17 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
          -outline ${outlineColor} -fill white -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
 
+      set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
       set list_tag [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
-      $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
-      $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+
+      if { [string match "default*" ${datestamp}] } {
+         $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+      } else {
+         $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ${datestampHour} ]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ${datestampHour}]
+      }
       $canvas bind $middleBoxId      <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
       $canvas bind ${expBoxTag}.text <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
       $canvas bind canvas_bg_image   <ButtonPress-1>   [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false ${list_tag}]
@@ -1452,7 +1459,14 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
       set expBoxTag     [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
       set list_tag      [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
 
-      $canvas bind ${exp_path}.${datestamp} <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
+      set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
+      if { [string match "default*" ${datestamp}] } {
+         $canvas bind ${expBoxTag}      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+      } else {
+         $canvas bind ${expBoxTag}      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+      }
       $canvas bind ${exp_path}.${datestamp} <Button-1>        [ list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
       $canvas bind ${exp_path}.${datestamp} <Button-3>        [ list Overview_boxMenu $canvas ${exp_path} ${datestamp} %X %Y]
    
