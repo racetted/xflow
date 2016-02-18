@@ -72,7 +72,18 @@ proc SharedFlowNode_isNodeExist { exp_path node datestamp } {
 }
 
 proc SharedFlowNode_getNodeType { exp_path node datestamp } {
-   tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} type
+   set value ""
+   set result [ catch { set value [tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} type] } errmsg ] 
+   if { ${result} != 0  } {
+
+      set einfo $::errorInfo
+      set ecode $::errorCode
+      set message "Problem retrieving node=${node} : possible flow.xml error : ${errmsg}"
+      puts stderr "ERROR: ${message}"
+      error ${message} ${einfo} ${ecode}
+   }
+  
+   return ${value}
 }
 
 proc SharedFlowNode_getSubmitter { exp_path node datestamp } {
@@ -349,7 +360,7 @@ proc SharedFlowNode_isFlowModified { exp_path datestamp } {
 # returns "" on errors
 proc SharedFlowNode_getLoopExtFromLoopArgs { exp_path node datestamp loop_args } {
    if { [SharedFlowNode_isNodeExist ${exp_path} ${node} ${datestamp}] == false } {
-      puts "ERROR: retrieving loop... node ${node} does not exists!"
+      puts stderr "ERROR: retrieving loop... node ${node} does not exists!"
       return ""
    }
 
@@ -385,7 +396,7 @@ proc SharedFlowNode_getLoopExtFromLoopArgs { exp_path node datestamp loop_args }
 
          # if not found, outputs an error and return
          if { ${found} == false } {
-            puts "ERROR: Invalid loop argument: ${splittedLoopArg}"
+            puts stderr "ERROR: Invalid loop argument: ${splittedLoopArg}"
 	    return ""
          }
 

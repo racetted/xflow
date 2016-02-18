@@ -1124,7 +1124,7 @@ proc MsgCenter_processNewMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ }
         MsgCenter_sendNotification
       }
    } message ] {
-      puts "ERROR in -- MsgCenter_processNewMessage: ${message}"
+      puts stderr "ERROR in -- MsgCenter_processNewMessage: ${message}"
       catch { thread::mutex unlock ${MSG_CENTER_MUTEX} }
       ::log::log notice "ERROR in MsgCenter_processNewMessage: ${message}"
       set einfo $::errorInfo
@@ -1138,6 +1138,7 @@ proc MsgCenter_processNewMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ }
    }
 
    catch { thread::mutex unlock ${MSG_CENTER_MUTEX} }
+   # ::log::log notice "MsgCenterThread_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} DONE"
 }
 
 # called by xflow or xflow_overview to let msg center
@@ -1264,7 +1265,7 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
             FlowXml_parse ${expPath}/EntryModule/flow.xml ${expPath} ${realDatestamp} ""
          } message ] {
             set errMsg "Error Parsing flow.xml file ${expPath}:\n$message"
-            puts "ERROR: MsgCenter_rightClickCallback Parsing flow.xml file exp_path:${expPath} datestamp:${realDatestamp}\n$message"
+            puts stderr "ERROR: MsgCenter_rightClickCallback Parsing flow.xml file exp_path:${expPath} datestamp:${realDatestamp}\n$message"
             ::log::log notice "ERROR: MsgCenter_rightClickCallback Parsing flow.xml file ${expPath}:\n$message."
             error ${message}
             return

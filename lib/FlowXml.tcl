@@ -96,7 +96,7 @@ proc FlowXml_getSwitchingItemNode { exp_path datestamp xml_node out_match_item }
 	    }
          }
 	 default {
-            puts "ERROR: FlowXml_getSwitchingItemNode() INVALID switch type:${switchType} exp_path:${exp_path} datestamp:${datestamp}" 
+            puts stderr "ERROR: FlowXml_getSwitchingItemNode() INVALID switch type:${switchType} exp_path:${exp_path} datestamp:${datestamp}" 
             ::log::log notice "ERROR: FlowXml_getSwitchingItemNode() INVALID switch type:${switchType} exp_path:${exp_path} datestamp:${datestamp}" 
 	 }
       }

@@ -161,7 +161,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 # redraws the overview for an exp
 proc Overview_redrawExp { exp_path } {
    set canvasW [Overview_getCanvas]
-   global LIST_TAG
 
    # delete all exp boxes
    Overview_removeAllExpBoxes ${canvasW} ${exp_path}
@@ -180,7 +179,6 @@ proc Overview_redrawExp { exp_path } {
          Overview_updateExpBox ${canvasW} ${exp_path} ${datestamp} ${lastStatus} ${lastStatusTime}
       }
    }
-   Overview_HighLightFindNode ${LIST_TAG}
 }
 
 # sends a notification when an exp/datestamp is in idle state... 
@@ -270,7 +268,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
                set expSubmitLateThreshold [SharedData_getExpSubmitLateThreshold ${expPath}]
                if { [string is integer -strict ${expSubmitLateThreshold}] == 0 || ${expSubmitLateThreshold} <=0 } {
                   ::log::log notice "Overview_checkExpSubmitLate ${expPath} invalid OVERVIEW_SUBMIT_LATE_THRESHOLD value: ${expSubmitLateThreshold}"
-                  puts "ERROR: Overview_checkExpSubmitLate ${expPath} invalid OVERVIEW_SUBMIT_LATE_THRESHOLD value: ${expSubmitLateThreshold}"
+                  puts stderr "ERROR: Overview_checkExpSubmitLate ${expPath} invalid OVERVIEW_SUBMIT_LATE_THRESHOLD value: ${expSubmitLateThreshold}"
 	          set expSubmitLateThreshold 15
                }
 
@@ -476,6 +474,8 @@ proc Overview_getXCoordTime { timevalue {shift_day false} } {
 # refresh the current time line every minute
 proc Overview_setCurrentTime { canvas { current_time "" } } {
    global graphStartX graphStartY graphHourX graphy TimeAfterId
+   global LIST_TAG SHOW_MSGBAR
+
    ::log::log debug "setCurrentTime canvas:$canvas current_time:${current_time}"
    $canvas delete current_timeline
 
@@ -508,7 +508,10 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
 
    # set overview title at the same time
    Overview_setTitle [winfo toplevel ${canvas}] ${current_time}
-
+   #reset the HighLight Node 
+   if {${SHOW_MSGBAR} == "true" } {
+     Overview_HighLightFindNode ${LIST_TAG}
+   }
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
 }
 
@@ -1060,10 +1063,17 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
          -outline ${outlineColor} -fill white -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
 
+      set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
       set list_tag [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
-      $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
-      $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+
+      if { [string match "default*" ${datestamp}] } {
+         $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+      } else {
+         $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ${datestampHour} ]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ${datestampHour}]
+      }
       $canvas bind $middleBoxId      <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
       $canvas bind ${expBoxTag}.text <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
       $canvas bind canvas_bg_image   <ButtonPress-1>   [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false ${list_tag}]
@@ -1301,7 +1311,7 @@ proc Overview_isExpScheduled { exp_path hour start_time } {
    }
 
    } message ] {
-      puts "Overview_isExpScheduled ERROR: exp_path:$exp_path hour:$hour message:$message"
+      puts stderr "Overview_isExpScheduled ERROR: exp_path:$exp_path hour:$hour message:$message"
       ::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:$hour"
    }
 
@@ -1452,7 +1462,14 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
       set expBoxTag     [Overview_getExpBoxTag ${exp_path} ${datestamp} ${currentStatus}]
       set list_tag      [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
 
-      $canvas bind ${exp_path}.${datestamp} <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ]
+      set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
+      if { [string match "default*" ${datestamp}] } {
+         $canvas bind ${expBoxTag}      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+      } else {
+         $canvas bind ${expBoxTag}      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+      }
       $canvas bind ${exp_path}.${datestamp} <Button-1>        [ list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
       $canvas bind ${exp_path}.${datestamp} <Button-3>        [ list Overview_boxMenu $canvas ${exp_path} ${datestamp} %X %Y]
    
@@ -1725,7 +1742,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    }
 
    if [ catch { thread::mutex lock ${LAUNCH_XFLOW_MUTEX} } message ] {
-      puts "Overview_launchExpFlow ERROR locking mutex... trying again later" 
+      puts stderr "Overview_launchExpFlow ERROR locking mutex... trying again later" 
       after 500 Overview_launchExpFlow ${exp_path} ${datestamp}
       return
    }
@@ -2805,7 +2822,7 @@ proc Overview_readExperiments {} {
       ::log::log debug "suiteList: $suiteList"
       ::log::log debug "Overview_readExperiments DONE date: [exec date]"
    } else {
-      puts "ERROR: file not found ${suitesFile}"
+      puts stderr "ERROR: file not found ${suitesFile}"
       Utils_fatalError . "Overview Startup Error" "${suitesFile} does not exists! Exiting..."
    }
 }
@@ -2912,8 +2929,8 @@ proc Overview_parseCmdOptions {} {
 	 set logDir [SharedData_getMiscData APP_LOG_DIR]
          if { $params(logfile) == "" && ${logDir} != "" } {
 	    if { ! [file writable ${logDir}] } {
-	       puts "ERROR: cannot create application log file in directory ${logDir}!"
-	       puts "   Check the APP_LOG_DIR entry from your maestrorc file."
+	       puts stderr "ERROR: cannot create application log file in directory ${logDir}!"
+	       puts stderr "   Check the APP_LOG_DIR entry from your maestrorc file."
 	       exit 0
 	    }
 	    # log in given log directory
@@ -3133,6 +3150,7 @@ proc Overview_HighLightFindNode { ll } {
      set expBoxTag          [lindex $ll 1]
      set exp_path           [lindex $ll 2]
      set datestamp          [lindex $ll 3]
+     $canvas delete ${canvas}.find_select
 
      set boundaries [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${datestamp}] 
    # create a rectangle around the node
@@ -3182,7 +3200,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
    if { [winfo exists $msgFrame] } { 
      destroy $msgFrame
    } 
-   $canvas delete ${canvas}.find_select
+   #$canvas delete ${canvas}.find_select
    set expName [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
   
@@ -3771,7 +3789,7 @@ proc Overview_main {} {
    global env startupExp SHOW_TOOLBAR
    global DEBUG_TRACE FileLoggerCreated
    Overview_setTkOptions
-   global SHOW_MSGBAR
+   global SHOW_MSGBAR 
 
    set SHOW_MSGBAR false
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
@@ -3919,7 +3937,7 @@ proc Overview_checkStartupOptions {} {
    # periodic idle check interval in minutes
    set expIdleInterval [SharedData_getMiscData OVERVIEW_EXP_IDLE_INTERVAL]
    if { ! [string is integer -strict ${expIdleInterval}] || ${expIdleInterval} <=0 } {
-      puts "ERROR: INVALID OVERVIEW_EXP_IDLE_INTERVAL value: ${expIdleInterval} using default 60 minutes"
+      puts stderr "ERROR: INVALID OVERVIEW_EXP_IDLE_INTERVAL value: ${expIdleInterval} using default 60 minutes"
       SharedData_setMiscData OVERVIEW_EXP_IDLE_INTERVAL 60
       ::log::log notice "ERROR: INVALID OVERVIEW_EXP_IDLE_INTERVAL value: ${expIdleInterval} using default 60 minutes"
    }
@@ -3927,7 +3945,7 @@ proc Overview_checkStartupOptions {} {
    # periodic idle check interval in minutes
    set expSubmitLateInterval [SharedData_getMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL]
    if { ! [string is integer -strict ${expSubmitLateInterval}] || ${expSubmitLateInterval} <=0 } {
-      puts "ERROR: INVALID OVERVIEW_EXP_SUBMIT_LATE_INTERVAL value: ${expSubmitLateInterval} using default 15 minutes"
+      puts stderr "ERROR: INVALID OVERVIEW_EXP_SUBMIT_LATE_INTERVAL value: ${expSubmitLateInterval} using default 15 minutes"
       SharedData_setMiscData OVERVIEW_EXP_SUBMIT_LATE_INTERVAL 15
       ::log::log notice "Invalid Exp Submit Late Interval: ${expSubmitLateInterval} using default 15 minutes"
    }
