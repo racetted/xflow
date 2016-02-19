@@ -737,8 +737,10 @@ proc xflow_launchFlowNewWindow { exp_path datestamp } {
       # set new window size to current one
       after 25 [list wm geometry ${newTop} =${currentWidth}x${currentHeight}]
 
-      # reset to existing value in current flow
-      ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
+      if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] == "new" } {
+         # reset to existing value in current flow
+         ${dateEntryCombo} set [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
+      }
    }
 
 }
@@ -1388,7 +1390,8 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
    set waitStatusMsg [SharedFlowNode_getMemberStatusMsg ${exp_path} ${node} ${datestamp} ${extension}]
 
    ::log::log debug "xflow_followDependency waitStatusMsg:$waitStatusMsg"
-   set depExp [exec true_path ${exp_path}]
+   # set depExp [exec true_path ${exp_path}]
+   set depExp ${exp_path}
    set isOcmDep false
    if { ${waitStatusMsg} != "" } {
       # parse wait msg looking for exp=, node=, index=, datestamp=
@@ -1400,7 +1403,8 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
 	          set isOcmDep true
 	          set depExp [textutil::trimPrefix ${token} exp=]
 	       } else {
-	          set depExp [exec true_path [::textutil::trimPrefix ${token} exp=]]
+	          # set depExp [exec true_path [::textutil::trimPrefix ${token} exp=]]
+	          set depExp [::textutil::trimPrefix ${token} exp=]
 	       }
 	    }
 	    node=* {
@@ -3575,7 +3579,7 @@ proc xflow_getAllLoopResourcesCallback { exp_path node datestamp} {
 }
 
 # retrieve loop attributes recursively
-proc xflow_getAllLoopResources { exp_path node datestamp} {
+proc xflow_getAllLoopResources { exp_path node datestamp } {
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "loop" } {
       xflow_getLoopResources ${node} ${exp_path} ${datestamp}
    } 
@@ -3811,11 +3815,11 @@ proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height } {
    # if standalone mode and not original exp don't add  bg
    if [ catch {
       if { (${isOverviewMode} == true && [SharedData_getExpGroupDisplay ${_exp_path}] == "") ||
-           (${isOverviewMode} == false && ([exec true_path $_exp_path] != $env(SEQ_EXP_HOME))) } {
+           (${isOverviewMode} == false && (${_exp_path} != $env(SEQ_EXP_HOME))) } {
 	   set addImg false
       }
    } message ] {
-      puts "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
+      puts stderr "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
       set addImg false
    }
 
@@ -3846,7 +3850,7 @@ proc xflow_addBgImage { _exp_path _datestamp _canvas _width _height } {
 
          Utils_normalCursor [winfo toplevel ${_canvas}]
       } message ] {
-         puts "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
+         puts stderr "ERROR: xflow_addBgImage ${_exp_path} ${_datestamp} $message"
          Utils_normalCursor [winfo toplevel ${_canvas}]
       }
    }
@@ -4091,23 +4095,28 @@ proc xflow_validateExp { startup_exp } {
       }
    }
 
+   if { ${XFLOW_STANDALONE} == 1 && ${myExp} != "" && ! [info exists env(SEQ_EXP_HOME)] } {
+      set env(SEQ_EXP_HOME) ${myExp}
+   }
+
    if { ${myExp} == "" } {
       Utils_fatalError . "Startup Error" "No exp defined at startup! SEQ_EXP_HOME environment variable not set! Exiting..."
    }
 
-   set entryModTruePath ""
-   set expPath [file normalize ${myExp}]
-   catch { set entryModTruePath [ exec true_path ${expPath}/EntryModule ] }
-   if { ${entryModTruePath} == "" } {
-      Utils_fatalError . "Startup Error" "Cannot access ${expPath}/EntryModule. Exiting..."
-   }
+   # set entryModTruePath ""
+   # set expPath [file normalize ${myExp}]
+   # catch { set entryModTruePath [ exec true_path ${myExp}/EntryModule ] }
+   # if { ${entryModTruePath} == "" } {
+   #    Utils_fatalError . "Startup Error" "Cannot access ${myExp}/EntryModule. Exiting..."
+   # }
 
-   set expPath [exec true_path ${expPath}]
-   if { $XFLOW_STANDALONE == 1 } {
-      set env(SEQ_EXP_HOME) ${expPath}
-   }
+   # set expPath [exec true_path ${expPath}]
+   # if { $XFLOW_STANDALONE == 1 } {
+   #    set env(SEQ_EXP_HOME) ${expPath}
+   # }
 
-   return ${expPath}
+   # return ${expPath}
+   return ${myExp}
 }
 
 # this function is called to create the widgets of the xflow main window

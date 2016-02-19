@@ -36,12 +36,12 @@ proc FileLogger_log { _level args } {
                puts $fileId "$dateString:${args}"
                catch { close $fileId }
             } err_message ] {
-               puts "---------------------------------------- ERROR! ----------------------------------------"
-               puts "FileLogger_log ERROR:${err_message}"
+               puts stderr "---------------------------------------- ERROR! ----------------------------------------"
+               puts stderr "FileLogger_log ERROR:${err_message}"
             }
          }
       }
    } else {
-      puts "FileLogger_log ERROR: Cannot find FileLogger thread id."
+      puts stderr "FileLogger_log ERROR: Cannot find FileLogger thread id."
    }
 }

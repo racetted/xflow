@@ -36,7 +36,7 @@ proc LogMonitor_checkNewLogFiles {} {
 
    } message ] } {
       ::log::log notice "ERROR: LogMonitor_checkNewLogFiles() ${message} "
-      puts "ERROR: LogMonitor_checkNewLogFiles() ${message}"
+      puts stderr "ERROR: LogMonitor_checkNewLogFiles() ${message}"
    }
 
    # puts "LogMonitor_checkNewLogFiles DONE:[exec date]"
@@ -61,7 +61,7 @@ proc LogMonitor_checkGroupNewLogFiles { displayGroup } {
             set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
          } errMsg] } {
 	    ::log::log notice "ERROR: () LogMonitor_checkGroupNewLogFiles $errMsg"
-	    puts "ERROR: LogMonitor_checkGroupNewLogFiles() $errMsg"
+	    puts stderr "ERROR: LogMonitor_checkGroupNewLogFiles() $errMsg"
 	 }
 
          foreach modifiedFile ${modifiedFiles} {
@@ -127,7 +127,7 @@ proc LogMonitor_checkOneExpNewLogFiles { _exp_path } {
          set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
       } errMsg] } {
 	 ::log::log notice "ERROR: LogMonitor_checkOneExpNewLogFiles() $errMsg"
-	 puts "ERROR: LogMonitor_checkOneExpNewLogFiles() $errMsg"
+	 puts stderr "ERROR: LogMonitor_checkOneExpNewLogFiles() $errMsg"
       }
       foreach modifiedFile ${modifiedFiles} {
          ::log::log debug  "LogMonitor_checkOneExpNewLogFiles processing ${_exp_path} ${modifiedFile}..."
