@@ -86,7 +86,7 @@ proc ExpXmlOptions_getRefTimings_Progress { _dom_doc } {
    # retrieve the Exp elements
    # if exp_name is set, we filter it
    # if not set get all exps from the document
-   set query "/ExpOptions/TimingProgres"
+   set query "/ExpOptions/TimingProgress"
    set timingInfoNodes [${root} selectNodes ${query}]
    set results {}
    foreach timingInfoNode ${timingInfoNodes} {
