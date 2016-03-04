@@ -608,11 +608,11 @@ proc Overview_processWaitStatus { canvas exp_path datestamp {status wait} } {
 # is in catchup state
 proc Overview_processCatchupStatus { canvas exp_path datestamp {status catchup} } {
    ::log::log debug "Overview_processCatchupStatus ${exp_path} ${datestamp} ${status}"
-   set statusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
-   set statusDateTime [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} catchup]
-   set currentTime [Utils_getCurrentTime]
-   set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
-   set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
+   set statusTime      [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
+   set statusDateTime  [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} catchup]
+   set currentTime     [Utils_getCurrentTime]
+   set refStartTime    [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
+   set refEndTime      [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
 
    # I only care if the catchup time is visible
@@ -633,11 +633,11 @@ proc Overview_processCatchupStatus { canvas exp_path datestamp {status catchup} 
 # is in submit state
 proc Overview_processSubmitStatus { canvas exp_path datestamp {status submit} } {
    ::log::log debug "Overview_processSubmitStatus ${exp_path} ${datestamp} ${status}"
-   set statusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
-   set statusDateTime [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} submit]
-   set currentTime [Utils_getCurrentTime]
-   set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
-   set refEndDateTime [clock scan ${refEndTime}]
+   set statusTime      [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
+   set statusDateTime  [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} submit]
+   set currentTime     [Utils_getCurrentTime]
+   set refEndTime      [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
+   set refEndDateTime  [clock scan ${refEndTime}]
    set currentDateTime [clock seconds]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
 
@@ -672,11 +672,11 @@ proc Overview_processSubmitStatus { canvas exp_path datestamp {status submit} } 
 # is in begin state
 proc Overview_processBeginStatus { canvas exp_path datestamp {status begin} } {
    ::log::log debug "Overview_processBeginStatus ${exp_path} ${datestamp} ${status}"
-   set startTime [OverviewExpStatus_getStartTime ${exp_path} ${datestamp}]
+   set startTime       [OverviewExpStatus_getStartTime ${exp_path} ${datestamp}]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set currentTime [Utils_getCurrentTime]
-   set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
-   set startDateTime [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} begin]
+   set currentTime     [Utils_getCurrentTime]
+   set refEndTime      [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
+   set startDateTime   [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} begin]
 
    if { ${status} == "beginx" && [${canvas} coords ${exp_path}.${datestamp}.start] == "" } {
       set status begin
@@ -713,14 +713,13 @@ proc Overview_processBeginStatus { canvas exp_path datestamp {status begin} } {
 proc Overview_processEndStatus { canvas exp_path datestamp {status end} } {
    ::log::log debug "Overview_processEndStatus ${exp_path} ${datestamp} ${status}"
 
-   set startTime [OverviewExpStatus_getStartTime ${exp_path} ${datestamp}]
-   set endTime [OverviewExpStatus_getEndTime  ${exp_path} ${datestamp}]
-   set startDateTime [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} begin]
-   set endDateTime [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} end]
-
-   set statusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
-   set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
-   set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
+   set startTime       [OverviewExpStatus_getStartTime ${exp_path} ${datestamp}]
+   set endTime         [OverviewExpStatus_getEndTime  ${exp_path} ${datestamp}]
+   set startDateTime   [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} begin]
+   set endDateTime     [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} end]
+   set statusTime      [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
+   set refStartTime    [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
+   set refEndTime      [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
    ::log::log debug "Overview_processEndStatus ${exp_path} refStartTime:$refStartTime refEndTime:$refEndTime startTime:$startTime endTime:$endTime startDateTime:$startDateTime endDateTime:$endDateTime"
    set shiftDay false
@@ -793,15 +792,14 @@ proc Overview_cleanExpMsgDatestamp { exp_path datestamp } {
 # is in abort state
 proc Overview_processAbortStatus { canvas exp_path datestamp {status abort} } {
 
-   set startTime [OverviewExpStatus_getStartTime ${exp_path} ${datestamp}]
-   set startDateTime [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} begin]
-
-   set statusTime [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
-   set refEndTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
-   set refEndDateTime [clock scan ${refEndTime}]
+   set startTime       [OverviewExpStatus_getStartTime ${exp_path} ${datestamp}]
+   set startDateTime   [OverviewExpStatus_getStatusClockValue ${exp_path} ${datestamp} begin]
+   set statusTime      [OverviewExpStatus_getLastStatusTime ${exp_path} ${datestamp}]
+   set refEndTime      [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]  end]
+   set refEndDateTime  [clock scan ${refEndTime}]
    set currentDateTime [clock seconds]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
-   set currentTime [Utils_getCurrentTime]
+   set currentTime     [Utils_getCurrentTime]
 
    if { ${startTime} != "" } {
       if { [expr ${startDateTime} < ${xoriginDateTime}] } {
@@ -883,13 +881,12 @@ proc Overview_refreshBoxStatus { exp_path datestamp {status ""} } {
 proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_day false} } {
    global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
    ::log::log debug "Overview_ExpCreateStartIcon $exp_path $datestamp $timevalue shift_day:$shift_day"
-   set displayGroup [SharedData_getExpGroupDisplay ${exp_path}]
+   set displayGroup   [SharedData_getExpGroupDisplay ${exp_path}]
    set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
    
-   set startY [expr [${displayGroup} cget -y] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
-   set startX [Overview_getXCoordTime ${timevalue} ${shift_day}]
-
-   set labelX [expr $startX + 10]
+   set startY  [expr [${displayGroup} cget -y] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
+   set startX  [Overview_getXCoordTime ${timevalue} ${shift_day}]
+   set labelX  [expr $startX + 10]
    set startX2 [expr $startX + ${startEndIconSize}]
    set startY2 [expr $startY + ${startEndIconSize}]
 
@@ -937,11 +934,11 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
 proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day false} } {
    ::log::log debug "Overview_ExpCreateEndIcon ${exp_path} ${datestamp} ${timevalue} shift_day:$shift_day"
    global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
-   set displayGroup [SharedData_getExpGroupDisplay ${exp_path}]
+   set displayGroup   [SharedData_getExpGroupDisplay ${exp_path}]
    set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
-   set currentCoords [Overview_getRunBoxBoundaries  ${canvas} ${exp_path} ${datestamp}]
-   set startX [Overview_getXCoordTime ${timevalue} ${shift_day}]
-   set startY [expr [lindex ${currentCoords} 1] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
+   set currentCoords  [Overview_getRunBoxBoundaries  ${canvas} ${exp_path} ${datestamp}]
+   set startX         [Overview_getXCoordTime ${timevalue} ${shift_day}]
+   set startY         [expr [lindex ${currentCoords} 1] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
 
    set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    # puts "Overview_ExpCreateEndIcon currentStatus:$currentStatus"
@@ -1322,9 +1319,9 @@ proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
    # puts "Overview_addExpDefaultBox $exp_path $datestamp"
    set refTimings [SharedData_getExpTimings ${exp_path}]
    if { ${refTimings} != "" } {
-      set hour [Utils_getHourFromDatestamp ${datestamp}]
+      set hour         [Utils_getHourFromDatestamp ${datestamp}]
       set refStartTime [Overview_getRefTimings ${exp_path} ${hour} start]
-      set refEndTime [Overview_getRefTimings ${exp_path} ${hour}  end]
+      set refEndTime   [Overview_getRefTimings ${exp_path} ${hour}  end]
       if { ${refStartTime} != "" && ${refEndTime} != "" } {
          Overview_ExpCreateStartIcon ${canvas} ${exp_path} default_${hour} ${refStartTime} true
          Overview_ExpCreateMiddleBox ${canvas} ${exp_path} default_${hour} ${refEndTime} true
@@ -1987,7 +1984,8 @@ proc Overview_waitStartupDatestamps {} {
 # update the status of an experiment node in the overview panel.
 # See LogReader.tcl
 proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
-   global AUTO_LAUNCH
+   global AUTO_LAUNCH LIST_TAG SHOW_MSGBAR
+
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    # ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
@@ -2035,6 +2033,9 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
       } else {
          ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
       }
+   }
+   if {${SHOW_MSGBAR} == "true" } {
+     Overview_HighLightFindNode ${LIST_TAG}
    }
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
