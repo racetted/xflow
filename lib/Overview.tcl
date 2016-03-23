@@ -161,7 +161,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 # redraws the overview for an exp
 proc Overview_redrawExp { exp_path } {
    set canvasW [Overview_getCanvas]
-   global LIST_TAG
 
    # delete all exp boxes
    Overview_removeAllExpBoxes ${canvasW} ${exp_path}
@@ -180,7 +179,6 @@ proc Overview_redrawExp { exp_path } {
          Overview_updateExpBox ${canvasW} ${exp_path} ${datestamp} ${lastStatus} ${lastStatusTime}
       }
    }
-   Overview_HighLightFindNode ${LIST_TAG}
 }
 
 # sends a notification when an exp/datestamp is in idle state... 
@@ -476,6 +474,7 @@ proc Overview_getXCoordTime { timevalue {shift_day false} } {
 # refresh the current time line every minute
 proc Overview_setCurrentTime { canvas { current_time "" } } {
    global graphStartX graphStartY graphHourX graphy TimeAfterId
+   global LIST_TAG SHOW_MSGBAR
    ::log::log debug "setCurrentTime canvas:$canvas current_time:${current_time}"
    $canvas delete current_timeline
 
@@ -508,6 +507,11 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
 
    # set overview title at the same time
    Overview_setTitle [winfo toplevel ${canvas}] ${current_time}
+
+   # reset hightlight node
+   if { ${SHOW_MSGBAR} == "true" } {
+      Overview_HighLightFindNode ${LIST_TAG}
+   }
 
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
 }
@@ -1984,7 +1988,7 @@ proc Overview_waitStartupDatestamps {} {
 # update the status of an experiment node in the overview panel.
 # See LogReader.tcl
 proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
-   global AUTO_LAUNCH
+   global AUTO_LAUNCH LIST_TAG
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    # ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
@@ -2033,6 +2037,9 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
          ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
       }
    }
+
+   Overview_HighLightFindNode ${LIST_TAG}
+
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
 }
@@ -2761,7 +2768,7 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 proc Overview_init {} {
    global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG COLLAPSE_DISABLED_NODES
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
-   global expBoxLength startEndIconSize expBoxOutlineWidth
+   global expBoxLength startEndIconSize expBoxOutlineWidth SHOW_MSGBAR LIST_TAG
 
    set SHOW_TOOLBAR [SharedData_getMiscData OVERVIEW_SHOW_TOOLBAR]
    puts "Overview_init SHOW_TOOLBAR:$SHOW_TOOLBAR"
@@ -2774,6 +2781,9 @@ proc Overview_init {} {
    set COLLAPSE_DISABLED_NODES [SharedData_getMiscData COLLAPSE_DISABLED_NODES]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
+
+   set SHOW_MSGBAR false
+   set LIST_TAG    ""
 
    puts "Overview_init Utils_logInit"
    Utils_logInit
@@ -3147,6 +3157,7 @@ proc Overview_HighLightFindNode { ll } {
      set expBoxTag          [lindex $ll 1]
      set exp_path           [lindex $ll 2]
      set datestamp          [lindex $ll 3]
+     $canvas delete ${canvas}.find_select
 
      set boundaries [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${datestamp}] 
    # create a rectangle around the node
@@ -3196,7 +3207,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
    if { [winfo exists $msgFrame] } { 
      destroy $msgFrame
    } 
-   $canvas delete ${canvas}.find_select
+   # $canvas delete ${canvas}.find_select
    set expName [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
   
