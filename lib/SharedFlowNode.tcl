@@ -1039,13 +1039,15 @@ proc SharedFlowNode_getRelativeProgress { exp_path node datestamp member } {
       set ref_level2 [SharedData_getTimingProgressLevel2 ${exp_path}]
       set ref_lev1_min [Utils_getMinuteFromTime $ref_level1]
       set ref_lev2_min [Utils_getMinuteFromTime $ref_level2]
+      ::log::log debug "SharedFlowNode_getRelativeProgress exp_path:$exp_path node:$node datestamp:$datestamp ref_lev1_min:$ref_lev1_min ref_lev2_min:$ref_lev2_min"
 
       set progressClockValue [clock scan ${progress} -format ${timeDisplayFormat}] 
       set avgProgressClockValue [clock scan ${avgProgress} -format ${timeDisplayFormat}] 
       if { ${progressClockValue} > ${avgProgressClockValue} } {
          set relativeProgressString [expr ${progressClockValue} - ${avgProgressClockValue}]
          set tm_minute [Utils_getMinuteFromTime [clock format ${relativeProgressString} -format ${timeDisplayFormat}]]
-         if { ${tm_minute} >= ${ref_lev1_min} && ${tm_minute} < ${ref_level2}} {
+	 ::log::log debug "SharedFlowNode_getRelativeProgress exp_path:$exp_path node:$node datestamp:$datestamp tm_minute:$tm_minute"
+         if { ${tm_minute} >= ${ref_lev1_min} && ${tm_minute} < ${ref_lev2_min}} {
             set relativeProgress [list +${tm_minute} "min" "orange"]
          } elseif { ${tm_minute} >= ${ref_lev2_min}} {
             set relativeProgress [list +${tm_minute} "min" "red"]
