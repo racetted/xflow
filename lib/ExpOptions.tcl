@@ -136,8 +136,7 @@ proc ExpOptions_read { _exp_path } {
       # get reference timings
       set refTimings [ExpXmlOptions_getRefTimings ${domDoc}]
       # get reference timings progress
-      set refTimingsProgres [ExpXmlOptions_getRefTimings_Progress ${domDoc}]
-
+      set refTimingsProgres [ExpXmlOptions_getTimingProgress ${domDoc}]
       # get support info
       set supportData [ExpXmlOptions_getSupport ${domDoc} ${_exp_path} ${shortName}]
 
@@ -158,10 +157,12 @@ proc ExpOptions_read { _exp_path } {
       # close xml doc
       ExpXmlOptions_done ${domDoc}
 
+
       # store data
       SharedData_setExpDisplayName ${_exp_path} ${displayName}
       SharedData_setExpTimings ${_exp_path} ${refTimings}
-      SharedData_setExpTimings_Progress ${_exp_path} ${refTimingsProgres}
+      SharedData_setExpTimingProgress ${_exp_path} ${refTimingsProgres}
+      SharedData_validateTimingProgress ${_exp_path}
       SharedData_setExpShortName ${_exp_path} ${shortName}
       SharedData_setExpSupportInfo ${_exp_path} ${supportData}
       SharedData_setExpAutoLaunch ${_exp_path} ${autoLaunchValue}
