@@ -985,14 +985,16 @@ proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp display_pref {delt
    # I only need to calculate extra space if the current node is not in position 0
    # in it's parent node. If it is in position 0, the extra space has already been calculated.
 
+   set origNode ${node}
    if { [SharedFlowNode_getSubmitPosition ${exp_path} ${node} ${datestamp}] != 0 } {
       set done 0
       while { ! ${done} } {
          set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
 	 switch ${nodeType} {
 	    loop {
-               if { [expr ${value} < [SharedData_getMiscData LOOP_OVAL_SIZE]] } {
-                  set value [SharedData_getMiscData LOOP_OVAL_SIZE]
+	       set loopSize [SharedData_getMiscData LOOP_OVAL_SIZE]
+               if { [expr ${value} < ${loopSize}] } {
+                  set value ${loopSize}
                }
 	    }
 	    npass_task {
@@ -1003,15 +1005,15 @@ proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp display_pref {delt
                set moduleLocalName [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} local_name]
                if { ${moduleName} != ${moduleLocalName} &&  [expr ${value} < 5 ] } {
 	          set value 5
-	          if { ${display_pref} != "normal" } {
+	          if { ${display_pref} != "normal" && [expr ${value} < 8] } {
 		     set value 8
 		  }
                }
 	    }
-	    switch_case {
+	    default {
 	       if { ${display_pref} != "normal" && [ expr ${value} < 5 ] } {
-	          set value 5
-	       }
+                  set value 5
+               }
 	    }
          }
 
@@ -1029,9 +1031,7 @@ proc ::DrawUtils::getLineDeltaSpace { exp_path node datestamp display_pref {delt
       }
    }
 
-   # if { ${value} != 0 } {
-    # puts "::DrawUtils::getLineDeltaSpace ${exp_path} ${node} display_pref:$display_pref delta_value: $value"
-   # }
+      ::log::log debug "::DrawUtils::getLineDeltaSpace ----------------------- ${exp_path} ${origNode} display_pref:$display_pref delta_value: $value"
 
    return $value
 }

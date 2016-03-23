@@ -6,6 +6,7 @@ package require tdom
 #   <ScheduleInfo sched_type="day_of_week" sched_value="0 1 2 3 4 5 6" />
 #   <MonitorInfo auto_launch="false" check_idle="false" idle_threshold="60" submit_late_threshold="15" show_exp="false"/>
 #   <SupportInfo executing="Yes" status="All Full Support"/>
+#   <TimingProgress ref_level1="00:20:00" ref_level2="00:45:00"/>
 #   <Exp hour="00">
 #      <TimingInfo ref_start="15:00" ref_end="17:00"/>
 #      <SupportInfo executing="Yes" status="Full Support"/>
@@ -78,7 +79,7 @@ proc ExpXmlOptions_getSupport { _dom_doc _exp_path _exp_name { _exp_hour "" } } 
    }
    return ${results}
 }
-proc ExpXmlOptions_getRefTimings_Progress { _dom_doc } {
+proc ExpXmlOptions_getTimingProgress { _dom_doc } {
 
    # point to the root element
    set root [${_dom_doc} documentElement root]
@@ -87,13 +88,16 @@ proc ExpXmlOptions_getRefTimings_Progress { _dom_doc } {
    # if exp_name is set, we filter it
    # if not set get all exps from the document
    set query "/ExpOptions/TimingProgress"
-   set timingInfoNodes [${root} selectNodes ${query}]
+   set timingProgressNode [${root} selectNodes ${query}]
    set results {}
-   foreach timingInfoNode ${timingInfoNodes} {
-      set ref_level1 [${timingInfoNode} getAttribute ref_level1]
-      set ref_level2 [${timingInfoNode} getAttribute ref_level2]
-      lappend results [list ${ref_level1} ${ref_level2}]
+   if { ${timingProgressNode} != "" } {
+      set ref_level1 [${timingProgressNode} getAttribute ref_level1]
+      set ref_level2 [${timingProgressNode} getAttribute ref_level2]
+      ::log::log debug "ExpXmlOptions_getTimingProgress ref_level1:$ref_level1 ref_level2:$ref_level2"
+      set results [list ${ref_level1} ${ref_level2}]
    }
+   ::log::log debug "ExpXmlOptions_getTimingProgress results:$results"
+
    return ${results}
 }
 proc ExpXmlOptions_getRefTimings { _dom_doc } {

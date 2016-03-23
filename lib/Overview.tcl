@@ -508,10 +508,12 @@ proc Overview_setCurrentTime { canvas { current_time "" } } {
 
    # set overview title at the same time
    Overview_setTitle [winfo toplevel ${canvas}] ${current_time}
-   #reset the HighLight Node 
-   if {${SHOW_MSGBAR} == "true" } {
-     Overview_HighLightFindNode ${LIST_TAG}
+
+   # reset hightlight node
+   if { ${SHOW_MSGBAR} == "true" } {
+      Overview_HighLightFindNode ${LIST_TAG}
    }
+
    set TimeAfterId [after ${sleepTime} [list Overview_setCurrentTime $canvas]]
 }
 
@@ -1984,8 +1986,8 @@ proc Overview_waitStartupDatestamps {} {
 # update the status of an experiment node in the overview panel.
 # See LogReader.tcl
 proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
-   global AUTO_LAUNCH LIST_TAG SHOW_MSGBAR
 
+   global AUTO_LAUNCH LIST_TAG
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    # ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
@@ -2034,9 +2036,9 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
          ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
       }
    }
-   if {${SHOW_MSGBAR} == "true" } {
-     Overview_HighLightFindNode ${LIST_TAG}
-   }
+
+   Overview_HighLightFindNode ${LIST_TAG}
+
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
 }
@@ -2765,7 +2767,7 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 proc Overview_init {} {
    global env AUTO_LAUNCH FLOW_SCALE NODE_DISPLAY_PREF CHECK_EXP_IDLE SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG COLLAPSE_DISABLED_NODES
    global graphX graphy graphStartX graphStartY graphHourX expEntryHeight entryStartX entryStartY defaultGraphY
-   global expBoxLength startEndIconSize expBoxOutlineWidth
+   global expBoxLength startEndIconSize expBoxOutlineWidth SHOW_MSGBAR LIST_TAG
 
    set SHOW_TOOLBAR [SharedData_getMiscData OVERVIEW_SHOW_TOOLBAR]
    puts "Overview_init SHOW_TOOLBAR:$SHOW_TOOLBAR"
@@ -2778,6 +2780,9 @@ proc Overview_init {} {
    set COLLAPSE_DISABLED_NODES [SharedData_getMiscData COLLAPSE_DISABLED_NODES]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
    SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
+
+   set SHOW_MSGBAR false
+   set LIST_TAG    ""
 
    puts "Overview_init Utils_logInit"
    Utils_logInit
@@ -3201,7 +3206,6 @@ proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
    if { [winfo exists $msgFrame] } { 
      destroy $msgFrame
    } 
-   #$canvas delete ${canvas}.find_select
    set expName [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
   

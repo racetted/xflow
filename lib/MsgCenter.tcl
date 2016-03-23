@@ -208,9 +208,9 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
 
          ::log::log debug "MsgCenter_submitNodes ${seqExec} -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
          set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
-         Sequencer_runCommandLogAndWindow ${expPath} ${datestamp} [winfo toplevel ${table_widget}] ${seqExec} ${winTitle} top \
-            -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}
-
+         set commandArgs "-d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
+         ::log::log notice "${seqExec} ${commandArgs}"
+	 Sequencer_runCommandWithWindow ${expPath} ${datestamp} [winfo toplevel ${table_widget}] $seqExec ${winTitle} top ${commandArgs}
          update idletasks
 
          incr count

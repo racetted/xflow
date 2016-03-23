@@ -220,14 +220,78 @@ proc SharedData_getExpTimings { _exp_path } {
    set timings [SharedData_getExpData ${_exp_path} ref_timings]
    return ${timings}
 }
-proc SharedData_setExpTimings_Progress { _exp_path _timings } {
+
+# _timings is a list of the following format
+# {ref_level1 ref_level2}
+# {00:10:00 00:15:00}
+proc SharedData_setExpTimingProgress { _exp_path _timings } {
    SharedData_setExpData ${_exp_path} ref_timings_progres ${_timings}
 }
 
-proc SharedData_getExpTimings_Progress { _exp_path } {
-   set timings_progress [SharedData_getExpData ${_exp_path} ref_timings_progres]
-   return ${timings_progress}
+# returns a list of the following format
+# {ref_level1 ref_level2}
+# {00:10:00 00:15:00}
+# returns empty string if no value defined for the exp
+proc SharedData_getExpTimingProgress { _exp_path } {
+   set timingProgress [SharedData_getExpData ${_exp_path} ref_timings_progres]
+   return ${timingProgress}
 }
+
+proc SharedData_getTimingProgressLevel1 { _exp_path } {
+   set timingProgressLevel1 ""
+   set timingProgress [SharedData_getExpData ${_exp_path} ref_timings_progres]
+   if { ${timingProgress} != "" } {
+      set timingProgressLevel1 [lindex ${timingProgress} 0]
+   } else {
+      set timingProgressLevel1 [SharedData_getMiscData TIMING_PROGRESS_REF_LEVEL1]
+   }
+
+   return ${timingProgressLevel1}
+}
+
+proc SharedData_getTimingProgressLevel2 { _exp_path } {
+   set timingProgressLevel2 ""
+   set timingProgress [SharedData_getExpData ${_exp_path} ref_timings_progres]
+   if { ${timingProgress} != "" } {
+      set timingProgressLevel2 [lindex ${timingProgress} 1]
+   } else {
+      set timingProgressLevel2 [SharedData_getMiscData TIMING_PROGRESS_REF_LEVEL2]
+   }
+   return ${timingProgressLevel2}
+}
+
+# if _exp_path null, validates only the default values
+# if _exp_path not null, validates values from ExpOptions.xml if any
+proc SharedData_validateTimingProgress { {_exp_path ""} } {
+   # format is 00:10:00 00:15:00
+   set progressTimingLevel1 [SharedData_getMiscData TIMING_PROGRESS_REF_LEVEL1]
+   set progressTimingLevel2 [SharedData_getMiscData TIMING_PROGRESS_REF_LEVEL2]
+   set timeFormat {%H:%M:%S}
+
+   if { [catch { clock scan ${progressTimingLevel1} -format {%H:%M:%S} } ] } {
+      error "ERROR: Invalid timing_progress_ref_level1 definition in maestrorc; format must be HH:MM:SS"
+      Utils_fatalError . "Startup Error" "Invalid timing_progress_ref_level1 definition in maestrorc; format must be HH:MM:SS exp=${_exp_path}"
+   }
+
+   if { [catch { clock scan ${progressTimingLevel2} -format {%H:%M:%S} } ] } {
+      Utils_fatalError . "Startup Error" "Invalid timing_progress_ref_level2 definition in maestrorc; format must be HH:MM:SS exp=${_exp_path}"
+   }
+
+   if { ${_exp_path} != "" } {
+      set expTimingProgress [SharedData_getExpData ${_exp_path} ref_timings_progres]
+      if { ${expTimingProgress} != "" } {
+         set expTimingProgressLevel1 [lindex ${expTimingProgress} 0]
+         set expTimingProgressLevel2 [lindex ${expTimingProgress} 1]
+         if { [catch { clock scan ${expTimingProgressLevel1} -format {%H:%M:%S} } ] } {
+	    Utils_fatalError . "Startup Error" "Invalid TimingProgres ref_level1 definition in ExpOptions.xml; format must be HH:MM:SS exp=${_exp_path}"
+         }
+         if { [catch { clock scan ${expTimingProgressLevel2} -format {%H:%M:%S} } ] } {
+	    Utils_fatalError . "Startup Error" "Invalid TimingProgres ref_level2 definition in ExpOptions.xml; format must be HH:MM:SS exp=${_exp_path}"
+         }
+      }
+   }
+}
+
 proc SharedData_setExpHeartbeat { _exp_path _datestamp _threadId _timeSeconds _offset } {
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} heartbeat "${_threadId} ${_timeSeconds} ${_offset}"
 }
@@ -681,7 +745,9 @@ proc SharedData_initColors {} {
    }
 }
 
-proc SharedData_getRippleStatusMap { status } {
+# force_check=false return ${status} if not found in mapping
+# force_check=true return "" if not found in mapping
+proc SharedData_getRippleStatusMap { status {force_check true} } {
    global RIPPLE_STATUS_MAP
    if { ! [info exists RIPPLE_STATUS_MAP] } {
       array set RIPPLE_STATUS_MAP {
@@ -699,10 +765,17 @@ proc SharedData_getRippleStatusMap { status } {
       }
    }
 
-   set foundStatus ""
+   if { ${force_check} == true } {
+      set foundStatus ""
+   } else {
+      set foundStatus ${status}
+   }
+
    if { [info exists RIPPLE_STATUS_MAP(${status})] } {
       set foundStatus $RIPPLE_STATUS_MAP(${status})
    }
+
+   return ${foundStatus}
 }
 
 # colors that are derived from others
@@ -797,6 +870,8 @@ proc SharedData_init {} {
    TEXT_VIEWER default \
    USER_TMP_DIR default \
    MENU_RELIEF flat \
+   TIMING_PROGRESS_REF_LEVEL1 "00:10:00" \
+   TIMING_PROGRESS_REF_LEVEL2 "00:15:00" \
    OVERVIEW_CHECK_EXP_IDLE false \
    OVERVIEW_EXP_IDLE_INTERVAL 60 \
    OVERVIEW_EXP_SUBMIT_LATE_INTERVAL 15 \
@@ -865,6 +940,9 @@ proc SharedData_readProperties { {rc_file ""} } {
 	    }
 	 }
       }
+
+      # validate timing progress values
+      SharedData_validateTimingProgress
 
       if { ${errorMsg} != "" } {
          error "ERROR: ${errorMsg}"

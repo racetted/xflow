@@ -23,7 +23,7 @@ fi
 [[ -f "${SEQ_XFLOW_BIN}/../etc/check_deprecation" ]] && . "${SEQ_XFLOW_BIN}/../etc/check_deprecation"
 
 arguments=$*
-eval `cclargs -D "" $0 "[maestro gui]" \
+eval `cclargs $0 "[maestro gui]" \
   -d            ""      ""      "[sequencer date]" \
   -exp          ""      ""      "[experiment path]" \
   -noautomsg "0"        "1"   "[value 1 means no auto message display]" \
