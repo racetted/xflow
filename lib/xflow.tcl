@@ -678,7 +678,9 @@ proc xflow_killNode { exp_path datestamp node list_widget } {
 	         set foundId true
             ::log::log debug "xflow_killNode command: $seqExec  -n $seqNode -job_id $nodeID"
             set winTitle "Node Kill ${seqNode} ID=${nodeID} Exp=${exp_path}"
-            Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top -n ${seqNode} -job_id $nodeID
+           set commandArgs "-n ${seqNode} -job_id $nodeID"
+           ::log::log notice "${seqExec} ${commandArgs}"
+           Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top ${commandArgs}
          }
          if { ${foundId} == false } {
             Utils_raiseError [winfo toplevel ${list_widget}] "Kill Node" "Application Error: Unable to retrieve Task Id."
@@ -1763,6 +1765,7 @@ proc xflow_initbranchCallback { exp_path datestamp node extension canvas  } {
       set winTitle "initbranch ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
          -n $seqNode -s initbranch -f continue $seqLoopArgs
+      ::log::log notice "${seqExec} -n $seqNode -s initbranch -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
 }
 
@@ -2410,7 +2413,7 @@ proc xflow_batchCallback { exp_path datestamp node extension canvas {full_loop 0
 # continue or stop executing upon completion of the current node
 # - local_ignore should be set to "dep_off" for local dependencies to be ignored.
 proc xflow_submitCallback { exp_path datestamp node extension canvas flow {local_ignore_dep dep_on} } {
-   global env
+   global SESSION_TMPDIR
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -2428,8 +2431,9 @@ proc xflow_submitCallback { exp_path datestamp node extension canvas flow {local
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
-         -d ${datestamp} -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs
+      set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs"
+      ::log::log notice "${seqExec} ${commandArgs}"
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
    }
 }
 
@@ -2501,8 +2505,9 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
          cancel return
       }
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
-         -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs 
+      set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs"
+      ::log::log notice "${seqExec} ${commandArgs}"
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
    }
 }
 
@@ -2528,8 +2533,9 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node extension canvas  f
    } else {
       ::log::log debug "xflow_submitNpassTaskCallback ${seqLoopArgs}"
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandLogAndWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
-         -n $seqNode -s submit -f $flow ${ignoreDepFlag} ${seqLoopArgs}
+      set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs"
+      ::log::log notice "${seqExec} ${commandArgs}"
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
    }
 }
 
