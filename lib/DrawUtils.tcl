@@ -225,6 +225,7 @@ proc ::DrawUtils::drawFamily { node canvas } {
 }
 }
 proc DrawUtils::drawTextBox { exp_path canvas tx1 ty1 text  textfill binder } {
+  ::log::log debug "DrawUtils::drawTextBox $exp_path $binder l_text:$text"
   set l_txt [split $text "\n"]
   set size   6
   set color  "normal"
