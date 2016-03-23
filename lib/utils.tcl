@@ -1,16 +1,3 @@
-proc setGlobalValue { key value } {
-   #global GLOBAL_LIST
-   #set GLOBAL_LIST($key) $value
-   SharedData_setMiscData ${key} ${value}
-}
-
-proc getGlobalValue {key} {
-   #global GLOBAL_LIST
-   #set value $GLOBAL_LIST($key)
-   #return $value
-   set value [SharedData_getMiscData ${key}]
-}
-
 # parent is where the user has clicked
 proc Utils_positionWindow { top {parent ""} } {
    if { $parent != "" } {
