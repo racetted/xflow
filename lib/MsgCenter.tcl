@@ -1040,7 +1040,7 @@ proc MsgCengter_processAlarm { table_w_ type_ {repeat_alarm false}} {
          after cancel ${MSG_ALARM_AFTER_ID}
       }
 
-      if { ${repeat_alarm} == false } {
+      if { ${repeat_alarm} == false && ![info exists LOG_ACTIVATION_IDS(${type_})]} {
          set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show true]]
       } else {
          set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show]]
