@@ -2036,9 +2036,7 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
          ::log::log debug "Overview_updateExp canvas $canvas does not exists!"
       }
    }
-
    Overview_HighLightFindNode ${LIST_TAG}
-
    ::log::log notice "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp DONE"
 }
@@ -3793,10 +3791,11 @@ proc Overview_createPluginToolbar { parentToolbar } {
 proc Overview_main {} {
    global env startupExp SHOW_TOOLBAR
    global DEBUG_TRACE FileLoggerCreated
+   global SHOW_MSGBAR LIST_TAG
    Overview_setTkOptions
-   global SHOW_MSGBAR 
 
    set SHOW_MSGBAR false
+   set LIST_TAG    {}
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    ::DrawUtils::init
    Overview_init
