@@ -1367,10 +1367,8 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
 
    ${miscMenu} add command -label "Kill Node" -command [list xflow_killNodeFromDropdown ${exp_path} ${datestamp} $node ${extension} $canvas]
 
-   xflow_showPluginMenu ${popMenu} ${canvas} ${exp_path} ${datestamp} ${node} ${extension}
-
    $popMenu add separator
-   $popMenu add command -label "Close" -command [list destroy ${popMenu}]
+   xflow_showPluginMenu ${popMenu} ${canvas} ${exp_path} ${datestamp} ${node} ${extension}
    
    tk_popup $popMenu $x $y
 

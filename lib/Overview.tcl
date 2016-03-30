@@ -1680,11 +1680,12 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
 
    $popMenu add command -label "History" \
       -command [list Overview_historyCallback $canvas $exp_path ${datestamp} $popMenu]
-   $popMenu add command -label "Flow" -command [list Overview_launchExpFlow $exp_path ${datestamp} ${datestampHour}]
-   $popMenu add command -label "Shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
-   Overview_showPluginMenu ${popMenu} ${exp_path} ${datestamp}
+   $popMenu add command -label "xflow" -command [list Overview_launchExpFlow $exp_path ${datestamp} ${datestampHour}]
+   $popMenu add command -label "Open shell" -command [list Utils_launchShell $env(TRUE_HOST) $exp_path $exp_path "SEQ_EXP_HOME=${exp_path}"]
    $popMenu add command -label "Support" -command [list ExpOptions_showSupportCallback ${exp_path} ${datestamp} [Overview_getToplevel]]
-   $popMenu add command -label "Xml Options" -command [list Overview_xmlOptionsCallback ${exp_path}]
+   $popMenu add command -label "Reload Options" -command [list Overview_xmlOptionsCallback ${exp_path}]
+   $popMenu add separator
+   Overview_showPluginMenu ${popMenu} ${exp_path} ${datestamp}
 
     tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
