@@ -39,6 +39,7 @@ proc Overview_setTkOptions {} {
 # the next hour switch and then wake up every hour to perform the same task
 proc Overview_GridAdvanceHour { {new_hour ""} } {
    global graphHourX graphX graphStartX graphStartY
+   global LIST_TAG
 
    if [ catch {
 
@@ -153,6 +154,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
       }
    }
 
+   Overview_HighLightFindNode ${LIST_TAG}
    Overview_checkGridLimit 
    Overview_setCurrentTime ${canvasW}
    ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}] DONE"
