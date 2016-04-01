@@ -1041,11 +1041,14 @@ proc SharedFlowNode_getRelativeProgress { exp_path node datestamp member } {
       set ref_lev2_min [Utils_getMinuteFromTime $ref_level2]
       ::log::log debug "SharedFlowNode_getRelativeProgress exp_path:$exp_path node:$node datestamp:$datestamp ref_lev1_min:$ref_lev1_min ref_lev2_min:$ref_lev2_min"
 
+      set relativeProgress [list 0 "min" "normal"]
+
       set progressClockValue [clock scan ${progress} -format ${timeDisplayFormat}] 
       set avgProgressClockValue [clock scan ${avgProgress} -format ${timeDisplayFormat}] 
-      if { ${progressClockValue} > ${avgProgressClockValue} } {
+      # any difference less than 60 seconds is considered normal
+      if { ${progressClockValue} > ${avgProgressClockValue} && [expr ${progressClockValue} - ${avgProgressClockValue}] >= 60 } {
          set relativeProgressString [expr ${progressClockValue} - ${avgProgressClockValue}]
-         set tm_minute [Utils_getMinuteFromTime [clock format ${relativeProgressString} -format ${timeDisplayFormat}]]
+         set tm_minute [ expr [scan [clock format ${relativeProgressString} -format %M] %d] + 60 * [clock format ${relativeProgressString} -format %k]]
 	 ::log::log debug "SharedFlowNode_getRelativeProgress exp_path:$exp_path node:$node datestamp:$datestamp tm_minute:$tm_minute"
          if { ${tm_minute} >= ${ref_lev1_min} && ${tm_minute} < ${ref_lev2_min}} {
             set relativeProgress [list +${tm_minute} "min" "orange"]
@@ -1054,11 +1057,10 @@ proc SharedFlowNode_getRelativeProgress { exp_path node datestamp member } {
          } else {
             set relativeProgress [list +${tm_minute} "min" "normal"]
          }
-      } elseif { ${progressClockValue} < ${avgProgressClockValue} } {
+      } elseif { ${progressClockValue} < ${avgProgressClockValue} &&  [expr ${avgProgressClockValue} - ${progressClockValue}] >= 60 } {
          set relativeProgressString [expr ${avgProgressClockValue} - ${progressClockValue}]
-         set relativeProgress [list -[Utils_getMinuteFromTime [clock format ${relativeProgressString} -format ${timeDisplayFormat}]] "min" "normal"] 
-      } else {
-         set relativeProgress [list [Utils_getMinuteFromTime "00:00:00"] "min" "normal"]
+         set tm_minute [ expr [scan [clock format ${relativeProgressString} -format %M] %d] + 60 * [clock format ${relativeProgressString} -format %k]]
+         set relativeProgress [list -${tm_minute} "min" "normal"]
       }
    }
    return $relativeProgress
