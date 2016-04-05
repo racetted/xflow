@@ -883,7 +883,7 @@ proc Overview_refreshBoxStatus { exp_path datestamp {status ""} } {
 #  If the shift_day argument is true, it forces the status to init... This means that
 #  the timings of the exp are off the left side grid...
 proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_day false} } {
-   global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
+   global graphStartX expEntryHeight startEndIconSize
    ::log::log debug "Overview_ExpCreateStartIcon $exp_path $datestamp $timevalue shift_day:$shift_day"
    set displayGroup   [SharedData_getExpGroupDisplay ${exp_path}]
    set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
@@ -937,7 +937,7 @@ proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_da
 #  the timings of the exp are off the left side grid...
 proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day false} } {
    ::log::log debug "Overview_ExpCreateEndIcon ${exp_path} ${datestamp} ${timevalue} shift_day:$shift_day"
-   global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
+   global graphStartX expEntryHeight startEndIconSize
    set displayGroup   [SharedData_getExpGroupDisplay ${exp_path}]
    set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
    set currentCoords  [Overview_getRunBoxBoundaries  ${canvas} ${exp_path} ${datestamp}]
@@ -982,7 +982,7 @@ proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day 
 # the current time is prior to the end reference time.
 proc Overview_ExpCreateReferenceBox { canvas exp_path datestamp timevalue {late_reference false} } {
    ::log::log debug "Overview_ExpCreateReferenceBox ${exp_path} ${datestamp} ${timevalue} late_reference:$late_reference"
-   global graphStartX expEntryHeight startEndIconSize expBoxOutlineWidth
+   global graphStartX expEntryHeight startEndIconSize
    set displayGroup [SharedData_getExpGroupDisplay ${exp_path}]
    set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
    
@@ -1058,7 +1058,7 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
    }
    if { [expr ${endX} > ${startX}] } {
       # vertical coords are the same
-      set startY [expr [lindex ${startIconCoords} 1] - ${expEntryHeight}/2 + ${startEndIconSize}/2 ]
+      set startY [expr [lindex ${startIconCoords} 1] - ${expEntryHeight}/2 + ${startEndIconSize}/2 + 1 ]
       set endY [expr ${startY} + $expEntryHeight/2 + 8]
    
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
@@ -1068,19 +1068,19 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
       $canvas lower ${expBoxTag}.middle ${expBoxTag}.text
       set list_tag [list $canvas ${expBoxTag} ${exp_path} ${datestamp}]
 
-      if { [string match "default*" ${datestamp}] } {
-         $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
-         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
-      } else {
-         $canvas bind $middleBoxId      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ${datestampHour} ]
-         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp} ${datestampHour}]
-      }
       $canvas bind $middleBoxId      <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
       $canvas bind ${expBoxTag}.text <Button-1>        [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
       $canvas bind canvas_bg_image   <ButtonPress-1>   [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false ${list_tag}]
       $canvas bind grid_item         <ButtonPress-1>   [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false ${list_tag}]
    }
+}
 
+proc Overview_expDoubleClickCallback { exp_path datestamp datestamp_hour } {
+   global EXP_BOX_SELECT_AFTER_ID EXP_BOX_LAUNCH_AFTER_ID
+   # cancel exp selection on mouse click 
+   catch { after cancel ${EXP_BOX_SELECT_AFTER_ID} }
+   catch { after cancel ${EXP_BOX_LAUNCH_AFTER_ID} }
+   set EXP_BOX_LAUNCH_AFTER_ID [ after 100 [list Overview_launchExpFlow ${exp_path} ${datestamp} ${datestamp_hour}]]
 }
 
 proc Overview_getRefTimings { exp_path hour start_or_end } {
@@ -1465,14 +1465,14 @@ proc Overview_updateExpBox { canvas exp_path datestamp status { timevalue "" } }
 
       set datestampHour [Utils_getHourFromDatestamp ${datestamp}]
       if { [string match "default*" ${datestamp}] } {
-         $canvas bind ${expBoxTag}      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
-         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} "" ${datestampHour}]
+         $canvas bind ${expBoxTag}      <Double-Button-1> [list Overview_expDoubleClickCallback ${exp_path} "" ${datestampHour}]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_expDoubleClickCallback ${exp_path} "" ${datestampHour}]
       } else {
-         $canvas bind ${expBoxTag}      <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
-         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_launchExpFlow ${exp_path} ${datestamp}]
+         $canvas bind ${expBoxTag}      <Double-Button-1> [list Overview_expDoubleClickCallback ${exp_path} ${datestamp} ""]
+         $canvas bind ${expBoxTag}.text <Double-Button-1> [list Overview_expDoubleClickCallback ${exp_path} ${datestamp} ""]
       }
       $canvas bind ${exp_path}.${datestamp} <Button-1>        [ list Overview_togglemsgbarCallback ${exp_path} ${datestamp} true ${list_tag}]
-      $canvas bind ${exp_path}.${datestamp} <Button-3>        [ list Overview_boxMenu $canvas ${exp_path} ${datestamp} %X %Y]
+      $canvas bind ${exp_path}.${datestamp} <Button-3>        [ list Overview_boxMenuCallback $canvas ${exp_path} ${datestamp} %X %Y]
    
       if { ${continueStatus} != "" } {
          set afterId [after 60000 [list Overview_updateExpBox ${canvas} ${exp_path} ${datestamp} ${continueStatus} ]]
@@ -1661,6 +1661,10 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
    return "$x1 $y1 $x2 $y2"
 }
 
+proc Overview_boxMenuCallback { canvas exp_path datestamp x y } {
+   Overview_boxMenu ${canvas} ${exp_path} ${datestamp} $x $y
+}
+
 # this function is called to pop-up an exp node menu
 proc Overview_boxMenu { canvas exp_path datestamp x y } {
    global env
@@ -1691,7 +1695,7 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
 
     tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
-   Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${list_tag}
+   # Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${list_tag}
 }
 
 proc Overview_xmlOptionsCallback { exp_path } {
@@ -2773,7 +2777,8 @@ proc Overview_init {} {
    set graphy 400
    set defaultGraphY ${graphy}
    set graphStartX 0
-   set graphStartY 50
+   # set graphStartY 50
+   set graphStartY 20
    # x size of each hour
    set graphHourX 48
 
@@ -3137,28 +3142,37 @@ proc Overview_HighLightFindNode { ll } {
 
      set boundaries [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${datestamp}] 
    # create a rectangle around the node
-     set findBoxDelta 5
+     set findBoxDelta 2
      set x1 [expr [lindex ${boundaries} 0] - ${findBoxDelta}]
-     set y1 [expr [lindex ${boundaries} 1] - ${findBoxDelta}]
+     set y1 [expr [lindex ${boundaries} 1] - ${findBoxDelta} -1 ]
      set x2 [expr [lindex ${boundaries} 2] + ${findBoxDelta}]
      set y2 [expr [lindex ${boundaries} 3] + ${findBoxDelta}]
    
      set selectTag ${canvas}.find_select
-     ${canvas} create rectangle ${x1} ${y1} ${x2} ${y2} -width  ${expBoxOutlineWidth} -fill ${selectColor} -tag ${selectTag}
+     # ${canvas} create rectangle ${x1} ${y1} ${x2} ${y2} -width  ${expBoxOutlineWidth} -fill ${selectColor} -tag ${selectTag}
+     ${canvas} create rectangle ${x1} ${y1} ${x2} ${y2} -width 1 -fill ${selectColor} -tag ${selectTag} -outline grey
      ${canvas} lower ${selectTag} ${expBoxTag}
    }
    set LIST_TAG $ll
 }
 
 proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar ll} {
-   global SHOW_MSGBAR
+   global SHOW_MSGBAR EXP_BOX_SELECT_AFTER_ID
 
+   # setting the exp box selection to be done only after 250 ms so that the double click can cancel the selection
+   # otherwise, a double click will always select an exp box too
+   catch { after cancel ${EXP_BOX_SELECT_AFTER_ID} }
+   set EXP_BOX_SELECT_AFTER_ID [after 250 [list Overview_selectExpBox ${exp_path} ${datestamp} ${show_msgbar} ${ll}]]
+}
+
+proc Overview_selectExpBox { exp_path datestamp show_msgbar ll } {
    set topOverview [Overview_getToplevel]
    set toolbarW ${topOverview}.toolbar.msg_frame
    set SHOW_MSGBAR ${show_msgbar}
 
    if { ${SHOW_MSGBAR} == true } {
       Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${ll}
+      Overview_HighLightFindNode ${ll}
    } elseif { [winfo exists $toolbarW]} {
       set canvas    [lindex ${ll} 0]
       $canvas delete ${canvas}.find_select
@@ -3240,8 +3254,8 @@ proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
    eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
    pack ${labelFrame} -pady 2 -side left
    grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
-   Overview_HighLightFindNode ${ll}
 }
+
 proc Overview_createMsgCenterbar { _toplevelW } {
    variable infoText
 
@@ -3322,6 +3336,7 @@ proc Overview_createMsgCenterbar { _toplevelW } {
    pack ${labelFrame} -pady 2 -side left
    grid ${msgbarFrame} -row 0 -column 2 -sticky nsew -padx 2
 }
+
 proc Overview_createToolbar { _toplevelW } {
     # create the frame to hold the core icons and plugin icons
    set ToolbarW ${_toplevelW}.toolbar
@@ -3831,6 +3846,7 @@ proc Overview_main {} {
 
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}
+
    set plugin_toolbar [Overview_createPluginToolbar ${topOverview}.toolbar]
    grid ${plugin_toolbar} -row 0 -column 1 -sticky nsew
 
@@ -3878,6 +3894,8 @@ proc Overview_main {} {
 
    # add the exps on the grid and load the log files
    Overview_addGroupExps ${topCanvas}
+
+   Overview_createMsgCenterbar ${topOverview}
 
    Overview_GridAdvanceHour
 

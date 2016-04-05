@@ -94,19 +94,21 @@ proc OverviewExpStatus_getDatestamps { _exp_path } {
    set datestampList [array names datestamps_${_exp_path}]
    return ${datestampList}
 }
+
 proc OverviewExpMsgCenter_getactiveInfo { key } { 
    global msg_active_List
 
-   set value ""
+   set value 0
    if { [info exists msg_active_List($key)] } {
      set value $msg_active_List(${key})
    } 
    return ${value}
 }
+
 proc OverviewExpMsgCenter_gettotalInfo { key } { 
    global msg_tt_list
 
-   set value ""
+   set value 0
    if { [info exists msg_tt_list($key)] } {
      set value $msg_tt_list(${key})
    } 
