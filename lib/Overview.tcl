@@ -3302,6 +3302,8 @@ proc Overview_createMsgCenterbar { _toplevelW } {
       set infoText " Abort : 0 "
       set label_abortW [label ${labelFrame}.abort -justify center -text ${infoText}]
    }
+
+   ::tooltip::tooltip ${labelFrame} "Displays number of unacknowledge messages vs total messages."
    if { ${nb_event} != "0" && ${tt_event} != "0"} {
       set infoText " Event : ${nb_event}/($tt_event) "
       set label_eventW [label ${labelFrame}.event -justify center -text ${infoText} -bg $color -fg white]
