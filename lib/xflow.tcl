@@ -4156,7 +4156,8 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
 
 
    # creates label on the left side of the canvas
-   set expSideLabelFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  exp_side_label_frame]]
+   # set expSideLabelFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  exp_side_label_frame]]
+   set expSideLabelFrame [labelframe [xflow_getWidgetName ${exp_path} ${datestamp}  exp_side_label_frame]]
    set labelValue ""
    if { [DisplayGrp_getWindowsLabel ${exp_path}] != "" } {
       set labelValue "[DisplayGrp_getWindowsLabel]"
@@ -4164,12 +4165,14 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
 
    set labelBgColor [SharedData_getMiscData WINDOWS_LABEL_BG]
    if { ${labelBgColor} != "" } {
-      set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
+      set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG] -anchor center]
    } else {
-      set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont]]
+      set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont] -anchor center]
    }
-   grid ${expSideLabel}
-   grid ${expSideLabelFrame} -column 0 -row 3
+   grid ${expSideLabel} -column 0 -row 1 -sticky ns
+   grid ${expSideLabelFrame} -column 0 -row 0 -sticky ns -rowspan 5
+   grid rowconfigure ${expSideLabelFrame} 0 -weight 1
+   grid rowconfigure ${expSideLabelFrame} 1 -weight 10
 
    set secondFrame [frame  [xflow_getWidgetName ${exp_path} ${datestamp}  second_frame]]
    set toolbarFrame [xflow_getWidgetName ${exp_path} ${datestamp}  toolbar_frame]

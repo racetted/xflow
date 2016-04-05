@@ -2567,32 +2567,22 @@ proc Overview_createGraph { } {
    ${groupCanvasW} lower grid_item DisplayGroup
 }
 
-proc Overview_createHiddenMessageIcons { canvas } {
-   global SHOW_TOOLBAR
-   set hiddenX 55 
-   set hiddenY 35
-
+proc Overview_createSideToolbarIcons { parent_frame } {
    set imageDir [SharedData_getMiscData IMAGE_DIR]
-   image create photo ${canvas}.msg_center_img -file ${imageDir}/open_mail_sh_16x16.png
-   image create photo ${canvas}.msg_center_new_img -file ${imageDir}/open_mail_new_16x16.png
-   image create photo ${canvas}.toggle_expand_top_img -file ${imageDir}/toggle_expand.png
-   image create photo ${canvas}.toggle_top_img -file ${imageDir}/toggle.png
+   image create photo ${parent_frame}.msg_center_img -file ${imageDir}/open_mail_sh_16x16.png
+   image create photo ${parent_frame}.msg_center_new_img -file ${imageDir}/open_mail_new_16x16.png
+   image create photo ${parent_frame}.toggle_expand_top_img -file ${imageDir}/toggle_expand.png
+   image create photo ${parent_frame}.toggle_top_img -file ${imageDir}/toggle.png
 
-   set normMsgB [button ${canvas}.msg_center_b -image ${canvas}.msg_center_img -command [list MsgCenter_show true] -relief raised ]
-   set newMsgB [button ${canvas}.msg_center_new_b -image ${canvas}.msg_center_new_img -command [list MsgCenter_show true] -relief raised ]
-   set toggleTopB [button ${canvas}.toggle_top_b -image ${canvas}.toggle_top_img -command [list Overview_toggleToolbarCallback]]
-   set toggleExpandTopB [button ${canvas}.toggle_expand_top_b -image ${canvas}.toggle_expand_top_img -command [list Overview_toggleToolbarCallback]]
+   set normMsgB [button ${parent_frame}.msg_center_b -image ${parent_frame}.msg_center_img -command [list MsgCenter_show true] -relief flat ]
+   set newMsgB [button ${parent_frame}.msg_center_new_b -image ${parent_frame}.msg_center_new_img -command [list MsgCenter_show true] -relief flat ]
+   set toggleTopB [button ${parent_frame}.toggle_top_b -image ${parent_frame}.toggle_top_img -command [list Overview_toggleToolbarCallback] -relief flat]
+   set toggleExpandTopB [button ${parent_frame}.toggle_expand_top_b -image ${parent_frame}.toggle_expand_top_img -command [list Overview_toggleToolbarCallback] -relief flat]
+
    ::tooltip::tooltip ${normMsgB} "Show Message Center."
    ::tooltip::tooltip ${newMsgB} "Show Message Center."
    ::tooltip::tooltip ${toggleTopB} "Hide Toolbar & Menus."
    ::tooltip::tooltip ${toggleExpandTopB} "Show Toolbar & Menus."
-   ${canvas} create window $hiddenX $hiddenY -window ${normMsgB} -tag canvas_mail_normal
-   ${canvas} create window $hiddenX $hiddenY -window ${newMsgB} -tag canvas_mail_new
-
-   ${canvas} create window 30 35 -window ${toggleTopB} -tag toggle_top_up
-   ${canvas} create window 30 35 -window ${toggleExpandTopB} -tag toggle_expand_top_up
-
-   Overview_toggleMessageIcons ${canvas}
 }
 
 proc Overview_toggleToolbarCallback {} {
@@ -2605,45 +2595,31 @@ proc Overview_toggleToolbarCallback {} {
    Overview_showToolbarCallback
 }
 
-proc Overview_toggleMessageIcons { canvas } {
+proc Overview_toggleMessageIcons { parent_frame } {
    global OVERVIEW_HAS_NEW_MSG SHOW_TOOLBAR
-   set xDelta 200
-   set yDelta 0
    ::log::log debug "Overview_toggleMessageIcons SHOW_TOOLBAR:$SHOW_TOOLBAR OVERVIEW_HAS_NEW_MSG:$OVERVIEW_HAS_NEW_MSG"
-   set normalMailCoordsX [lindex [${canvas} coords canvas_mail_normal] 0]
-   set newMailCoordsX [lindex [${canvas} coords canvas_mail_new] 0]
 
-   ::log::log debug "Overview_toggleMessageIcons normalMailCoordsX:$normalMailCoordsX newMailCoordsX:$newMailCoordsX"
+   set normMsgB  ${parent_frame}.msg_center_b
+   set newMsgB  ${parent_frame}.msg_center_new_b
+   set toggleTopB  ${parent_frame}.toggle_top_b 
+   set toggleExpandTopB ${parent_frame}.toggle_expand_top_b 
 
    # first hide them all
-   if { ${normalMailCoordsX} > 0 } {
-      ${canvas} move canvas_mail_normal -$xDelta $yDelta
-   }
-
-   if { ${newMailCoordsX} > 0 } {
-      ${canvas} move canvas_mail_new -$xDelta $yDelta
-   }
-
-   if { [lindex [${canvas} coords toggle_top_up] 0] > 0 } {
-      ${canvas} move toggle_top_up -$xDelta $yDelta
-   }
-
-   if { [lindex [${canvas} coords toggle_expand_top_up] 0] > 0 } {
-      ${canvas} move toggle_expand_top_up -$xDelta $yDelta
-   }
+   grid forget ${normMsgB} ${newMsgB} ${toggleTopB} ${toggleExpandTopB}
 
    # then show the appropriate
    if { ${SHOW_TOOLBAR} == false } {
-      # hide toolbar so show canvas icons
+      # hide toolbar so show both icons
+      grid ${toggleExpandTopB} -column 0 -row 0 -pady 1
       if { ${OVERVIEW_HAS_NEW_MSG} } {
          # show new msg icon
-         ${canvas} move canvas_mail_new $xDelta $yDelta
+         grid ${newMsgB} -column 0 -row 1 -pady 1
       } else {
-         ${canvas} move canvas_mail_normal $xDelta $yDelta
+         grid ${normMsgB} -column 0 -row 1 -pady 1
       }
-      ${canvas} move toggle_expand_top_up $xDelta $yDelta
    } else {
-      ${canvas} move toggle_top_up $xDelta $yDelta
+      # toolbar is on so don't show msg center icon
+      grid ${toggleTopB} -column 0 -row 0 -pady 1
    }
 }
 
@@ -3068,7 +3044,7 @@ proc Overview_showToolbarCallback {} {
       grid forget ${topFrame}
       grid forget ${toolbarW}
    }
-   Overview_toggleMessageIcons [Overview_getGroupDisplayCanvas]
+   Overview_toggleMessageIcons [Overview_getVerticalToolbarFrame]
 }
 
 proc Overview_addHelpMenu { parent } {
@@ -3134,7 +3110,7 @@ proc Overview_newMessageCallback { has_new_msg } {
          ${msgCenterWidget} configure -image ${noNewMsgImage} -bg ${normalBgColor}
       }
    }
-   Overview_toggleMessageIcons [Overview_getGroupDisplayCanvas]
+   Overview_toggleMessageIcons [Overview_getVerticalToolbarFrame]
 }
 
 proc Overview_nodeDisplayCallback {} {
@@ -3608,6 +3584,10 @@ proc Overview_setTitle { top_w time_value } {
    wm title [winfo toplevel ${top_w}] ${winTitle}
 }
 
+proc Overview_getVerticalToolbarFrame {} {
+   return .overview_top.side_frame.vertical_toolbar_frame
+}
+
 proc Overview_getCanvasPane {} {
    return .overview_top.canvas_pane
 }
@@ -3828,17 +3808,26 @@ proc Overview_main {} {
       Overview_readExperiments
    }
 
+   # create frame on left side of window to hold msg center and toolbar hide icons
+   set sideFrame [labelframe ${topOverview}.side_frame]
+   grid ${sideFrame} -column 0 -row 0 -sticky ns -rowspan 3
+
+   set sideToolbarFrame [frame ${sideFrame}.vertical_toolbar_frame]
+   grid ${sideToolbarFrame} -column 0 -row 0 -sticky n -pady 2
+
    # create label on left side of window
    set labelValue [DisplayGrp_getWindowsLabel]
    if { ${labelValue} != "" } {
       set labelBgColor [SharedData_getMiscData WINDOWS_LABEL_BG]
       if { ${labelBgColor} != "" } {
-         set labelW [label ${topOverview}.exp_label -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
+         set labelW [label ${sideFrame}.exp_label -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG]]
       } else {
-         set labelW [label ${topOverview}.exp_label -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont]]
+         set labelW [label ${sideFrame}.exp_label -justify center -text [DisplayGrp_getWindowsLabel] -wraplength 1 -font [xflow_getExpLabelFont]]
       }
-      grid ${labelW} -column 0 -row 1 -sticky ew -rowspan 2
+      grid ${labelW} -column 0 -row 1 -sticky ns
    }
+   grid rowconfigure ${sideFrame} 0 -weight 0
+   grid rowconfigure ${sideFrame} 1 -weight 10
 
    Overview_createMenu ${topOverview}
    Overview_createToolbar ${topOverview}
@@ -3883,7 +3872,7 @@ proc Overview_main {} {
    Overview_createGraph
 
    # create icons to open/close toolbar
-   Overview_createHiddenMessageIcons ${groupCanvasW} 
+   Overview_createSideToolbarIcons ${sideToolbarFrame}
 
    Overview_setCurrentTime ${topCanvas}
 
