@@ -942,7 +942,8 @@ proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day 
    set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
    set currentCoords  [Overview_getRunBoxBoundaries  ${canvas} ${exp_path} ${datestamp}]
    set startX         [Overview_getXCoordTime ${timevalue} ${shift_day}]
-   set startY         [expr [lindex ${currentCoords} 1] +  $expEntryHeight/2 - (${startEndIconSize}/2)]
+   set currentY       [DisplayGrp_getCurrentSlotY [lindex ${currentCoords} 1]]
+   set startY         [expr ${currentY} +  $expEntryHeight/2 - (${startEndIconSize}/2)]
 
    set currentStatus [OverviewExpStatus_getLastStatus ${exp_path} ${datestamp}]
    # puts "Overview_ExpCreateEndIcon currentStatus:$currentStatus"
@@ -963,7 +964,7 @@ proc Overview_ExpCreateEndIcon { canvas exp_path datestamp timevalue {shift_day 
 
       set startX2 [expr $startX + ${startEndIconSize}]
       set startY2 [expr $startY + ${startEndIconSize}]
-      
+
       # create the left box
       set endBoxId [${canvas} create oval ${startX} ${startY} ${startX2} ${startY2} -width 1 \
          -fill ${bgColor} -outline ${outlineColor} -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.end"]
@@ -1002,15 +1003,8 @@ proc Overview_ExpCreateReferenceBox { canvas exp_path datestamp timevalue {late_
    }
    set endX [Overview_getXCoordTime ${refEndTime}]
 
-   if { [${canvas} coords ${expBoxTag}.middle] == "" &&
-         [${canvas} coords ${expBoxTag}.reference] == "" } {
-      # create the reference from the start icon up to the end reference time
-      set startY [expr [lindex ${currentCoords} 1] - ${expEntryHeight}/2 + ${startEndIconSize}/2 ]
-      set endY [expr ${startY} + $expEntryHeight/2 + 8 ]
-   } else {
-      set startY [lindex ${currentCoords} 1]
-      set endY [expr $startY + $expEntryHeight/2 + 8]
-   }
+   set startY [expr [DisplayGrp_getCurrentSlotY [lindex ${startCoords} 1]] + 3 ]
+   set endY [expr ${startY} + ${expEntryHeight} - 5 ]
 
    # create the ref box
    ${canvas} delete ${expBoxTag}.reference
@@ -1058,8 +1052,8 @@ proc Overview_ExpCreateMiddleBox { canvas exp_path datestamp timevalue {shift_da
    }
    if { [expr ${endX} > ${startX}] } {
       # vertical coords are the same
-      set startY [expr [lindex ${startIconCoords} 1] - ${expEntryHeight}/2 + ${startEndIconSize}/2 + 1 ]
-      set endY [expr ${startY} + $expEntryHeight/2 + 8]
+      set startY [expr [DisplayGrp_getCurrentSlotY [lindex ${startIconCoords} 1]] + 2 ]
+      set endY [expr ${startY} + ${expEntryHeight} - 3 ]
    
       set middleBoxId [$canvas create rectangle ${startX} ${startY} ${endX} ${endY} -width ${expBoxOutlineWidth} \
          -outline ${outlineColor} -fill white -tags "${expGroupBoxTag} ${exp_path} ${expBoxTag} ${expBoxTag}.middle"]
@@ -1272,8 +1266,14 @@ proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } 
       set deltaDay -1
    }
 
-   set datestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}] 
+   # if the current time is to the right of the 00Z and the starting is to the left then its yesterday's datestamp
+   # if { ${currentTimeX} >= ${today00ZX} && ${myStartTimeX} < ${today00ZX} } {
+   #    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay -1"
+   #
+   #   set deltaDay -1
+   # }
 
+   set datestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
    return ${datestamp}
 }
@@ -3130,7 +3130,7 @@ proc Overview_flowScaleCallback {} {
 # highlights a node that is selected with the find functionality
 # by drawing a yellow rectangle around the node
 proc Overview_HighLightFindNode { ll } {
-   global LIST_TAG expBoxOutlineWidth
+   global LIST_TAG expBoxOutlineWidth expEntryHeight
 
    if { [llength ${ll}] > 0} {
      set selectColor        [SharedData_getColor FLOW_FIND_SELECT]
@@ -3144,9 +3144,10 @@ proc Overview_HighLightFindNode { ll } {
    # create a rectangle around the node
      set findBoxDelta 2
      set x1 [expr [lindex ${boundaries} 0] - ${findBoxDelta}]
-     set y1 [expr [lindex ${boundaries} 1] - ${findBoxDelta} -1 ]
+     set y1 [DisplayGrp_getCurrentSlotY [lindex ${boundaries} 1]]
      set x2 [expr [lindex ${boundaries} 2] + ${findBoxDelta}]
-     set y2 [expr [lindex ${boundaries} 3] + ${findBoxDelta}]
+     # set y2 [expr [lindex ${boundaries} 3] + ${findBoxDelta}]
+     set y2 [expr ${y1} + ${expEntryHeight}]
    
      set selectTag ${canvas}.find_select
      # ${canvas} create rectangle ${x1} ${y1} ${x2} ${y2} -width  ${expBoxOutlineWidth} -fill ${selectColor} -tag ${selectTag}
