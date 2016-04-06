@@ -2583,10 +2583,10 @@ proc Overview_createSideToolbarIcons { parent_frame } {
    set toggleTopB [button ${parent_frame}.toggle_top_b -image ${parent_frame}.toggle_top_img -command [list Overview_toggleToolbarCallback] -relief flat]
    set toggleExpandTopB [button ${parent_frame}.toggle_expand_top_b -image ${parent_frame}.toggle_expand_top_img -command [list Overview_toggleToolbarCallback] -relief flat]
 
-   ::tooltip::tooltip ${normMsgB} "Show Message Center."
-   ::tooltip::tooltip ${newMsgB} "Show Message Center."
-   ::tooltip::tooltip ${toggleTopB} "Hide Toolbar & Menus."
-   ::tooltip::tooltip ${toggleExpandTopB} "Show Toolbar & Menus."
+   ::tooltip::tooltip ${normMsgB} "Show Message Center"
+   ::tooltip::tooltip ${newMsgB} "Show Message Center"
+   ::tooltip::tooltip ${toggleTopB} "Hide Toolbar & Menus"
+   ::tooltip::tooltip ${toggleExpandTopB} "Show Toolbar & Menus"
 }
 
 proc Overview_toggleToolbarCallback {} {
@@ -3000,8 +3000,8 @@ proc Overview_addPrefMenu { parent } {
       -command [list Overview_setAutoMsgDisplay] \
       -onvalue true -offvalue false
    trace add variable AUTO_MSG_DISPLAY write [list Overview_changeSettings AUTO_MSG_DISPLAY]
-   ::tooltip::tooltip $menuW -index 1 "Automatic launch of flow when experiment starts."
-   ::tooltip::tooltip $menuW -index 2 "Automatic message window on new alarm."
+   ::tooltip::tooltip $menuW -index 1 "Automatic launch of flow when experiment starts"
+   ::tooltip::tooltip $menuW -index 2 "Automatic message window on new alarm"
 
 
    $menuW add checkbutton -label "Check Exp Idle" -variable CHECK_EXP_IDLE \
@@ -3210,7 +3210,7 @@ proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
    }
    
    labelframe ${msgFrame} -text "${labeltext} active message count"
-   tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages."
+   tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages"
    frame ${labelFrame}
 
    set labelCloseB ${labelFrame}.label_close_button
@@ -3303,7 +3303,7 @@ proc Overview_createMsgCenterbar { _toplevelW } {
       set label_abortW [label ${labelFrame}.abort -justify center -text ${infoText}]
    }
 
-   ::tooltip::tooltip ${labelFrame} "Displays number of unacknowledge messages vs total messages."
+   ::tooltip::tooltip ${labelFrame} "Number of unacknowledged / (total) messages"
    if { ${nb_event} != "0" && ${tt_event} != "0"} {
       set infoText " Event : ${nb_event}/($tt_event) "
       set label_eventW [label ${labelFrame}.event -justify center -text ${infoText} -bg $color -fg white]
@@ -3368,14 +3368,14 @@ proc Overview_createToolbar { _toplevelW } {
 
    button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command [list MsgCenter_show true] -relief flat
 
-   ::tooltip::tooltip ${mesgCenterW} "Show Message Center."
+   ::tooltip::tooltip ${mesgCenterW} "Show Message Center"
 
    image create photo ${toolbarW}.close -file ${imageDir}/cancel.gif
    button ${closeW} -image ${toolbarW}.close -command [list Overview_quit] -relief flat
-   ::tooltip::tooltip ${closeW} "Close Application."
+   ::tooltip::tooltip ${closeW} "Close Application"
 
    button ${colorLegendW} -image ${toolbarW}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}] -relief flat
-   tooltip::tooltip ${colorLegendW} "Show color legend."
+   tooltip::tooltip ${colorLegendW} "Show color legend"
 
    set backEndW ""
    if { [SharedData_getMiscData OVERVIEW_SHOW_AIX_ICON] == true } { 
