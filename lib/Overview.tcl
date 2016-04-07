@@ -1266,12 +1266,11 @@ proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } 
       set deltaDay -1
    }
 
-   # if the current time is to the right of the 00Z and the starting is to the left then its yesterday's datestamp
-   # if { ${currentTimeX} >= ${today00ZX} && ${myStartTimeX} < ${today00ZX} } {
-   #    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay -1"
-   #
-   #   set deltaDay -1
-   # }
+   # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
+   if { ${currentTimeX} >= ${today00ZX} && ${myStartTimeX} < ${today00ZX} } {
+       ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay -1"
+      set deltaDay -1
+   }
 
    set datestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
