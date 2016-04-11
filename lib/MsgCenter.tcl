@@ -137,7 +137,7 @@ proc MsgCenter_createToolbar { table_w_ } {
    ::tooltip::tooltip ${bellW} "Stop ringing bell."
 
    image create photo ${toolbarW}.ack_msg -file ${imageDir}/message_ack.gif
-   button ${ackW} -image ${toolbarW}.ack_msg -relief flat -command [list MsgCenter_ackMessages ${table_w_} 1 ]
+   button ${ackW} -image ${toolbarW}.ack_msg -relief flat -command [list MsgCenter_ackMessages ${table_w_}]
    ::tooltip::tooltip ${ackW} "Acknowledge new messages."
 
    image create photo ${toolbarW}.clear_msg -file ${imageDir}/message_clear.gif
@@ -275,9 +275,9 @@ proc MsgCenter_createNotebook { table_w_ } {
   ttk::notebook::enableTraversal ${TNotebook}.nb
  
   bind ${TNotebook}.nb <<NotebookTabChanged>> [list MsgCenter_refreshActiveMessages ${table_w_} 0]
-  bind ${TNotebook}.nb  <Button-2> [list displayMsgTabMenu ${table_w_} %W %x %y %X %Y]
-  bind ${TNotebook}.nb  <Button-3> [list displayMsgTabMenu ${table_w_} %W %x %y %X %Y ]
-  bind ${TNotebook}.nb  <Double-1> [list SetMsg_Active     ${table_w_} %W %x %y]
+  bind ${TNotebook}.nb  <Button-2> [list MsgCenter_displayMsgTabMenu ${table_w_} %W %x %y %X %Y]
+  bind ${TNotebook}.nb  <Button-3> [list MsgCenter_displayMsgTabMenu ${table_w_} %W %x %y %X %Y ]
+  bind ${TNotebook}.nb  <Double-1> [list MsgCenter_setMsgActive     ${table_w_} %W %x %y]
 
   pack ${TNotebook}.nb -side left -padx {5 0} 
   grid ${TNotebook} -row $MsgCenterMainGridRowMap(Notetab) -column 0 -sticky nsew -padx 2 -pady 2
@@ -285,7 +285,8 @@ proc MsgCenter_createNotebook { table_w_ } {
 
   MsgCenter_SetNotebOption ${TNotebook}.nb
 }
-proc SetMsg_Active {table_w_ parent x y} {
+
+proc MsgCenter_setMsgActive {table_w_ parent x y} {
   global LOG_ACTIVATION_IDS
   
   set message_type   [lindex [string tolower [$parent tab [$parent index @$x,$y] -text]] 0]
@@ -295,7 +296,8 @@ proc SetMsg_Active {table_w_ parent x y} {
       changeMsgLogActivation ${table_w_} $parent $x $y $message_type activate
    }
 }
-proc displayMsgTabMenu {table_w_ parent x y X Y} {
+
+proc MsgCenter_displayMsgTabMenu {table_w_ parent x y X Y} {
   global LOG_ACTIVATION_IDS
   
   set message_type   [lindex [string tolower [$parent tab [$parent index @$x,$y] -text]] 0]
@@ -375,6 +377,7 @@ proc changeMsgLogActivation {table_w_  parent x y message_type change_type {peri
    MsgCenter_SetNotebOption ${notebookW}
    update
 }
+
 proc Msg_Center_SetImgTab {txt car period} {
    global BGAbort BGEvent BGInfo BGSysinfo BGAll
    
@@ -403,6 +406,7 @@ proc Msg_Center_SetImgTab {txt car period} {
   }
 
 }
+
 proc Msg_Center_Active {table_w_ W x y txt period } {
   global BGAbort BGEvent BGInfo BGSysinfo BGAll
   global LOG_ACTIVATION_IDS
@@ -414,6 +418,7 @@ proc Msg_Center_Active {table_w_ W x y txt period } {
     catch { set LOG_ACTIVATION_IDS(${txt}) $period }
   }
 }
+
 proc MsgCenter_createWidgets {} {
    global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
    global MsgCenterMainGridRowMap MsgTableColMap
@@ -497,9 +502,11 @@ proc MsgCenter_initialSort { _tableW } {
    global MsgTableColMap
    ${_tableW} sortbycolumn $MsgTableColMap(TimestampColNumber) -increasing
 }
+
 proc MsgCenter_getNoteBookWidget {} {
    return .msgCenter.note.nb
 }
+
 proc MsgCenter_getTableWidget {} {
    return .msgCenter.table
 }
@@ -679,28 +686,24 @@ proc MsgCenter_getFieldFromLastMessage { field_index } {
 # for new messages
 proc MsgCenter_sendNotification {} {
    global MSG_ACTIVE_COUNTER MsgTableColMap
-   global MSG_TABLE  MSG_COUNTER
-   
-   set counter 0
-   set nb_elm false
-   while { ${counter} < ${MSG_COUNTER} && ${nb_elm} == "false"} {
-      foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
-      if {!$isMsgack} {
-        set nb_elm true
-      }
-      incr counter
-   }
+   global MSG_TABLE  MSG_COUNTER NB_ACTIVE_ELM
   
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
-   if { ${isStartupDone} == "true" && [expr ${MSG_ACTIVE_COUNTER} > 0] && ${nb_elm} == "true"} { 
+   if { ${isStartupDone} == "true" } { 
+      set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
+      set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       if { ${isOverviewMode} == "true" } {
-         Overview_newMessageCallback true
+         set procName Overview_newMessageCallback
       } else {
-         set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
-         set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
-         xflow_newMessageCallback ${exp} ${datestamp} true
+         set procName xflow_newMessageCallback
       }
+      
+      set newMessageFlag false
+      if { $NB_ACTIVE_ELM(all) == 1 } { 
+         set newMessageFlag true
+      }
+      eval ${procName} ${newMessageFlag}
    }
 }
 
@@ -753,8 +756,8 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ is
 # refresh shown messages based on user message type filters
 # this function is called when the user changes the "Message Type" settings
 # under the Preferences menunodelogger -n /post_processing_misc/loop_sm_00-120 -s event -m test -d 20141002000000 
-
-proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
+# 
+proc MsgCenter_refreshActiveMessages { table_w_ { unack_ 0 }} {
    global MSG_TABLE MSG_COUNTER MSG_ALARM_ON LOG_ACTIVATION_IDS
    global BGAll BGAbort BGEvent BGInfo  BGSysinfo
    global array NB_ACTIVE_ELM MSG_ACTIVE_COUNTER
@@ -822,12 +825,12 @@ proc MsgCenter_refreshActiveMessages { table_w_ bool_} {
                      }
                    }
         }
-     } 
+    } 
    
-   if {${bool_} == "0"} {
-      MsgCenter_AckMessages ${table_w_}
+   if {${unack_} == "0"} {
+      MsgCenter_initMessages ${table_w_}
    } else { 
-      MsgCenter_ackMessages ${table_w_} ${bool_}
+      MsgCenter_ackMessages ${table_w_}
    }  
    MsgCenter_initialSort ${table_w_}
    ${table_w_} see ${MSG_ACTIVE_COUNTER}
@@ -881,7 +884,9 @@ proc MsgCenter_initActiveMessages {} {
    set MSG_ACTIVE_TABLE {}
    set MSG_ACTIVE_COUNTER 0
 }
-proc MsgCenter_AckMessages { table_w_ } {
+
+# displays table messages according to the acknowledge state
+proc MsgCenter_initMessages { table_w_ } {
    global MsgTableColMap 
   
    set normalFg [SharedData_getColor MSG_CENTER_NORMAL_FG]
@@ -895,41 +900,69 @@ proc MsgCenter_AckMessages { table_w_ } {
    }
    MsgCenter_setHeaderStatus ${table_w_} alarm_bg
 }
-proc MsgCenter_ackMessages { table_w_ unack_} {
+
+# acknowledge table messages
+proc MsgCenter_ackMessages { table_w_ } {
    global MsgTableColMap MSG_CENTER_NEW 
-   global MSG_ACTIVE_COUNTER
+   global MSG_ACTIVE_COUNTER NB_ACTIVE_ELM
 
    #wm attributes . -topmost 0
    MsgCenter_stopBell ${table_w_}
    Ack_MsgCenter_List
    set normalFg [SharedData_getColor MSG_CENTER_NORMAL_FG]
-   if { ${unack_} == "1" } {   
-      foreach row [${table_w_} searchcolumn $MsgTableColMap(UnackColNumber) 0 -exact -all] {
-        ${table_w_} rowconfigure ${row} -fg ${normalFg}
-        ${table_w_} cellconfigure ${row},$MsgTableColMap(UnackColNumber) -text 1
-      }
+   foreach row [${table_w_} searchcolumn $MsgTableColMap(UnackColNumber) 0 -exact -all] {
+      ${table_w_} rowconfigure ${row} -fg ${normalFg}
+      ${table_w_} cellconfigure ${row},$MsgTableColMap(UnackColNumber) -text 1
    }
+
    # look for rows that have unack state
    foreach row [${table_w_} searchcolumn $MsgTableColMap(UnackColNumber) 1 -exact -all] {
      ${table_w_} rowconfigure ${row} -fg ${normalFg}
    }
    MsgCenter_setHeaderStatus ${table_w_} normal
+
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-   if { ${isOverviewMode} == "true" } {
-      Overview_newMessageCallback false
+
+   set currentMsgTab [MsgCenter_getCurrentMessageTab]
+   if { ${currentMsgTab} == "all" } {
+      # reset all types to acknowledged
+      foreach msgType "all abort event info sysinfo" {
+         set NB_ACTIVE_ELM(${msgType}) 0
+      } 
    } else {
-      set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
-      set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
-      xflow_newMessageCallback ${exp} ${datestamp} false
+      # reset current tab to acknowledged
+      set NB_ACTIVE_ELM(${currentMsgTab}) 0
+      set allAck true
+      # check if everything was acknowledged
+      foreach msgType "abort event info sysinfo" {
+         if { $NB_ACTIVE_ELM(${msgType}) == 1 } {
+            set allAck false
+	    break
+	 }
+      } 
+      if { ${allAck} == true } {
+         set NB_ACTIVE_ELM(all) 0
+      }
    }
+
    set MSG_CENTER_NEW false
    MsgCenter_sendNotification
    ${table_w_} see ${MSG_ACTIVE_COUNTER}
 }
 
+proc MsgCenter_getCurrentMessageTab {} {
+   set currentTab ""   
+   set notebookW [MsgCenter_getNoteBookWidget]
+   if { [winfo exists ${notebookW}] } {
+      set label [string tolower [$notebookW tab [$notebookW index current] -text]]
+      set currentTab [lindex ${label} 0]
+   }
+   return ${currentTab}
+}
+
 proc MsgCenter_clearAllMessages {} {
    set tableW [MsgCenter_getTableWidget]
-   MsgCenter_ackMessages ${tableW} 1
+   MsgCenter_ackMessages ${tableW}
    MsgCenter_initActiveMessages
 }
 proc Msgcenter_Init_List {table_w_} {
@@ -964,7 +997,7 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
       if { $answer == "cancel" } {
          return
       }
-      MsgCenter_ackMessages ${table_w_} 1
+      MsgCenter_ackMessages ${table_w_}
       Msgcenter_Init_List   ${table_w_}
       MsgCenter_ModifText
    }

@@ -1268,10 +1268,9 @@ proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } 
    }
 
    # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
-   # if { ${currentTimeX} >= ${today00ZX} && ${myStartTimeX} < ${today00ZX} } {
-   #     ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay -1"
-   #    set deltaDay -1
-   # }
+   if {  ${currentTimeX} >= ${today00ZX} && ${deltaDay} == 0 && ${myStartHour} == [Overview_GraphGetXOriginHour] } {
+      set deltaDay -1
+   }
 
    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path Utils_getDatestamp ${datestamp_hour} ${deltaDay}"
    set datestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
@@ -3976,6 +3975,7 @@ proc Overview_checkStartupOptions {} {
 }
 
 set tcl_traceExec 1
+
 Overview_parseCmdOptions
 
 # for testing only
@@ -3986,5 +3986,10 @@ Overview_parseCmdOptions
 # package require ClockWrapper
 # interp alias {} ::clock {} ::ClockWrapper
 # ::ClockWrapper::setDelta "4 hour"
-# ::ClockWrapper::setDelta "-5 hour"
+# ::ClockWrapper::setDelta "-2 hour"
 # ::ClockWrapper::setDelta "0 second"
+# Overview_GridAdvanceHour 12
+# Overview_redrawGrid
+# set canvasW [Overview_getCanvas]
+# Overview_removeAllExpBoxes ${canvasW} ${exp}
+# Overview_addExpDefaultBoxes ${canvasW} ${exp}
