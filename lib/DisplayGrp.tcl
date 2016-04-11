@@ -233,6 +233,7 @@ proc DisplayGrp_processOverlap { display_group } {
             ::log::log debug "DisplayGrp_processOverlap display_group:$display_group goodY:$goodY currentY:$currentY"
             if { ${currentY} != ${goodY} } {
                set deltaY [expr ${goodY} - ${currentY}]
+               ::log::log debug "DisplayGrp_processOverlap Overview_moveGroups ${checkGroup} 0 ${deltaY}"
                Overview_moveGroups ${checkGroup} 0 ${deltaY}
       
                # process next group only if the current one has moved
@@ -268,7 +269,7 @@ proc DisplayGrp_getGroupDisplayY { group_display } {
    if { ${myIndex} == -1 || ${myIndex} == 0 } {
       # puts "DisplayGrp_getGroupDisplayY group_display;$group_display first group"
       # not found or first group, return the start y
-      ::log::log debug "DisplayGrp_getGroupDisplayY group_display:${group_display} first group" 
+      ::log::log debug "DisplayGrp_getGroupDisplayY group_display:${group_display} first group:  value:${entryStartY}" 
       return ${entryStartY}
    }
 
@@ -313,15 +314,16 @@ proc DisplayGrp_getOneGroupBoundaries { canvas display_group } {
    # get the boundaries from the exp canvas
    # it would only contain the box around the exp boxes
    set boundaries [${canvas} bbox ${groupExpTagName}]
-   if { ${boundaries} != "" } {
-   } else {
+   if { ${boundaries} == "" } {
       # not found try from the group canvas
       set groupCanvas [Overview_getGroupDisplayCanvas]
       set boundaries [${groupCanvas} bbox ${groupTagName}]
    }
 
+   # the bbox adds a few pixels to the real boundary... It it sensitive for box collision check so
+   # I'm removing a few pixels ... especially on the Y axis.
    if { ${boundaries} != "" } {
-      set boundaries [list ${startx} [lindex ${boundaries} 1] ${endX} [lindex ${boundaries} 3]]
+      set boundaries [list ${startx} [expr [lindex ${boundaries} 1] + 5] ${endX} [expr [lindex ${boundaries} 3] - 5]]
    }
 
    return ${boundaries}

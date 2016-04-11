@@ -1003,8 +1003,8 @@ proc Overview_ExpCreateReferenceBox { canvas exp_path datestamp timevalue {late_
    }
    set endX [Overview_getXCoordTime ${refEndTime}]
 
-   set startY [expr [DisplayGrp_getCurrentSlotY [lindex ${startCoords} 1]] + 3 ]
-   set endY [expr ${startY} + ${expEntryHeight} - 5 ]
+   set startY [expr [DisplayGrp_getCurrentSlotY [lindex ${startCoords} 1]] + 2 ]
+   set endY [expr ${startY} + ${expEntryHeight} - 3 ]
 
    # create the ref box
    ${canvas} delete ${expBoxTag}.reference
@@ -1224,6 +1224,8 @@ proc Overview_addExpDefaultBoxes { canvas exp_path {myhour ""} } {
 # on the run hour and it's referenced start time
 # and the current date
 proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } {
+
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp_hour:$datestamp_hour start_time:$start_time"
    global graphStartX
    set datestamp ""
 
@@ -1233,10 +1235,10 @@ proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } 
       set refTimings [SharedData_getExpTimings ${exp_path}]
       foreach refTiming ${refTimings} {
          foreach { myhour myStartTime myEndTime } ${refTiming} {
-	    if { ${datestamp_hour} == ${myhour} } {
-	       set start_time ${myStartTime}
-	    }
-	 }
+            if { ${datestamp_hour} == ${myhour} } {
+               set start_time ${myStartTime}
+            }
+         }
       }
    }
 
@@ -1245,10 +1247,9 @@ proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } 
    set myDatestampHourX [Overview_getXCoordTime ${datestamp_hour}:00]
 
    set currentTimeX [Overview_getCurrentTimeX]
-
    set today00ZX [Overview_getZeroHourX]
 
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp start_time:${start_time}"
    ::log::log debug "Overview_getScheduledDatestamp myDatestampHourX:$myDatestampHourX currentTimeX:$currentTimeX today00ZX:$today00ZX myStartHour:$myStartHour"
 
    set deltaDay 0
@@ -1267,11 +1268,12 @@ proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } 
    }
 
    # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
-   if { ${currentTimeX} >= ${today00ZX} && ${myStartTimeX} < ${today00ZX} } {
-       ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay -1"
-      set deltaDay -1
-   }
+   # if { ${currentTimeX} >= ${today00ZX} && ${myStartTimeX} < ${today00ZX} } {
+   #     ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay -1"
+   #    set deltaDay -1
+   # }
 
+   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path Utils_getDatestamp ${datestamp_hour} ${deltaDay}"
    set datestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
    ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
    return ${datestamp}
@@ -1289,6 +1291,7 @@ proc Overview_isExpScheduled { exp_path hour start_time } {
    if { ! [info exists DayOfWeekMapping] } {
       set DayOfWeekMapping { Sun 0 Mon 1 Tue 2 Wed 3 Thu 4 Fri 5 Sat 6 }
    }
+   ::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:${hour} start_time:${start_time} scheduledDatestamp:?"
    set scheduledDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour} ${start_time} ]
    ::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:${hour} scheduledDatestamp:$scheduledDatestamp"
    if { ${scheduledDatestamp} != "" } {
@@ -1306,7 +1309,7 @@ proc Overview_isExpScheduled { exp_path hour start_time } {
 	      set isScheduled true
 	   }
 	}
-	::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:${hour} scheduleType:$scheduleType scheduleInfo;$scheduleInfo isScheduled:isScheduled"
+	::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:${hour} scheduleType:$scheduleType scheduleInfo;$scheduleInfo isScheduled:$isScheduled"
      }
    }
 
@@ -1373,7 +1376,6 @@ proc Overview_removeExpBox { canvas exp_path datestamp status } {
    }
 
 }
-
 
 proc Overview_removeAllExpBoxes { canvas exp_path } {
    ${canvas} delete ${exp_path}
@@ -1543,20 +1545,21 @@ proc Overview_resolveLocation { canvas exp_path datestamp x1 y1 x2 y2 } {
    global expEntryHeight
    ::log::log debug "Overview_resolveLocation exp_path:$exp_path datestamp:$datestamp x1:$x1 y1:$y1 x2:$x2 y2:$y2"
    set currentCoords "${x1} ${y1} ${x2} ${y2}"
-   set overlapCoords [Overview_resolveOverlap ${canvas} ${exp_path} ${datestamp} ${x1} ${y1} ${x2} ${y2}]
-   ::log::log debug "Overview_resolveLocation overlapCoords ${overlapCoords}"
    set displayGroup [SharedData_getExpGroupDisplay ${exp_path}]
+   set overlapCoords [Overview_resolveOverlap ${canvas} ${exp_path} ${datestamp} ${x1} ${y1} ${x2} ${y2}]
    if { [Utils_isListEqual ${currentCoords} ${overlapCoords}] == "false" } {
+      ::log::log debug "Overview_resolveLocation exp_path:$exp_path currentCoords: ${currentCoords} overlapCoords:${overlapCoords} datestamp:${datestamp}"
+
       set deltax [expr [lindex $overlapCoords 0] - ${x1}]
       set deltay [expr [lindex $overlapCoords 1] - ${y1}]
       $canvas move ${exp_path}.${datestamp} ${deltax} ${deltay}
       ::log::log debug "Overview_resolveLocation $canvas move ${exp_path}.${datestamp} ${deltax} ${deltay}"
       ::log::log debug "Overview_resolveLocation moving ${exp_path}.${datestamp} from $x1 $y1 $x2 $y2 to $overlapCoords"
+      ::log::log debug "Overview_resolveLocation DisplayGrp_setMaxY  ${displayGroup} [lindex $overlapCoords 1]"
       DisplayGrp_setMaxY ${displayGroup} [lindex $overlapCoords 1]
       DisplayGrp_processOverlap ${displayGroup}
       # the new location is clear within its own group but
       # need to check if the new location overlaps with another display group
-      ::log::log debug "Overview_resolveLocation moving ${exp_path} from $x1 $y1 $x2 $y2 to $overlapCoords"
    }
    DisplayGrp_processEmptyRows ${displayGroup}
 }
@@ -1610,6 +1613,7 @@ proc Overview_resolveOverlap { canvas exp_path datestamp x1 y1 x2 y2 } {
             set isOverlap [Utils_isOverlap $x1 $y1 $x2 $y2 $xx1 $yy1 $xx2 $yy2]
          }
       }
+         ::log::log debug "Overview_resolveOverlap boundaries for $exp_path ${expBoxTag} [Overview_getRunBoxBoundaries ${canvas} ${exp_path} ${expBoxTag}]" 
       if { ${isOverlap} } {
          ::log::log debug "Overview_resolveOverlap FOUND OVERLAP? YES expBoxTag:$expBoxTag currentExpBoxTag:$currentExpBoxTag exp_path:$exp_path  $x1 $y1 $x2 $y2 $xx1 $yy1 $xx2 $yy2"
          # try to display the box in the next row
@@ -2371,6 +2375,7 @@ proc Overview_addGroup { canvas displayGroup } {
 
    set expEntryCurrentX [DisplayGrp_getGroupDisplayX ${displayGroup}]
 
+   ::log::log debug "Overview_addGroup creating group:$groupName at location x:$expEntryCurrentX y:[expr $groupEntryCurrentY + $expEntryHeight/2]"
    $canvas create text $expEntryCurrentX [expr $groupEntryCurrentY + $expEntryHeight/2]  \
       -text "${deltaName}${groupName}" -justify left -anchor w -fill grey20 -tag "DisplayGroup ${tagName}"
 
@@ -2402,7 +2407,6 @@ proc Overview_addGroupExps { canvas } {
          LogMonitor_setLastCheckTime ${exp} ${currentTime}
       }
    }
-
 
    # nof datestamp log files to be loaded
    set progressMax [Overview_getStartupNofDatestamps]
@@ -2442,7 +2446,6 @@ proc Overview_addGroupExps { canvas } {
       Overview_checkGridLimit
       destroy ${progressBar}
    }
-
 }
 
 # this procedure is called by exp threads when an error is detected
@@ -2777,7 +2780,7 @@ proc Overview_init {} {
    set defaultGraphY ${graphy}
    set graphStartX 0
    # set graphStartY 50
-   set graphStartY 20
+   set graphStartY 30
    # x size of each hour
    set graphHourX 48
 
@@ -2787,7 +2790,7 @@ proc Overview_init {} {
    set expBoxLength 40
    
    # creates suite entries
-   set entryStartY 50
+   set entryStartY ${graphStartY}
    set entryStartX 0
 
    set startEndIconSize 10
@@ -3817,9 +3820,12 @@ proc Overview_main {} {
    set topOverview [Overview_getToplevel]
    set topCanvas [Overview_getCanvas]
    toplevel ${topOverview}
+
    # keep track of coords
    bind ${topOverview} <Configure> [list Overview_setMainCoords ${topOverview}]
+
    wm withdraw ${topOverview}
+   # wm iconify ${topOverview}
 
    if { [SharedData_getMiscData SUITES_FILE] != "" } {
       Overview_readExperiments
@@ -3905,7 +3911,9 @@ proc Overview_main {} {
    MsgCenter_startupDone
 
    wm geometry ${topOverview} =1500x600
+   # wm withdraw ${topOverview} ; wm deiconify ${topOverview}
    wm deiconify ${topOverview}
+   # wm geometry ${topOverview}  +0+0
 
    Overview_savePaneInitialState
 
@@ -3919,9 +3927,9 @@ proc Overview_main {} {
    set count 1
 
    foreach thread [array names PoolId] {
-      set delayValue [expr ${count} * 1000]
-      ::thread::send -async ${thread} "LogReader_readMonitorDatestamps ${delayValue}"
-      incr count
+       set delayValue [expr ${count} * 1000]
+       ::thread::send -async ${thread} "LogReader_readMonitorDatestamps ${delayValue}"
+       incr count
    }
 
    Overview_checkStartupOptions
