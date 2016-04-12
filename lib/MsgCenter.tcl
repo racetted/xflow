@@ -627,13 +627,9 @@ proc MsgCenter_ModifText  {} {
 # 
 proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_ } {
    global MSG_TABLE MSG_COUNTER MSG_ACTIVE_COUNTER
-   global MSG_CENTER_NEW MSG_ACTIVE_TABLE
+   global MSG_ACTIVE_TABLE
   
-   if { ${MSG_CENTER_NEW} == "true" } {
-      set istoadd false 
-   } else {
-      set istoadd true 
-   }
+   set istoadd true 
    
    set isUnack 0
    set is_exist [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_}]
@@ -903,7 +899,7 @@ proc MsgCenter_initMessages { table_w_ } {
 
 # acknowledge table messages
 proc MsgCenter_ackMessages { table_w_ } {
-   global MsgTableColMap MSG_CENTER_NEW 
+   global MsgTableColMap
    global MSG_ACTIVE_COUNTER NB_ACTIVE_ELM
 
    #wm attributes . -topmost 0
@@ -945,7 +941,6 @@ proc MsgCenter_ackMessages { table_w_ } {
       }
    }
 
-   set MSG_CENTER_NEW false
    MsgCenter_sendNotification
    ${table_w_} see ${MSG_ACTIVE_COUNTER}
 }
@@ -1128,7 +1123,7 @@ proc MsgCenter_show { {force false} } {
 
 # called everytime a new message comes in from experiment threads
 proc MsgCenter_processNewMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ } {
-   global MSG_ALARM_ID MSG_CENTER_MUTEX MSG_CENTER_NEW 
+   global MSG_ALARM_ID MSG_CENTER_MUTEX NB_ACTIVE_ELM
 
    ::log::log debug "MsgCenter_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
 
@@ -1147,8 +1142,10 @@ proc MsgCenter_processNewMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ }
    if [ catch { 
       ::log::log debug "MsgCenterThread_processNewMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
       if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
-        set MSG_CENTER_NEW true
+        set NB_ACTIVE_ELM(all) 1
+        set NB_ACTIVE_ELM(${type_}) 1
       }
+      ::log::log debug "calling MsgCenterThread_newMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_}"
       MsgCenter_newMessage [MsgCenter_getTableWidget] ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} 
       
       # if the exp is done reading messages, we send a notification out
@@ -1338,7 +1335,7 @@ proc MsgCenter_getCurrentTime {} {
 
 proc MsgCenter_init {} {
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE SHOW_EVENT_TYPE
-   global DEBUG_TRACE MSG_BELL_TRIGGER MSG_CENTER_USE_BELL MSG_CENTER_NEW
+   global DEBUG_TRACE MSG_BELL_TRIGGER MSG_CENTER_USE_BELL
    global BGAll BGAbort BGEvent BGInfo  BGSysinfo LOG_ACTIVATION_IDS
    global MSG_ALARM_ON MsgCenterMainGridRowMap  
    global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
@@ -1370,7 +1367,6 @@ proc MsgCenter_init {} {
 
    # counter for all received messages
    set MSG_COUNTER 0
-   set MSG_CENTER_NEW false
    # reset active messages, the list of active messages is a bit different than the MSG_TABLE.
    # The active messages can be filtered out by "Message Type"
    MsgCenter_initActiveMessages
