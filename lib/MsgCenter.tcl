@@ -689,17 +689,19 @@ proc MsgCenter_sendNotification {} {
       set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
       set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
+      set extraArgs ""
       if { ${isOverviewMode} == "true" } {
          set procName Overview_newMessageCallback
       } else {
          set procName xflow_newMessageCallback
+	 set extraArgs "${exp} ${datestamp}"
       }
       
       set newMessageFlag false
       if { $NB_ACTIVE_ELM(all) == 1 } { 
          set newMessageFlag true
       }
-      eval ${procName} ${newMessageFlag}
+      eval ${procName} ${newMessageFlag} ${extraArgs}
    }
 }
 
@@ -1334,7 +1336,7 @@ proc MsgCenter_getCurrentTime {} {
 ########################################
 
 proc MsgCenter_init {} {
-   global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE SHOW_EVENT_TYPE
+   global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE SHOW_EVENT_TYPE NB_ACTIVE_ELM
    global DEBUG_TRACE MSG_BELL_TRIGGER MSG_CENTER_USE_BELL
    global BGAll BGAbort BGEvent BGInfo  BGSysinfo LOG_ACTIVATION_IDS
    global MSG_ALARM_ON MsgCenterMainGridRowMap  
@@ -1346,6 +1348,14 @@ proc MsgCenter_init {} {
    # Utils_logInit
    # Utils_createTmpDir
  
+   array set NB_ACTIVE_ELM { 
+         all     0
+         abort   0
+         event   0
+         info    0
+         sysinfo 0
+   }
+
    # this variable is true when a new message comes in
    # and we need to warn the user about it
    set MSG_ALARM_ON false
