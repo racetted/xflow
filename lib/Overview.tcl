@@ -1255,7 +1255,7 @@ proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } 
    set deltaDay 0
 
    # if both start time and datestamp hour is passed the 00Z, then it's for tomorrow
-   if { ${myStartTimeX} >= ${today00ZX} && ${myDatestampHourX} > ${currentTimeX} && ${myDatestampHourX} >= ${today00ZX} } {
+   if { ${currentTimeX} < ${today00ZX} && ${myStartTimeX} >= ${today00ZX} && ${myDatestampHourX} > ${currentTimeX} && ${myDatestampHourX} >= ${today00ZX} } {
       ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay +1"
 
       set deltaDay 1
@@ -1268,7 +1268,8 @@ proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } 
    }
 
    # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
-   if {  ${currentTimeX} >= ${today00ZX} && ${deltaDay} == 0 && ${myStartHour} == [Overview_GraphGetXOriginHour] } {
+   # this take care of exp boxes that starts right on the origin x hour
+   if { ${currentTimeX} >= ${today00ZX} && ${deltaDay} == 0 && ${myStartHour} == [Overview_GraphGetXOriginHour] } {
       set deltaDay -1
    }
 
