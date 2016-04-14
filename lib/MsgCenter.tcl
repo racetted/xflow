@@ -539,6 +539,7 @@ proc MsgCenter_setHeaderStatus { table_w_ status_ } {
       }
    }
 }
+
 proc Msg_IncrArrayElement {var key key2 key3 {incr 1}} {
     upvar $var a 
     if {[info exists a(${key}_${key2}_${key3})]} {
@@ -547,6 +548,7 @@ proc Msg_IncrArrayElement {var key key2 key3 {incr 1}} {
         set a(${key}_${key2}_${key3}) $incr
     } 
 }
+
 proc MsgCenter_ModifText  {} {
    global MSG_COUNTER MSG_TABLE
    global msg_info_List msg_tt_list exp_path_frame
@@ -1022,6 +1024,9 @@ proc MsgCenter_removeMessages { exp datestamp } {
    set MSG_COUNTER [llength ${MSG_TABLE}]
    MsgCenter_refreshActiveMessages ${tableW} 0
    MsgCenter_ModifText
+
+   # make sure that status of msg center button in overview and/or xflow reflects new messages after remove
+   MsgCenter_sendNotification
    ::log::log notice "MsgCenter_removeMessages for exp:${exp} datestamp:${datestamp} DONE"
 }
 
