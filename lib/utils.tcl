@@ -458,12 +458,12 @@ proc Utils_createTmpDir {} {
 
 # this function displays plugins on the toolbar
 proc Utils_createPluginToolbar { parent parentToolbar pluginEnv } {
-   global LAUNCH_XFLOW_MUTEX XFLOW_STANDALONE
+   global LAUNCH_XFLOW_MUTEX 
    # plugin is child of main toolbar frame
-   if { $XFLOW_STANDALONE == 1 || [info exists LAUNCH_XFLOW_MUTEX]} {
-     set toolbarW ${parentToolbar}.plugintoolbar
+   if { [SharedData_getMiscData OVERVIEW_MODE] == false || [info exists LAUNCH_XFLOW_MUTEX] } {
+      set toolbarW ${parentToolbar}.plugintoolbar
    } else {
-     set toolbarW ${parentToolbar}.label.plugintoolbar
+      set toolbarW ${parentToolbar}.label.plugintoolbar
    }
    frame ${toolbarW} -bd 1
    
