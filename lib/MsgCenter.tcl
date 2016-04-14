@@ -601,24 +601,23 @@ proc MsgCenter_ModifText  {} {
        Overview_addMsgcenterWidget ${exp_path_frame} ${datestamp_msgframe} ${LIST_TAG}
      }
    }
-   if { [info exists LAUNCH_XFLOW_MUTEX] || [SharedData_getMiscData OVERVIEW_MODE] == false } {
-     set counter       0
-     set deleteIndexes {}
-     set nb_elm [llength ${List_Xflow}]
-     while { ${counter} < ${nb_elm} } {
-       foreach {exp_path dates topFrame} [lindex ${List_Xflow} ${counter}] {break}
-       if { [winfo exists $topFrame] } {
+
+   set counter       0
+   set deleteIndexes {}
+   set nb_elm [llength ${List_Xflow}]
+   while { ${counter} < ${nb_elm} } {
+      foreach {exp_path dates topFrame} [lindex ${List_Xflow} ${counter}] {break}
+      if { [winfo exists $topFrame] } {
          xflow_addMsgcenterWidget ${exp_path} ${dates}
-       } else {
+      } else {
          lappend deleteIndexes ${counter}
-       }
-       incr counter
-     }
-     set deleteIndexes [lreverse ${deleteIndexes}]
-     foreach deleteIndex ${deleteIndexes} {
-        set List_Xflow [lreplace ${List_Xflow} ${deleteIndex} ${deleteIndex}]
-     } 
+      }
+      incr counter
    }
+   set deleteIndexes [lreverse ${deleteIndexes}]
+   foreach deleteIndex ${deleteIndexes} {
+      set List_Xflow [lreplace ${List_Xflow} ${deleteIndex} ${deleteIndex}]
+   } 
  
 }
 
@@ -1338,14 +1337,15 @@ proc MsgCenter_init {} {
    global DEBUG_TRACE MSG_BELL_TRIGGER MSG_CENTER_USE_BELL
    global BGAll BGAbort BGEvent BGInfo  BGSysinfo LOG_ACTIVATION_IDS
    global MSG_ALARM_ON MsgCenterMainGridRowMap  
-   global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER
+   global MSG_TABLE MSG_COUNTER MSG_ALARM_COUNTER List_Xflow
   
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    set MSG_BELL_TRIGGER [SharedData_getMiscData MSG_CENTER_BELL_TRIGGER]
 
    # Utils_logInit
    # Utils_createTmpDir
- 
+
+   set List_Xflow {}
    array set NB_ACTIVE_ELM { 
          all     0
          abort   0

@@ -458,13 +458,16 @@ proc Utils_createTmpDir {} {
 
 # this function displays plugins on the toolbar
 proc Utils_createPluginToolbar { parent parentToolbar pluginEnv } {
-   global LAUNCH_XFLOW_MUTEX 
    # plugin is child of main toolbar frame
-   if { [SharedData_getMiscData OVERVIEW_MODE] == false || [info exists LAUNCH_XFLOW_MUTEX] } {
+   if { [SharedData_getMiscData OVERVIEW_MODE] == false || 
+        ( [SharedData_getMiscData OVERVIEW_MODE] == true && ${parent} == "xflow" ) } {
+      # if xflow standalone true || overview launching exp flow
       set toolbarW ${parentToolbar}.plugintoolbar
    } else {
+      # overview plugin
       set toolbarW ${parentToolbar}.label.plugintoolbar
    }
+
    frame ${toolbarW} -bd 1
    
    # add all plugins with icons defined

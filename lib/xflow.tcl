@@ -3977,7 +3977,7 @@ proc xflow_getXflowInstances { exp_path } {
 # In overview mode, this is also called by the overview for exp thread cleanup
 # if required.
 proc xflow_quit { exp_path datestamp {from_overview false} } {
-   global XFLOW_STANDALONE NODE_DISPLAY_PREF_${exp_path}_${datestamp}
+   global NODE_DISPLAY_PREF_${exp_path}_${datestamp}
    global SESSION_TMPDIR TITLE_AFTER_ID_${exp_path}_${datestamp} XFLOW_FIND_AFTER_ID_${exp_path}_${datestamp}
 
    ::log::log debug "xflow_quit exiting Xflow thread id:[thread::id]"
@@ -4080,7 +4080,8 @@ proc xflow_cleanDatestampVars { exp_path datestamp } {
 # this is the place to validate essential exp
 # data for startup
 proc xflow_validateExp { startup_exp } {
-   global env XFLOW_STANDALONE
+   puts "xflow_validateExp startup_exp:$startup_exp"
+   global env
  
    set myExp ${startup_exp}
 
@@ -4099,7 +4100,7 @@ proc xflow_validateExp { startup_exp } {
       }
    }
 
-   if { ${XFLOW_STANDALONE} == 1 && ${myExp} != "" && ! [info exists env(SEQ_EXP_HOME)] } {
+   if { [SharedData_getMiscData OVERVIEW_MODE] == "false" && ${myExp} != "" && ! [info exists env(SEQ_EXP_HOME)] } {
       set env(SEQ_EXP_HOME) ${myExp}
    }
 
@@ -4107,19 +4108,6 @@ proc xflow_validateExp { startup_exp } {
       Utils_fatalError . "Startup Error" "No exp defined at startup! SEQ_EXP_HOME environment variable not set! Exiting..."
    }
 
-   # set entryModTruePath ""
-   # set expPath [file normalize ${myExp}]
-   # catch { set entryModTruePath [ exec true_path ${myExp}/EntryModule ] }
-   # if { ${entryModTruePath} == "" } {
-   #    Utils_fatalError . "Startup Error" "Cannot access ${myExp}/EntryModule. Exiting..."
-   # }
-
-   # set expPath [exec true_path ${expPath}]
-   # if { $XFLOW_STANDALONE == 1 } {
-   #    set env(SEQ_EXP_HOME) ${expPath}
-   # }
-
-   # return ${expPath}
    return ${myExp}
 }
 
@@ -4250,7 +4238,7 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
 proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node ""} } {
-   global env XFLOW_STANDALONE PROGRESS_REPORT_TXT
+   global env PROGRESS_REPORT_TXT
    global SEQ_DATESTAMP
 
    set SEQ_DATESTAMP $datestamp
@@ -4650,7 +4638,7 @@ proc xflow_msgCenterThreadReady {} {
 }
 
 proc xflow_init { {exp_path ""} } {
-   global env DEBUG_TRACE XFLOW_STANDALONE
+   global env DEBUG_TRACE
    global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF SUBMIT_POPUP COLLAPSE_DISABLED_NODES
    global SHADOW_STATUS
    global SESSION_TMPDIR FLOW_SCALE
@@ -4659,7 +4647,7 @@ proc xflow_init { {exp_path ""} } {
    
    # initate array containg name for widgets used in the application
 
-   if { ${XFLOW_STANDALONE} == "1" } {
+   if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
       Utils_createTmpDir
       SharedData_setMiscData XFLOW_THREAD_ID [thread::id]
 
