@@ -548,7 +548,7 @@ proc Msg_IncrArrayElement {var key key2 key3 {incr 1}} {
     } 
 }
 proc MsgCenter_ModifText  {} {
-   global MSG_COUNTER MSG_TABLE XFLOW_STANDALONE
+   global MSG_COUNTER MSG_TABLE
    global msg_info_List msg_tt_list exp_path_frame
    global msg_active_List  env datestamp_msgframe
    global LAUNCH_XFLOW_MUTEX List_Xflow
@@ -601,7 +601,7 @@ proc MsgCenter_ModifText  {} {
        Overview_addMsgcenterWidget ${exp_path_frame} ${datestamp_msgframe} ${LIST_TAG}
      }
    }
-   if { [info exists LAUNCH_XFLOW_MUTEX] || ${XFLOW_STANDALONE} == "1" } {
+   if { [info exists LAUNCH_XFLOW_MUTEX] || [SharedData_getMiscData OVERVIEW_MODE] == false } {
      set counter       0
      set deleteIndexes {}
      set nb_elm [llength ${List_Xflow}]
@@ -1318,8 +1318,6 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
          toplevel ${xflowToplevel}; wm withdraw ${xflowToplevel}
       }
 
-      global XFLOW_STANDALONE
-      set XFLOW_STANDALONE false
       # puts "MsgCenter_rightClickCallback calling xflow_modeMenu..."
       xflow_setWidgetNames
       xflow_nodeMenu ${expPath} ${realDatestamp} [MsgCenter_getToplevel] ${flowNode} ${extensionPart} ${winx} ${winy}
