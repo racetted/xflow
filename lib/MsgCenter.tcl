@@ -683,25 +683,23 @@ proc MsgCenter_getFieldFromLastMessage { field_index } {
 proc MsgCenter_sendNotification {} {
    global MSG_ACTIVE_COUNTER MsgTableColMap
    global MSG_TABLE  MSG_COUNTER NB_ACTIVE_ELM
-  
+
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    if { ${isStartupDone} == "true" } { 
       set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
       set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-      set extraArgs ""
-      if { ${isOverviewMode} == "true" } {
-         set procName Overview_newMessageCallback
-      } else {
-         set procName xflow_newMessageCallback
-	 set extraArgs "${exp} ${datestamp}"
-      }
       
       set newMessageFlag false
       if { $NB_ACTIVE_ELM(all) == 1 } { 
          set newMessageFlag true
       }
-      eval ${procName} ${newMessageFlag} ${extraArgs}
+
+      if { ${isOverviewMode} == "true" } {
+         Overview_newMessageCallback ${newMessageFlag}
+      } else {
+	 xflow_newMessageCallback ${exp} ${datestamp} ${newMessageFlag}
+      }
    }
 }
 
@@ -1070,10 +1068,12 @@ proc MsgCengter_processAlarm { table_w_ type_ {repeat_alarm false}} {
          after cancel ${MSG_ALARM_AFTER_ID}
       }
 
-      if { ${repeat_alarm} == false && ![info exists LOG_ACTIVATION_IDS(${type_})]} {
-         set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show true]]
-      } else {
-         set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show]]
+      if { ! [info exists LOG_ACTIVATION_IDS(${type_})] } {
+         if { ${repeat_alarm} == false } {
+            set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show true]]
+         } else {
+            set MSG_ALARM_AFTER_ID [after 100 [list MsgCenter_show]]
+	 }
       }
    }
 }
