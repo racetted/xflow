@@ -283,10 +283,11 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
                   set refStartTime [Overview_getRefTimings ${expPath} [Utils_getHourFromDatestamp ${checkTag}] start]
                   if { [Overview_isExpStartPassed ${expPath} ${checkTag}] == true && ${refStartTime} != "" } {
                      set hour [Utils_getHourFromDatestamp ${checkTag}]
-                     set datestamp [Overview_getScheduledDatestamp ${expPath} ${hour}]
-		     set dayValue [Utils_getDayClockFromDatestamp ${datestamp}]
+                     set datestamp [Overview_getScheduledInfo ${exp_path} ${hour}]
+                     set refTimeStartSeconds [Overview_getScheduledInfo ${exp_path} ${hour} ${refStartTime} time]
+		     # set dayValue [Utils_getDayClockFromDatestamp ${datestamp}]
 		     scan ${refStartTime} %d:%d hourValue minuteValue
-                     set refTimeStartSeconds [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
+                     # set refTimeStartSeconds [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
                      set refTimeLateSeconds [clock add ${refTimeStartSeconds} ${expSubmitLateThreshold} minute]
 
                      # check if exp box is passed current time and that is not within the log span discard
@@ -342,6 +343,61 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
    }
 }
 
+# retrieves the scheduled datestamp or the scheduled start time of the run in seconds
+# the datestamp_or_time argument is used to know whether the datestamp or the time should be returned
+# if datestamp_or_time not given, default is datestamp
+# 
+# returned datestamp value is full i.e. 20160418160000
+# returned time format value is seconds...same as output of [clock seconds]
+proc Overview_getScheduledInfo { exp_path datestamp_hour {start_time ""} {datestamp_or_time datestamp}} {
+   set currentTimeX [Overview_getCurrentTimeX]
+   set today00ZX [Overview_getZeroHourX]
+   set dayValue [Utils_getDayClockFromDatestamp [Utils_getDatestamp 0 0]]
+   set myDatestampHourX [Overview_getXCoordTime ${datestamp_hour}:00]
+   set deltaDay 0
+
+   if { ${start_time} == "" } {
+      set start_time 00:00
+      # get from reference times
+      set refTimings [SharedData_getExpTimings ${exp_path}]
+      foreach refTiming ${refTimings} {
+         foreach { myhour myStartTime myEndTime } ${refTiming} {
+            if { ${datestamp_hour} == ${myhour} } {
+               set start_time ${myStartTime}
+            }
+         }
+      }
+   }
+
+   set myStartTimeX [Overview_getXCoordTime ${start_time}]
+   scan ${start_time} %d:%d hourValue minuteValue
+
+   if {  (${datestamp_hour} > ${hourValue} && ${currentTimeX} > ${myStartTimeX} && ${myDatestampHourX} < ${today00ZX}) ||
+         (${myStartTimeX} < ${today00ZX} && ${currentTimeX} > ${today00ZX}) } {
+        # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
+        set startReferenceTime [clock add ${dayValue} [expr -24 + ${hourValue}] hour ${minuteValue} minute]
+	set deltaDay -1
+
+   } elseif { (${myStartTimeX} > ${today00ZX} && ${currentTimeX} < ${today00ZX}) } {
+        # if both start time and datestamp hour is passed the 00Z, then it's for tomorrow
+        set startReferenceTime [clock add ${dayValue} [expr 24 + ${hourValue}] hour ${minuteValue} minute]
+        if { ${myDatestampHourX} > ${currentTimeX} && ${myDatestampHourX} >= ${today00ZX} } {
+	   set deltaDay 1
+	}
+   } else {
+        # default is today
+        set startReferenceTime [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
+	set deltaDay 0
+   }
+
+   if { ${datestamp_or_time} == "datestamp" } {
+      set value [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
+   } else {
+      set value ${startReferenceTime}
+   }
+
+   return ${value}
+}
 
 proc Overview_isExpIdle { exp_path datestamp } {
    # puts "Overview_isExpIdle exp_path:$exp_path datestamp:$datestamp"
@@ -1200,7 +1256,7 @@ proc Overview_addExpDefaultBoxes { canvas exp_path {myhour ""} } {
    } else {
       foreach refTiming ${refTimings} {
          foreach { hour startTime endTime } ${refTiming} {
-	    set scheduledDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour} ${startTime}]
+	    set scheduledDatestamp [Overview_getScheduledInfo ${exp_path} ${hour} ${startTime} datestamp]
 	    set isExpBoxActive [Overview_isExpBoxActive ${canvas} ${exp_path} ${scheduledDatestamp}]
 	    # if there is already a box active for the datestamp, no need for a default box
 	    if { ${isExpBoxActive} == false } {
@@ -1220,65 +1276,6 @@ proc Overview_addExpDefaultBoxes { canvas exp_path {myhour ""} } {
    }
 }
 
-# returns the datestamp of the run based
-# on the run hour and it's referenced start time
-# and the current date
-proc Overview_getScheduledDatestamp { exp_path datestamp_hour {start_time ""} } {
-
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp_hour:$datestamp_hour start_time:$start_time"
-   global graphStartX
-   set datestamp ""
-
-   if { ${start_time} == "" } {
-      set start_time 00:00
-      # get from reference times
-      set refTimings [SharedData_getExpTimings ${exp_path}]
-      foreach refTiming ${refTimings} {
-         foreach { myhour myStartTime myEndTime } ${refTiming} {
-            if { ${datestamp_hour} == ${myhour} } {
-               set start_time ${myStartTime}
-            }
-         }
-      }
-   }
-
-   set myStartHour [Utils_getPaddedValue [Utils_getHourFromTime ${start_time}]]
-   set myStartTimeX [Overview_getXCoordTime ${start_time}]
-   set myDatestampHourX [Overview_getXCoordTime ${datestamp_hour}:00]
-
-   set currentTimeX [Overview_getCurrentTimeX]
-   set today00ZX [Overview_getZeroHourX]
-
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp start_time:${start_time}"
-   ::log::log debug "Overview_getScheduledDatestamp myDatestampHourX:$myDatestampHourX currentTimeX:$currentTimeX today00ZX:$today00ZX myStartHour:$myStartHour"
-
-   set deltaDay 0
-
-   # if both start time and datestamp hour is passed the 00Z, then it's for tomorrow
-   if { ${currentTimeX} < ${today00ZX} && ${myStartTimeX} >= ${today00ZX} && ${myDatestampHourX} > ${currentTimeX} && ${myDatestampHourX} >= ${today00ZX} } {
-      ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path deltaDay +1"
-
-      set deltaDay 1
-   }
-
-   # this is to handle cases like capa-final or sfcfinal where the datestamp hour and the start time is on different day
-   # i.e. capafinal-23 actually starts at 6am the next day
-   if { ${datestamp_hour} > ${myStartHour} && ${currentTimeX} > ${myStartTimeX} } {
-      set deltaDay -1
-   }
-
-   # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
-   # this take care of exp boxes that starts right on the origin x hour
-   if { ${currentTimeX} >= ${today00ZX} && ${deltaDay} == 0 && ${myStartHour} == [Overview_GraphGetXOriginHour] } {
-      set deltaDay -1
-   }
-
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path Utils_getDatestamp ${datestamp_hour} ${deltaDay}"
-   set datestamp [Utils_getDatestamp ${datestamp_hour} ${deltaDay}]
-   ::log::log debug "Overview_getScheduledDatestamp exp_path:$exp_path datestamp:$datestamp"
-   return ${datestamp}
-}
-
 # check if the exp box should be displayed in the overview
 proc Overview_isExpScheduled { exp_path hour start_time } {
    global DayOfWeekMapping 
@@ -1292,7 +1289,7 @@ proc Overview_isExpScheduled { exp_path hour start_time } {
       set DayOfWeekMapping { Sun 0 Mon 1 Tue 2 Wed 3 Thu 4 Fri 5 Sat 6 }
    }
    ::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:${hour} start_time:${start_time} scheduledDatestamp:?"
-   set scheduledDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour} ${start_time} ]
+   set scheduledDatestamp [Overview_getScheduledInfo ${exp_path} ${hour} ${start_time} datestamp]
    ::log::log debug "Overview_isExpScheduled exp_path:$exp_path hour:${hour} scheduledDatestamp:$scheduledDatestamp"
    if { ${scheduledDatestamp} != "" } {
      # get day of week schedule for the exp
@@ -1356,7 +1353,7 @@ proc Overview_removeExpBox { canvas exp_path datestamp status } {
    # do we need to delete the default box?
    if { ! [string match "default*" ${datestamp}] } {
       set hour [Utils_getHourFromDatestamp ${datestamp}]
-      set schedDatestamp [Overview_getScheduledDatestamp ${exp_path} ${hour}]
+      set schedDatestamp [Overview_getScheduledInfo ${exp_path} ${hour}]
       # delete the default box only if the datestamp matches the one that should be launched
       # for instance if I resubmit a run from yesterday's datestamp, the default one for today
       # should be untouched
@@ -1766,7 +1763,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       # user launched a flow without datestamp but with reference hour
       # We need to calculate the reference datestamp based on the
       # current date & time and the reference time of the run
-      set datestamp [Overview_getScheduledDatestamp ${exp_path} ${datestamp_hour}]
+      set datestamp [Overview_getScheduledInfo ${exp_path} ${hour}]
       ::log::log debug "Overview_launchExpFlow got reference datestamp:${datestamp}"
    }
 
@@ -2278,7 +2275,8 @@ proc Overview_setExpTooltip { canvas exp_path datestamp } {
       append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue ${datestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]"
    } else {
       if { ${datestamp} != "default" } {
-      append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue [Overview_getScheduledDatestamp ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]] [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]"
+      set schedDatestamp [Overview_getScheduledInfo ${exp_path} [Utils_getHourFromDatestamp ${datestamp}]]
+      append tooltipText "\ndatestamp: [Utils_getVisibleDatestampValue ${schedDatestamp} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]"
       }
    }
    if { ${refStartTime} != "" } {
@@ -3987,10 +3985,12 @@ Overview_parseCmdOptions
 # package require ClockWrapper
 # interp alias {} ::clock {} ::ClockWrapper
 # ::ClockWrapper::setDelta "4 hour"
-# ::ClockWrapper::setDelta "-2 hour"
-# ::ClockWrapper::setDelta "0 second"
-# Overview_GridAdvanceHour 12
+# ::ClockWrapper::setDelta "-8 hour"
+#::ClockWrapper::setDelta "0 second"
+# Overview_GridAdvanceHour 5
 # Overview_redrawGrid
 # set canvasW [Overview_getCanvas]
+
+# set exp /home/binops/afsi/ops/maestro_suites/capa/rdpa_final
 # Overview_removeAllExpBoxes ${canvasW} ${exp}
 # Overview_addExpDefaultBoxes ${canvasW} ${exp}
