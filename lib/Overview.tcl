@@ -283,8 +283,8 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
                   set refStartTime [Overview_getRefTimings ${expPath} [Utils_getHourFromDatestamp ${checkTag}] start]
                   if { [Overview_isExpStartPassed ${expPath} ${checkTag}] == true && ${refStartTime} != "" } {
                      set hour [Utils_getHourFromDatestamp ${checkTag}]
-                     set datestamp [Overview_getScheduledInfo ${exp_path} ${hour}]
-                     set refTimeStartSeconds [Overview_getScheduledInfo ${exp_path} ${hour} ${refStartTime} time]
+                     set datestamp [Overview_getScheduledInfo ${expPath} ${hour}]
+                     set refTimeStartSeconds [Overview_getScheduledInfo ${expPath} ${hour} ${refStartTime} time]
 		     # set dayValue [Utils_getDayClockFromDatestamp ${datestamp}]
 		     scan ${refStartTime} %d:%d hourValue minuteValue
                      # set refTimeStartSeconds [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
@@ -350,8 +350,13 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
 # returned datestamp value is full i.e. 20160418160000
 # returned time format value is seconds...same as output of [clock seconds]
 proc Overview_getScheduledInfo { exp_path datestamp_hour {start_time ""} {datestamp_or_time datestamp}} {
+   global graphStartX
+
    set currentTimeX [Overview_getCurrentTimeX]
    set today00ZX [Overview_getZeroHourX]
+   if { [Overview_GraphGetXOriginHour] == "00" } {
+      set today00ZX $graphStartX
+   }
    set dayValue [Utils_getDayClockFromDatestamp [Utils_getDatestamp 0 0]]
    set myDatestampHourX [Overview_getXCoordTime ${datestamp_hour}:00]
    set deltaDay 0
@@ -373,21 +378,32 @@ proc Overview_getScheduledInfo { exp_path datestamp_hour {start_time ""} {datest
    scan ${start_time} %d:%d hourValue minuteValue
 
    if {  (${datestamp_hour} > ${hourValue} && ${currentTimeX} > ${myStartTimeX} && ${myDatestampHourX} < ${today00ZX}) ||
-         (${myStartTimeX} < ${today00ZX} && ${currentTimeX} > ${today00ZX}) } {
+         (${myStartTimeX} <= ${today00ZX} && ${currentTimeX} > ${today00ZX}) } {
         # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
-        set startReferenceTime [clock add ${dayValue} [expr -24 + ${hourValue}] hour ${minuteValue} minute]
+	if { ${myStartTimeX}  >= ${today00ZX} } {
+           set startReferenceTime [clock add ${dayValue} [expr ${hourValue}] hour ${minuteValue} minute]
+	} else {
+           set startReferenceTime [clock add ${dayValue} [expr -24 + ${hourValue}] hour ${minuteValue} minute]
+	}
 	set deltaDay -1
+	::log::log debug "Overview_getScheduledInfo here 0 exp_path:$exp_path deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
 
+   } elseif { (${datestamp_hour} > ${hourValue} &&  ${myDatestampHourX} > ${today00ZX} && ${currentTimeX} > ${today00ZX}) } {
+        set startReferenceTime [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
+	set deltaDay -1
+	::log::log debug "Overview_getScheduledInfo here 1 exp_path:$exp_path deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
    } elseif { (${myStartTimeX} > ${today00ZX} && ${currentTimeX} < ${today00ZX}) } {
         # if both start time and datestamp hour is passed the 00Z, then it's for tomorrow
         set startReferenceTime [clock add ${dayValue} [expr 24 + ${hourValue}] hour ${minuteValue} minute]
         if { ${myDatestampHourX} > ${currentTimeX} && ${myDatestampHourX} >= ${today00ZX} } {
 	   set deltaDay 1
 	}
+	::log::log debug "Overview_getScheduledInfo here 2 exp_path:$exp_path deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
    } else {
         # default is today
         set startReferenceTime [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
 	set deltaDay 0
+	::log::log debug "Overview_getScheduledInfo here 3 exp_path:$exp_path deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
    }
 
    if { ${datestamp_or_time} == "datestamp" } {
@@ -1695,7 +1711,7 @@ proc Overview_boxMenu { canvas exp_path datestamp x y } {
 
     tk_popup $popMenu $x $y
    ::tooltip::tooltip $popMenu -index 0 "Show Exp History"
-   # Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${list_tag}
+   # Overview_addMsgCenterWidget ${exp_path} ${datestamp} ${list_tag}
 }
 
 proc Overview_xmlOptionsCallback { exp_path } {
@@ -1763,7 +1779,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
       # user launched a flow without datestamp but with reference hour
       # We need to calculate the reference datestamp based on the
       # current date & time and the reference time of the run
-      set datestamp [Overview_getScheduledInfo ${exp_path} ${hour}]
+      set datestamp [Overview_getScheduledInfo ${exp_path} ${datestamp_hour}]
       ::log::log debug "Overview_launchExpFlow got reference datestamp:${datestamp}"
    }
 
@@ -3167,12 +3183,13 @@ proc Overview_togglemsgbarCallback {exp_path datestamp show_msgbar ll} {
 }
 
 proc Overview_selectExpBox { exp_path datestamp show_msgbar ll } {
+   global SHOW_MSGBAR
    set topOverview [Overview_getToplevel]
    set toolbarW ${topOverview}.toolbar.msg_frame
    set SHOW_MSGBAR ${show_msgbar}
 
    if { ${SHOW_MSGBAR} == true } {
-      Overview_addMsgcenterWidget ${exp_path} ${datestamp} ${ll}
+      Overview_addMsgCenterWidget ${exp_path} ${datestamp} ${ll}
       Overview_HighLightFindNode ${ll}
    } elseif { [winfo exists $toolbarW]} {
       set canvas    [lindex ${ll} 0]
@@ -3183,21 +3200,14 @@ proc Overview_selectExpBox { exp_path datestamp show_msgbar ll } {
 
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
-proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
+proc Overview_addMsgCenterWidget { exp_path datestamp ll} {
+   ::log::log debug "Overview_addMsgCenterWidget $exp_path $datestamp"
    global datestamp_msgframe exp_path_frame
 
    set exp_path_frame      ${exp_path}
    set datestamp_msgframe  ${datestamp}
-   set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
-   set color  [SharedData_getColor COLOR_MSG_CENTER_MAIN]
-   set topOverview [Overview_getToplevel]
-   set msgFrame ${topOverview}.toolbar.msg_frame
-   set labelFrame ${msgFrame}.msg_frame_label
    set canvas    [lindex ${ll} 0]
 
-   if { [winfo exists $msgFrame] } { 
-     destroy $msgFrame
-   } 
    set expName [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
   
@@ -3209,55 +3219,79 @@ proc Overview_addMsgcenterWidget { exp_path datestamp ll} {
    } else {
      set labeltext "${expName}"
    }
-   
-   labelframe ${msgFrame} -text "${labeltext} active message count"
-   tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages"
-   frame ${labelFrame}
-
+  
+   set topOverview [Overview_getToplevel]
+   set msgFrame ${topOverview}.toolbar.msg_frame
+   set labelFrame ${msgFrame}.msg_frame_label
    set labelCloseB ${labelFrame}.label_close_button
    set labelCloseImg  ${labelFrame}.label_close_image]
-   set imageDir [SharedData_getMiscData IMAGE_DIR]
-   image create photo ${labelCloseImg} -file ${imageDir}/[xflow_getImageFile find_close_image_file]
-   Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false $ll]
-   tooltip::tooltip ${labelCloseB} "Close Message Center Info"
+   set label_abortW ${labelFrame}.abort
+   set label_eventW ${labelFrame}.event
+   set label_infoW ${labelFrame}.info
+   set label_sysinfoW ${labelFrame}.sysinfo
 
-   if { ${Abort} != "" } {
-      set labeltext  "Abort: ${Abort}"
-      set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext} -bg $color -fg white]
-   } else {
-      set labeltext  "Abort: 0"
-      set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext}]
+   if { ! [winfo exists ${msgFrame}] } {
+      labelframe ${msgFrame}
+      frame ${labelFrame}
+      set imageDir [SharedData_getMiscData IMAGE_DIR]
+      image create photo ${labelCloseImg} -file ${imageDir}/[xflow_getImageFile find_close_image_file]
+      Button ${labelCloseB} -image ${labelCloseImg} -relief flat -command [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false $ll]
+      tooltip::tooltip ${labelCloseB} "Close Message Center Info"
+
+      foreach widget [list $label_abortW $label_eventW $label_infoW $label_sysinfoW] {
+         label ${widget}
+      }
    }
+   ${msgFrame} configure -text "${labeltext} active message count"
+   tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages"
+
+   ${labelCloseB} configure -command [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false $ll]
+
+   set newMsgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+   set normalBgColor [option get ${labelFrame} background Label]
+   set normalFgColor [option get ${labelFrame} foreground Label]
+
+   set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
+   if { ${Abort} != "" } {
+      set infoText  "Abort: ${Abort}"
+      ${label_abortW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
+   } else {
+      set infoText  "Abort: 0"
+      ${label_abortW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
+   }
+
    set Event  [Utils_getMsgCenter_Info ${exp_path} event ${datestamp}]
    if { ${Event} != "" } {
-      set labeltext " Event: ${Event}"
-      set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext} -bg $color -fg white]
+      set infoText " Event: ${Event}"
+      ${label_eventW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } else {
-      set labeltext " Event: 0"
-      set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext}]
+      set infoText " Event: 0"
+      ${label_eventW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
    set Info   [Utils_getMsgCenter_Info ${exp_path} info ${datestamp}]
    if { ${Info} != "" } {
-      set labeltext " Info: ${Info}"
-      set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext} -bg $color -fg white]
+      set infoText " Info: ${Info}"
+      ${label_infoW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } else {
-      set labeltext " Info: 0"
-      set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext}]
+      set infoText " Info: 0"
+      ${label_infoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
    set Sysinfo  [Utils_getMsgCenter_Info ${exp_path} sysinfo ${datestamp}]
    if { ${Sysinfo} != "" } {
-      set labeltext  " Sysinfo: ${Sysinfo}"
-      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext} -bg $color -fg white]
+      set infoText  " Sysinfo: ${Sysinfo}"
+      ${label_sysinfoW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } else {
-      set labeltext " Sysinfo: 0"
-      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext}]
+      set infoText " Sysinfo: 0"
+      ${label_sysinfoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
+
    eval grid ${labelCloseB} $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
    pack ${labelFrame} -pady 2 -side left
    grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2
 }
 
 proc Overview_createMsgCenterbar { _toplevelW } {
+   # puts "Overview_createMsgCenterbar"
    variable infoText
 
    set nb_all     [OverviewExpMsgCenter_getactiveInfo all]
@@ -3270,70 +3304,83 @@ proc Overview_createMsgCenterbar { _toplevelW } {
    set tt_event   [OverviewExpMsgCenter_gettotalInfo event]
    set tt_info    [OverviewExpMsgCenter_gettotalInfo info]   
    set tt_sysinfo [OverviewExpMsgCenter_gettotalInfo sysinfo]
-   set color      [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    # create the frame to hold the core icons and plugin icons
    set msgbarFrame ${_toplevelW}.toolbar.msgbar
    # core icons is childe of main toolbar frame
    set labelFrame ${msgbarFrame}.msgbar_frame_label
+   set label_totalW ${labelFrame}.total 
+   set label_abortW ${labelFrame}.abort
+   set label_eventW ${labelFrame}.event
+   set label_infoW ${labelFrame}.info
+   set label_sysinfoW ${labelFrame}.sysinfo
 
-   if { [winfo exists $msgbarFrame] } { 
-      destroy $msgbarFrame
-   } 
-   labelframe ${msgbarFrame} -text "Message Center Overview"
-   # create frame main toolbar
-   frame ${labelFrame} -bd 1
+   # reuse widgets if already there, no need to recreate
+   if { ! [winfo exists $msgbarFrame] } {
+      labelframe ${msgbarFrame} -text "Message Center Overview"
+      # create frame main toolbar
+      frame ${labelFrame} -bd 1
+
+      foreach widget [list $label_totalW $label_abortW $label_eventW $label_infoW $label_sysinfoW] {
+         label ${widget}
+      }
+      ::tooltip::tooltip ${labelFrame} "Number of unacknowledged / (total) messages"
+   }
+
+   set newMsgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+   set normalBgColor [option get ${labelFrame} background Label]
+   set normalFgColor [option get ${labelFrame} foreground Label]
 
    if { ${nb_all} != "0" && ${tt_all} != "0"} {
       set infoText "All : $nb_all/($tt_all) "
-      set label_totalW [label ${labelFrame}.total -justify center -text ${infoText} -bg $color -fg white]
+      ${label_totalW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } elseif { ${nb_all} == "0" && ${tt_all} != "0"} {
       set infoText "All : 0/($tt_all) "
-      set label_totalW [label ${labelFrame}.total -justify center -text ${infoText}]
+      ${label_totalW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    } else {
       set infoText "All : 0 "
-      set label_totalW [label ${labelFrame}.total -justify center -text ${infoText}]
-   }
-   if { ${nb_abort} != "0" && ${tt_abort} != "0"} {
-      set infoText " Abort : ${nb_abort}/($tt_abort) "
-      set label_abortW [label ${labelFrame}.abort -justify center -text ${infoText} -bg $color -fg white]
-   } elseif { ${nb_abort} == "0" && ${tt_abort} != "0"} {
-      set infoText " Abort : 0/($tt_abort) "
-      set label_abortW [label ${labelFrame}.abort -justify center -text ${infoText}]
-   } else {
-      set infoText " Abort : 0 "
-      set label_abortW [label ${labelFrame}.abort -justify center -text ${infoText}]
+      ${label_totalW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
 
-   ::tooltip::tooltip ${labelFrame} "Number of unacknowledged / (total) messages"
+   if { ${nb_abort} != "0" && ${tt_abort} != "0"} {
+      set infoText " Abort : ${nb_abort}/($tt_abort) "
+      ${label_abortW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
+   } elseif { ${nb_abort} == "0" && ${tt_abort} != "0"} {
+      set infoText " Abort : 0/($tt_abort) "
+      ${label_abortW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
+   } else {
+      set infoText " Abort : 0 "
+      ${label_abortW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
+   }
+
    if { ${nb_event} != "0" && ${tt_event} != "0"} {
       set infoText " Event : ${nb_event}/($tt_event) "
-      set label_eventW [label ${labelFrame}.event -justify center -text ${infoText} -bg $color -fg white]
+      ${label_eventW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } elseif { ${nb_event} == "0" && ${tt_event} != "0"} {
       set infoText " Event : 0/($tt_event) "
-      set label_eventW [label ${labelFrame}.event -justify center -text ${infoText}]
+      ${label_eventW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    } else {
       set infoText " Event : 0 "
-      set label_eventW [label ${labelFrame}.event -justify center -text ${infoText}]
+      ${label_eventW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
    if { ${nb_info} != "0" && ${tt_info} != "0"} {
       set infoText " Info : ${nb_info}/($tt_info) "
-      set label_infoW [label ${labelFrame}.info -justify center -text ${infoText} -bg $color -fg white]
+      ${label_infoW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } elseif { ${nb_info} == "0" && ${tt_info} != "0"} {
       set infoText " Info : 0/($tt_info) "
-      set label_infoW [label ${labelFrame}.info -justify center -text ${infoText}]
+      ${label_infoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    } else {
       set infoText " Info : 0 "
-      set label_infoW [label ${labelFrame}.info -justify center -text ${infoText}]
+      ${label_infoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
    if { ${nb_sysinfo} != "0" && ${tt_sysinfo} != "0"} {
       set infoText " Sysinfo : $nb_sysinfo/($tt_sysinfo)"
-      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${infoText} -bg $color -fg white]
+      ${label_sysinfoW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } elseif { ${nb_all} == "0" && ${tt_sysinfo} != "0"} {
       set infoText " Sysinfo : 0/($tt_sysinfo) "
-      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${infoText}]
+      ${label_sysinfoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    } else {
       set infoText " Sysinfo : 0 "
-      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${infoText}]
+      ${label_sysinfoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
    eval grid ${label_totalW} ${label_abortW} ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
    pack ${labelFrame} -pady 2 -side left
@@ -3946,9 +3993,6 @@ proc Overview_main {} {
    ::log::log notice "Check Exp Submit Late Interval: ${expSubmitLateInterval} minutes"
    Overview_checkExpSubmitLate [expr ${expSubmitLateInterval} * 60000]
 
-   # hearbeats for threads
-   # after 30000 Overview_checkDatestampHeartbeats
-
    # run a periodic monitor to look for new log files to process
    LogMonitor_checkNewLogFiles
 
@@ -3985,12 +4029,18 @@ Overview_parseCmdOptions
 # package require ClockWrapper
 # interp alias {} ::clock {} ::ClockWrapper
 # ::ClockWrapper::setDelta "4 hour"
-# ::ClockWrapper::setDelta "-8 hour"
-#::ClockWrapper::setDelta "0 second"
+# ::ClockWrapper::setDelta "-1 hour"
+# ::ClockWrapper::setDelta "0 second"
 # Overview_GridAdvanceHour 5
 # Overview_redrawGrid
 # set canvasW [Overview_getCanvas]
-
-# set exp /home/binops/afsi/ops/maestro_suites/capa/rdpa_final
-# Overview_removeAllExpBoxes ${canvasW} ${exp}
-# Overview_addExpDefaultBoxes ${canvasW} ${exp}
+# set displayGroups [ExpXmlReader_getGroups]
+# foreach displayGroup $displayGroups {
+#    set expList [$displayGroup cget -exp_list]
+#    foreach exp $expList {
+      # delete all exp boxes
+#       Overview_removeAllExpBoxes ${canvasW} ${exp}
+      # create default boxes
+#       Overview_addExpDefaultBoxes ${canvasW} ${exp}
+#    }
+# }

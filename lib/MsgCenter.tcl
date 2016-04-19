@@ -210,7 +210,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
          set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
          set commandArgs "-d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
          ::log::log notice "${seqExec} ${commandArgs}"
-	 Sequencer_runCommandWithWindow ${expPath} ${datestamp} [winfo toplevel ${table_widget}] $seqExec ${winTitle} top ${commandArgs}
+	 Sequencer_runSubmit ${expPath} ${datestamp} [winfo toplevel ${table_widget}] $seqExec ${winTitle} top ${commandArgs}
          update idletasks
 
          incr count
@@ -597,11 +597,14 @@ proc MsgCenter_ModifText  {} {
 
    set topOverview [Overview_getToplevel]
    if { [winfo exists $topOverview] } { 
-     Overview_createMsgCenterbar ${topOverview}
-     set msgFrame ${topOverview}.toolbar.msg_frame
-     if { [winfo exists $msgFrame] && ${SHOW_MSGBAR} == "true"} {
-       Overview_addMsgcenterWidget ${exp_path_frame} ${datestamp_msgframe} ${LIST_TAG}
-     }
+      # avoid calling this for every message at startup
+      if { [SharedData_getMiscData STARTUP_DONE] == true } {
+         Overview_createMsgCenterbar ${topOverview}
+      }
+      set msgFrame ${topOverview}.toolbar.msg_frame
+      if { [winfo exists $msgFrame] && ${SHOW_MSGBAR} == "true"} {
+         Overview_addMsgCenterWidget ${exp_path_frame} ${datestamp_msgframe} ${LIST_TAG}
+      }
    }
 
    set counter       0
@@ -610,7 +613,7 @@ proc MsgCenter_ModifText  {} {
    while { ${counter} < ${nb_elm} } {
       foreach {exp_path dates topFrame} [lindex ${List_Xflow} ${counter}] {break}
       if { [winfo exists $topFrame] } {
-         xflow_addMsgcenterWidget ${exp_path} ${dates}
+         xflow_addMsgCenterWidget ${exp_path} ${dates}
       } else {
          lappend deleteIndexes ${counter}
       }
@@ -687,8 +690,6 @@ proc MsgCenter_sendNotification {} {
 
    set isStartupDone [SharedData_getMiscData STARTUP_DONE]
    if { ${isStartupDone} == "true" } { 
-      set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
-      set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
       set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
       
       set newMessageFlag false
@@ -699,6 +700,8 @@ proc MsgCenter_sendNotification {} {
       if { ${isOverviewMode} == "true" } {
          Overview_newMessageCallback ${newMessageFlag}
       } else {
+         set exp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(SuiteColNumber)]
+         set datestamp [MsgCenter_getFieldFromLastMessage $MsgTableColMap(DatestampColNumber)]
 	 xflow_newMessageCallback ${exp} ${datestamp} ${newMessageFlag}
       }
    }

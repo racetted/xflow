@@ -311,14 +311,11 @@ proc xflow_newDatestampFound { exp_path datestamp } {
 }
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
-proc xflow_addMsgcenterWidget { exp_path datestamp} {
-
+proc xflow_addMsgCenterWidget { exp_path datestamp} {
+   # puts "xflow_addMsgCenterWidget $exp_path $datestamp"
    set msgFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_msg_frame]
    set color    [SharedData_getColor COLOR_MSG_CENTER_MAIN]
   
-   if { [winfo exists $msgFrame] } { 
-      destroy $msgFrame
-   } 
    set labelFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_msglabel_frame]
    set expName [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
@@ -330,43 +327,64 @@ proc xflow_addMsgcenterWidget { exp_path datestamp} {
    } else {
      set labeltext "${expName}"
    }
-   
-   labelframe ${msgFrame} -text "${labeltext} active message count"
-   tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages."
-   frame ${labelFrame}
-   
+
+   set labelFrame ${msgFrame}.msg_frame_label
+   set labelCloseB ${labelFrame}.label_close_button
+   set labelCloseImg  ${labelFrame}.label_close_image]
+   set label_abortW ${labelFrame}.abort
+   set label_eventW ${labelFrame}.event
+   set label_infoW ${labelFrame}.info
+   set label_sysinfoW ${labelFrame}.sysinfo
+
+   if { ! [winfo exists ${msgFrame}] } {
+      labelframe ${msgFrame}
+      frame ${labelFrame}
+      foreach widget [list $label_abortW $label_eventW $label_infoW $label_sysinfoW] {
+         label ${widget}
+      }
+   }
+
+   ${msgFrame} configure -text "${labeltext} active message count"
+   tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages"
+
+   set newMsgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+   set normalBgColor [option get ${labelFrame} background Label]
+   set normalFgColor [option get ${labelFrame} foreground Label]
+
    set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
    if { ${Abort} != "" } {
-      set labeltext "Abort: ${Abort}"
-      set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext} -bg $color -fg white]
+      set infoText  "Abort: ${Abort}"
+      ${label_abortW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } else {
-      set labeltext "Abort: 0"
-      set label_abortW [label ${labelFrame}.abort -justify center -text ${labeltext}]
+      set infoText  "Abort: 0"
+      ${label_abortW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
+
    set Event  [Utils_getMsgCenter_Info ${exp_path} event ${datestamp}]
    if { ${Event} != "" } {
-      set labeltext " Event: ${Event}"
-      set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext} -bg $color -fg white]
+      set infoText " Event: ${Event}"
+      ${label_eventW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } else {
-      set labeltext " Event: 0"
-      set label_eventW [label ${labelFrame}.event -justify center -text ${labeltext}]
+      set infoText " Event: 0"
+      ${label_eventW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
    set Info   [Utils_getMsgCenter_Info ${exp_path} info ${datestamp}]
    if { ${Info} != "" } {
-      set labeltext " Info: ${Info}"
-      set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext} -bg $color -fg white]
+      set infoText " Info: ${Info}"
+      ${label_infoW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } else {
-      set labeltext " Info: 0"
-      set label_infoW [label ${labelFrame}.info -justify center -text ${labeltext}]
+      set infoText " Info: 0"
+      ${label_infoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
    set Sysinfo  [Utils_getMsgCenter_Info ${exp_path} sysinfo ${datestamp}]
    if { ${Sysinfo} != "" } {
-      set labeltext " Sysinfo: ${Sysinfo}"
-      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext} -bg $color -fg white]
+      set infoText  " Sysinfo: ${Sysinfo}"
+      ${label_sysinfoW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
    } else {
-      set labeltext " Sysinfo: 0"
-      set label_sysinfoW [label ${labelFrame}.sysinfo -justify center -text ${labeltext}]
+      set infoText " Sysinfo: 0"
+      ${label_sysinfoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    }
+
    eval grid $label_abortW ${label_eventW} ${label_infoW} ${label_sysinfoW} -sticky w -padx \[list 2 0\] 
    #set labelW [label ${labelFrame}.info -justify center -text ${tooltipText} ]
    #pack $labelW -side left -pady 2 -padx 2
@@ -2431,7 +2449,7 @@ proc xflow_submitCallback { exp_path datestamp node extension canvas flow {local
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
    }
 }
 
@@ -2505,7 +2523,7 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
    }
 }
 
@@ -2533,7 +2551,7 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node extension canvas  f
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
    }
 }
 
@@ -4181,7 +4199,7 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    # this displays the widget on the second frame
    grid ${toolbarFrame} -row 0 -column 0 -sticky nsew -padx 2 -ipadx 2
    grid ${expDateFrame} -row 0 -column 2 -sticky nsew -padx 2 -pady 0 -ipadx 2
-   xflow_addMsgcenterWidget ${exp_path} ${datestamp}
+   xflow_addMsgCenterWidget ${exp_path} ${datestamp}
 
    # flow_frame is the 3nd widget
    set flowFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  flow_frame]]

@@ -43,7 +43,7 @@ proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command titl
    catch {[exec rm -f ${tmpfile}}
 }
 
-proc Sequencer_runCommandLogAndWindow { exp_path datestamp parent_top command title position args } {
+proc Sequencer_runSubmit { exp_path datestamp parent_top command title position args } {
    global env
    global SUBMIT_POPUP
    regsub -all " " [file tail $command] _ tmpfile
@@ -52,7 +52,6 @@ proc Sequencer_runCommandLogAndWindow { exp_path datestamp parent_top command ti
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
    Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
    ::log::log notice "${command} [join ${args}]"
-   Utils_logFileContent notice ${tmpfile}
    if { ${SUBMIT_POPUP} != false } {
       TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
    }
