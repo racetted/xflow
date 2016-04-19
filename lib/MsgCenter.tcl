@@ -1004,7 +1004,7 @@ proc MsgCenter_clearMessages { source_w table_w_ } {
 
 # removes msg from the MSG_TABLE when not used anymore...
 # datestamp is obsolete from xflow_overview
-proc MsgCenter_removeMessages { exp datestamp } {
+proc MsgCenter_removeMessages { exp datestamp {refresh_msg_center true} } {
    global MSG_TABLE MsgTableColMap MSG_TABLE_CMP
    global MSG_COUNTER
 
@@ -1025,11 +1025,15 @@ proc MsgCenter_removeMessages { exp datestamp } {
       set MSG_TABLE [lreplace ${MSG_TABLE} ${deleteIndex} ${deleteIndex}]
    }
    set MSG_COUNTER [llength ${MSG_TABLE}]
-   MsgCenter_refreshActiveMessages ${tableW} 0
-   MsgCenter_ModifText
+   if { ${refresh_msg_center} == true } {
+      # only refresh the message center counts when the refresh_msg_center is true 
+      # allows the overview to do only the refresh once when needed and not every time the removeMessages is called
+      MsgCenter_refreshActiveMessages ${tableW} 0
+      MsgCenter_ModifText
+      # make sure that status of msg center button in overview and/or xflow reflects new messages after remove
+      MsgCenter_sendNotification
+   }
 
-   # make sure that status of msg center button in overview and/or xflow reflects new messages after remove
-   MsgCenter_sendNotification
    ::log::log notice "MsgCenter_removeMessages for exp:${exp} datestamp:${datestamp} DONE"
 }
 

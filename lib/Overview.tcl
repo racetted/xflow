@@ -140,9 +140,6 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
                # delete current exp box from overview
                Overview_removeExpBox ${canvasW} ${exp} ${datestamp} ${lastStatus}
                
-               # set expBoxTag [Overview_getExpBoxTag ${exp} ${datestamp} default false]
-               # set datestamp ${expBoxTag}
-               # set lastStatus init
                Overview_addExpDefaultBoxes ${canvasW} ${exp} [Utils_getHourFromDatestamp ${datestamp}]
             } else {
                if { ${lastStatusTime} != "" } {
@@ -153,6 +150,11 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
       }
    }
+   # I'm updating the msg center once here instead of updating it every time we remove obsolete messages for every experiment 
+   # It was creating flickering in the overview and msgcenter when shifting the grid at every hour
+   MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]
+   MsgCenter_ModifText 
+   MsgCenter_sendNotification
 
    Overview_HighLightFindNode ${LIST_TAG}
    Overview_checkGridLimit 
@@ -860,8 +862,8 @@ proc Overview_processEndStatus { canvas exp_path datestamp {status end} } {
    }
 }
 
-proc Overview_cleanExpMsgDatestamp { exp_path datestamp } {
-   MsgCenter_removeMessages ${exp_path} ${datestamp}
+proc Overview_cleanExpMsgDatestamp { exp_path datestamp {refresh_msg_center true}} {
+   MsgCenter_removeMessages ${exp_path} ${datestamp} ${refresh_msg_center}
 }
 
 # this function process the exp box logic when the root experiment node
@@ -1916,7 +1918,8 @@ proc Overview_cleanDatestamp { exp_path datestamp } {
    OverviewExpStatus_addObsoleteDatestamp ${exp_path} ${datestamp}
 
    # remove msg center data
-   Overview_cleanExpMsgDatestamp ${exp_path} ${datestamp}
+   set refreshMsgCenter false
+   Overview_cleanExpMsgDatestamp ${exp_path} ${datestamp} ${refreshMsgCenter}
 
    ::log::log notice "Overview_cleanDatestamp exp_path:${exp_path} datestamp:${datestamp} DONE"
 }
