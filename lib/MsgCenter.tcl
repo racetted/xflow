@@ -31,6 +31,7 @@ proc MsgCenter_SetNotebOption {notebookW_} {
    ttk::style map msg.TNotebook.Tab -font [list selected $font12 active $font12 disabled $font12]
    ${notebookW_} configure -style msg.TNotebook
 }
+
 proc MsgCenter_createMenus {} {
    global MsgCenterMainGridRowMap
    set topFrame [MsgCenter_getToplevel].topframe
@@ -648,9 +649,9 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
         set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
         if { [SharedData_getMiscData STARTUP_DONE] == true || $isOverviewMode == true} {
           set notebookW [MsgCenter_getNoteBookWidget]
-          set label [string tolower [$notebookW tab [$notebookW index current] -text]]
+          set currentMsgTab [MsgCenter_getCurrentMessageTab]
      
-          if { [lindex ${label} 0] == ${type_} || ([lindex ${label} 0] ==  "all" && $istoadd == "true")} {
+          if { ${currentMsgTab} == ${type_} || (${currentMsgTab} ==  "all" && $istoadd == "true")} {
              MsgCenter_refreshActiveMessages ${table_w_} 0
           } else {
              ${notebookW} select ${notebookW}.${type_}
@@ -771,8 +772,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ { unack_ 0 }} {
          sysinfo 0
    }
 
-   set notebookW [MsgCenter_getNoteBookWidget]
-   set label  [string tolower [$notebookW tab [$notebookW index current] -text]]
+   set currentMsgTab [MsgCenter_getCurrentMessageTab]
    # reset active messages
    MsgCenter_initActiveMessages
    set counter 0
@@ -785,7 +785,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ { unack_ 0 }} {
          set NB_ACTIVE_ELM(${type}) 1
          set NB_ACTIVE_ELM(all) 1
       }
-      if { [lindex ${label} 0] == ${type} || [lindex ${label} 0] == "all"} {
+      if { ${currentMsgTab} == ${type} || ${currentMsgTab} == "all"} {
         ::log::log debug "MsgCenter_refreshActiveMessages coun:$counter type:$type node:$node msg:$msg exp:$exp"
         MsgCenter_addActiveMessage ${datestamp} ${timestamp} ${type} ${node} ${msg} ${exp} ${isMsgack} true
       }
@@ -835,7 +835,7 @@ proc MsgCenter_refreshActiveMessages { table_w_ { unack_ 0 }} {
    MsgCenter_initialSort ${table_w_}
    ${table_w_} see ${MSG_ACTIVE_COUNTER}
 }
-proc Ack_MsgCenter_List {} {
+proc Ack_MsgCenter_List { message_tab } {
   global BGAll BGAbort BGEvent BGInfo BGSysinfo
   global MSG_TABLE MSG_COUNTER LOG_ACTIVATION_IDS
   
@@ -847,16 +847,15 @@ proc Ack_MsgCenter_List {} {
          sysinfo 0
   }
   set notebookW [MsgCenter_getNoteBookWidget]
-  set label     [string tolower [$notebookW tab [$notebookW index current] -text]] 
   set counter 0
   while { ${counter} < ${MSG_COUNTER} } {
     foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
-    if { ${isMsgack} == "0" && ([lindex ${label} 0] == ${type} || [lindex ${label} 0] == "all")} {
+    if { ${isMsgack} == "0" && (${message_tab} == ${type} || ${message_tab} == "all")} {
       set MSG_TABLE [lreplace ${MSG_TABLE} ${counter} ${counter} [lreplace [lindex ${MSG_TABLE} ${counter}] end end 1]]
       if { !$NB_ACTIVE_ELM($type)} {
          set NB_ACTIVE_ELM(${type}) 1
       }
-    } elseif { ${isMsgack} == "0" && [lindex ${label} 0] != ${type}} {
+    } elseif { ${isMsgack} == "0" && ${message_tab} != ${type}} {
         set NB_ACTIVE_ELM(all) 0
     }
     incr counter
@@ -878,6 +877,7 @@ proc Ack_MsgCenter_List {} {
   MsgCenter_SetNotebOption ${notebookW}
   MsgCenter_ModifText
 }
+
 proc MsgCenter_initActiveMessages {} {
    global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
 
@@ -902,13 +902,24 @@ proc MsgCenter_initMessages { table_w_ } {
 }
 
 # acknowledge table messages
-proc MsgCenter_ackMessages { table_w_ } {
+# if the message_tab is given as argument, it will be used instead of getting the current user selection
+# it is mainly used to force clearing of all message types when switching to another flow (different datestamp)
+# in xflow standalone mode
+proc MsgCenter_ackMessages { table_w_ {message_tab ""} } {
    global MsgTableColMap
    global MSG_ACTIVE_COUNTER NB_ACTIVE_ELM
 
    #wm attributes . -topmost 0
    MsgCenter_stopBell ${table_w_}
-   Ack_MsgCenter_List
+
+   if { ${message_tab} == "" } {
+      set currentMsgTab [MsgCenter_getCurrentMessageTab]
+   } else {
+      set currentMsgTab ${message_tab}
+   }
+
+   Ack_MsgCenter_List ${currentMsgTab}
+
    set normalFg [SharedData_getColor MSG_CENTER_NORMAL_FG]
    foreach row [${table_w_} searchcolumn $MsgTableColMap(UnackColNumber) 0 -exact -all] {
       ${table_w_} rowconfigure ${row} -fg ${normalFg}
@@ -923,7 +934,6 @@ proc MsgCenter_ackMessages { table_w_ } {
 
    set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
 
-   set currentMsgTab [MsgCenter_getCurrentMessageTab]
    if { ${currentMsgTab} == "all" } {
       # reset all types to acknowledged
       foreach msgType "all abort event info sysinfo" {
@@ -961,19 +971,27 @@ proc MsgCenter_getCurrentMessageTab {} {
 
 proc MsgCenter_clearAllMessages {} {
    set tableW [MsgCenter_getTableWidget]
-   MsgCenter_ackMessages ${tableW}
-   MsgCenter_initActiveMessages
+   MsgCenter_ackMessages ${tableW} all
+   Msgcenter_Init_List ${tableW} all
 }
-proc Msgcenter_Init_List {table_w_} {
+
+# if the messageTab is given as argument, it will be used instead of getting the current user selection
+# it is mainly used to force clearing of all message types when switching to another flow (different datestamp)
+# in xflow standalone mode
+proc Msgcenter_Init_List {table_w_ {message_tab ""} } {
   global MSG_TABLE MSG_COUNTER
   
-  set notebookW [MsgCenter_getNoteBookWidget]
-  set label     [string tolower [$notebookW tab [$notebookW index current] -text]] 
+  if { ${message_tab} == "" } {
+     set currentMsgTab [MsgCenter_getCurrentMessageTab]
+  } else {
+     set currentMsgTab ${message_tab}
+  }
+
   set counter 0
   set deleteIndexes {}
   while { ${counter} < ${MSG_COUNTER} } {
     foreach {timestamp datestamp type action node msg exp isMsgack} [lindex ${MSG_TABLE} ${counter}] {break}
-    if { ([lindex ${label} 0] == ${type} || [lindex ${label} 0] == "all")} {
+    if { (${currentMsgTab} == ${type} || ${currentMsgTab} == "all")} {
       lappend deleteIndexes ${counter}
     }
     incr counter
@@ -985,6 +1003,7 @@ proc Msgcenter_Init_List {table_w_} {
    set MSG_COUNTER [llength ${MSG_TABLE}]
    MsgCenter_refreshActiveMessages ${table_w_} 0
 }
+
 proc MsgCenter_clearMessages { source_w table_w_ } {
    global MSG_COUNTER MSG_TABLE MSG_ACTIVE_COUNTER
 
