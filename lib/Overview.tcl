@@ -3251,8 +3251,8 @@ proc Overview_addMsgCenterWidget { exp_path datestamp ll} {
    ${labelCloseB} configure -command [list Overview_togglemsgbarCallback ${exp_path} ${datestamp} false $ll]
 
    set newMsgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
-   set normalBgColor [option get ${labelFrame} background Label]
-   set normalFgColor [option get ${labelFrame} foreground Label]
+   set normalBgColor [option get ${label_abortW} background Label]
+   set normalFgColor [option get ${label_abortW} foreground Label]
 
    set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
    if { ${Abort} != "" } {
@@ -3326,12 +3326,22 @@ proc Overview_createMsgCenterbar { _toplevelW } {
       foreach widget [list $label_totalW $label_abortW $label_eventW $label_infoW $label_sysinfoW] {
          label ${widget}
       }
+
+      # if the option is not set, set it; it is used below
+      # on most wm, it is there but it was not on mobaxterm so we set it here if not available
+      if { [option get ${label_abortW} background Label] == "" } {
+         option add *Label.background [${label_abortW} cget -bg]
+      }
+      if { [option get ${label_abortW} foreground Label] == "" } {
+         option add *Label.foreground [${label_abortW} cget -fg]
+      }
+      
       ::tooltip::tooltip ${labelFrame} "Number of unacknowledged / (total) messages"
    }
 
    set newMsgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
-   set normalBgColor [option get ${labelFrame} background Label]
-   set normalFgColor [option get ${labelFrame} foreground Label]
+   set normalBgColor [option get ${label_abortW} background Label]
+   set normalFgColor [option get ${label_abortW} foreground Label]
 
    if { ${nb_all} != "0" && ${tt_all} != "0"} {
       set infoText "All : $nb_all/($tt_all) "
@@ -3378,7 +3388,7 @@ proc Overview_createMsgCenterbar { _toplevelW } {
    if { ${nb_sysinfo} != "0" && ${tt_sysinfo} != "0"} {
       set infoText " Sysinfo : $nb_sysinfo/($tt_sysinfo)"
       ${label_sysinfoW} configure -justify center -text ${infoText} -bg $newMsgColor -fg white
-   } elseif { ${nb_all} == "0" && ${tt_sysinfo} != "0"} {
+   } elseif { ${nb_sysinfo} == "0" && ${tt_sysinfo} != "0"} {
       set infoText " Sysinfo : 0/($tt_sysinfo) "
       ${label_sysinfoW} configure -justify center -text ${infoText} -bg ${normalBgColor} -fg ${normalFgColor}
    } else {

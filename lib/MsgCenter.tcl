@@ -624,7 +624,6 @@ proc MsgCenter_ModifText  {} {
    foreach deleteIndex ${deleteIndexes} {
       set List_Xflow [lreplace ${List_Xflow} ${deleteIndex} ${deleteIndex}]
    } 
- 
 }
 
 #
@@ -669,7 +668,7 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
         }
      }
      MsgCenter_ModifText
-   }
+  }
    
 }
 
@@ -834,7 +833,12 @@ proc MsgCenter_refreshActiveMessages { table_w_ { unack_ 0 }} {
    }  
    MsgCenter_initialSort ${table_w_}
    ${table_w_} see ${MSG_ACTIVE_COUNTER}
+
+   if { [SharedData_getMiscData OVERVIEW_MODE] == false && [SharedData_getMiscData STARTUP_DONE] == true } {
+       MsgCenter_sendNotification
+   }
 }
+
 proc Ack_MsgCenter_List { message_tab } {
   global BGAll BGAbort BGEvent BGInfo BGSysinfo
   global MSG_TABLE MSG_COUNTER LOG_ACTIVATION_IDS

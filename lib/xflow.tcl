@@ -342,14 +342,22 @@ proc xflow_addMsgCenterWidget { exp_path datestamp} {
       foreach widget [list $label_abortW $label_eventW $label_infoW $label_sysinfoW] {
          label ${widget}
       }
+      # if the option is not set, set it; it is used below
+      # on most wm, it is there but it was not on mobaxterm so we set it here if not available
+      if { [option get ${label_abortW} background Label] == "" } {
+         option add *Label.background [${label_abortW} cget -bg]
+      }
+      if { [option get ${label_abortW} foreground Label] == "" } {
+         option add *Label.foreground [${label_abortW} cget -fg]
+      }
    }
 
    ${msgFrame} configure -text "${labeltext} active message count"
    tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages"
 
    set newMsgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
-   set normalBgColor [option get ${labelFrame} background Label]
-   set normalFgColor [option get ${labelFrame} foreground Label]
+   set normalBgColor [option get ${label_abortW} background Label]
+   set normalFgColor [option get ${label_abortW} foreground Label]
 
    set Abort  [Utils_getMsgCenter_Info ${exp_path} abort ${datestamp}]
    if { ${Abort} != "" } {
@@ -4540,6 +4548,7 @@ proc xflow_parseCmdOptions {} {
       puts "LogReader_readMonitorDatestamps..."
       # start monitoring datestamps for new log entries
       LogReader_readMonitorDatestamps
+
 
       if { [SharedData_getMiscData XFLOW_NEW_DATESTAMP_LAUNCH] != "" } {
          # monitor for new log datestamps
