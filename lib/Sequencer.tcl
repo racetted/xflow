@@ -63,7 +63,7 @@ proc Sequencer_runCommand { exp_path datestamp out_file command } {
    #  error "Invalid datestamp"
    # }
    if { ${datestamp} != "" } {
-      set cmd "export SEQ_EXP_HOME=$exp_path;export SEQ_DATE=${datestamp}; print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
+      set cmd "export SEQ_EXP_HOME=$exp_path; print \"### ${command} -d $datestamp\" > ${out_file}; $command -d $datestamp >> ${out_file} 2>&1"
    } else {
       set cmd "export SEQ_EXP_HOME=$exp_path;print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
    }
