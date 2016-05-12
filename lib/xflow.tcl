@@ -1787,7 +1787,7 @@ proc xflow_initbranchCallback { exp_path datestamp node extension canvas  } {
    } else {
       set winTitle "initbranch ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
-         -n $seqNode -s initbranch -f continue $seqLoopArgs
+         -n $seqNode -s initbranch -f continue $seqLoopArgs -d $datestamp
       ::log::log notice "${seqExec} -n $seqNode -s initbranch -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
 }
