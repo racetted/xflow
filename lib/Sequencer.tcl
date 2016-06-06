@@ -59,14 +59,31 @@ proc Sequencer_runSubmit { exp_path datestamp parent_top command title position 
 }
 
 proc Sequencer_runCommand { exp_path datestamp out_file command } {
-   # if { [Utils_validateRealDatestamp ${datestamp}] == false } {
-   #  error "Invalid datestamp"
-   # }
+
+   set prefix "export SEQ_EXP_HOME=${exp_path}"
    if { ${datestamp} != "" } {
-      set cmd "export SEQ_EXP_HOME=$exp_path;export SEQ_DATE=${datestamp}; print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
-   } else {
-      set cmd "export SEQ_EXP_HOME=$exp_path;print \"### ${command}\" > ${out_file}; $command >> ${out_file} 2>&1"
+      set prefix "$prefix; export SEQ_DATE=${datestamp}"
    }
-   ::log::log debug "Sequencer_runCommand ksh -c $cmd"
-   catch { eval [exec ksh -c $cmd]}
+
+   set remote_host [ SharedData_getMiscData REMOTE_HOST ]
+
+   if { $remote_host != "" } {
+      # Send command through ssh pipe
+      set remote_user [ SharedData_getMiscData REMOTE_USER ]
+      if { $remote_user != "" } {
+         set remote_user "-l $remote_user"
+      }
+      set maestro_shortcut "$::env(SEQ_MAESTRO_SHORTCUT)"
+      set prefix "${prefix}; export SEQ_MAESTRO_SHORTCUT=\\\"$maestro_shortcut\\\";$maestro_shortcut"
+      set cmd "${prefix}; echo \\\"### ${command}\\\"; $command"
+      set remote_cmd "echo \"${cmd}\" | ssh ${remote_host} ${remote_user} > ${out_file} 2>&1"
+      puts "Running remote command $remote_cmd"
+      catch { eval [exec ksh -c $remote_cmd] }
+      ::log::log debug "Sequencer_runCommand ksh -c $remote_cmd"
+   } else {
+      # Send command on local shell
+      set cmd "${prefix}; echo \"### ${command}\" > ${out_file}; $command >> $out_file 2>&1"
+      catch { eval [ exec ksh -c $cmd ] }
+      ::log::log debug "Sequencer_runCommand ksh -c $cmd"
+   }
 }
