@@ -2770,7 +2770,7 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
    Utils_busyCursor [winfo toplevel ${canvas}]
 
    set result [ catch {
-      set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -list > $tmpfile 2>&1"
+      set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -list > $tmpfile"
       ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
       eval [exec ksh -c $cmd ]
       ::log::log debug  "xflow_allListingCallback DONE: $cmd"
