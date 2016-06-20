@@ -242,9 +242,9 @@ proc DrawUtils::drawTextBox { exp_path canvas tx1 ty1 text  textfill binder } {
   }
   if {[lsearch -exact $text ${color}] != "-1"} {
     switch ${color} {
-          normal {set text [string map {normal ""} ${text}]}
-          orange {set text [string map {orange ""} ${text}]}
-          red    {set text [string map {red ""}    ${text}]}
+          normal {set text [string map {" normal" ""} ${text}]}
+          orange {set text [string map {" orange" ""} ${text}]}
+          red    {set text [string map {" red" ""}    ${text}]}
     }
   }
   
@@ -264,7 +264,7 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    }
 
    set newtx1 [expr ${tx1} + 30/${flowScale}]
-    set newty1 [expr ${ty1} - 5]
+   set newty1 [expr ${ty1} - 5]
   # $canvas delete ${binder}.rect
    set l_txt [split $text "\n"]
    set size   6
@@ -282,9 +282,9 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    }
    if {[lsearch -exact $text ${color}] != "-1"} {
        switch ${color} {
-          normal {set text [string map {normal ""} ${text}]}
-          orange {set text [string map {orange ""} ${text}]}
-          red    {set text [string map {red ""}    ${text}]}
+          normal {set text [string map {" normal" ""} ${text}]}
+          orange {set text [string map {" orange" ""} ${text}]}
+          red    {set text [string map {" red" ""}    ${text}]}
        }
    } 
   
@@ -408,9 +408,9 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
    }
    if {[lsearch -exact $maxtext ${color}] != "-1"} {
        switch ${color} {
-          normal {set maxtext [string map {normal ""} ${maxtext}]}
-          orange {set maxtext [string map {orange ""} ${maxtext}]}
-          red    {set maxtext [string map {red ""}    ${maxtext}]}
+          normal {set maxtext [string map {" normal" ""} ${maxtext}]}
+          orange {set maxtext [string map {" orange" ""} ${maxtext}]}
+          red    {set maxtext [string map {" red" ""}    ${maxtext}]}
        }
    } 
    $canvas create text ${newtx1} ${newty1} -text $maxtext -fill $textfill \
