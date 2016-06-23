@@ -57,12 +57,16 @@ proc Sequencer_runSubmit { exp_path datestamp parent_top command title position 
    }
    catch {[exec rm -f ${tmpfile}}
 }
-
+################################################################################
+# Runs a command through a local shell or through a remote shell via an ssh
+# pipe.
+################################################################################
 proc Sequencer_runCommand { exp_path datestamp out_file command } {
 
-   set prefix "export SEQ_EXP_HOME=${exp_path}"
    if { ${datestamp} != "" } {
-      set prefix "$prefix; export SEQ_DATE=${datestamp}"
+      set prefix "export SEQ_DATE=${datestamp}"
+   } else {
+      set prefix ""
    }
 
    set remote_host [ SharedData_getMiscData REMOTE_HOST ]
@@ -73,17 +77,50 @@ proc Sequencer_runCommand { exp_path datestamp out_file command } {
       if { $remote_user != "" } {
          set remote_user "-l $remote_user"
       }
+
+      # Get user home (local and remote)
+      set remote_home [SharedData_getMiscData REMOTE_HOME ]
+      set local_home [SharedData_getMiscData LOCAL_HOME ]
+
+      # Take local experiment home, and substitute the substring $local_home for
+      # the string $remote_home to get the remote exp home.
+      set length [ expr [ string length $local_home ] - 1 ]
+      set relative_exp_home [string replace $exp_path 0 $length ""]
+      # Note that doing
+      #    set remote_exp_home [string replace $exp_path 0 $length $remote_home]
+      # is less robust because if local_home has a trailing slash and remote_home
+      # doesn't, then there we would have an end result of
+      # /users/dor/afsi/phcDocuments/Experiences/sample where there should be a
+      # slash between "phc" and "Documents". This way:
+      set remote_exp_home "${remote_home}/${relative_exp_home}"
+      # we only run the risc of having two consecutive slashes which is OK for
+      # the OS.
+      set prefix "$prefix; export SEQ_EXP_HOME=${remote_exp_home}"
+
+      # Add maestro shortcut to command
       set maestro_shortcut "$::env(SEQ_MAESTRO_SHORTCUT)"
       set prefix "${prefix}; export SEQ_MAESTRO_SHORTCUT=\\\"$maestro_shortcut\\\";$maestro_shortcut"
+
+      # Put the command together with the prefix
       set cmd "${prefix}; echo \\\"### ${command}\\\"; $command"
+
+      # Construct the remote command by echoing the command through an ssh pipe.
       set remote_cmd "echo \"${cmd}\" | ssh ${remote_host} ${remote_user} > ${out_file} 2>&1"
+
       puts "Running remote command $remote_cmd"
       catch { eval [exec ksh -c $remote_cmd] }
       ::log::log debug "Sequencer_runCommand ksh -c $remote_cmd"
    } else {
       # Send command on local shell
+      set prefix "$prefix;export SEQ_EXP_HOME=${exp_path}"
       set cmd "${prefix}; echo \"### ${command}\" > ${out_file}; $command >> $out_file 2>&1"
       catch { eval [ exec ksh -c $cmd ] }
       ::log::log debug "Sequencer_runCommand ksh -c $cmd"
    }
+}
+
+proc getRemoteHome { exp_path remoteHome localHome } {
+
+
+   return $remoteExpHome
 }
