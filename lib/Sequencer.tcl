@@ -1,56 +1,30 @@
-proc Sequencer_getPath {} {
-   global env
-   if { [info exists env(SEQ_BIN)] } {
-      return $env(SEQ_BIN)
-   }
-   set sequencerPath ""
-   catch { set sequencerPath [exec which maestro] }
-   if { $sequencerPath == "" } {
-      Utils_fatalError . "Application Error" "SEQ_BIN not set. Cannot find sequencer binaries path!"
-   }
-   return [file dirname $sequencerPath]
-}
-
-proc Sequencer_getUtilsPath {} {
-   global env
-   if { [info exists env(SEQ_UTILS_BIN)] } {
-      return $env(SEQ_UTILS_BIN)
-   }
-   set utilsPath ""
-   catch { set utilsPath [exec which nodetracer] }
-   if { $utilsPath == "" } {
-      Utils_fatalError . "Application Error" "SEQ_UTILS_BIN not set. Cannot find sequencer utilities path!"
-   }
-   return [file dirname $utilsPath]
-}
-
 proc Sequencer_getExpRootNodeInfo { exp_path } {
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+   set seqExec "nodeinfo"
 
    set cmd "export SEQ_EXP_HOME=$exp_path; ${seqExec} -f root | cut -d \"=\" -f2"
    set rootNode [exec ksh -c ${cmd}]
    return ${rootNode}
 }
 
-proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command title position args } {
+proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command title position run_remote args } {
    global env
    regsub -all " " [file tail $command] _ tmpfile
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
+   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote}
    TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
    catch {[exec rm -f ${tmpfile}}
 }
 
-proc Sequencer_runSubmit { exp_path datestamp parent_top command title position args } {
+proc Sequencer_runSubmit { exp_path datestamp parent_top command title position run_remote args } {
    global env
    global SUBMIT_POPUP
    regsub -all " " [file tail $command] _ tmpfile
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]"
+   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote}
    ::log::log notice "${command} [join ${args}]"
    if { ${SUBMIT_POPUP} != false } {
       TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
@@ -61,7 +35,7 @@ proc Sequencer_runSubmit { exp_path datestamp parent_top command title position 
 # Runs a command through a local shell or through a remote shell via an ssh
 # pipe.
 ################################################################################
-proc Sequencer_runCommand { exp_path datestamp out_file command } {
+proc Sequencer_runCommand { exp_path datestamp out_file command run_remote } {
 
    if { ${datestamp} != "" } {
       set prefix "export SEQ_DATE=${datestamp}"
@@ -71,7 +45,7 @@ proc Sequencer_runCommand { exp_path datestamp out_file command } {
 
    set remote_host [ SharedData_getMiscData REMOTE_HOST ]
 
-   if { $remote_host != "" } {
+   if { $remote_host != "" && ${run_remote} > 0 } {
       # Send command through ssh pipe
       set remote_user [ SharedData_getMiscData REMOTE_USER ]
       if { $remote_user != "" } {

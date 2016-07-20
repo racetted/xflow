@@ -1733,7 +1733,7 @@ proc Overview_showSupportCallback { exp_path datestamp {caller_w .} } {
 # this function is called to show the history of an experiment
 proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
    ::log::log debug "Overview_historyCallback exp_path:$exp_path datestamp:${datestamp}"
-   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
+   set seqExec nodehistory
    if { ${datestamp} != "" } {
       # retrieve the last 30 days
       set seqNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
@@ -1744,7 +1744,7 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
       set cmdArgs "-n $seqNode"
    }
 
-   Sequencer_runCommandWithWindow $exp_path ${datestamp} [Overview_getToplevel] $seqExec "Node History ${exp_path}" bottom ${cmdArgs}
+   Sequencer_runCommandWithWindow $exp_path ${datestamp} [Overview_getToplevel] $seqExec "Node History ${exp_path}" bottom 0 ${cmdArgs}
 }
 
 # this function is called to launch an exp window
@@ -2779,7 +2779,6 @@ proc Overview_init {} {
    set FLOW_SCALE [SharedData_getMiscData FLOW_SCALE]
    set COLLAPSE_DISABLED_NODES [SharedData_getMiscData COLLAPSE_DISABLED_NODES]
    SharedData_setMiscData IMAGE_DIR $env(SEQ_XFLOW_BIN)/../etc/images
-   SharedData_setMiscData SEQ_UTILS_BIN [Sequencer_getUtilsPath]
 
    set SHOW_MSGBAR false
    set LIST_TAG    ""
