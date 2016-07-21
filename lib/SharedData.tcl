@@ -881,8 +881,6 @@ proc SharedData_init {} {
    OVERVIEW_DATESTAMP_RANGE "8 9" \
    OVERVIEW_SHOW_TOOLBAR true \
    DATESTAMP_VISIBLE_LEN 10 \
-   SEQ_BIN [Sequencer_getPath] \
-   SEQ_UTILS_BIN [Sequencer_getUtilsPath] \
    ]
 
    # SharedData_readProperties

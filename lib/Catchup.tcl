@@ -65,7 +65,7 @@ proc Catchup_applyCallback { _exp_path _catchupComboBox } {
 # returns the catchup value stored in the experiment,
 # as given by the "expcatchup -g" command
 proc Catchup_retrieve { _exp_path } {   
-   set catchupExec "[SharedData_getMiscData SEQ_BIN]/expcatchup"
+   set catchupExec "expcatchup"
    set cmd "export SEQ_EXP_HOME=${_exp_path};${catchupExec} -g"
    set catchupValue ""
    set catchupValue [exec ksh -c $cmd]
@@ -74,7 +74,7 @@ proc Catchup_retrieve { _exp_path } {
 
 proc Catchup_save { _exp_path _catchupIntValue } {
    
-   set catchupExec "[SharedData_getMiscData SEQ_BIN]/expcatchup"
+   set catchupExec "expcatchup"
    set cmd "export SEQ_EXP_HOME=${_exp_path};${catchupExec} -s ${_catchupIntValue}"
    set catchupValue ""
    ::log::log notice ${cmd}

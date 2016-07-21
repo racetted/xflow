@@ -632,7 +632,7 @@ proc xflow_populateKillAllNodeListbox { exp_path datestamp listbox_w } {
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
-   set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
+   set killPath nodekill 
    set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -listall -d ${datestamp} > $tmpfile 2>&1"
    ::log::log debug "xflow_nodeKillDisplay ksh -c $cmd"
    catch { eval [exec ksh -c $cmd ] }
@@ -678,7 +678,7 @@ proc xflow_killNode { exp_path datestamp node list_widget } {
       for {set iterator 0} {$iterator < [llength $indexlist]} {incr iterator} {
          set listOfNodes [ linsert $listOfNodes end [ $list_widget get [ lindex $indexlist $iterator ]]]
       }
-      set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill
+      set seqExec nodekill
       set numOfEntries [llength $listOfNodes]
 
       set separator "->"
@@ -706,7 +706,7 @@ proc xflow_killNode { exp_path datestamp node list_widget } {
             set winTitle "Node Kill ${seqNode} ID=${nodeID} Exp=${exp_path}"
            set commandArgs "-n ${seqNode} -job_id $nodeID"
            ::log::log notice "${seqExec} ${commandArgs}"
-           Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top ${commandArgs}
+           Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top 1 ${commandArgs}
          }
          if { ${foundId} == false } {
             Utils_raiseError [winfo toplevel ${list_widget}] "Kill Node" "Application Error: Unable to retrieve Task Id."
@@ -1719,7 +1719,7 @@ proc xflow_historyCallback { exp_path datestamp node extension canvas {history 4
    # ::log::log debug "xflow_historyCallback node:$node extension:$extension canvas:$canvas $full_loop"
    puts "xflow_historyCallback node:$node extension:$extension canvas:$canvas $full_loop"
 
-   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodehistory
+   set seqExec nodehistory
 
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
@@ -1742,7 +1742,7 @@ proc xflow_historyCallback { exp_path datestamp node extension canvas {history 4
       }
       set winTitle "Node History ${seqNode}${nodeExt} -history $history - Exp=${exp_path}"
       Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec \
-         ${winTitle} bottom -n $seqNode$nodeExt ${historyRange}
+         ${winTitle} bottom 0 -n $seqNode$nodeExt ${historyRange}
    }
 }
 
@@ -1751,22 +1751,22 @@ proc xflow_nodeInfoCallback { exp_path datestamp node extension canvas } {
    ::log::log debug "xflow_nodeInfoCallback exp_path:$exp_path datestamp:$datestamp node:$node extension:$extension"
    global env
 
-   set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+   set nodeInfoExec "nodeinfo"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas}]
    set winTitle "Node Info ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-   Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] ${nodeInfoExec} ${winTitle} top -n $seqNode  ${seqLoopArgs}
+   Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] ${nodeInfoExec} ${winTitle} top 0 -n $seqNode  ${seqLoopArgs}
 }
 
 proc xflow_nodeDepCallback { exp_path datestamp node extension canvas } {
    global env
 
-   set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+   set nodeInfoExec "nodeinfo"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas}]
 
    set winTitle "Node Dependencies ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-   Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] ${nodeInfoExec} ${winTitle} top -n $seqNode  ${seqLoopArgs} -f dep
+   Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] ${nodeInfoExec} ${winTitle} top 0 -n $seqNode  ${seqLoopArgs} -f dep
 }
 
 # this command is invoked from the Misc->initbranch menu item
@@ -1778,7 +1778,7 @@ proc xflow_initbranchCallback { exp_path datestamp node extension canvas  } {
       Utils_raiseError $canvas "init branch" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
 
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
@@ -1786,7 +1786,7 @@ proc xflow_initbranchCallback { exp_path datestamp node extension canvas  } {
       Utils_raiseError $canvas "initbranch" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "initbranch ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top 1 \
          -n $seqNode -s initbranch -f continue $seqLoopArgs -d $datestamp
       ::log::log notice "${seqExec} -n $seqNode -s initbranch -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
@@ -1801,7 +1801,7 @@ proc xflow_initnodeCallback { exp_path datestamp node extension canvas  } {
       Utils_raiseError $canvas "node init" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
@@ -1809,7 +1809,7 @@ proc xflow_initnodeCallback { exp_path datestamp node extension canvas  } {
       Utils_raiseError $canvas "initnode" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "initnode ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top 1 \
          -n $seqNode -s initnode -f continue $seqLoopArgs
       ::log::log notice "${seqExec} -n $seqNode -s initnode -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
@@ -1825,7 +1825,7 @@ proc xflow_initbranchLoopCallback { exp_path datestamp node canvas  } {
       return
    }
 
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${exp_path} ${node} ${datestamp}]
@@ -1833,7 +1833,7 @@ proc xflow_initbranchLoopCallback { exp_path datestamp node canvas  } {
       Utils_raiseError $canvas "initbranch" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "initbranch ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top 1 \
          -n $seqNode -s initbranch -f continue $seqLoopArgs
       ::log::log notice "${seqExec} -n $seqNode -s initbranch -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
@@ -1845,7 +1845,7 @@ proc xflow_abortCallback { exp_path datestamp node extension canvas } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
@@ -1853,7 +1853,7 @@ proc xflow_abortCallback { exp_path datestamp node extension canvas } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "abort ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp}  [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp}  [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 \
          -n $seqNode -s abort -f continue $seqLoopArgs
       ::log::log notice "${seqExec} -n $seqNode -s abort -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
@@ -1864,7 +1864,7 @@ proc xflow_initnodeNpassTaskCallback { exp_path datestamp node extension canvas 
       Utils_raiseError $canvas "node init" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
 
@@ -1873,7 +1873,7 @@ proc xflow_initnodeNpassTaskCallback { exp_path datestamp node extension canvas 
    } else {
       ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
          set winTitle "init ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-         Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+         Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 \
             -n $seqNode -s initnode ${seqLoopArgs}
          ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
          ::log::log notice "${seqExec} -n $seqNode -s initnode ${seqLoopArgs} (datestamp=${datestamp})"
@@ -1885,7 +1885,7 @@ proc xflow_endNpassTaskCallback { exp_path datestamp node extension canvas } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
 
@@ -1894,7 +1894,7 @@ proc xflow_endNpassTaskCallback { exp_path datestamp node extension canvas } {
    } else {
       ::log::log debug "xflow_endNpassTaskCallback ${seqLoopArgs}"
          set winTitle "end ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-         Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+         Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 \
             -n $seqNode -s end ${seqLoopArgs}
          ::log::log debug "xflow_endNpassTaskCallback ${seqLoopArgs}"
          ::log::log notice "${seqExec} -n $seqNode -s end ${seqLoopArgs} (datestamp=${datestamp})"
@@ -1906,7 +1906,7 @@ proc xflow_abortNpassTaskCallback { exp_path datestamp node extension canvas } {
       Utils_raiseError $canvas "node abort" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
 
@@ -1915,7 +1915,7 @@ proc xflow_abortNpassTaskCallback { exp_path datestamp node extension canvas } {
    } else {
       ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
          set winTitle "abort ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-         Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+         Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 \
             -n $seqNode -s abort ${seqLoopArgs}
          ::log::log debug "xflow_abortNpassTaskCallback ${seqLoopArgs}"
          ::log::log notice "${seqExec} -n $seqNode -s abort ${seqLoopArgs} (datestamp=${datestamp})"
@@ -1935,7 +1935,7 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
       Utils_raiseError $canvas "view workdir" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExecWork "[SharedData_getMiscData SEQ_UTILS_BIN]/nodework"
+   set seqExecWork nodework
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp} ${full_loop}]
 
@@ -1953,7 +1953,7 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
 }
 
 proc xflow_saveWorkCallback { exp_path datestamp node canvas } {
-   set seqExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodesavework
+   set seqExec nodesavework
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp}]
 
@@ -1962,7 +1962,7 @@ proc xflow_saveWorkCallback { exp_path datestamp node canvas } {
    } else {
       ::log::log debug "$seqExec -n ${seqNode} -ext ${nodeExt} -d ${datestamp}"
       set winTitle "node savework ${seqNode} ${nodeExt} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 \
             -n $seqNode -d ${datestamp} -ext ${nodeExt}
    }
 }
@@ -1987,7 +1987,7 @@ proc xflow_killNodeFromDropdown { exp_path datestamp node extension source_w {al
       set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${source_w}]
    }
 
-   set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
+   set killPath nodekill 
 
    set soloWindow ${source_w}_${node}_nodekill
    regsub -all "/" ${soloWindow} _ ${soloWindow}
@@ -2050,7 +2050,7 @@ proc xflow_populateKillNodeListbox { exp_path datestamp node seqLoopArgs listbox
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    ::log::log debug "xflow_populateKillNodeListbox exp_path:${exp_path} datestamp:${datestamp} seqNode:${seqNode} node:${node}"
 
-   set killPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodekill 
+   set killPath nodekill 
 
    set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -n $seqNode ${seqLoopArgs} -list > $tmpfile 2>&1"
    ::log::log debug "xflow_populateKillNodeListbox ksh -c $cmd"
@@ -2085,7 +2085,7 @@ proc xflow_endCallback { exp_path datestamp node extension canvas } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
@@ -2093,7 +2093,7 @@ proc xflow_endCallback { exp_path datestamp node extension canvas } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "end ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 \
          -n $seqNode -s end -f continue $seqLoopArgs
       ::log::log notice "$seqExec -n $seqNode -s end -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
@@ -2106,7 +2106,7 @@ proc xflow_beginCallback { exp_path datestamp node extension canvas } {
       Utils_raiseError $canvas "node begin" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
@@ -2114,7 +2114,7 @@ proc xflow_beginCallback { exp_path datestamp node extension canvas } {
       Utils_raiseError $canvas "node begin" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "begin ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 \
          -n $seqNode -s begin -f continue $seqLoopArgs
       ::log::log notice "$seqExec -n $seqNode -s begin -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
@@ -2128,7 +2128,7 @@ proc xflow_endLoopCallback { exp_path datestamp node canvas caller_menu } {
       Utils_raiseError $canvas "node end" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${exp_path} ${node} ${datestamp}]
@@ -2136,7 +2136,7 @@ proc xflow_endLoopCallback { exp_path datestamp node canvas caller_menu } {
       Utils_raiseError $canvas "loop end" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "end ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top 1 \
          -n $seqNode -s end -f continue $seqLoopArgs
       ::log::log notice "$seqExec -n $seqNode -s end -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
@@ -2148,7 +2148,7 @@ proc xflow_beginLoopCallback { exp_path datestamp node canvas caller_menu } {
       Utils_raiseError $canvas "node begin" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${exp_path} ${node} ${datestamp}]
@@ -2156,7 +2156,7 @@ proc xflow_beginLoopCallback { exp_path datestamp node canvas caller_menu } {
       Utils_raiseError $canvas "loop begin" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       set winTitle "begin ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
-      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top \
+      Sequencer_runCommandWithWindow ${exp_path} ${datestamp} [xflow_getToplevel ${exp_path} ${datestamp}] $seqExec ${winTitle} top 1 \
          -n $seqNode -s begin -f continue $seqLoopArgs
       ::log::log notice "$seqExec -n $seqNode -s begin -f continue $seqLoopArgs (datestamp=${datestamp})"
    }
@@ -2167,7 +2167,7 @@ proc xflow_beginLoopCallback { exp_path datestamp node canvas caller_menu } {
 # displays the content of a task node (.tsk)
 proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
    global SESSION_TMPDIR
-   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodesource"
+   set seqExec nodesource
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -2179,7 +2179,7 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
 
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2193,7 +2193,7 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
 # displays the content of a config file (.cfg) if it is available.
 proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
    global SESSION_TMPDIR
-   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodeconfig"
+   set seqExec "nodeconfig"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -2205,7 +2205,7 @@ proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
 
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2277,7 +2277,7 @@ proc xflow_evalConfigCreateWidgets { exp_path datestamp node extension caller_w 
    # this section fetches the node.machine as given by nodeinfo
    set machine ""
    catch {
-      set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+      set nodeInfoExec "nodeinfo"
       set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
       set machine [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res | grep node.machine | sed -e 's:node.machine=::' 2> /dev/null "]
    }
@@ -2302,7 +2302,7 @@ proc xflow_goEvalConfig { exp_path datestamp node extension toplevel_w } {
       set fullcfg "-f 1"
    }
 
-   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/evaluate_vars"
+   set seqExec "evaluate_vars"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
 
@@ -2317,7 +2317,7 @@ proc xflow_goEvalConfig { exp_path datestamp node extension toplevel_w } {
    ::log::log debug "xflow_goEvalConfig $seqCmd"
    Utils_busyCursor ${toplevel_w}
    catch {
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
    }
    Utils_normalCursor ${toplevel_w}
 
@@ -2332,7 +2332,7 @@ proc xflow_goEvalConfig { exp_path datestamp node extension toplevel_w } {
 
 proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
    global SESSION_TMPDIR
-   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/chaindot.py"
+   set seqExec "chaindot.py"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -2345,7 +2345,7 @@ proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode} -e ${exp_path} -o ${outputfile}"
-   Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd}
+   Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd} 1
 
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2359,7 +2359,7 @@ proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
 # displays the resource file (.def) if it is available
 proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu } {
    global SESSION_TMPDIR
-   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/noderesource"
+   set seqExec "noderesource"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -2372,7 +2372,7 @@ proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu } {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
 
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2386,7 +2386,7 @@ proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu } {
 # displays the latest batch command file generated by maestro
 proc xflow_batchCallback { exp_path datestamp node extension canvas {full_loop 0} } {
    global SESSION_TMPDIR
-   set seqExec "[SharedData_getMiscData SEQ_UTILS_BIN]/nodebatch"
+   set seqExec "nodebatch"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    if { ${extension} == "" } {
@@ -2418,7 +2418,7 @@ proc xflow_batchCallback { exp_path datestamp node extension canvas {full_loop 0
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
    
       set seqCmd "${seqExec} -n ${seqNode}${nodeExt}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
    
       if { ${textViewer} == "default" } {
          TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2447,7 +2447,7 @@ proc xflow_submitCallback { exp_path datestamp node extension canvas flow {local
       set ignoreDepFlag " -i"
    }
 
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getLoopArgs ${exp_path} ${node} ${datestamp} ${extension}]
    if { $seqLoopArgs == "" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
@@ -2456,7 +2456,7 @@ proc xflow_submitCallback { exp_path datestamp node extension canvas flow {local
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 ${commandArgs}
    }
 }
 
@@ -2470,7 +2470,7 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
    if { ${local_ignore_dep} == "dep_off" } {
       set ignoreDepFlag " -i"
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set seqLoopArgs [SharedFlowNode_getParentLoopArgs ${exp_path} ${node} ${datestamp}]
    if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
@@ -2530,7 +2530,7 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 ${commandArgs}
    }
 }
 
@@ -2546,7 +2546,7 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node extension canvas  f
    if { ${local_ignore_dep} == "dep_off" } {
       set ignoreDepFlag " -i"
    }
-   set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+   set seqExec "maestro"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${extension} ${canvas} true]
@@ -2558,7 +2558,7 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node extension canvas  f
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 ${commandArgs}
    }
 }
 
@@ -2593,7 +2593,7 @@ proc xflow_tailfCallback { exp_path datestamp node extension canvas {full_loop 0
             set machine ""
             # added code to get machine
             catch {
-               set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+               set nodeInfoExec "nodeinfo"
                set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
                set machine [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res | grep node.machine | sed -e 's:node.machine=::' 2> /dev/null "]
             }
@@ -2711,7 +2711,7 @@ proc xflow_listingCallback { exp_path datestamp node extension canvas {full_loop
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set listingExec nodelister
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    if { ${extension} == "" } {
@@ -2743,7 +2743,7 @@ proc xflow_listingCallback { exp_path datestamp node extension canvas {full_loop
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set seqCmd "${listingExec} -n ${seqNode}${nodeExt} -d ${datestamp}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
 
       if { ${listingViewer} == "default" } {
          TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2766,11 +2766,11 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
    set tmpfile "${tmpdir}/test$id"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
-   set listerPath [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set listerPath nodelister
    Utils_busyCursor [winfo toplevel ${canvas}]
 
    set result [ catch {
-      set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -list > $tmpfile 2>&1"
+      set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -list > $tmpfile"
       ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
       eval [exec ksh -c $cmd ]
       ::log::log debug  "xflow_allListingCallback DONE: $cmd"
@@ -3042,7 +3042,7 @@ proc xflow_diffListing { exp_path datestamp listw } {
    global SESSION_TMPDIR
    ::log::log debug "xflow_diffListing listing 1: [$listw get 0] /// listing 2: [$listw get 1]"
    set selectedIndexes "0 1"
-   set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set listingExec nodelister
    set tclsh [ exec which maestro_wish8.5]
 
    if { [$listw size] == 2 } {
@@ -3059,7 +3059,7 @@ proc xflow_diffListing { exp_path datestamp listw } {
 	  set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
           set seqCmd "${listingExec} -f ${exp_path}//listings/${mach}//$listingFile@$mach"
-          Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+          Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
 
 	  lappend outputList $outputfile
 	}
@@ -3079,7 +3079,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
    global SESSION_TMPDIR
    ::log::log debug "xflow_showAllListingItem selection: [$listw curselection]"
    set selectedIndexes [$listw curselection]
-   set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set listingExec nodelister
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
@@ -3097,7 +3097,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
          
          set seqCmd "${listingExec} -f ${exp_path}//listings/${mach}//$listingFile@$mach"
-         Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+         Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
          if { ${listingViewer} == "default" } {
             TextEditor_createWindow ${winTitle} ${outputfile} top .
          } else {
@@ -3117,7 +3117,7 @@ proc xflow_diffLatestListings { exp_path datestamp node extension canvas {full_l
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set listingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set listingExec nodelister
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
    if { ${extension} == "" } {
@@ -3148,9 +3148,9 @@ proc xflow_diffLatestListings { exp_path datestamp node extension canvas {full_l
       set abortOutputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set successSeqCmd "${listingExec} -n ${seqNode}${nodeExt} -type success -d ${datestamp}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${successOutputfile} ${successSeqCmd}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${successOutputfile} ${successSeqCmd} 1
       set abortSeqCmd "${listingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${abortOutputfile} ${abortSeqCmd}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${abortOutputfile} ${abortSeqCmd} 1
 
       if { [catch { exec which xxdiff } errmsg] } {
          exec ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff $successOutputfile $abortOutputfile &
@@ -3168,7 +3168,7 @@ proc xflow_abortListingCallback { exp_path datestamp node extension canvas {full
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set abortListingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set abortListingExec nodelister
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -3202,7 +3202,7 @@ proc xflow_abortListingCallback { exp_path datestamp node extension canvas {full
       #if { [string first "listing not available" $s1 1] > 1 } {
       #   set seqCmd "${abortListingExec} -n ${seqNode}${nodeExt} -type abort"
       #}
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
 
       if { ${listingViewer} == "default" } {
          TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -3221,7 +3221,7 @@ proc xflow_submissionListingCallback { exp_path datestamp node extension canvas 
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
    }
-   set submissionListingExec [SharedData_getMiscData SEQ_UTILS_BIN]/nodelister
+   set submissionListingExec nodelister
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set listingViewer [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
@@ -3255,7 +3255,7 @@ proc xflow_submissionListingCallback { exp_path datestamp node extension canvas 
       #if { [string first "listing not available" $s1 1] > 1 } {
       #   set seqCmd "${submissionListingExec} -n ${seqNode}${nodeExt} -type submission"
       #}
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd}
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
 
       if { ${listingViewer} == "default" } {
          TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -3566,7 +3566,7 @@ proc xflow_getNodeResources { exp_path node datestamp {is_recursive 0} } {
    global env
    ::log::log debug "xflow_getNodeResources node:$node"
 
-   set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+   set nodeInfoExec "nodeinfo"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
 
@@ -3630,7 +3630,7 @@ proc xflow_getLoopResources { node exp_path datestamp} {
       return
    }
 
-   set nodeInfoExec "[SharedData_getMiscData SEQ_BIN]/nodeinfo"
+   set nodeInfoExec "nodeinfo"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    
    set outputFile $env(TMPDIR)/nodeinfo_output_[file tail $node]_[clock seconds]
