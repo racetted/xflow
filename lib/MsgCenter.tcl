@@ -199,7 +199,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
 
       set nofItems [llength ${resultList}]
       set count 0
-      set seqExec "[SharedData_getMiscData SEQ_BIN]/maestro"
+      set seqExec "maestro"
       while { ${count} < ${nofItems} } {
          foreach { expPath node datestamp extension } [lindex  ${resultList} ${count}] { break }
          ::log::log debug "MsgCenter_submitNodes expPath:${expPath} node:${node} datestamp:${datestamp} ext:${extension}"
@@ -211,7 +211,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
          set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
          set commandArgs "-d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
          ::log::log notice "${seqExec} ${commandArgs}"
-	 Sequencer_runSubmit ${expPath} ${datestamp} [winfo toplevel ${table_widget}] $seqExec ${winTitle} top ${commandArgs}
+	 Sequencer_runSubmit ${expPath} ${datestamp} [winfo toplevel ${table_widget}] $seqExec ${winTitle} top 1 ${commandArgs}
          update idletasks
 
          incr count
