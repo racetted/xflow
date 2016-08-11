@@ -1183,7 +1183,8 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
          ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${exp_path} ${node} ${datestamp} ${canvas} ${indexListW}]
       }
       "loop" {
-         set text "${text}\n[SharedFlowNode_getLoopInfo ${exp_path} ${node} ${datestamp}]"
+         # set text "${text}\n[SharedFlowNode_getLoopInfo ${exp_path} ${node} ${datestamp}]"
+         set text "${text}\nTEST[TsvInfo_getLoopInfo $exp_path $node $datestamp]TEST"
          ::DrawUtils::drawOval ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set helpText "[SharedFlowNode_getLoopTooltip  ${exp_path} ${node} ${datestamp}]"
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
