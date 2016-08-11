@@ -933,7 +933,7 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
          if { ${displayPref} == "catchup" || [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
             # set attrValue "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} ${attrName}]"
             set seq_node [SharedFlowNode_getSequencerNode $exp_path $node $datestamp]
-            set attrValue "TEST:[TsvInfo_getNodeInfo $seq_node resources.$attrName]"
+            set attrValue "[TsvInfo_getNodeInfo $seq_node resources.$attrName]"
             if { ${displayPref} == "machine_queue" } {
                # set queue [SharedFlowNode_getQueue ${exp_path} ${node} ${datestamp}]
                set queue [TsvInfo_getNodeInfo $seq_node resources.queue]
@@ -1184,7 +1184,7 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
       }
       "loop" {
          # set text "${text}\n[SharedFlowNode_getLoopInfo ${exp_path} ${node} ${datestamp}]"
-         set text "${text}\nTEST[TsvInfo_getLoopInfo $exp_path $node $datestamp]TEST"
+         set text "${text}\n[TsvInfo_getLoopInfo $exp_path $node $datestamp]"
          ::DrawUtils::drawOval ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set helpText "[SharedFlowNode_getLoopTooltip  ${exp_path} ${node} ${datestamp}]"
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]

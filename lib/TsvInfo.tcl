@@ -11,8 +11,6 @@ proc TsvInfo_loadData { exp_path datestamp } {
    # Note: the datestamp will need to be used.
    set data_list [exec tsvinfo -t stdout -e $exp_path -d $datestamp]
 
-   puts $data_list
-
    # Read the content of the file into a keyed list.
    tsv::keylset the_shared_var the_keyed_list {*}$data_list
 
