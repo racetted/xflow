@@ -110,6 +110,9 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
       if { ${use_log_cache} == false } {
          FlowXml_parse ${exp_path}/EntryModule/flow.xml ${exp_path} ${datestamp} ""
          ::log::log notice "LogReader_startExpLogReader exp_path=${exp_path} datestamp:${datestamp} read_type:${read_type} DONE."
+
+         TsvInfo_loadData $exp_path $datestamp
+
       }
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message\nInfo: $::errorInfo"
