@@ -931,16 +931,20 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
 
       default {
          if { ${displayPref} == "catchup" || [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
-            set attrValue "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} ${attrName}]"
+            # set attrValue "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} ${attrName}]"
+            set seq_node [SharedFlowNode_getSequencerNode $exp_path $node $datestamp]
+            set attrValue "[TsvInfo_getNodeInfo $seq_node resources.$attrName]"
             if { ${displayPref} == "machine_queue" } {
-               set queue [SharedFlowNode_getQueue ${exp_path} ${node} ${datestamp}]
+               # set queue [SharedFlowNode_getQueue ${exp_path} ${node} ${datestamp}]
+               set queue [TsvInfo_getNodeInfo $seq_node resources.queue]
                if { ${queue} != "null" } {
                   set attrValue "${attrValue}:${queue}"
                }
             }
             set attrValue "(${attrValue})"
             if { ${displayPref} == "cpu" } {
-               set cpuMult [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} cpu_multiplier]
+               # set cpuMult [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} cpu_multiplier]
+               set cpuMult [TsvInfo_getNodeInfo $seq_node resources.cpu_multiplier]
                if { ${cpuMult} != "1" } {
                   set attrValue "${attrValue}x(${cpuMult})"
                }
@@ -1179,7 +1183,8 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
          ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${exp_path} ${node} ${datestamp} ${canvas} ${indexListW}]
       }
       "loop" {
-         set text "${text}\n[SharedFlowNode_getLoopInfo ${exp_path} ${node} ${datestamp}]"
+         # set text "${text}\n[SharedFlowNode_getLoopInfo ${exp_path} ${node} ${datestamp}]"
+         set text "${text}\n[TsvInfo_getLoopInfo $exp_path $node $datestamp]"
          ::DrawUtils::drawOval ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set helpText "[SharedFlowNode_getLoopTooltip  ${exp_path} ${node} ${datestamp}]"
          set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
