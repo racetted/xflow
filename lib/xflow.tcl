@@ -4090,7 +4090,7 @@ proc xflow_setDatestampVars { exp_path datestamp } {
    set FLOW_SCALE_${exp_path}_${datestamp} [SharedData_getMiscData FLOW_SCALE]
 
    # trace the variable to see if we need to load the resources
-   trace add variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} \"${datestamp}\""
+   # trace add variable NODE_DISPLAY_PREF_${exp_path}_${datestamp} write "xflow_nodeResourceCallback ${exp_path} \"${datestamp}\""
 }
 
 proc xflow_cleanDatestampVars { exp_path datestamp } {
@@ -4302,9 +4302,9 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node 
    ::log::log debug "xflow_displayFlow exp_path ${exp_path}"
    set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
    set PROGRESS_REPORT_TXT "Getting loop node resources ..."
-   xflow_getAllLoopResourcesCallback ${exp_path} ${rootNode} ${datestamp}
+   # xflow_getAllLoopResourcesCallback ${exp_path} ${rootNode} ${datestamp}
    # resource will only be loaded if needed
-   xflow_nodeResourceCallback ${exp_path} ${datestamp}
+   # xflow_nodeResourceCallback ${exp_path} ${datestamp}
 
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} xflow_populateDatestamp() "
    xflow_populateDatestamp ${exp_path} ${datestamp} [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_frame]
