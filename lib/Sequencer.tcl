@@ -12,30 +12,44 @@ proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command titl
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote}
+   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote} "null"
    TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
    catch {[exec rm -f ${tmpfile}}
 }
 
-proc Sequencer_runSubmit { exp_path datestamp parent_top command title position run_remote args } {
-   global env
-   global SUBMIT_POPUP
+proc Sequencer_runSubmit { exp_path datestamp parent_top command title position run_remote Id list_item args } {
+   global env SUBMIT_POPUP POPUP_ACTIVATION_COUNTER 
+  
    regsub -all " " [file tail $command] _ tmpfile
+   switch ${Id} {
+          null     {set id [clock seconds]}
+          default  {set id ${Id}}
+   }
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote}
+   Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote} ${list_item}
    ::log::log notice "${command} [join ${args}]"
-   if { ${SUBMIT_POPUP} != false } {
-      TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
+   Utils_logFileContent notice ${tmpfile}
+   switch ${Id} {
+        null      { if { ${SUBMIT_POPUP} != false} {
+                     TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
+                     catch {[exec rm -f ${tmpfile}]}
+                    }
+                }
+        default { if { ${SUBMIT_POPUP} != false && ${list_item} == "true"} {
+                    set POPUP_ACTIVATION_COUNTER(${tmpfile}) 0
+                    Utils_Editor_Activation "$title" ${tmpfile} ${position} ${parent_top}
+                  }
+                }
    }
-   catch {[exec rm -f ${tmpfile}}
 }
 ################################################################################
 # Runs a command through a local shell or through a remote shell via an ssh
 # pipe.
 ################################################################################
-proc Sequencer_runCommand { exp_path datestamp out_file command run_remote } {
+proc Sequencer_runCommand { exp_path datestamp out_file command run_remote list_item} {
+   global env LISTJOB_TO_SUB
 
    if { ${datestamp} != "" } {
       set prefix "export SEQ_DATE=${datestamp}"
@@ -77,20 +91,40 @@ proc Sequencer_runCommand { exp_path datestamp out_file command run_remote } {
 
       # Put the command together with the prefix
       set cmd "${prefix}; echo \\\"### ${command}\\\"; $command"
-
-      # Construct the remote command by echoing the command through an ssh pipe.
-      set remote_cmd "echo \"${cmd}\" | ssh ${remote_host} ${remote_user} > ${out_file} 2>&1"
-
-      puts "Running remote command $remote_cmd"
-      catch { eval [exec ksh -c $remote_cmd] }
-      ::log::log debug "Sequencer_runCommand ksh -c $remote_cmd"
-   } else {
-      # Send command on local shell
-      set prefix "$prefix;export SEQ_EXP_HOME=${exp_path}"
-      set cmd "${prefix}; echo \"### ${command}\" > ${out_file}; $command >> $out_file 2>&1"
-      catch { eval [ exec ksh -c $cmd ] }
-      ::log::log debug "Sequencer_runCommand ksh -c $cmd"
-   }
+    }  
+    switch  ${list_item} {
+        null    {  if { $remote_host != "" && ${run_remote} > 0} {
+                   # Construct the remote command by echoing the command through an ssh pipe.
+                   set remote_cmd "echo \"${cmd}\" | ssh ${remote_host} ${remote_user} > ${out_file} 2>&1"
+                   puts "Running remote command $remote_cmd"
+                   catch { eval [exec ksh -c $remote_cmd] }
+                   ::log::log debug "Sequencer_runCommand ksh -c $remote_cmd"
+                 } else {
+                   # Send command on local shell
+                   set prefix "$prefix;export SEQ_EXP_HOME=${exp_path}"
+                   set cmd "${prefix}; echo \"### ${command}\" > ${out_file}; $command >> $out_file 2>&1"
+                   catch { eval [exec ksh -c $cmd]}
+                   ::log::log debug "Sequencer_runCommand ksh -c $cmd"
+                 }
+               }    
+       default { if { $remote_host != "" && ${run_remote} > 0} {
+                   lappend LISTJOB_TO_SUB "`echo \"${cmd}\" | ssh ${remote_host} ${remote_user} >> ${out_file} 2>&1`"
+                   if {$list_item == "true"} {
+                      catch { eval [exec $env(SEQ_XFLOW_BIN)/submit_listcmd -l ${LISTJOB_TO_SUB} -o ${out_file} &]}
+                      ::log::log debug "Sequencer_runCommand ksh -c $LISTJOB_TO_SUB"
+                    }
+                 } else {
+                   # Send command on local shell
+                   set prefix "$prefix;export SEQ_EXP_HOME=${exp_path}"
+                   lappend LISTJOB_TO_SUB "`${prefix}; echo \"### ${command}\" >> ${out_file}; $command >> $out_file 2>&1`"
+                   if {$list_item == "true"} {
+                      catch { eval [exec $env(SEQ_XFLOW_BIN)/submit_listcmd -l ${LISTJOB_TO_SUB} -o ${out_file} &]}
+                      ::log::log debug "Sequencer_runCommand ksh -c $LISTJOB_TO_SUB"
+                   }
+                 }
+               }
+    }
+     
 }
 
 proc getRemoteHome { exp_path remoteHome localHome } {

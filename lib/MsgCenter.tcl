@@ -172,46 +172,49 @@ proc MsgCenter_createToolbar { table_w_ } {
 }
 
 proc MsgCenter_submitNodes { table_widget {flow continue}} {
-   global env MsgTableColMap
+   global env MsgTableColMap LISTJOB_TO_SUB
 
    Utils_busyCursor [winfo toplevel ${table_widget}]
 
    set result [ catch {
-
-      set resultList {}
+      set LISTJOB_TO_SUB {}
+      set resultList     {}
       set selections [${table_widget} curselection]
+      set id         [clock seconds]
       foreach selectedRow ${selections} {
 
-         set node [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
-         set convertedNode [SharedFlowNode_convertFromDisplayFormat ${node}]
-         set nodeWithouthExt [SharedFlowNode_getNodeFromDisplayFormat ${convertedNode}]
-         set extension [SharedFlowNode_getExtFromDisplayFormat ${convertedNode}]
-
-         set expPath [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
+         set node             [${table_widget} getcells ${selectedRow},$MsgTableColMap(NodeColNumber)]
+         set convertedNode    [SharedFlowNode_convertFromDisplayFormat ${node}]
+         set nodeWithouthExt  [SharedFlowNode_getNodeFromDisplayFormat ${convertedNode}]
+         set extension        [SharedFlowNode_getExtFromDisplayFormat ${convertedNode}]
+         set expPath          [${table_widget} getcells ${selectedRow},$MsgTableColMap(SuiteColNumber)]
          set visibleDatestamp [${table_widget} getcells ${selectedRow},$MsgTableColMap(DatestampColNumber)]
-         set datestamp [Utils_getRealDatestampValue ${visibleDatestamp}]
+         set datestamp        [Utils_getRealDatestampValue ${visibleDatestamp}]
          # append to the list in order
-         lappend resultList [list "${expPath}" "${nodeWithouthExt}" "${datestamp}" "${extension}"] 
+         lappend resultList [list "${expPath}" "${nodeWithouthExt}" "${datestamp}" "${extension}" "${id}"] 
       }
 
       # sort the list to get rid of duplicate entries
       set resultList [lsort -unique ${resultList}]
-
-      set nofItems [llength ${resultList}]
+      set nofItems   [llength ${resultList}]
+      set last_item  false
       set count 0
       set seqExec "maestro"
       while { ${count} < ${nofItems} } {
-         foreach { expPath node datestamp extension } [lindex  ${resultList} ${count}] { break }
+         foreach { expPath node datestamp extension id} [lindex  ${resultList} ${count}] { break }
          ::log::log debug "MsgCenter_submitNodes expPath:${expPath} node:${node} datestamp:${datestamp} ext:${extension}"
 
-         set flowNode [SharedData_getExpNodeMapping ${expPath} ${datestamp} ${node}]
+         set flowNode    [SharedData_getExpNodeMapping ${expPath} ${datestamp} ${node}]
 	 set seqLoopArgs [xflow_getSeqLoopArgs ${expPath} ${datestamp} ${flowNode} ${extension} ${table_widget} true]
 
          ::log::log debug "MsgCenter_submitNodes ${seqExec} -d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
          set winTitle "submit ${node} ${seqLoopArgs} - Exp=${expPath}"
+         if { [expr ${count} + 1] == ${nofItems} } {
+             set last_item true
+         }
          set commandArgs "-d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
          ::log::log notice "${seqExec} ${commandArgs}"
-	 Sequencer_runSubmit ${expPath} ${datestamp} [winfo toplevel ${table_widget}] $seqExec ${winTitle} top 1 ${commandArgs}
+	 Sequencer_runSubmit ${expPath} ${datestamp} [winfo toplevel ${table_widget}] $seqExec ${winTitle} top 1 $id ${last_item} ${commandArgs}
          update idletasks
 
          incr count

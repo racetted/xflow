@@ -2210,7 +2210,7 @@ proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
+   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0 "null"
 
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2322,7 +2322,7 @@ proc xflow_goEvalConfig { exp_path datestamp node extension toplevel_w } {
    ::log::log debug "xflow_goEvalConfig $seqCmd"
    Utils_busyCursor ${toplevel_w}
    catch {
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1 "null"
    }
    Utils_normalCursor ${toplevel_w}
 
@@ -2350,7 +2350,7 @@ proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode} -e ${exp_path} -o ${outputfile}"
-   Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd} 1
+   Sequencer_runCommand ${exp_path} ${datestamp} /dev/null ${seqCmd} 1 "null"
 
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2377,7 +2377,7 @@ proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu } {
    set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
    set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
+   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0 "null"
 
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2423,7 +2423,7 @@ proc xflow_batchCallback { exp_path datestamp node extension canvas {full_loop 0
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
    
       set seqCmd "${seqExec} -n ${seqNode}${nodeExt}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0 "null"
    
       if { ${textViewer} == "default" } {
          TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -2461,7 +2461,7 @@ proc xflow_submitCallback { exp_path datestamp node extension canvas flow {local
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow $ignoreDepFlag $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 "null" "null" ${commandArgs}
    }
 }
 
@@ -2535,7 +2535,7 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 "null" "null" ${commandArgs}
    }
 }
 
@@ -2563,7 +2563,7 @@ proc xflow_submitNpassTaskCallback { exp_path datestamp node extension canvas  f
       set winTitle "submit ${seqNode} ${seqLoopArgs} - Exp=${exp_path}"
       set commandArgs "-d ${datestamp} -n $seqNode -s submit -f $flow ${ignoreDepFlag} $seqLoopArgs"
       ::log::log notice "${seqExec} ${commandArgs}"
-      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 ${commandArgs}
+      Sequencer_runSubmit ${exp_path} ${datestamp} [winfo toplevel ${canvas}] $seqExec ${winTitle} top 1 "null" "null" ${commandArgs}
    }
 }
 
@@ -2748,7 +2748,7 @@ proc xflow_listingCallback { exp_path datestamp node extension canvas {full_loop
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set seqCmd "${listingExec} -n ${seqNode}${nodeExt} -d ${datestamp}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1 "null"
 
       if { ${listingViewer} == "default" } {
          TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -3064,7 +3064,7 @@ proc xflow_diffListing { exp_path datestamp listw } {
 	  set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
           set seqCmd "${listingExec} -f ${exp_path}//listings/${mach}//$listingFile@$mach"
-          Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
+          Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1 "null"
 
 	  lappend outputList $outputfile
 	}
@@ -3102,7 +3102,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
          
          set seqCmd "${listingExec} -f ${exp_path}//listings/${mach}//$listingFile@$mach"
-         Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
+         Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1"null" 
          if { ${listingViewer} == "default" } {
             TextEditor_createWindow ${winTitle} ${outputfile} top .
          } else {
@@ -3153,9 +3153,9 @@ proc xflow_diffLatestListings { exp_path datestamp node extension canvas {full_l
       set abortOutputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
 
       set successSeqCmd "${listingExec} -n ${seqNode}${nodeExt} -type success -d ${datestamp}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${successOutputfile} ${successSeqCmd} 1
+      Sequencer_runCommand ${exp_path} ${datestamp} ${successOutputfile} ${successSeqCmd} 1 "null"
       set abortSeqCmd "${listingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${abortOutputfile} ${abortSeqCmd} 1
+      Sequencer_runCommand ${exp_path} ${datestamp} ${abortOutputfile} ${abortSeqCmd} 1 "null"
 
       if { [catch { exec which xxdiff } errmsg] } {
          exec ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff $successOutputfile $abortOutputfile &
@@ -3207,7 +3207,7 @@ proc xflow_abortListingCallback { exp_path datestamp node extension canvas {full
       #if { [string first "listing not available" $s1 1] > 1 } {
       #   set seqCmd "${abortListingExec} -n ${seqNode}${nodeExt} -type abort"
       #}
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1 "null"
 
       if { ${listingViewer} == "default" } {
          TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -3260,7 +3260,7 @@ proc xflow_submissionListingCallback { exp_path datestamp node extension canvas 
       #if { [string first "listing not available" $s1 1] > 1 } {
       #   set seqCmd "${submissionListingExec} -n ${seqNode}${nodeExt} -type submission"
       #}
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1 "null"
 
       if { ${listingViewer} == "default" } {
          TextEditor_createWindow ${winTitle} ${outputfile} top .

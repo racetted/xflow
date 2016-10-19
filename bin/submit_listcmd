@@ -1,0 +1,41 @@
+#!/bin/ksh
+###########################################################################
+#
+# script to submit job in bash  mode  
+#
+###########################################################################
+
+USAGE="\nUSAGE: submit_listcmd [-h] -l listcmd -o output\n
+ where:\n
+  -h: display help\n
+  -l: list de commande\n
+  -o: le fichier de sortie\n
+ Example: submit_listcmd -l listcmd_to_sub -o output_file\n"
+
+
+l_submit=""
+fich_out=""
+
+while getopts hl:o: options 2> /dev/null; do
+  case $options in
+    h)
+      echo $USAGE && exit 0;;
+    l) l_submit=$OPTARG;;
+    o) fich_out=$OPTARG;;
+    *) echo $USAGE && exit 1;;
+  esac
+done
+
+if [ "$l_submit" = "" ]; then
+  echo "ERROR: -l option required!" && exit 1
+fi
+if [ "$fich_out" = "" ]; then
+  echo "ERROR: -o option required!" && exit 1
+fi
+#------------------------------------------------------------------
+# Loop to submit jobs 
+#------------------------------------------------------------------
+for a in "$l_submit"; do
+   eval $a 2>/dev/null 
+done
+touch ${fich_out}_out

@@ -14,7 +14,30 @@ proc Utils_bindMouseWheel { widget units_value } {
    bind $widget <4> [list ${widget} yview scroll -${units_value} units] 
    bind $widget <5> [list ${widget} yview scroll +${units_value} units] 
 }
-
+proc Utils_Editor_Activation   {title tmpfile position parent_top} {
+   global POPUP_ACTIVATION_IDS POPUP_ACTIVATION_COUNTER
+   
+   set fichier ${tmpfile}_out
+   set popup_activ false
+   if { $POPUP_ACTIVATION_COUNTER($tmpfile) > 15 || [file exists  ${fichier}]} {
+      if { [info exists POPUP_ACTIVATION_IDS(${tmpfile})] } {
+         after cancel $POPUP_ACTIVATION_IDS(${tmpfile})
+         unset POPUP_ACTIVATION_IDS(${tmpfile})
+         set   POPUP_ACTIVATION_COUNTER(${tmpfile})  0
+       }
+       if {[file exists  ${fichier}]} {
+          TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
+          set popup_activ true
+          catch { [exec rm -f ${tmpfile}_out]}
+          catch { [exec rm -f ${tmpfile}] }
+       }
+   } else {
+      incr POPUP_ACTIVATION_COUNTER(${tmpfile})
+   }
+   if { $popup_activ == false} {
+     catch { set POPUP_ACTIVATION_IDS(${tmpfile}) [after 2000 [list Utils_Editor_Activation "$title" ${tmpfile} ${position} ${parent_top}]]}
+   }
+}
 proc Utils_normalCursor { w } {
    if { [winfo exists $w] } {
       catch {
