@@ -3102,7 +3102,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
          
          set seqCmd "${listingExec} -f ${exp_path}//listings/${mach}//$listingFile@$mach"
-         Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1"null" 
+         Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1 "null" 
          if { ${listingViewer} == "default" } {
             TextEditor_createWindow ${winTitle} ${outputfile} top .
          } else {
@@ -4397,9 +4397,9 @@ proc xflow_setTitle { top_w exp_path datestamp } {
    global env TITLE_AFTER_ID_${exp_path}_${datestamp}
    if { [winfo exists ${top_w}] } {
       set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
+      set info [SharedData_getExpData ${exp_path} shortname]
       set winTitle "[file tail ${exp_path}] - Xflow - Exp=${exp_path} Datestamp=${datestamp} User=$env(USER) Host=[exec hostname] Time=${current_time}"
       wm title [winfo toplevel ${top_w}] ${winTitle}
-
       # refresh title every minute
       set TITLE_AFTER_ID_${exp_path}_${datestamp} [after 60000 [list xflow_setTitle ${top_w} ${exp_path} ${datestamp}]]
    }
