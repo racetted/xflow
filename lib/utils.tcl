@@ -430,26 +430,6 @@ proc Utils_logFileContent { _level _filename } {
       }
    }
 }
-
-# this proc displays the effective aix backend as defined by the BACKEND
-# variable of the $HOME/.suites/overrides.def file.
-# defaults to spica if not found
-proc Utils_getBackEndHost { _parentW } {
-   global env
-   set backEndHost spica
-   set overrideFile $env(HOME)/.suites/overrides.def
-   if { [file readable ${overrideFile}] } {
-      catch { set backEndHost [exec grep "^BACKEND=" ${overrideFile} | cut -d = -f 2] }
-      if { ${backEndHost} != "" } {
-         set backEndHost ${backEndHost}
-      }
-   }
-   tk_messageBox -title "Operational AIX host" -parent ${_parentW} -type ok -icon info \
-         -message "The effective AIX backend host for user $env(USER) is: ${backEndHost}."
-      return
-
-}
-
 proc Utils_createTmpDir {} {
    global env SESSION_TMPDIR
    if { ! [info exists SESSION_TMPDIR] } {

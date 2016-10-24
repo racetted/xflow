@@ -3437,14 +3437,6 @@ proc Overview_createToolbar { _toplevelW } {
    button ${colorLegendW} -image ${toolbarW}.color_legend_img -command [list xflow_showColorLegend ${colorLegendW}] -relief flat
    tooltip::tooltip ${colorLegendW} "Show color legend"
 
-   set backEndW ""
-   if { [SharedData_getMiscData OVERVIEW_SHOW_AIX_ICON] == true } { 
-      # mainly for a&p, show aix icon to fetch the active aix cluster
-      image create photo ${toolbarW}.back_end_img -file ${imageDir}/backend.png
-      set backEndW [button ${toolbarW}.button_be -image ${toolbarW}.back_end_img -relief flat \
-                     -command [list Utils_getBackEndHost [Overview_getToplevel] ] ]
-   }
-
    set testBellW ""
    if { [SharedData_getMiscData OVERVIEW_SHOW_TEST_BELL_ICON] == true } { 
       # mainly for a&p allow them to test if the application alarm bell is working
@@ -3454,7 +3446,7 @@ proc Overview_createToolbar { _toplevelW } {
       tooltip::tooltip ${testBellW} "Test Bell"
    }
 
-   eval grid ${mesgCenterW} ${colorLegendW} ${backEndW} ${testBellW} ${closeW} -sticky w -padx \[list 2 0\] 
+   eval grid ${mesgCenterW} ${colorLegendW} ${testBellW} ${closeW} -sticky w -padx \[list 2 0\] 
 
    # core toolbar stis on column 0 
    grid ${toolbarW} -row 0 -column 0 -sticky ew
