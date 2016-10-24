@@ -4397,8 +4397,9 @@ proc xflow_setTitle { top_w exp_path datestamp } {
    global env TITLE_AFTER_ID_${exp_path}_${datestamp}
    if { [winfo exists ${top_w}] } {
       set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
-      set info [SharedData_getExpData ${exp_path} shortname]
-      set winTitle "[file tail ${exp_path}] - Xflow - Exp=${exp_path} Datestamp=${datestamp} User=$env(USER) Host=[exec hostname] Time=${current_time}"
+      set shortname [SharedData_getExpData ${exp_path} shortname]
+      set hour      [Utils_getHourFromDatestamp ${datestamp}]
+      set winTitle "[file tail ${exp_path}] - Xflow - Exp=${exp_path} Datestamp=${datestamp} User=$env(USER) Host=[exec hostname] Time=${current_time} Shortname=$shortname-$hour"
       wm title [winfo toplevel ${top_w}] ${winTitle}
       # refresh title every minute
       set TITLE_AFTER_ID_${exp_path}_${datestamp} [after 60000 [list xflow_setTitle ${top_w} ${exp_path} ${datestamp}]]
