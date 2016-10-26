@@ -281,11 +281,9 @@ proc xflow_showColorLegend { caller_w } {
       set closeButton [button ${topW}.close_button -text Close \
          -command [list destroy ${topW}]]
 
-      
       grid ${statusFrame} -sticky wens -row 0 -column 0 -padx 5 -pady {5 2}
       grid ${closeButton} -row 1 -column 0 -pady 5
       grid columnconfigure ${statusFrame} 0 -weight 1
-
       grid rowconfigure ${topW} 0 -weight 1
       grid columnconfigure ${topW} 0 -weight 1
 
@@ -316,8 +314,8 @@ proc xflow_addMsgCenterWidget { exp_path datestamp} {
    set msgFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_msg_frame]
    set color    [SharedData_getColor COLOR_MSG_CENTER_MAIN]
   
-   set labelFrame [xflow_getWidgetName ${exp_path} ${datestamp} exp_msglabel_frame]
-   set expName [SharedData_getExpShortName ${exp_path}]
+   set labelFrame   [xflow_getWidgetName ${exp_path} ${datestamp} exp_msglabel_frame]
+   set expName      [SharedData_getExpShortName ${exp_path}]
    set refStartTime [Overview_getRefTimings ${exp_path} [Utils_getHourFromDatestamp ${datestamp}] start]
    if { ${expName} != "" && ${refStartTime} != "" } {
      set labeltext "${expName}-[Utils_getHourFromDatestamp ${datestamp}]"
@@ -355,7 +353,7 @@ proc xflow_addMsgCenterWidget { exp_path datestamp} {
    ${msgFrame} configure -text "${labeltext} active message count"
    tooltip::tooltip ${msgFrame} "${labeltext} selected experiment has the following active (unacknowledged) messages"
 
-   set newMsgColor [SharedData_getColor COLOR_MSG_CENTER_MAIN]
+   set newMsgColor   [SharedData_getColor COLOR_MSG_CENTER_MAIN]
    set normalBgColor [option get ${label_abortW} background Label]
    set normalFgColor [option get ${label_abortW} foreground Label]
 
@@ -397,7 +395,7 @@ proc xflow_addMsgCenterWidget { exp_path datestamp} {
    #set labelW [label ${labelFrame}.info -justify center -text ${tooltipText} ]
    #pack $labelW -side left -pady 2 -padx 2
    pack $labelFrame -pady 2 -side left
-   grid ${msgFrame}  -row 0 -column 4 -sticky nsew -padx 2 -pady 0 -ipadx 2
+   grid ${msgFrame} -row  0 -column 4 -sticky nsew -padx 2 -pady 0 -ipadx 2
 }
 # this function creates the widgets that allows
 # the user to set/query the current datestamp
@@ -1286,7 +1284,8 @@ proc xflow_showPluginMenu { parentMenu source_w exp_path datestamp node extensio
 # This function is called when user click on a box with button 3
 # It will display a popup menu for the current node.
 proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
-   global ignoreDep 
+   global ignoreDep  CHECK_PERMISSION
+
    ::log::log debug "xflow_nodeMenu exp_path:$exp_path datestamp:$datestamp canvas:$canvas node:$node extension:$extension "
 
    set popMenu .popupMenu
@@ -1319,7 +1318,9 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    ${popMenu} add cascade -label "Submit" -underline 0 -menu [menu ${submitMenu}]
    ${popMenu} add cascade -label "Misc" -underline 0 -menu [menu ${miscMenu}]
    ${miscMenu} add cascade -label "Force status" -underline 0 -menu [menu ${statusMenu}]
-
+   if {$CHECK_PERMISSION == false } {
+      ${miscMenu} entryconfigure "Force status" -state disabled
+   }
    set submits [SharedFlowNode_getSubmits ${exp_path} ${node} ${datestamp} ]
    set isCollapsed [SharedFlowNode_isCollapsed ${exp_path} ${node} ${datestamp}]
    if { ${submits} != "" && ${isCollapsed} } {
@@ -1372,6 +1373,10 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
          ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${extension} ${popMenu}]
          ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
          ${statusMenu} add command -label "Initialize branch" -command [list xflow_initbranchCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+         if {$CHECK_PERMISSION == false} {
+            ${submitMenu} entryconfigure "Submit" -state disabled
+            ${submitMenu} entryconfigure "NO Dependency" -state disabled
+         }
       } else {
          ${submitMenu} add command -label "Submit & Continue" -underline 9 -command [list xflow_submitCallback ${exp_path} ${datestamp} $node ${extension} $canvas continue ]
          ${submitMenu} add command -label "Submit & Stop" -underline 9 -command [list xflow_submitCallback ${exp_path} ${datestamp} $node ${extension} $canvas stop ]
@@ -1388,15 +1393,24 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
          ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
          ${statusMenu} add command -label "Initialize node" -command [list xflow_initnodeCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
          ${miscMenu} add command -label "Save Workdir" -command [list xflow_saveWorkCallback ${exp_path} ${datestamp} $node $canvas ]
+         if {$CHECK_PERMISSION == false} {
+           ${submitMenu} entryconfigure "Submit & Continue" -state disabled
+           ${submitMenu} entryconfigure "Submit & Stop"     -state disabled
+           ${submitMenu} entryconfigure "NO Dependency"     -state disabled
+           ${miscMenu}   entryconfigure "Save Workdir"      -state disabled        
+         } 
+          
       }
       ${statusMenu} add command -label "Begin" -command [list xflow_beginCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
       ${statusMenu} add command -label "End" -command [list xflow_endCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
       ${statusMenu} add command -label "Abort" -command [list xflow_abortCallback ${exp_path} ${datestamp} $node ${extension} $canvas]
-      ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
+      ${infoMenu}   add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
    }
 
    ${miscMenu} add command -label "Kill Node" -command [list xflow_killNodeFromDropdown ${exp_path} ${datestamp} $node ${extension} $canvas]
-
+   if {$CHECK_PERMISSION == false} {
+      ${miscMenu}   entryconfigure "Kill Node"      -state disabled
+   }
    $popMenu add separator
    xflow_showPluginMenu ${popMenu} ${canvas} ${exp_path} ${datestamp} ${node} ${extension}
    
@@ -1494,6 +1508,8 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
 
 # creates the popup menu for a loop node
 proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension } {
+   global CHECK_PERMISSION
+
    ::log::log debug "xflow_addLoopNodeMenu() exp_path:${exp_path} datestamp:${datestamp} node:$node"
 
    set infoMenu ${popmenu_w}.info_menu
@@ -1557,11 +1573,17 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
    ${statusMenu} add command -label "Member End" -command [list xflow_endCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${statusMenu} add command -label "Member Branch Initialize" -command [list xflow_initbranchCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${statusMenu} add command -label "Abort" -command [list xflow_abortCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   if {$CHECK_PERMISSION == false} { 
+      ${submitMenu} entryconfigure "Loop Submit"   -state disabled
+      ${submitMenu} entryconfigure "Member Submit" -state disabled
+      ${submitMenu} entryconfigure "NO Dependency" -state disabled
+      ${miscMenu}   entryconfigure "Force status"  -state disabled
+   }
 }
 
 # creates the popup menu for a npt node
 proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} {
-
+   global CHECK_PERMISSION
 
    set infoMenu ${popmenu_w}.info_menu
    set listingMenu ${popmenu_w}.listing_menu
@@ -1618,6 +1640,12 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
    ${statusMenu} add command -label "Initnode" -command [list xflow_initnodeNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${statusMenu} add command -label "End" -command [list xflow_endNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${statusMenu} add command -label "Abort" -command [list xflow_abortNpassTaskCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   if {$CHECK_PERMISSION == false} {
+      ${submitMenu} entryconfigure "Submit & Continue" -state disabled
+      ${submitMenu} entryconfigure "Submit & Stop"     -state disabled
+      ${submitMenu} entryconfigure "NO Dependency"     -state disabled
+      ${miscMenu}   entryconfigure "Save Workdir"      -state disabled        
+  } 
 }
 
 # returns a list of menu items to be shown in the node history menu
@@ -3440,11 +3468,23 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display true} } {
 
 # add exp settings icon in flow canvas
 proc xflow_addExpSettingsImg { exp_path datestamp canvas } {
+   global CHECK_PERMISSION
+
    set expCfgImage ${canvas}.exp_cfg_image
    image create photo ${expCfgImage} -file [SharedData_getMiscData IMAGE_DIR]/config.png
    set iconStartX [expr [SharedData_getMiscData CANVAS_X_START] - 25]
    set iconY [SharedData_getMiscData CANVAS_Y_START]
-
+  
+   if { $CHECK_PERMISSION == false} {
+      set read_only "READ-ONLY"
+      set textfill black
+      set y [expr ${iconY} - 30]
+      ${canvas} create text ${iconStartX} ${y} -text ${read_only} -fill $textfill \
+         -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tag "read_only"
+      tooltip::tooltip ${canvas}  -items read_only "User doesn't have permission to write in the experiment."
+   } else {
+      ${canvas} delete "read_only"
+   }
    ${canvas} create image ${iconStartX} ${iconY} -image ${expCfgImage} -tag "ExpSettings"
    ${canvas} bind ExpSettings <Double-1> [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${canvas} ${exp_path}/experiment.cfg]
    ${canvas} bind ExpSettings <Button-3> [list xflow_addExpSettingsMenu ${exp_path} ${datestamp} ${canvas} %X %Y]
@@ -4143,7 +4183,7 @@ proc xflow_validateExp { startup_exp } {
 
 # this function is called to create the widgets of the xflow main window
 proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
-   global List_Xflow
+   global List_Xflow CHECK_PERMISSION
 
    ::log::log debug "xflow_createWidgets"
    puts "xflow_createWidgets  ${exp_path} ${datestamp}..."
@@ -4165,7 +4205,7 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    xflow_addViewMenu ${exp_path} ${datestamp} $topFrame
    xflow_addHelpMenu ${exp_path} ${datestamp} $topFrame
    puts "xflow_createWidgets  ${exp_path} ${datestamp} menu done..."
-
+ 
    # creates exp label right side of menu
    set expLabelFrame [frame [xflow_getWidgetName ${exp_path} ${datestamp}  exp_label_frame]]
    set expLabel [label ${expLabelFrame}.exp_label -font [xflow_getExpLabelFont]]
@@ -4180,7 +4220,6 @@ proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
    if { [DisplayGrp_getWindowsLabel ${exp_path}] != "" } {
       set labelValue "[DisplayGrp_getWindowsLabel]"
    }
-
    set labelBgColor [SharedData_getMiscData WINDOWS_LABEL_BG]
    if { ${labelBgColor} != "" } {
       set expSideLabel [label ${expSideLabelFrame}.exp_label -text ${labelValue} -justify center -wraplength 1 -font [xflow_getExpLabelFont] -bg [SharedData_getMiscData WINDOWS_LABEL_BG] -anchor center]
@@ -4248,6 +4287,7 @@ proc xflow_getExpLabelFont {} {
    return ${expLabelFont}
 }
 
+
 # sets the label on the right side of the menus
 proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
    ::log::log debug "xflow_setExpLabel _displayName:${_displayName} datestamp:${_datestamp}"
@@ -4260,7 +4300,6 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 
    ${expLabelFrame}.exp_label configure -text ${displayValue}
 }
-
 # this function is called to create an exp flow.
 # 1) in xflow standalone mode, this function is called at startup and when the user views the exp in
 # history mode.
@@ -4269,8 +4308,12 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # for each exp in history mode.
 proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node ""} } {
    global env PROGRESS_REPORT_TXT
-   global SEQ_DATESTAMP
-
+   global SEQ_DATESTAMP CHECK_PERMISSION
+   
+   set CHECK_PERMISSION true
+   if {![file writable ${exp_path}/sequencing]} {
+     set CHECK_PERMISSION false
+   } 
    set SEQ_DATESTAMP $datestamp
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} initial_display:${initial_display}"
 
@@ -4621,7 +4664,6 @@ proc xflow_setWidgetNames {} {
          find_frame .find_frame
          flow_frame .flow_frame
          main_size_grip .size_grip
-
 
          exp_label_frame .top_frame.exp_label_frame
          toolbar_frame .second_frame.toolbar
