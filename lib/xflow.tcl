@@ -2852,6 +2852,7 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
       eval [exec ksh -c $cmd ]
       ::log::log debug  "xflow_allListingCallback DONE: $cmd"
+      
       set nodepath  [string range [file dirname ${seqNode}] 1 end]
       
       ##set fullList [list showAllListings $node $canvas $canvas.list]
