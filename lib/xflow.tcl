@@ -1284,12 +1284,13 @@ proc xflow_showPluginMenu { parentMenu source_w exp_path datestamp node extensio
 # This function is called when user click on a box with button 3
 # It will display a popup menu for the current node.
 proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
-   global ignoreDep  CHECK_PERMISSION
+   global ignoreDep  CHECK_PERMISSION SUITE_PERMISSON
 
    ::log::log debug "xflow_nodeMenu exp_path:$exp_path datestamp:$datestamp canvas:$canvas node:$node extension:$extension "
 
    set popMenu .popupMenu
    set infoMenu ${popMenu}.info_menu
+   set editMenu ${popMenu}.edit_menu
    set listingMenu ${popMenu}.listing_menu
    set submitMenu ${popMenu}.submit_menu
    set submitDependMenu ${popMenu}.submit_dep_menu
@@ -1314,10 +1315,12 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
    }
 
    ${popMenu} add cascade -label "Info" -underline 0 -menu [menu ${infoMenu}]
+   ${popMenu} add cascade -label "Edit" -underline 0 -menu [menu ${editMenu}]
    ${popMenu} add cascade -label "Listing" -underline 0 -menu [menu ${listingMenu}]
    ${popMenu} add cascade -label "Submit" -underline 0 -menu [menu ${submitMenu}]
    ${popMenu} add cascade -label "Misc" -underline 0 -menu [menu ${miscMenu}]
    ${miscMenu} add cascade -label "Force status" -underline 0 -menu [menu ${statusMenu}]
+
    if {$CHECK_PERMISSION == false } {
       ${miscMenu} entryconfigure "Force status" -state disabled
    }
@@ -1369,13 +1372,19 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
          ${submitMenu} add cascade -label "NO Dependency" -underline 4 -menu [menu ${submitNoDependMenu}]
          ${submitNoDependMenu} add command -label "Submit" \
             -command [list xflow_submitCallback ${exp_path} ${datestamp} $node ${extension} $canvas continue dep_off]
-         ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
+         ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu "info"]
          ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${extension} ${popMenu}]
          ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
          ${statusMenu} add command -label "Initialize branch" -command [list xflow_initbranchCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+         ${editMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu "edit"]
+         ${editMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu "edit"]
          if {$CHECK_PERMISSION == false} {
-            ${submitMenu} entryconfigure "Submit" -state disabled
+            ${submitMenu} entryconfigure "Submit"        -state disabled
             ${submitMenu} entryconfigure "NO Dependency" -state disabled
+         }
+         if {${SUITE_PERMISSON} == false} {
+            ${editMenu}   entryconfigure "Node Config"   -state disabled
+            ${editMenu}   entryconfigure "Node Resource" -state disabled
          }
       } else {
          ${submitMenu} add command -label "Submit & Continue" -underline 9 -command [list xflow_submitCallback ${exp_path} ${datestamp} $node ${extension} $canvas continue ]
@@ -1387,24 +1396,34 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
          ${submitNoDependMenu} add command -label "Submit & Stop" -underline 9 \
             -command [list xflow_submitCallback ${exp_path} ${datestamp} $node ${extension} $canvas stop dep_off ]
 
-         ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
-         ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
+         ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu "info"]
+         ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu "info"]
          ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${extension} ${popMenu}]
          ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas $popMenu]
+
+         ${editMenu} add command -label "Node Config"   -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas $popMenu "edit"]
+         ${editMenu} add command -label "Node Source"   -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu "edit"]
+         ${editMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu "edit"]
+
          ${statusMenu} add command -label "Initialize node" -command [list xflow_initnodeCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
          ${miscMenu} add command -label "Save Workdir" -command [list xflow_saveWorkCallback ${exp_path} ${datestamp} $node $canvas ]
          if {$CHECK_PERMISSION == false} {
            ${submitMenu} entryconfigure "Submit & Continue" -state disabled
            ${submitMenu} entryconfigure "Submit & Stop"     -state disabled
            ${submitMenu} entryconfigure "NO Dependency"     -state disabled
-           ${miscMenu}   entryconfigure "Save Workdir"      -state disabled        
+           ${miscMenu}   entryconfigure "Save Workdir"      -state disabled 
+         }
+         if {${SUITE_PERMISSON} == false } {
+           ${editMenu}   entryconfigure "Node Config"       -state disabled
+           ${editMenu}   entryconfigure "Node Source"       -state disabled
+           ${editMenu}   entryconfigure "Node Resource"     -state disabled      
          } 
           
       }
       ${statusMenu} add command -label "Begin" -command [list xflow_beginCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
       ${statusMenu} add command -label "End" -command [list xflow_endCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
       ${statusMenu} add command -label "Abort" -command [list xflow_abortCallback ${exp_path} ${datestamp} $node ${extension} $canvas]
-      ${infoMenu}   add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu ]
+      ${infoMenu}   add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas $popMenu "info"]
    }
 
    ${miscMenu} add command -label "Kill Node" -command [list xflow_killNodeFromDropdown ${exp_path} ${datestamp} $node ${extension} $canvas]
@@ -1508,11 +1527,12 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
 
 # creates the popup menu for a loop node
 proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension } {
-   global CHECK_PERMISSION
+   global CHECK_PERMISSION SUITE_PERMISSON
 
    ::log::log debug "xflow_addLoopNodeMenu() exp_path:${exp_path} datestamp:${datestamp} node:$node"
 
    set infoMenu ${popmenu_w}.info_menu
+   set editMenu ${popmenu_w}.edit_menu
    set listingMenu ${popmenu_w}.listing_menu
    set submitMenu ${popmenu_w}.submit_menu
    set submitNoDependMenu ${popmenu_w}.submit_nodep_menu
@@ -1521,12 +1541,15 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
 
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${infoMenu} add command -label "Node Dependencies" -command [list xflow_nodeDepCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
-   ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
+   ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "info"]
    ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${extension} ${popmenu_w}]
    ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Loop Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node ${extension} $canvas 1]
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node ${extension} $canvas 0]
    ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
+ 
+   ${editMenu} add command -label "Loop Config"   -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "edit"]
+   ${editMenu} add command -label "Loop Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "edit"]
 
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
@@ -1579,13 +1602,18 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
       ${submitMenu} entryconfigure "NO Dependency" -state disabled
       ${miscMenu}   entryconfigure "Force status"  -state disabled
    }
+   if {${SUITE_PERMISSON} == false} {
+      ${editMenu}   entryconfigure "Loop Config"   -state disabled
+      ${editMenu}   entryconfigure "Loop Resource" -state disabled
+   }
 }
 
 # creates the popup menu for a npt node
 proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} {
-   global CHECK_PERMISSION
+   global CHECK_PERMISSION SUITE_PERMISSON
 
    set infoMenu ${popmenu_w}.info_menu
+   set editMenu ${popmenu_w}.edit_menu
    set listingMenu ${popmenu_w}.listing_menu
    set submitMenu ${popmenu_w}.submit_menu
    set submitNoDependMenu ${popmenu_w}.submit_nodep_menu
@@ -1595,11 +1623,14 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
    ${infoMenu} add command -label "Node Info" -command [list xflow_nodeInfoCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${infoMenu} add command -label "Node Dependencies" -command [list xflow_nodeDepCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
    ${infoMenu} add command -label "Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
-   ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
-   ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
+   ${infoMenu} add command -label "Node Source" -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "info"]
+   ${infoMenu} add command -label "Node Config" -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "info"]
    ${infoMenu} add command -label "Evaluated Node Config" -command [list xflow_evalConfigCreateWidgets ${exp_path} ${datestamp} $node ${extension} ${popmenu_w}]
    ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
-   ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
+   ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "info"]
+   ${editMenu} add command -label "Node Source"   -command [list xflow_sourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "edit"]
+   ${editMenu} add command -label "Node Config"   -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "edit"]
+   ${editMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "edit"]
 
    set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
@@ -1644,7 +1675,12 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
       ${submitMenu} entryconfigure "Submit & Continue" -state disabled
       ${submitMenu} entryconfigure "Submit & Stop"     -state disabled
       ${submitMenu} entryconfigure "NO Dependency"     -state disabled
-      ${miscMenu}   entryconfigure "Save Workdir"      -state disabled        
+      ${miscMenu}   entryconfigure "Save Workdir"      -state disabled
+   } 
+   if {${SUITE_PERMISSION} == false} {
+      ${editMenu}   entryconfigure "Node Source"       -state disabled
+      ${editMenu}   entryconfigure "Node Config"       -state disabled
+      ${editMenu}   entryconfigure "Node Resource"     -state disabled        
   } 
 }
 
@@ -2209,11 +2245,14 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
    set winTitle "Node Source ${seqNode} - Exp=${exp_path}"
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
-   set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
-
-   set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
-
+   if {${action} == "edit"} {
+      set SEQ_EXP_HOME ${exp_path}
+      eval set outputfile [string trim [lindex [split [exec ksh -c  "nodeinfo -n ${seqNode} -f task"] "="] 1]]
+   } else {
+      set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+      set seqCmd "${seqExec} -n ${seqNode}"
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
+   }
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
@@ -2224,7 +2263,7 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
 }
 
 # displays the content of a config file (.cfg) if it is available.
-proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
+proc xflow_configCallback { exp_path datestamp node canvas caller_menu action} {
    global SESSION_TMPDIR
    set seqExec "nodeconfig"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
@@ -2235,16 +2274,19 @@ proc xflow_configCallback { exp_path datestamp node canvas caller_menu} {
    set winTitle "Node Config ${seqNode} - Exp=${exp_path}"
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
-   set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
-
-   set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0 "null"
-
+   if {${action} == "edit"} {
+      set SEQ_EXP_HOME ${exp_path}
+      eval set outputfile [string trim [lindex [split [exec ksh -c  "nodeinfo -n ${seqNode} -f cfg"] "="] 1]]
+   } else {
+      set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+      set seqCmd "${seqExec} -n ${seqNode}"
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0 "null"
+   }
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
       set editorCmd "${textViewer} ${outputfile}"
-      ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
+      ::log::log debug "xflow_configCallback running ${defaultConsole} ${editorCmd}"
       TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
    }
 }
@@ -2384,29 +2426,32 @@ proc xflow_fullConfigCallback { exp_path datestamp node canvas caller_menu } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
       set editorCmd "${textViewer} ${outputfile}"
-      ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
+      ::log::log debug "xflow_fullConfigCallback running ${defaultConsole} ${editorCmd}"
       TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
    }
 }
 
 # displays the resource file (.def) if it is available
-proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu } {
+proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu action} {
    global SESSION_TMPDIR
    set seqExec "noderesource"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
 
-   set textViewer [SharedData_getMiscData TEXT_VIEWER]
+   set textViewer     [SharedData_getMiscData TEXT_VIEWER]
    set defaultConsole [SharedData_getMiscData DEFAULT_CONSOLE]
 
    # set winTitle "Node Resource [file tail $node]"
    set winTitle "Node Resource ${seqNode} - Exp=${exp_path}"
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
-   set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
-
-   set seqCmd "${seqExec} -n ${seqNode}"
-   Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0 "null"
-
+   if {${action} == "edit"} {
+      set SEQ_EXP_HOME ${exp_path}
+      eval set outputfile [string trim [lindex [split [exec ksh -c  "nodeinfo -n ${seqNode} -f res_path"] "="] 1]]
+    } else {
+      set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+      set seqCmd "${seqExec} -n ${seqNode}"
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0 "null"
+   }
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
    } else {
@@ -2457,7 +2502,7 @@ proc xflow_batchCallback { exp_path datestamp node extension canvas {full_loop 0
          TextEditor_createWindow ${winTitle} ${outputfile} top .
       } else {
          set editorCmd "${textViewer} ${outputfile}"
-         ::log::log debug "xflow_sourceCallback running ${defaultConsole} ${editorCmd}"
+         ::log::log debug "xflow_batchCallback running ${defaultConsole} ${editorCmd}"
          TextEditor_goKonsole ${defaultConsole} ${winTitle} ${editorCmd}
       }
    }
@@ -2807,7 +2852,8 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
       eval [exec ksh -c $cmd ]
       ::log::log debug  "xflow_allListingCallback DONE: $cmd"
-
+      set nodepath  [string range [file dirname ${seqNode}] 1 end]
+      
       ##set fullList [list showAllListings $node $canvas $canvas.list]
       set listingW .listing_${node}
       regsub -all " " ${listingW} _
@@ -2911,26 +2957,29 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
              $subf4.list4 insert end $line
           } else {
              if { [string first "success" $line] > 1 } {
-                set tmpLine "[string trim $line "\n"] $mach"
+                set tmpLine "[string trim $line "\n"] ${mach}"
                 set splittedArgs [split $tmpLine]
-                set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
-                $subf1.list insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
+                set listingName  [file tail $splittedArgs]
+                set listingFile "$nodepath/$listingName"
+                $subf1.list insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              } elseif { [string first "abort" $line] > 1 } {
                 set tmpLine "[string trim $line "\n"] $mach"
                 set splittedArgs [split $tmpLine]
-                set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
-                $subf2.list2 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
+                set listingName  [file tail $splittedArgs]
+                set listingFile "$nodepath/$listingName"
+                $subf2.list2 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              } else {
                 set tmpLine "[string trim $line "\n"] $mach"
                 set splittedArgs [split $tmpLine]
-                set listingFile [string range [lindex $splittedArgs end-1] [expr [string first ${mach} [lindex $splittedArgs end-1]] + [string length ${mach}] + 2] end] 
-                $subf4.list4 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile $mach"
+                set listingName  [file tail $splittedArgs]
+                set listingFile "$nodepath/$listingName"
+                $subf4.list4 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              }
           }
      }
      catch {[exec rm -f $tmpfile]}
 
-      bind $subf1.list <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf1.list success]
+      bind $subf1.list  <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf1.list success]
       bind $subf2.list2 <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf2.list2 abort]
       bind $subf4.list4 <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf4.list4 submit]
       Utils_normalCursor [winfo toplevel ${canvas}]
@@ -3468,7 +3517,7 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display true} } {
 
 # add exp settings icon in flow canvas
 proc xflow_addExpSettingsImg { exp_path datestamp canvas } {
-   global CHECK_PERMISSION
+   global CHECK_PERMISSION SUITE_PERMISSON
 
    set expCfgImage ${canvas}.exp_cfg_image
    image create photo ${expCfgImage} -file [SharedData_getMiscData IMAGE_DIR]/config.png
@@ -4183,7 +4232,7 @@ proc xflow_validateExp { startup_exp } {
 
 # this function is called to create the widgets of the xflow main window
 proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
-   global List_Xflow CHECK_PERMISSION
+   global List_Xflow CHECK_PERMISSION SUITE_PERMISSON
 
    ::log::log debug "xflow_createWidgets"
    puts "xflow_createWidgets  ${exp_path} ${datestamp}..."
@@ -4307,12 +4356,16 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
 proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node ""} } {
-   global env PROGRESS_REPORT_TXT
+   global env PROGRESS_REPORT_TXT SUITE_PERMISSON
    global SEQ_DATESTAMP CHECK_PERMISSION
    
    set CHECK_PERMISSION true
+   set SUITE_PERMISSON  true
    if {![file writable ${exp_path}/sequencing]} {
      set CHECK_PERMISSION false
+   } 
+   if {![file writable ${exp_path}/modules]} {
+     set SUITE_PERMISSON false
    } 
    set SEQ_DATESTAMP $datestamp
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} initial_display:${initial_display}"

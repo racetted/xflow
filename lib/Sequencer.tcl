@@ -14,7 +14,7 @@ proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command titl
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
    Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote} "null"
    TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
-   catch {[exec rm -f ${tmpfile}}
+   catch {[exec rm -f ${tmpfile}]}
 }
 
 proc Sequencer_runSubmit { exp_path datestamp parent_top command title position run_remote Id list_item args } {
