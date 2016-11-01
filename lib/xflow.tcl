@@ -2234,7 +2234,7 @@ proc xflow_beginLoopCallback { exp_path datestamp node canvas caller_menu } {
 
 
 # displays the content of a task node (.tsk)
-proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
+proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu action} {
    global SESSION_TMPDIR
    set seqExec nodesource
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
@@ -2251,7 +2251,7 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu} {
    } else {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
       set seqCmd "${seqExec} -n ${seqNode}"
-      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0
+      Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 0 "null"
    }
    if { ${textViewer} == "default" } {
       TextEditor_createWindow ${winTitle} ${outputfile} top .
