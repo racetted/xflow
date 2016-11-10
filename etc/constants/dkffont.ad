@@ -1,0 +1,130 @@
+! What the frames around sections of the dialog look like.
+*DKFChooseFont.DKFChooseFontFrame.borderWidth:	2
+*DKFChooseFont.DKFChooseFontFrame.relief:	ridge
+
+! Details of the frame surrounding the font family chooser.  The
+! accelerator resource specifies a *focussing* accelerator to the
+! contents of the box.
+*DKFChooseFont.lblFamily.text:		Family
+*DKFChooseFont.lblFamily.underline:	0
+*DKFChooseFont.lblFamily.accelerator:	Control-f
+
+! Details of the frame surrounding the style options selectors.
+*DKFChooseFont.lblStyle.text:		Style
+*DKFChooseFont.lblStyle.underline:	2
+*DKFChooseFont.lblStyle.accelerator:	Control-y
+
+! Details of the frame surrounding the font size selectors.
+*DKFChooseFont.lblSize.text:		Size
+*DKFChooseFont.lblSize.underline:	2
+*DKFChooseFont.lblSize.accelerator:	Control-z
+
+! Details of the frame surrounding the sample text.  Note the lack of
+! the focussing accelerator here - I prefer to let people access that
+! using the mouse solely...
+*DKFChooseFont.lblSample.text:		Sample
+
+! Details of the frame surrounding the font Apply on selectors.
+*DKFChooseFont.lblApplyon.text:		Apply On
+*DKFChooseFont.lblApplyon.underline:	2
+*DKFChooseFont.lblApplyon.accelerator:	Control-z
+
+! Style checkbuttons (bold, italic, etc.) are all anchored to the left
+! of their space.  However, they are also all stuck to both the left
+! and the right side of their space by the GM.  This produces a better
+! effect with highlighting checkbuttons...
+*DKFChooseFont.Checkbutton.anchor:	w
+
+! Emboldened style toggle.  The accelerator focusses and invokes.
+*DKFChooseFont.styleBold.text:	Bold
+*DKFChooseFont.styleBold.underline:	0
+*DKFChooseFont.styleBold.accelerator:	Control-b
+
+! Italicised style toggle.  The accelerator focusses and invokes.
+*DKFChooseFont.styleItalic.text:		Italic
+*DKFChooseFont.styleItalic.underline:		0
+*DKFChooseFont.styleItalic.accelerator:	Control-i
+
+! Underlined style toggle.  The accelerator focusses and invokes.
+*DKFChooseFont.styleUnderline.text:		Underline
+*DKFChooseFont.styleUnderline.underline:	0
+*DKFChooseFont.styleUnderline.accelerator:	Control-u
+
+! Overstruck style toggle.  The accelerator focusses and invokes.
+*DKFChooseFont.styleStrikeout.text:		Overstrike
+*DKFChooseFont.styleStrikeout.underline:	0
+*DKFChooseFont.styleStrikeout.accelerator:	Control-o
+
+! Put some gaps on the labels for the frame labels.  Looks better like
+! that...
+*DKFChooseFont.Label.padX:	1m
+*DKFChooseFont.Label.padY:	1
+
+! Extra details of the font family chooser.  The bindings are too
+! complex to be specified here though...
+*DKFChooseFont.family.height:		1
+*DKFChooseFont.family.width:		12
+*DKFChooseFont.familyX.orient:		horizontal
+*DKFChooseFont.familyY.orient:		vertical
+*DKFChooseFont.Scrollbar.takeFocus:	0
+
+! Size chooser details.  Note that I don't give accelerators for these
+! though the capability is present in the underlying machinery.
+*DKFChooseFont.size8.text:		8
+*DKFChooseFont.size10.text:		10
+*DKFChooseFont.size12.text:		12
+*DKFChooseFont.size14.text:		14
+*DKFChooseFont.size18.text:		18
+*DKFChooseFont.size24.text:		24
+*DKFChooseFont.Radiobutton.anchor:	w
+! I like to make user-editable areas white (so users can see that they
+! are meant to edit there.
+*DKFChooseFont.Entry.background:	white
+
+! The sample text.  There is one restriction that is not mentioned in
+! this file: the background colour of the .sample.text widget is
+! required to be the same as the background colour of the .sample
+! widget.
+*DKFChooseFont.sample.text.text:	ABCabcXYZxyz123
+! Can't tab into this widget.
+*DKFChooseFont.sample.text.takeFocus:	0
+*DKFChooseFont.sample.text.highlightThickness:	0
+*DKFChooseFont.sample.text.borderWidth:	0
+*DKFChooseFont.sample.text.relief:	flat
+*DKFChooseFont.sample.text.width:	0
+! The cursor doesn't change when over the widget.
+*DKFChooseFont.sample.text.cursor:	
+*DKFChooseFont.sample.height:		40
+*DKFChooseFont.sample.width:		40
+
+! Emboldened style toggle.  The accelerator focusses and invokes.
+*DKFChooseFont.applyonTask.text:	        Task box
+*DKFChooseFont.applyonTask.underline:	0
+*DKFChooseFont.applyTask.accelerator:	Control-t
+
+! Italicised style toggle.  The accelerator focusses and invokes.
+*DKFChooseFont.applyonTitles.text:	Titles
+*DKFChooseFont.applyonTitles.underline:	0
+*DKFChooseFont.applyonTitles.accelerator:	Control-l
+
+! Italicised style toggle.  The accelerator focusses and invokes.
+*DKFChooseFont.applyonLabel.text:	        Label
+*DKFChooseFont.applyonLabel.underline:	0
+*DKFChooseFont.applyonLabel.accelerator:	Control-b
+
+! What the buttons look like.  Note that for the buttons to look right
+! on Unix, you must either make all the buttons have their default
+! option be disabled, or none of them disabled.  The current
+! arrangement looks good...
+*DKFChooseFont.butnframe.ok.default:		active
+*DKFChooseFont.butnframe.ok.text:		OK
+*DKFChooseFont.butnframe.ok.accelerator:	Return
+
+*DKFChooseFont.butnframe.can.default:		normal
+*DKFChooseFont.butnframe.can.text:		Cancel
+*DKFChooseFont.butnframe.can.accelerator:	Escape
+
+*DKFChooseFont.butnframe.apl.default:		normal
+*DKFChooseFont.butnframe.apl.text:		Apply
+*DKFChooseFont.butnframe.apl.underline:		0
+*DKFChooseFont.butnframe.apl.accelerator:	Meta-a

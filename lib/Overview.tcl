@@ -2493,7 +2493,7 @@ proc Overview_getLevelFont { canvas item_tag level } {
       set canvasFont [$canvas itemcget "${item_tag}" -font]
       set newFont [font create canvas_level_${level}_font]
       font configure $newFont -family [font actual $canvasFont -family] \
-         -size [font actual $canvasFont -size] \
+         -size   [font actual $canvasFont -size] \
          -weight [font actual $canvasFont -weight] \
          -slant  [font actual $canvasFont -slant ]
 
@@ -2511,7 +2511,7 @@ proc Overview_getBoxLabelFont {} {
       set newFont [font create ${labelFont}]
       set canvasW [Overview_getCanvas]
       font configure ${newFont} -family [font actual ${canvasW} -family] \
-         -size [font actual ${canvasW} -size] \
+         -size   [font actual ${canvasW} -size] \
          -weight [font actual ${canvasW} -weight] \
          -slant  [font actual ${canvasW} -slant ]
 

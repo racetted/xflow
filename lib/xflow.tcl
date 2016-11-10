@@ -181,6 +181,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    set catchupW [xflow_getWidgetName ${exp_path} ${datestamp} catchup_button]
    set findW [xflow_getWidgetName ${exp_path} ${datestamp} find_button]
    set refreshW [xflow_getWidgetName ${exp_path} ${datestamp} refresh_button]
+   set dkfontW  [xflow_getWidgetName ${exp_path} ${datestamp} dkfont_button]
    set colorLegendW [xflow_getWidgetName ${exp_path} ${datestamp} legend_button]
    set closeW [xflow_getWidgetName ${exp_path} ${datestamp} close_button]
    #set depW [xflow_getWidgetName dep_button]
@@ -202,7 +203,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    image create photo ${parent}.refresh_img -file ${imageDir}/refresh.gif
    image create photo ${parent}.close -file ${imageDir}/cancel.gif
    image create photo ${parent}.color_legend_img -file ${imageDir}/color_legend.gif
-   #image create photo ${parent}.ignore_dep_true -file ${imageDir}/dep_on.ppm
+   image create photo ${parent}.dkfont -file ${imageDir}/font.png
    #image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
    image create photo ${parent}.shell_img -file ${imageDir}/terminal.ppm
 
@@ -223,6 +224,9 @@ proc xflow_createToolbar { exp_path datestamp parent } {
 
    button ${refreshW} -image ${parent}.refresh_img -relief flat -command [list xflow_refreshFlow ${exp_path} ${datestamp}]
    tooltip::tooltip ${refreshW}  "Flow refresh."
+
+    button ${dkfontW} -image ${parent}.dkfont -relief flat -command  [list DkfFont_init ${exp_path} ${datestamp}]
+    tooltip::tooltip ${dkfontW}  "Select Font."
 
    #button ${nodeListW} -image ${parent}.node_list_img  -state disabled -relief flat
    #tooltip::tooltip ${nodeListW} "Open succesfull node listing dialog -- future feature."
@@ -246,9 +250,9 @@ proc xflow_createToolbar { exp_path datestamp parent } {
       }
       ::tooltip::tooltip ${overviewW} "Show overview window."
       ::tooltip::tooltip ${closeW} "Close window."
-      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
+      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${dkfontW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
    } else {
-      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
+      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${dkfontW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
    }
 
 }
@@ -1053,7 +1057,6 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
    if { ${flowScale} != "1" } {
       set drawshadow off
    }
-
    set submitter [SharedFlowNode_getSubmitter ${exp_path} ${node} ${datestamp}]
    if { ${submitter} == "" || ${first_node} == "true" } {
       set linex2 [SharedData_getMiscData CANVAS_X_START]
@@ -1765,7 +1768,7 @@ proc xflow_getSeqLoopArgs {  exp_path datestamp node extension source_w {raise_n
          } else {
             # split the two
 	    set loopIndex [string range ${extension} 0 [expr ${lastIndex} -1]]
-	    set nptIndex [string range ${extension} ${lastIndex} end]
+	    set nptIndex  [string range ${extension} ${lastIndex} end]
          }
       }
 
@@ -3439,9 +3442,11 @@ proc xflow_redrawAllFlow { exp_path datestamp } {
 # - rereads flow.xml for each module
 # - reread the log file
 # - redisplay the flow
-proc xflow_refreshFlow { exp_path datestamp } {
+proc xflow_refreshFlow { exp_path datestamp  {font false}} {
    global PROGRESS_REPORT_TXT
 
+   #SharedData_readProperties
+   #puts "PATH $exp_path $datestamp"
    set PROGRESS_REPORT_TXT "Refreshing experiment ..."
    set progressW [ProgressDlg .pdrefresh -title "Flow Refresh" -parent [xflow_getToplevel ${exp_path} ${datestamp}]  -textvariable PROGRESS_REPORT_TXT]
    # for some reason, I need to call the update for the progress dlg to appear properly
@@ -3452,19 +3457,19 @@ proc xflow_refreshFlow { exp_path datestamp } {
       global NODE_RESOURCE_DONE_${exp_path}_${datestamp} LOOP_RESOURCES_DONE_${exp_path}_${datestamp}
       set LOOP_RESOURCES_DONE_${exp_path}_${datestamp} false
       set NODE_RESOURCE_DONE_${exp_path}_${datestamp} false
-
-      # SharedFlowNode_clearAllNodes ${exp_path} ${datestamp}
-      if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
-         LogReader_startExpLogReader ${exp_path} ${datestamp} no_overview
-      } else {
-         set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
-	 if { ${expThreadId} == "" } {
-	    set expThreadId [ThreadPool_getNextThread]
-	 }
-         thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview false" LogReaderDone
-	 vwait LogReaderDone
+      if {$font == "false" } {
+        # SharedFlowNode_clearAllNodes ${exp_path} ${datestamp}
+        if { [SharedData_getMiscData OVERVIEW_MODE] == "false" } {
+           LogReader_startExpLogReader ${exp_path} ${datestamp} no_overview
+        } else {
+           set expThreadId [SharedData_getExpThreadId ${exp_path} ${datestamp}]
+	   if { ${expThreadId} == "" } {
+	     set expThreadId [ThreadPool_getNextThread]
+	   }
+           thread::send -async ${expThreadId} "LogReader_startExpLogReader ${exp_path} \"${datestamp}\" no_overview false" LogReaderDone
+	   vwait LogReaderDone
+        }
       }
-
       xflow_displayFlow ${exp_path} ${datestamp}
       destroy ${progressW}
 
@@ -4332,7 +4337,15 @@ proc xflow_getExpLabelFont {} {
    if { [lsearch [font names] ExpLabelFont] == -1 } {
       # create the font if not exists
       font create ExpLabelFont
-      font configure ${expLabelFont} -size [SharedData_getMiscData XFLOW_EXP_LABEL_SIZE] -weight bold
+      font configure ${expLabelFont} -family [SharedData_getMiscData FONT_LABEL] \
+           -size [SharedData_getMiscData XFLOW_EXP_LABEL_SIZE] \
+           -weight bold
+   } else {
+      font configure ${expLabelFont} -family [SharedData_getMiscData FONT_LABEL] \
+            -size   [SharedData_getMiscData FONT_LABEL_SIZE] \
+            -weight [SharedData_getMiscData FONT_LABEL_STYLE] \
+            -slant  [SharedData_getMiscData FONT_LABEL_SLANT] \
+            -underline [SharedData_getMiscData FONT_LABEL_UNDERL]
    }
    return ${expLabelFont}
 }
@@ -4347,8 +4360,7 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
       set hour [Utils_getHourFromDatestamp ${_datestamp}]
       set displayValue ${_displayName}-${hour}
    }
-
-   ${expLabelFrame}.exp_label configure -text ${displayValue}
+   ${expLabelFrame}.exp_label configure -text ${displayValue} -font [xflow_getExpLabelFont]
 }
 # this function is called to create an exp flow.
 # 1) in xflow standalone mode, this function is called at startup and when the user views the exp in
@@ -4562,7 +4574,6 @@ proc xflow_parseCmdOptions {} {
    } else {
       set XFLOW_STANDALONE 0
    }
-
    # this section is only executed when xflow is run as a standalone application
    if { ${XFLOW_STANDALONE} == 1 } {
       puts "SEQ_XFLOW_BIN=$env(SEQ_XFLOW_BIN)"
@@ -4726,6 +4737,7 @@ proc xflow_setWidgetNames {} {
          catchup_button .second_frame.toolbar.button_catchup
          find_button .second_frame.toolbar.button_find
          refresh_button .second_frame.toolbar.button_refresh
+         dkfont_button .second_frame.toolbar.button_dkfont
          nodelist_button .second_frame.toolbar.button_nodelist
          abortlist_button .second_frame.toolbar.button_nodeabortlist
          dep_button .second_frame.toolbar.button_dep
