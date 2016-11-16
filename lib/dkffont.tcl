@@ -15,7 +15,7 @@ namespace eval ::dkfFontSel {
 	namespace import ::ttk::*
     }
     proc readProperties { font {rc_file ""} } {   
-      global env XFLOW_STANDALONE
+      global env XFLOW_STANDALONE LIST_EXP LIST_FONT_LEVEL
       variable Applyon
       variable Style
       variable exp_path
@@ -64,22 +64,34 @@ namespace eval ::dkfFontSel {
                           (${keyFound} == "font_name_style" && $font_title && $Style(bold)) ||
                           (${keyFound} == "font_label_style" && $font_label &&  $Style(bold))} {
                         puts $out "${keyFound} = bold"
-                      } elseif {[string match $patternst ${keyFound}]}  {
+                      } elseif {(${keyFound} == "font_task_style" && $font_task &&  !$Style(bold))  || 
+                                (${keyFound} == "font_name_style" && $font_title &&  !$Style(bold)) ||
+                                (${keyFound} == "font_label_style" && $font_label &&  !$Style(bold))} {
                         puts $out "${keyFound} = normal"
+                      } elseif {[string match $patternst ${keyFound}]}  {
+                        puts $out ${line}
                       }
                       if {(${keyFound} == "font_task_slant" && $font_task && $Style(italic))  ||
                           (${keyFound} == "font_name_slant" && $font_title && $Style(italic)) ||
                           (${keyFound} == "font_label_slant" && $font_label && $Style(italic))} {
                         puts $out "${keyFound} = italic"
-                      } elseif {[string match $patternsl ${keyFound}]} {
+                      } elseif {(${keyFound} == "font_task_slant" && $font_task && !$Style(italic) )  ||
+                            (${keyFound} == "font_name_slant" && $font_title && !$Style(italic) ) ||
+                            (${keyFound} == "font_label_slant" && $font_label && !$Style(italic))} {
                         puts $out "${keyFound} = roman"
+                      } elseif {[string match $patternsl ${keyFound}]} {
+                         puts $out ${line}
                       }
                       if {(${keyFound} == "font_task_underl" && $font_task && $Style(underline)) ||
                           (${keyFound} == "font_name_underl" && $font_title && $Style(underline)) ||
                           (${keyFound} == "font_label_underl" && $font_label && $Style(underline)) } {
                         puts $out "${keyFound} = 1"
-                      } elseif {[string match $patternul ${keyFound}]}  {
+                      } elseif {(${keyFound} == "font_task_underl" && $font_task && !$Style(underline)) ||
+                          (${keyFound} == "font_name_underl"  && $font_title && !$Style(underline)) ||
+                          (${keyFound} == "font_label_underl" && $font_label && !$Style(underline)) } {
                         puts $out "${keyFound} = 0"
+                      } elseif {[string match $patternul ${keyFound}]} {
+                        puts $out ${line}
                       }
                    } elseif {(${keyFound} == "font_task_size" && $font_task)  || 
                              (${keyFound} == "font_name_size" && $font_title) ||
@@ -102,12 +114,46 @@ namespace eval ::dkfFontSel {
            file rename -force $f.new $f
            SharedData_readProperties
            ::DrawUtils::init
-           if { $font_task || $font_label } {
-             if { ${XFLOW_STANDALONE} == "0" } {
-               set FLOW_SCALE_${exp_path}_${datestamp} [SharedData_getMiscData FLOW_SCALE]
+ 
+           if {[SharedData_getMiscData OVERVIEW_MODE] == "true" && ${XFLOW_STANDALONE} == "0"} {
+              foreach litem $LIST_FONT_LEVEL  {
+                 Overview_getLevelFont  [lindex $litem 0]  [lindex $litem 1] [lindex $litem 2]
+              }
+              Overview_getBoxLabelFont
+              set counter       0
+              if { [llength ${LIST_EXP}] > 0} {
+                set ll [lsort -unique $LIST_EXP]
+                foreach item $ll {
+                  set exp_path        [lindex $item 0]
+                  set datestamp       [lindex $item 1]
+                  set toplevelW       [xflow_getToplevel ${exp_path} ${datestamp}]
+                  if { [winfo exists ${toplevelW}] } {
+                     set canvas [xflow_getMainFlowCanvas ${exp_path} ${datestamp}]
+                     set FLOW_SCALE_${exp_path}_${datestamp} [SharedData_getMiscData FLOW_SCALE]
+                     ::DrawUtils::getBoxLabelFont $canvas
+                     if { $font_label} {
+                        xflow_getExpLabelFont
+                     }
+                     if { $font_task } {
+                       xflow_refreshFlow ${exp_path} ${datestamp} true
+                     }
+                   } else {
+                     set LIST_EXP  [lreplace ${LIST_EXP} ${counter} ${counter}]
+                   }
+                   incr counter
+                }
              }
-             xflow_refreshFlow $exp_path $datestamp true
+           } elseif  {[SharedData_getMiscData OVERVIEW_MODE] == "false" && ${XFLOW_STANDALONE} == "1"} {
+              set canvas [xflow_getMainFlowCanvas ${exp_path} ${datestamp}]
+              ::DrawUtils::getBoxLabelFont $canvas
+              if { $font_label} {
+                xflow_getExpLabelFont
+              }
+              if { $font_task} {
+                xflow_refreshFlow ${exp_path} ${datestamp} true
+              }
            }
+           
       }
     }
 
@@ -632,9 +678,9 @@ proc DkfFont_getToplevel {} {
 
 # ----------------------------------------------------------------------
 # Stuff for testing the font selector
-proc DkfFont_init {_exp_path _datestamp} {
+proc DkfFont_init {{_exp_path ""} {_datestamp ""}} {
 
-  set font [dkf_chooseFont -apply "wm title ." -exp $_exp_path -datestamp $_datestamp ]
+  set font [dkf_chooseFont -apply "wm title ." -exp $_exp_path -datestamp $_datestamp]
   if {[string length $font]} {
      return
   } else {
