@@ -264,7 +264,6 @@ proc SharedFlowNode_getLoopExtensions { exp_path node datestamp } {
       default {
          set seq_node [SharedFlowNode_getSequencerNode $exp_path $node $datestamp]
          # set tmpExpression [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} expression]
-         puts "SharedFlowNode_getLoopExtensions e=${exp_path} n=$seq_node d=${datestamp} loop.expression"
          if { [TsvInfo_haskey ${exp_path} $seq_node ${datestamp} loop.expression] } {
             set tmpExpression [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.expression]
             set slowArray [split $tmpExpression ","]
@@ -1456,19 +1455,10 @@ proc SharedFlowNode_getExtFromDisplayFormat { node_with_ext } {
 proc SharedFlowNode_getLoopTooltip { exp_path loop_node datestamp } {
    set tooltipTxt ""
    if { [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} type] == "loop" } {
-      set tmpExpression [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} expression]
-      if { $tmpExpression == "" } {
-         # set start [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} start]
-         # set step [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} step]
-         # set setValue [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} set]
-         # set end [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} end]
          set seq_node [SharedFlowNode_getSequencerNode $exp_path $loop_node $datestamp]
-         set start [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.start]
-         set step [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.step]
-         set setValue [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.set]
-         set end [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.end]
-         set tooltipTxt "\[start=${start},end=${end},step=${step},set=${setValue}\]"
-      } else {
+      if { [TsvInfo_haskey ${exp_path} $seq_node ${datestamp} loop.expression] } {
+         set tmpExpression [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.expression]
+         #set tmpExpression [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} expression]
          set nodeCount 0
          set defCount 1
          set expArray [split $tmpExpression ",:"]
@@ -1493,6 +1483,16 @@ proc SharedFlowNode_getLoopTooltip { exp_path loop_node datestamp } {
                }
             }
          }
+      } else {
+         # set start [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} start]
+         # set step [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} step]
+         # set setValue [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} set]
+         # set end [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} end]
+         set start [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.start]
+         set step [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.step]
+         set setValue [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.set]
+         set end [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.end]
+         set tooltipTxt "\[start=${start},end=${end},step=${step},set=${setValue}\]"
       }
    }
    return ${tooltipTxt}
