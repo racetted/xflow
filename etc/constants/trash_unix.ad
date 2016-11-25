@@ -1,0 +1,20 @@
+! Unix-specific "application" defaults...
+
+! I choose these to fit in with my own prejudices...
+*TRASHChoose*Button.BorderWidth:	1
+*TRASHChoose*Checkbutton.BorderWidth:	1
+*TRASHChoose*Entry.BorderWidth:	1
+*TRASHChoose*Label.BorderWidth:	1
+*TRASHChoose*Listbox.BorderWidth:	1
+*TRASHChoose*Menu.BorderWidth:	1
+*TRASHChoose*Menubutton.BorderWidth:	1
+*TRASHChoose*Message.BorderWidth:	1
+*TRASHChoose*Radiobutton.BorderWidth:	1
+*TRASHChoose*Scale.BorderWidth:	1
+*TRASHChoose*Scrollbar.BorderWidth:	1
+*TRASHChoose*Text.BorderWidth:	1
+*TRASHChoose.Scrollbar.width:		10
+
+! Helvetica is a good choice here - it is installed virtually everywhere...
+*TRASHChoose.initialMachine:	castor
+*TRASHChoose.initialDatestamp:	20161123

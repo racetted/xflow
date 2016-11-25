@@ -1,0 +1,9 @@
+! Windows-specific "application" defaults...
+
+! Only one default option on the Windows platform - the initial font.
+! This is becuase the font family Helvetica is not usually installed,
+! so we must substitute something else; the commonest alternative for
+! people with the Win32 interface is Arial, so we go with that...
+
+*TRASHChoose.initialMachine:	castor
+*TRASHChoose.initialDatestamp:	20161123

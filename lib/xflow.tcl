@@ -174,6 +174,8 @@ proc xflow_createPluginToolbar { exp_path datestamp _toplevelW } {
 }   
 
 proc xflow_createToolbar { exp_path datestamp parent } {
+   global CHECK_PERMISSION
+
    ::log::log debug "xflow_createToolbar exp_path:${exp_path} datestamp:${datestamp} parent:${parent} "
 
    set msgCenterW [xflow_getWidgetName ${exp_path} ${datestamp} msgcenter_button]
@@ -181,6 +183,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    set catchupW [xflow_getWidgetName ${exp_path} ${datestamp} catchup_button]
    set findW [xflow_getWidgetName ${exp_path} ${datestamp} find_button]
    set refreshW [xflow_getWidgetName ${exp_path} ${datestamp} refresh_button]
+   set trashW   [xflow_getWidgetName ${exp_path} ${datestamp} trash_button]
    set dkfontW  [xflow_getWidgetName ${exp_path} ${datestamp} dkfont_button]
    set colorLegendW [xflow_getWidgetName ${exp_path} ${datestamp} legend_button]
    set closeW [xflow_getWidgetName ${exp_path} ${datestamp} close_button]
@@ -203,6 +206,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    image create photo ${parent}.refresh_img -file ${imageDir}/refresh.gif
    image create photo ${parent}.close -file ${imageDir}/cancel.gif
    image create photo ${parent}.color_legend_img -file ${imageDir}/color_legend.gif
+   image create photo ${parent}.trash -file ${imageDir}/trash.gif
    image create photo ${parent}.dkfont -file ${imageDir}/font.png
    #image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
    image create photo ${parent}.shell_img -file ${imageDir}/terminal.ppm
@@ -224,9 +228,12 @@ proc xflow_createToolbar { exp_path datestamp parent } {
 
    button ${refreshW} -image ${parent}.refresh_img -relief flat -command [list xflow_refreshFlow ${exp_path} ${datestamp}]
    tooltip::tooltip ${refreshW}  "Flow refresh."
+   
+   button ${trashW} -image ${parent}.trash -relief flat -command  [list Trash_init ${exp_path} ${datestamp}]
+   tooltip::tooltip ${trashW}  "Clean Experiment."
 
-    button ${dkfontW} -image ${parent}.dkfont -relief flat -command  [list DkfFont_init ${exp_path} ${datestamp}]
-    tooltip::tooltip ${dkfontW}  "Select Font."
+   button ${dkfontW} -image ${parent}.dkfont -relief flat -command  [list DkfFont_init ${exp_path} ${datestamp}]
+   tooltip::tooltip ${dkfontW}  "Select Font."
 
    #button ${nodeListW} -image ${parent}.node_list_img  -state disabled -relief flat
    #tooltip::tooltip ${nodeListW} "Open succesfull node listing dialog -- future feature."
@@ -250,9 +257,18 @@ proc xflow_createToolbar { exp_path datestamp parent } {
       }
       ::tooltip::tooltip ${overviewW} "Show overview window."
       ::tooltip::tooltip ${closeW} "Close window."
-      grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${dkfontW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
+      
+      if {$CHECK_PERMISSION == "true"} {
+        grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${trashW} ${dkfontW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
+      } else {
+        grid ${msgCenterW} ${overviewW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${dkfontW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
+      }
    } else {
-      grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${dkfontW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
+      if {$CHECK_PERMISSION == "true"} {
+          grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${trashW} ${dkfontW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
+       } else {
+          grid ${msgCenterW} ${nodeKillW} ${catchupW} ${shellW} ${findW} ${refreshW} ${dkfontW} ${colorLegendW} ${closeW} ${pluginFrame} -sticky w -padx 2
+       }
    }
 
 }
@@ -3182,7 +3198,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
          regsub -all "/" ${tempfile} _ tempfile
          set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
          
-         set seqCmd "${listingExec} -f ${exp_path}//listings/${mach}//$listingFile@$mach"
+         set seqCmd "${listingExec} -f ${exp_path}/listings/${mach}/$listingFile@$mach"
          Sequencer_runCommand ${exp_path} ${datestamp} ${outputfile} ${seqCmd} 1
          if { ${listingViewer} == "default" } {
             TextEditor_createWindow ${winTitle} ${outputfile} top .
@@ -4737,6 +4753,7 @@ proc xflow_setWidgetNames {} {
          catchup_button .second_frame.toolbar.button_catchup
          find_button .second_frame.toolbar.button_find
          refresh_button .second_frame.toolbar.button_refresh
+         trash_button   .second_frame.toolbar.button_trash
          dkfont_button .second_frame.toolbar.button_dkfont
          nodelist_button .second_frame.toolbar.button_nodelist
          abortlist_button .second_frame.toolbar.button_nodeabortlist
