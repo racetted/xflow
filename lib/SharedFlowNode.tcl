@@ -19,8 +19,7 @@ package require Thread
 # submitter: flow node path of the node that submits the new node
 # type: one of task, family, module, npass_task, loop
 proc SharedFlowNode_createNode { exp_path node datestamp submitter type } {
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp} ${node} name [file tail ${node}] type ${type} submitter ${submitter} loops {} submits {} \
-      catchup 4 memory 120M cpu 1 queue "" work_unit 0
+   tsv::keylset SharedFlowNode_${exp_path}_${datestamp} ${node} name [file tail ${node}] type ${type} submitter ${submitter} loops {} submits {} work_unit 0
 
    if { {$type} == "module" } {
       SharedData_addExpModule ${exp_path} ${node} ${datestamp}
@@ -46,9 +45,14 @@ proc SharedFlowNode_removeDatestamp { exp_path datestamp } {
 
    ::log::log notice "SharedFlowNode_removeDatestamp tsv::unset SharedFlowNode_${exp_path}_${datestamp} DONE"
    ::log::log notice "SharedFlowNode_removeDatestamp ${exp_path} ${datestamp} DONE"
+
+   catch { tsv::unset TsvNodeResourceVar_${exp_path}_${datestamp} }
 }
 
 # this is a generic attribute accessor for the SharedFlowNode_${exp_path}_${datestamp} data structure
+# resource file attributes cpu, wallclock, memory... are now retrieved from tsvinfo
+# and not directly from xml resource file
+# So not available anymore from SharedFlowNode_ structure
 proc SharedFlowNode_getGenericAttribute { exp_path node datestamp attr_name } {
    set value ""
    catch {
@@ -94,27 +98,12 @@ proc SharedFlowNode_getName { exp_path node datestamp } {
    tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} name
 }
 
-proc SharedFlowNode_getQueue { exp_path node datestamp } {
-   tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} queue
-}
-
 proc SharedFlowNode_getNodeSubmits { exp_path node datestamp } {
    tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} submits
 }
 
 proc SharedFlowNode_getWorkUnit { exp_path node datestamp } {
    tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} work_unit
-}
-
-# sets the loop info for a loop node
-# loop_type is one of default, loopset
-# start is an integer value that is the start index of the loop
-# step is an integer value that is the step between two iterations
-# end is an integer value that is the end index of the loop
-# set is an integer value that is the number of concurrent iterations for the loop
-# expression is a multi-definition attribute in the form of START_1:END_1:STEP_1:SET_1,START_2:END_2:STEP_2:SET_2,...
-proc SharedFlowNode_setLoopData { exp_path node datestamp loop_type start step end set expression } {
-   tsv::keylset SharedFlowNode_${exp_path}_${datestamp} ${node} loop_type ${loop_type} start ${start} step ${step} end ${end} set ${set} expression ${expression}
 }
 
 # adds a loop to the current container
@@ -273,18 +262,11 @@ proc SharedFlowNode_getLoopExtensions { exp_path node datestamp } {
    switch [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} loop_type]] {
       loopset -
       default {
-         set tmpExpression [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} expression]
-         if { $tmpExpression == "" } {
-            set start [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} start]
-            set step [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} step]
-            set setValue [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} setValue]
-            set end [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} end]
-            set count $start
-            while { [expr $count <= $end] } {
-               lappend extensions $count
-               set count [expr $count + $step]
-            }
-         } else {
+         set seq_node [SharedFlowNode_getSequencerNode $exp_path $node $datestamp]
+         # set tmpExpression [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} expression]
+         puts "SharedFlowNode_getLoopExtensions e=${exp_path} n=$seq_node d=${datestamp} loop.expression"
+         if { [TsvInfo_haskey ${exp_path} $seq_node ${datestamp} loop.expression] } {
+            set tmpExpression [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.expression]
             set slowArray [split $tmpExpression ","]
             set firstFlag 1
             foreach slowEl $slowArray {
@@ -299,6 +281,20 @@ proc SharedFlowNode_getLoopExtensions { exp_path node datestamp } {
                   set count [expr $count + [lindex $fastArray 2]]
                }
                set firstFlag 0
+            }
+         } else {
+            # set start [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} start]
+            # set step [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} step]
+            # set setValue [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} setValue]
+            # set end [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} end]
+            set start [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.start]
+            set step [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.step]
+            set setValue [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.set]
+            set end [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.end]
+            set count $start
+            while { [expr $count <= $end] } {
+               lappend extensions $count
+               set count [expr $count + $step]
             }
          }
       }
@@ -1406,7 +1402,9 @@ proc SharedFlowNode_getIndexValue { value } {
 }
 
 proc SharedFlowNode_getLoopInfo { exp_path loop_node datestamp } {
-   set txt ""
+   set txt [TsvInfo_getLoopInfo ${exp_path} ${loop_node} ${datestamp}]
+
+   proc out {} {
    switch [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} loop_type] {
       default {
          set tmpExpression [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} expression]
@@ -1426,6 +1424,7 @@ proc SharedFlowNode_getLoopInfo { exp_path loop_node datestamp } {
             #string range $txt 0 end-2
          }
       }
+   }
    }
 
    return $txt
@@ -1459,10 +1458,15 @@ proc SharedFlowNode_getLoopTooltip { exp_path loop_node datestamp } {
    if { [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} type] == "loop" } {
       set tmpExpression [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} expression]
       if { $tmpExpression == "" } {
-         set start [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} start]
-         set step [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} step]
-         set setValue [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} set]
-         set end [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} end]
+         # set start [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} start]
+         # set step [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} step]
+         # set setValue [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} set]
+         # set end [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} end]
+         set seq_node [SharedFlowNode_getSequencerNode $exp_path $loop_node $datestamp]
+         set start [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.start]
+         set step [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.step]
+         set setValue [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.set]
+         set end [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.end]
          set tooltipTxt "\[start=${start},end=${end},step=${step},set=${setValue}\]"
       } else {
          set nodeCount 0

@@ -3601,6 +3601,7 @@ proc xflow_getNodeResources { exp_path node datestamp {is_recursive 0} } {
 
 # at startup fetches all the loop node attributes once only to be able to display
 # the loop parameters
+# NOTE: OBSOLETE PROC...
 proc xflow_getAllLoopResourcesCallback { exp_path node datestamp} {
    global LOOP_RESOURCES_DONE_${exp_path}_${datestamp}
    if { ${datestamp} != "" } {
@@ -3613,6 +3614,7 @@ proc xflow_getAllLoopResourcesCallback { exp_path node datestamp} {
 }
 
 # retrieve loop attributes recursively
+# NOTE: OBSOLETE PROC...
 proc xflow_getAllLoopResources { exp_path node datestamp } {
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "loop" } {
       xflow_getLoopResources ${node} ${exp_path} ${datestamp}
@@ -3626,6 +3628,7 @@ proc xflow_getAllLoopResources { exp_path node datestamp } {
 
 # now that the loops attributes are stored in the node resource xml file,
 # this function calls the nodeinfo to retrieve loop attributes.
+# NOTE: OBSOLETE PROC...
 proc xflow_getLoopResources { node exp_path datestamp} {
    global env
    ::log::log debug "xflow_getLoopResources node:$node"
@@ -4301,7 +4304,7 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node 
    xflow_setExpLabel ${exp_path} ${displayName} ${datestamp}
    ::log::log debug "xflow_displayFlow exp_path ${exp_path}"
    set rootNode [SharedData_getExpRootNode ${exp_path} ${datestamp}]
-   set PROGRESS_REPORT_TXT "Getting loop node resources ..."
+   # set PROGRESS_REPORT_TXT "Getting loop node resources ..."
    # xflow_getAllLoopResourcesCallback ${exp_path} ${rootNode} ${datestamp}
    # resource will only be loaded if needed
    # xflow_nodeResourceCallback ${exp_path} ${datestamp}

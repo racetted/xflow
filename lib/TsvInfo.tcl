@@ -12,7 +12,7 @@ proc TsvInfo_loadData { exp_path datestamp } {
    set data_list [exec tsvinfo -t stdout -e $exp_path -d $datestamp]
 
    # Read the content of the file into a keyed list.
-   tsv::keylset the_shared_var the_keyed_list {*}$data_list
+   tsv::keylset TsvNodeResourceVar_${exp_path}_${datestamp} the_keyed_list {*}$data_list
 
 }
 
@@ -20,26 +20,26 @@ proc TsvInfo_loadData { exp_path datestamp } {
 # Retrie information from a node specified by $nodeName (sequencer name) and
 # subkey. like loop.start or resources.cpu
 ################################################################################
-proc TsvInfo_getNodeInfo { nodeName subkey } {
-   return [tsv::keylget the_shared_var the_keyed_list $nodeName.$subkey]
+proc TsvInfo_getNodeInfo { exp_path nodeName datestamp subkey } {
+   return [tsv::keylget TsvNodeResourceVar_${exp_path}_${datestamp} the_keyed_list $nodeName.$subkey]
 }
 
 ################################################################################
 # Same as getNodeInfo, but puts the value associated with the key into a
 # variable specified by the caller.
 ################################################################################
-proc TsvInfo_getInfoPlus { nodeName subkey retvar_name } {
+proc TsvInfo_getInfoPlus { exp_path nodeName datestamp subkey retvar_name } {
 
    upvar $retvar_name retvar
-   return [tsv::keylget the_shared_var the_keyed_list $nodeName.$subkey retvar]
+   return [tsv::keylget TsvNodeResourceVar_${exp_path}_${datestamp} the_keyed_list $nodeName.$subkey retvar]
 }
 
 ################################################################################
 # Used to check if a node has a given subkey.  Returns 1 if the subkey exists
 # and 0 if it doesn't.
 ################################################################################
-proc TsvInfo_haskey { nodeName subkey } {
-   return [tsv::keylget the_shared_var the_keyed_list $nodeName.$subkey {}]
+proc TsvInfo_haskey { exp_path nodeName datestamp subkey } {
+   return [tsv::keylget TsvNodeResourceVar_${exp_path}_${datestamp} the_keyed_list $nodeName.$subkey {}]
 }
 
 ################################################################################
@@ -72,16 +72,16 @@ proc TsvInfo_getLoopInfo { exp_path loop_node datestamp } {
    set seq_node [SharedFlowNode_getSequencerNode $exp_path $loop_node $datestamp]
    # set loop_type [TsvInfo_getNodeInfo $loop_node loop.type]
    # switch $loop_type {
-   if { [TsvInfo_haskey $seq_node loop.expression] } {
-      set expression [TsvInfo_getNodeInfo $seq_node loop.expression]
+   if { [TsvInfo_haskey ${exp_path} $seq_node ${datestamp} loop.expression] } {
+      set expression [TsvInfo_getNodeInfo ${exp_path} $seq_node ${datestamp} loop.expression]
       # set text to either expression on one line or one def per line.
       set txt "\[$expression\]"
       # set txt [TsvInfo_formatExpression $expression]
    } else {
-      set start [TsvInfo_getNodeInfo $seq_node loop.start]
-      set end [TsvInfo_getNodeInfo $seq_node loop.end]
-      set step [TsvInfo_getNodeInfo $seq_node loop.step]
-      set set_val [TsvInfo_getNodeInfo $seq_node loop.set]
+      set start [TsvInfo_getNodeInfo ${exp_path} $seq_node ${datestamp} loop.start]
+      set end [TsvInfo_getNodeInfo ${exp_path} $seq_node ${datestamp} loop.end]
+      set step [TsvInfo_getNodeInfo ${exp_path} $seq_node ${datestamp} loop.step]
+      set set_val [TsvInfo_getNodeInfo ${exp_path} $seq_node ${datestamp} loop.set]
 
       # set txt "\[${start},${end},${step},${set_val}\]"
       set txt "\[${start},${end},${step},${set_val}\]"
