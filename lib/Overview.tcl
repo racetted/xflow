@@ -1750,6 +1750,8 @@ proc Overview_historyCallback { canvas exp_path datestamp caller_menu } {
 # this function is called to launch an exp window
 # It sends the request to the exp thread to care of it.
 proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
+   global LIST_EXP
+
    ::log::log debug "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    ::log::log notice "Overview_launchExpFlow exp_path:$exp_path datestamp:$datestamp"
    puts "Overview_launchExpFlow exp_path:${exp_path} datestamp:${datestamp} "
@@ -1886,6 +1888,7 @@ proc Overview_launchExpFlow { exp_path datestamp {datestamp_hour ""} } {
    catch { thread::mutex unlock ${LAUNCH_XFLOW_MUTEX} }
    puts "Overview_launchExpFlow UNLOCKED exp_path:${exp_path} datestamp:${datestamp} "
    puts "Overview_launchExpFlow exp_path:${exp_path} datestamp:${datestamp} DONE"
+   lappend LIST_EXP [list ${exp_path} ${datestamp}]
 }
 
 proc Overview_launchExpTimeout { exp_path datestamp datestamp_hour is_new_thread progress_w} {
@@ -2487,19 +2490,26 @@ proc Overview_checkStartupError {} {
 # this function is a place holder to add logic to
 # display different font for each level
 proc Overview_getLevelFont { canvas item_tag level } {
-   # puts "Overview_getLevelFont item_tag:$item_tag"
+    global LIST_FONT_LEVEL
+    #puts "Overview_getLevelFont item_tag:$item_tag Lavel:$level"
+   lappend LIST_FONT_LEVEL [list $canvas $item_tag $level ]
    set searchFont canvas_level_${level}_font
    if { [lsearch [font names] $searchFont] == -1 } {
       set canvasFont [$canvas itemcget "${item_tag}" -font]
       set newFont [font create canvas_level_${level}_font]
       font configure $newFont -family [font actual $canvasFont -family] \
-         -size [font actual $canvasFont -size] \
+         -size   [font actual $canvasFont -size] \
          -weight [font actual $canvasFont -weight] \
          -slant  [font actual $canvasFont -slant ]
 
       if { $level == 0 } {
          font configure $newFont  -weight bold
       }
+   } else {
+      font configure ${searchFont} -family [SharedData_getMiscData FONT_TASK] \
+            -size   [SharedData_getMiscData FONT_TASK_SIZE] \
+            -slant  [SharedData_getMiscData FONT_TASK_SLANT] \
+            -underline [SharedData_getMiscData FONT_TASK_UNDERL]
    }
 
    return $searchFont
@@ -2511,11 +2521,17 @@ proc Overview_getBoxLabelFont {} {
       set newFont [font create ${labelFont}]
       set canvasW [Overview_getCanvas]
       font configure ${newFont} -family [font actual ${canvasW} -family] \
-         -size [font actual ${canvasW} -size] \
+         -size   [font actual ${canvasW} -size] \
          -weight [font actual ${canvasW} -weight] \
          -slant  [font actual ${canvasW} -slant ]
 
       font configure ${newFont} -weight bold -size 10
+   } else {
+      font configure ${labelFont} -family [SharedData_getMiscData FONT_TASK] \
+            -size   [SharedData_getMiscData FONT_TASK_SIZE] \
+            -weight [SharedData_getMiscData FONT_TASK_STYLE] \
+            -slant  [SharedData_getMiscData FONT_TASK_SLANT] \
+            -underline [SharedData_getMiscData FONT_TASK_UNDERL]
    }
 
    return ${labelFont}
@@ -3189,7 +3205,7 @@ proc Overview_selectExpBox { exp_path datestamp show_msgbar ll } {
    set topOverview [Overview_getToplevel]
    set toolbarW ${topOverview}.toolbar.msg_frame
    set SHOW_MSGBAR ${show_msgbar}
-
+  
    if { ${SHOW_MSGBAR} == true } {
       Overview_addMsgCenterWidget ${exp_path} ${datestamp} ${ll}
       Overview_HighLightFindNode ${ll}
@@ -3412,7 +3428,7 @@ proc Overview_createToolbar { _toplevelW } {
    set mesgCenterW ${toolbarW}.button_msgcenter
    set closeW ${toolbarW}.button_close
    set colorLegendW ${toolbarW}.button_colorlegend
-   
+   set fontW ${toolbarW}.button_font
    # create frame main toolbar
    # frame ${mainToolbarW} -bd 1
    labelframe ${mainToolbarW} -text Toolbar
@@ -3425,6 +3441,7 @@ proc Overview_createToolbar { _toplevelW } {
    image create photo ${toolbarW}.msg_center_img -file ${imageDir}/open_mail_sh.gif
    image create photo ${toolbarW}.msg_center_new_img -file ${imageDir}/open_mail_new.gif
    image create photo ${toolbarW}.color_legend_img -file ${imageDir}/color_legend.gif
+   image create photo ${toolbarW}.font_img -file ${imageDir}/font.png
 
    button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command [list MsgCenter_show true] -relief flat
 
@@ -3445,8 +3462,10 @@ proc Overview_createToolbar { _toplevelW } {
                      -command [list Overview_testBellCallback ${toolbarW}.button_test_bell] ]
       tooltip::tooltip ${testBellW} "Test Bell"
    }
-
-   eval grid ${mesgCenterW} ${colorLegendW} ${testBellW} ${closeW} -sticky w -padx \[list 2 0\] 
+   button ${fontW} -image ${toolbarW}.font_img -command DkfFont_init -relief flat
+   tooltip::tooltip ${fontW} "Select font"
+   
+   eval grid ${mesgCenterW} ${colorLegendW} ${testBellW} ${closeW} ${fontW} -sticky w -padx \[list 2 0\] 
 
    # core toolbar stis on column 0 
    grid ${toolbarW} -row 0 -column 0 -sticky ew
@@ -3841,13 +3860,16 @@ proc Overview_createPluginToolbar { parentToolbar } {
 }
 
 proc Overview_main {} {
-   global env startupExp SHOW_TOOLBAR
+   global env startupExp SHOW_TOOLBAR LIST_FONT_LEVEL
    global DEBUG_TRACE FileLoggerCreated
-   global SHOW_MSGBAR LIST_TAG
+   global SHOW_MSGBAR LIST_TAG LIST_EXP
    Overview_setTkOptions
 
    set SHOW_MSGBAR false
    set LIST_TAG    {}
+   set LIST_EXP    {}
+   set LIST_FONT_LEVEL {}
+
    set DEBUG_TRACE [SharedData_getMiscData DEBUG_TRACE]
    ::DrawUtils::init
    Overview_init

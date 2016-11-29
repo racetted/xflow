@@ -32,25 +32,25 @@ proc ::DrawUtils::init {} {
    array set constants {
       border_width "3"
    }
-
    if { [SharedData_getMiscData FONT_NAME] != "" } {
       # use user defined font
-      ::DrawUtils::setDefaultFonts [SharedData_getMiscData FONT_NAME] [SharedData_getMiscData FONT_SIZE]
+      ::DrawUtils::setDefaultFonts [SharedData_getMiscData FONT_NAME] [SharedData_getMiscData FONT_NAME_SIZE] [SharedData_getMiscData FONT_NAME_SLANT] [SharedData_getMiscData FONT_NAME_UNDERL]
    }
 }
 
-proc ::DrawUtils::setDefaultFonts { {_family fixed} {_size 12} } {
-   font configure TkDefaultFont -size ${_size} -family ${_family}
-   font configure TkTextFont -size ${_size} -family ${_family}
-   font configure TkMenuFont -size ${_size} -family ${_family}
-   font configure TkHeadingFont -size ${_size} -family ${_family}
-   font configure TkTooltipFont -size [expr ${_size} - 2] -family ${_family}
-   font configure TkFixedFont -size ${_size} -family ${_family}
-   font configure TkIconFont -size ${_size} -family ${_family}
+proc ::DrawUtils::setDefaultFonts { {_family fixed} {_size 12} {_slant roman} {_underline 0}} {
+   font configure TkDefaultFont -size ${_size} -family ${_family} -slant $_slant  -underline ${_underline}
+   font configure TkTextFont -size ${_size} -family ${_family} -slant $_slant -underline ${_underline} 
+   font configure TkMenuFont -size ${_size} -family ${_family} -slant $_slant -underline ${_underline} 
+   font configure TkHeadingFont -size ${_size} -family ${_family} -slant $_slant -underline ${_underline} 
+   font configure TkTooltipFont -size [expr ${_size} - 2] -family ${_family} -slant $_slant -underline ${_underline}
+   font configure TkFixedFont -size ${_size} -family ${_family} -slant $_slant -underline ${_underline}
+   font configure TkIconFont -size ${_size} -family ${_family} -slant $_slant -underline ${_underline}
 }
 
 proc ::DrawUtils::getBoxLabelFont { _canvas } {
    set labelFont flow_box_label_font
+   
    if { [SharedData_getMiscData FONT_NAME] == "" } {
       # use legacy font
       return [SharedData_getMiscData FONT_BOLD]
@@ -59,13 +59,19 @@ proc ::DrawUtils::getBoxLabelFont { _canvas } {
    # use user defined font
    if { [lsearch [font names] ${labelFont}] == -1 } {
       set newFont [font create ${labelFont}]
-      font configure ${newFont} -family [font actual ${_canvas} -family] \
-         -size [font actual ${_canvas} -size] \
+      font configure ${newFont} -family [SharedData_getMiscData FONT_TASK] \
+         -size   [font actual ${_canvas} -size] \
          -weight [font actual ${_canvas} -weight] \
          -slant  [font actual ${_canvas} -slant ]
 
       # font configure ${newFont} -weight bold -size 11
       font configure ${newFont} -weight bold -size [expr  [font actual ${_canvas} -size] - 2 ]
+   } else {
+      font configure ${labelFont} -family [SharedData_getMiscData FONT_TASK] \
+            -size   [SharedData_getMiscData FONT_TASK_SIZE] \
+            -weight [SharedData_getMiscData FONT_TASK_STYLE] \
+            -slant  [SharedData_getMiscData FONT_TASK_SLANT] \
+            -underline [SharedData_getMiscData FONT_TASK_UNDERL]
    }
    return ${labelFont}
 }

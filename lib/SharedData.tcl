@@ -854,6 +854,21 @@ proc SharedData_init {} {
    MSG_CENTER_USE_BELL true \
    FONT_BOLD "-*-*-bold-r-normal--11-*-*-*-p-*-iso8859-10" \
    FONT_SIZE 10 \
+   FONT_NAME "" \
+   FONT_TASK "" \
+   FONT_LABEL "" \
+   FONT_NAME_SIZE 10 \
+   FONT_TASK_SIZE 10 \
+   FONT_LABEL_SIZE 10 \
+   FONT_NAME_STYLE "normal" \
+   FONT_TASK_STYLE "normal" \
+   FONT_LABEL_STYLE "normal" \
+   FONT_NAME_SLANT "roman" \
+   FONT_TASK_SLANT "roman" \
+   FONT_LABEL_SLANT "roman" \
+   FONT_NAME_UNDERL 0 \
+   FONT_TASK_UNDERL 0 \
+   FONT_LABEL_UNDERL 0 \
    DEBUG_TRACE 0 \
    FLOW_SCALE 1 \
    AUTO_LAUNCH true \
@@ -863,7 +878,6 @@ proc SharedData_init {} {
    NODE_DISPLAY_PREF normal \
    COLLAPSE_DISABLED_NODES false \
    STARTUP_DONE false \
-   FLOW_SCALE 1 \
    XFLOW_EXP_LABEL_SIZE 25 \
    OVERVIEW_MODE false \
    DEFAULT_CONSOLE "konsole -e" \
@@ -914,7 +928,7 @@ proc SharedData_readProperties { {rc_file ""} } {
                # error "ERROR: While reading ${fileName}\nInvalid property syntax: ${line}"
                set errorMsg "While reading ${fileName}\n\nInvalid property syntax: ${line}.\n"
             } else {
-               set keyFound [string toupper [string trim [lindex $splittedList 0]]]
+               set keyFound   [string toupper [string trim [lindex $splittedList 0]]]
                set valueFound [string trim [lindex $splittedList 1]]
                #puts "SharedData_readProperties found key:${keyFound} value:${valueFound}"
                puts "maestrorc preference name:${keyFound} value:${valueFound}"
@@ -930,9 +944,9 @@ proc SharedData_readProperties { {rc_file ""} } {
       if { ${overviewDatestampRange} != "" } {
          SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE "8 9"
 	 catch {
-	    set values [split ${overviewDatestampRange} -]
+	    set values     [split ${overviewDatestampRange} -]
 	    set startIndex [lindex ${values} 0]
-	    set endIndex [lindex ${values} 1]
+	    set endIndex   [lindex ${values} 1]
 	    if { ${startIndex} > -1 && ${endIndex} < 15 } {
                SharedData_setMiscData OVERVIEW_DATESTAMP_RANGE "${startIndex} ${endIndex}"
 	    }

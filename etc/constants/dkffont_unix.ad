@@ -1,0 +1,19 @@
+! Unix-specific "application" defaults...
+
+! I choose these to fit in with my own prejudices...
+*DKFChooseFont*Button.BorderWidth:	1
+*DKFChooseFont*Checkbutton.BorderWidth:	1
+*DKFChooseFont*Entry.BorderWidth:	1
+*DKFChooseFont*Label.BorderWidth:	1
+*DKFChooseFont*Listbox.BorderWidth:	1
+*DKFChooseFont*Menu.BorderWidth:	1
+*DKFChooseFont*Menubutton.BorderWidth:	1
+*DKFChooseFont*Message.BorderWidth:	1
+*DKFChooseFont*Radiobutton.BorderWidth:	1
+*DKFChooseFont*Scale.BorderWidth:	1
+*DKFChooseFont*Scrollbar.BorderWidth:	1
+*DKFChooseFont*Text.BorderWidth:	1
+*DKFChooseFont.Scrollbar.width:		10
+
+! Helvetica is a good choice here - it is installed virtually everywhere...
+*DKFChooseFont.initialFont:	Helvetica 12 bold
