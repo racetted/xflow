@@ -696,12 +696,13 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
    ::log::log debug "drawBoxSaneoutline canvas:$canvas text:$text ty1=$ty1 fill=$fill binder:$binder"
    set pad 5
    if { ${flowScale} != "1" } {
-      set text "/   "
+      set text "/ "
       set maxtext ${text}
       set pad 0
    } else {
       set text /$maxtext
    }
+  
    DrawUtils::drawTextBox  ${exp_path} ${canvas} ${tx1} ${ty1} ${text}  ${textfill} ${binder}
 
    # draw a box around the text
@@ -709,7 +710,7 @@ proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text ma
 
    set nx1 [expr [lindex $boxArea 0] - ${pad}]
    set ny1 [expr [lindex $boxArea 1] - ${pad}]
-   set nx2 [expr [lindex $boxArea 2] + ${pad}]
+   set nx2 [expr [lindex $boxArea 2] + ${pad} + 5]
    set ny2 [expr [lindex $boxArea 3] + ${pad}]
    set nextY ${ny2}
 

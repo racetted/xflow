@@ -20,6 +20,24 @@ namespace eval ::dkfFontSel {
       variable Style
       variable exp_path
       variable datestamp
+      variable list_item
+      array set list_item {
+          font_name 0
+          font_task 0
+          font_label 0
+          font_name_size 0
+          font_task_size 0
+          font_label_size 0
+          font_name_style 0
+          font_task_style 0
+          font_label_style 0
+          font_name_slant 0
+          font_task_slant 0
+          font_label_slant 0
+          font_name_underl 0
+          font_task_underl 0
+          font_label_underl 0
+      }
 
       set font_task  0
       set font_title 0
@@ -35,21 +53,22 @@ namespace eval ::dkfFontSel {
         }
       }
       set errorMsg ""
-      if { ${rc_file} == "" } {
-        set f $env(HOME)/.maestrorc
-      } else {
-        set f ${rc_file}
-      }
+      set f [SharedData_getMiscData RC_FILE]
+      if {![file writable ${f}]} {
+        set errorMsg "$f \n permission denied"  
+      } 
       set f.new $env(HOME)/.maestrorc.new
       if { [file exists ${f}] } {
-         set in   [open ${f}     r]
-         set out  [open ${f.new} w]
-         set patternst "font*style"
-         set patternsl "font*slant"
-         set patternul "font*underl"
+         if { ${errorMsg} == "" } {
+           set in   [open ${f}     r]
+           set out  [open ${f.new} w]
+           set patternst "font*style"
+           set patternsl "font*slant"
+           set patternul "font*underl"
+           set pattersiz "font*size"
 
-         while {[gets ${in} line] >= 0 && ${errorMsg} == "" } {
-            if { [string index ${line} 0] != "#" && [string length ${line}] > 0 } {
+           while {[gets ${in} line] >= 0 && ${errorMsg} == "" } {
+             if { [string index ${line} 0] != "#" && [string length ${line}] > 0 } {
                set splittedList [split ${line} =]
                if { [llength ${splittedList}] != 2 } {
                    # error "ERROR: While reading ${fileName}\nInvalid property syntax: ${line}"
@@ -57,6 +76,9 @@ namespace eval ::dkfFontSel {
                } else {
                    set keyFound   [string trim [lindex $splittedList 0]]
                    set valueFound [string trim [lindex $splittedList 1]]
+                   if { [info exists list_item($keyFound)] } {
+                     set list_item(${keyFound}) 1
+                   }
                    if {(${keyFound} == "font_task" && $font_task) || (${keyFound} == "font_name" && $font_title) || (${keyFound} == "font_label" && $font_label) } {
                      puts $out "${keyFound} = [string trim [lindex $font 0]]"
                    } elseif { [string match $patternst ${keyFound}] || [string match $patternsl ${keyFound}] || [ string match $patternul ${keyFound}] } {
@@ -101,15 +123,36 @@ namespace eval ::dkfFontSel {
                      puts $out ${line}
                    }
                }      
-            } else {
+             } else {
                puts $out ${line}
-            }
+             }
+           }
+           foreach key [array names list_item] { 
+             if { !$list_item($key) } {
+               if {${key} == "font_task" || ${key} == "font_name" || ${key} == "font_label"} {
+                 puts $out "${key} = [string trim [lindex $font 0]]"
+               } elseif {[string match $patternsl ${key}] && $Style(italic)}  {
+                 puts $out "$key = italic"
+               } elseif {[string match $patternsl ${key}] && !$Style(italic)}  {
+                 puts $out "$key = roman"
+               } elseif {[string match $patternst ${key}] && !$Style(bold)}  {
+                 puts $out "$key = normal"
+               } elseif {[string match $patternst ${key}] &&  $Style(bold)}  {
+                 puts $out "$key = bold"
+               } elseif  {[string match $patternul ${key}]}  {
+                 puts $out "$key = $Style(underline)"
+               } elseif  {[string match $pattersiz ${key}]}  {
+                 puts $out "$key = [string trim [lindex $font 1]]"
+               }
+             }
+           }
+           catch { close ${in} }
+           catch { close ${out}}
          }
-         catch { close ${in} }
-         catch { close ${out}}
       }
       if { ${errorMsg} != "" } {
-         error "ERROR: ${errorMsg}"
+         tk_messageBox -message ${errorMsg} \
+     	    -title "Error" -type ok -icon info
       } else {
            file rename -force $f.new $f
            SharedData_readProperties
@@ -152,8 +195,7 @@ namespace eval ::dkfFontSel {
               if { $font_task} {
                 xflow_refreshFlow ${exp_path} ${datestamp} true
               }
-           }
-           
+           }  
       }
     }
 
