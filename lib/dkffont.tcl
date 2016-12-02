@@ -723,10 +723,5 @@ proc DkfFont_getToplevel {} {
 proc DkfFont_init {{_exp_path ""} {_datestamp ""}} {
 
   set font [dkf_chooseFont -apply "wm title ." -exp $_exp_path -datestamp $_datestamp]
-  if {[string length $font]} {
-     return
-  } else {
-     tk_messageBox -message "You cancelled..." \
-     	    -title "Cancel pressed" -type ok -icon info
-  }
+  return
 }

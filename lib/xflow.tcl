@@ -1303,7 +1303,7 @@ proc xflow_showPluginMenu { parentMenu source_w exp_path datestamp node extensio
 # This function is called when user click on a box with button 3
 # It will display a popup menu for the current node.
 proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
-   global ignoreDep  CHECK_PERMISSION SUITE_PERMISSON
+   global ignoreDep  CHECK_PERMISSION SUITE_PERMISSION
 
    ::log::log debug "xflow_nodeMenu exp_path:$exp_path datestamp:$datestamp canvas:$canvas node:$node extension:$extension "
 
@@ -1401,7 +1401,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
             ${submitMenu} entryconfigure "Submit"        -state disabled
             ${submitMenu} entryconfigure "NO Dependency" -state disabled
          }
-         if {${SUITE_PERMISSON} == false} {
+         if {${SUITE_PERMISSION} == false} {
             ${editMenu}   entryconfigure "Node Config"   -state disabled
             ${editMenu}   entryconfigure "Node Resource" -state disabled
          }
@@ -1432,7 +1432,7 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
            ${submitMenu} entryconfigure "NO Dependency"     -state disabled
            ${miscMenu}   entryconfigure "Save Workdir"      -state disabled 
          }
-         if {${SUITE_PERMISSON} == false } {
+         if {${SUITE_PERMISSION} == false } {
            ${editMenu}   entryconfigure "Node Config"       -state disabled
            ${editMenu}   entryconfigure "Node Source"       -state disabled
            ${editMenu}   entryconfigure "Node Resource"     -state disabled      
@@ -1546,7 +1546,7 @@ proc xflow_followDependency {  exp_path datestamp node extension } {
 
 # creates the popup menu for a loop node
 proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension } {
-   global CHECK_PERMISSION SUITE_PERMISSON
+   global CHECK_PERMISSION SUITE_PERMISSION
 
    ::log::log debug "xflow_addLoopNodeMenu() exp_path:${exp_path} datestamp:${datestamp} node:$node"
 
@@ -1621,7 +1621,7 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
       ${submitMenu} entryconfigure "NO Dependency" -state disabled
       ${miscMenu}   entryconfigure "Force status"  -state disabled
    }
-   if {${SUITE_PERMISSON} == false} {
+   if {${SUITE_PERMISSION} == false} {
       ${editMenu}   entryconfigure "Loop Config"   -state disabled
       ${editMenu}   entryconfigure "Loop Resource" -state disabled
    }
@@ -1629,7 +1629,7 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
 
 # creates the popup menu for a npt node
 proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} {
-   global CHECK_PERMISSION SUITE_PERMISSON
+   global CHECK_PERMISSION SUITE_PERMISSION
 
    set infoMenu ${popmenu_w}.info_menu
    set editMenu ${popmenu_w}.edit_menu
@@ -1697,8 +1697,8 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
       ${miscMenu}   entryconfigure "Save Workdir"      -state disabled
    } 
    if {${SUITE_PERMISSION} == false} {
-      ${editMenu}   entryconfigure "Node Source"       -state disabled
-      ${editMenu}   entryconfigure "Node Config"       -state disabled
+     ${editMenu}   entryconfigure "Node Source"       -state disabled
+     ${editMenu}   entryconfigure "Node Config"       -state disabled
       ${editMenu}   entryconfigure "Node Resource"     -state disabled        
   } 
 }
@@ -3540,7 +3540,7 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display true} } {
 
 # add exp settings icon in flow canvas
 proc xflow_addExpSettingsImg { exp_path datestamp canvas } {
-   global CHECK_PERMISSION SUITE_PERMISSON
+   global CHECK_PERMISSION SUITE_PERMISSION
 
    set expCfgImage ${canvas}.exp_cfg_image
    image create photo ${expCfgImage} -file [SharedData_getMiscData IMAGE_DIR]/config.png
@@ -4258,7 +4258,7 @@ proc xflow_validateExp { startup_exp } {
 
 # this function is called to create the widgets of the xflow main window
 proc xflow_createWidgets { exp_path datestamp {topx ""} {topy ""}} {
-   global List_Xflow CHECK_PERMISSION SUITE_PERMISSON
+   global List_Xflow CHECK_PERMISSION SUITE_PERMISSION
 
    ::log::log debug "xflow_createWidgets"
    puts "xflow_createWidgets  ${exp_path} ${datestamp}..."
@@ -4389,16 +4389,16 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
 proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node ""} } {
-   global env PROGRESS_REPORT_TXT SUITE_PERMISSON
+   global env PROGRESS_REPORT_TXT SUITE_PERMISSION
    global SEQ_DATESTAMP CHECK_PERMISSION
    
    set CHECK_PERMISSION true
-   set SUITE_PERMISSON  true
+   set SUITE_PERMISSION  true
    if {![file writable ${exp_path}/sequencing]} {
      set CHECK_PERMISSION false
    } 
    if {![file writable ${exp_path}/modules]} {
-     set SUITE_PERMISSON false
+     set SUITE_PERMISSION false
    } 
    set SEQ_DATESTAMP $datestamp
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} initial_display:${initial_display}"
