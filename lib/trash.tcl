@@ -24,12 +24,18 @@ namespace eval ::trashSel {
 	    $w.datestamp insert end $datestamp
 	}
     }
+    
     proc  Exp_Clean {w {_exp_path ""} } {   
       variable cmd
- 
+      
+      #set PROGRESS_REPORT_TXT "Cleanup experiment"
+      #set progressW [ProgressDlg $w.pcleanup -title "Cleanup experiment" -parent ${w} -textvariable PROGRESS_REPORT_TXT -type incremental -variable 5]
+
       catch { eval [exec ksh -c $cmd&]}
       ::log::log debug "Exp_Clean ksh -c $cmd"
       `Datestamp_Refresh $w 
+
+      #destroy ${progressW}
       tk_messageBox -message "${_exp_path} has been cleaned..." \
      	    -title "Clean Experiment" -type ok -icon info
     }
@@ -111,10 +117,10 @@ namespace eval ::trashSel {
 	# Labelled frames for the framed boxes & focus accelerators
 	# for their contents
 	foreach {subname row col cols padx pady focusWin} {
-	    Datestamp 0 0 1 2m     2m datestamp
+	    Datestamp 0 0 1 1m     2m datestamp
 	    Hostname  0 1 1 {0 2m} 2m hostname
-	    Size   1 0 3 2m     0  size1
-            Option 2 0 3 2m     2m logs
+	    Size   1 0 2 2m     0  size1
+            Option 2 0 2 2m     2m logs
 	} {
 	    set l [labelframe $w.lbl$subname]
 	    grid $l -row $row -column $col -columnspan $cols -sticky nsew \
@@ -131,7 +137,7 @@ namespace eval ::trashSel {
 	scrollbar $w.datestampX -command [list $w.datestamp xview]
 	scrollbar $w.datestampY -command [list $w.datestamp yview]
 	foreach datestamp ['list_datestamp ${_exp_path}] {
-	    $w.datestamp insert end ['map 'capitalise $datestamp]
+	    $w.datestamp insert end  $datestamp
 	}
 	grid columnconfigure $w.lblDatestamp 0 -weight 1
 	grid rowconfigure    $w.lblDatestamp 0 -weight 1
@@ -152,7 +158,7 @@ namespace eval ::trashSel {
 	scrollbar $w.hostnameX -command [list $w.hostname xview]
 	scrollbar $w.hostnameY -command [list $w.hostname yview]
 	foreach hostname ['list_hostnames ${_exp_path}] {
-	    $w.hostname insert end ['map 'capitalise $hostname]
+	    $w.hostname insert end $hostname
 	}
 	grid columnconfigure $w.lblHostname 0 -weight 1
 	grid rowconfigure    $w.lblHostname 0 -weight 1
@@ -192,7 +198,7 @@ namespace eval ::trashSel {
 	entry $w.sizeEntry -textvariable [namespace current]::Size
 	grid $w.sizeEntry -in $w.lblSize -row 0 -column 3 -rowspan 2 \
 		-sticky ew -padx 1m
-	grid columnconfigure $w.lblSize 3 -weight 1
+	grid columnconfigure $w.lblSize 2 -weight 1
 	bind $w.sizeEntry <Return> \
 		[namespace code {'set_listcln ;break}]
 
@@ -217,11 +223,11 @@ namespace eval ::trashSel {
 	    'set_accel $b $w "focus $b; $b invoke"
 	    bind $b <Return> "$b invoke; break"
 	}
-        grid columnconfigure $w.lblOption 3 -weight 1
+        grid columnconfigure $w.lblOption 2 -weight 1
 
 	# OK, Cancel and (partially) Apply.  See also 'configure_apply
 	frame $w.butnframe
-	grid $w.butnframe -row 0 -column 2 -sticky nsew -pady 2m -padx {0 2m}
+	grid $w.butnframe -row 4 -column 0 -columnspan 2 -sticky nsew 
 	foreach {but code dir target} {
 	    can 0  Down cln
 	    cln 1  Up   can
@@ -229,9 +235,10 @@ namespace eval ::trashSel {
 	    set b $w.butnframe.$but
 	    button $b -command [namespace code [list set Done $code]]
 	    'set_accel $b $w [list $b invoke]
-	    pack $b -side top -fill x -padx 0 -pady "2m 0"
+	    pack $b  -side left -fill both -padx 0 -pady "2m 0"
 	    bind $b <$dir> [list focus $w.butnframe.$target]
 	}
+
     }
     # Install the accelerator for the given window ($w) on the second
     # given window ($bindwin) as the script ($script).
@@ -311,8 +318,8 @@ namespace eval ::trashSel {
 
 	    array set packinfo [pack info $w.butnframe.can]
 	    $b configure -command [namespace code [list 'do_Clnexp $w $script ${_exp_path}]]
-	    pack $b -side top -fill x -padx $packinfo(-padx) \
-		    -pady $packinfo(-pady)
+	    pack $b -side left -fill both -padx $packinfo(-padx) \
+		    -pady $packinfo(-pady) 
 
 	    bind $w.butnframe.can <Down> [list focus $w.butnframe.cln]
 	    bind $w.butnframe.cln <Up>   [list focus $w.butnframe.can]
@@ -375,14 +382,14 @@ namespace eval ::trashSel {
         set ll_host {}
         set result {}
         set result all
-        lappend ll_host {ALL all}
+        lappend ll_host {all all}
         set files [glob -nocomplain -type d ${exp_path}/listings/*]
         if { [llength $files] > 0 } {
           foreach f [lsort $files] {
              if {![string match "*latest*" $f]} {
                set     value   [lindex  [split [file tail [lindex $f 0]] "_"] 0]
                lappend result  $value
-               lappend ll_host [list [string toupper [string range $value 0 end]] ${value}]
+               lappend ll_host [list [string range $value 0 end] ${value}]
              }
           }
         }
@@ -557,11 +564,5 @@ proc Trash_init {{_exp_path ""} {_datestamp ""}} {
 
   set EXP_PATH $_exp_path
   set result  [trash_choose -apply "wm title ." -exp $_exp_path -datestamps $_datestamp]
-  
-  if {[string length $result]} {
-     return
-  } else {
-     tk_messageBox -message "You cancelled..." \
-     	    -title "Cancel pressed" -type ok -icon info
-  }
+  return
 }
