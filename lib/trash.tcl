@@ -14,12 +14,23 @@ namespace eval ::trashSel {
     if {![catch {package present tile}]} {
 	namespace import ::ttk::*
     }
-    proc  Exp_Clean { {_exp_path ""} } {   
+    proc `Datestamp_Refresh {w} {
+        global EXP_PATH
+
+        set size [$w.datestamp  size]
+        $w.datestamp delete 0 [expr $size - 1]
+        
+        foreach datestamp ['list_datestamp ${EXP_PATH}] {
+	    $w.datestamp insert end $datestamp
+	}
+    }
+    proc  Exp_Clean {w {_exp_path ""} } {   
       variable cmd
-  
+ 
       catch { eval [exec ksh -c $cmd&]}
       ::log::log debug "Exp_Clean ksh -c $cmd"
-       tk_messageBox -message "${_exp_path} has been cleaned..." \
+      `Datestamp_Refresh $w 
+      tk_messageBox -message "${_exp_path} has been cleaned..." \
      	    -title "Clean Experiment" -type ok -icon info
     }
 
@@ -59,9 +70,10 @@ namespace eval ::trashSel {
     # Capitalise the given word.  Assumes the first capitalisable
     # letter is the first character in the argument.
     proc 'capitalise {word} {
-	set cUpper [string toupper [string index $word 0]]
-	set cLower [string tolower [string range $word 1 end]]
-	return ${cUpper}${cLower}
+	#set cUpper [string toupper [string index $word 0]]
+	#set cLower [string tolower [string range $word 1 end]]
+        set cUpper [string toupper [string range $word 0 end]]
+	return ${cUpper}
     }
 
     # The classic functional operation.  Replaces each element of the
@@ -81,17 +93,18 @@ namespace eval ::trashSel {
 
     variable Datestamp 20161123
     variable Size   1
+    variable Del    "del1"
     variable Done   0
     variable exp_path 
     variable datestamps
     variable Hostname ""
     variable cmd {}
+    variable ll_host {}
     variable Option 
     array set Option {
-	all   0
         logs  0
-        nb    0
     }
+    
     # Build the user interface (except for the apply button, which is
     # handled by the 'configure_apply procedure...
     proc 'make_UI {w {_exp_path ""}} {
@@ -101,7 +114,7 @@ namespace eval ::trashSel {
 	    Datestamp 0 0 1 2m     2m datestamp
 	    Hostname  0 1 1 {0 2m} 2m hostname
 	    Size   1 0 3 2m     0  size1
-            Option 2 0 3 2m     2m all
+            Option 2 0 3 2m     2m logs
 	} {
 	    set l [labelframe $w.lbl$subname]
 	    grid $l -row $row -column $col -columnspan $cols -sticky nsew \
@@ -165,6 +178,7 @@ namespace eval ::trashSel {
 	    set b $w.size$size
 	    radiobutton $b -variable [namespace current]::Size -value $size \
 		    -command [namespace code 'set_listcln]
+            ::tooltip::tooltip $b "Files older than $size days will be removed"
 	    grid $b -in $w.lblSize -row $row -column $col -sticky ew
 	    if {[string length $u]} {bind $b <Up>    [list focus $w.size$u]}
 	    if {[string length $d]} {bind $b <Down>  [list focus $w.size$d]}
@@ -184,12 +198,17 @@ namespace eval ::trashSel {
 
         # Font styles.
 	foreach {opt_item lcitem row col l r} {
-	    Allhost all  0 0 {} logs
-	    Logs    logs 0 1 Allhost Nb
-            Nb      nb   0 2 Logs {}
+	    Logs    logs 0 0 {}   del1
+            del1    del1 0 1 Logs del2
+            del2    del2 0 2 del1 {}
 	} {
 	    set b $w.option$opt_item
-	    checkbutton $b -variable [namespace current]::Option($lcitem) 
+            if { $opt_item != "Logs" } {
+               radiobutton $b -variable [namespace current]::Del -value $lcitem \
+		    -command [namespace code 'set_listcln]
+            } else {
+	       checkbutton $b -variable [namespace current]::Option($lcitem)
+            } 
             grid $b -in $w.lblOption -row $row -column $col -sticky ew
 	    if {[string length $r]} {bind $b <Right> [list focus $w.option$r]}
 	    if {[string length $l]} {bind $b <Left>  [list focus $w.option$l]}
@@ -275,8 +294,8 @@ namespace eval ::trashSel {
     # The apply button runs this script when pressed.
     proc 'do_Clnexp {w script {_exp_path ""}} {
 	set cmd ['set_listcln ${_exp_path}]
-         
-        Exp_Clean ${_exp_path}
+        
+        Exp_Clean $w ${_exp_path}
 	uplevel #0 $script
     }
 
@@ -302,7 +321,7 @@ namespace eval ::trashSel {
 	}
     }
 
-     # Set the font on the editor window based on the information in
+    # Set the font on the editor window based on the information in
     # the namespace variables.  Returns a 1 if the operation was a
     # failure and 0 if it iwas a success.
     proc 'set_listcln { {_exp_path ""}} {
@@ -310,27 +329,23 @@ namespace eval ::trashSel {
 	variable Datestamp
 	variable Hostname
 	variable Size
+        variable Del
         variable cmd
 	variable Win
-        
+        variable ll_host
+      
+        set hostnameIndex [lsearch $ll_host $Hostname*]
         set cmd  {}
 	if {[catch {
-           if {$Option(logs) && $Option(all) && $Option(nb)} { 
-              set cmd [list expclean -e ${_exp_path} -t $Size -m "all" -l "1"]
-           } elseif { $Option(all) && !$Option(logs) && !$Option(nb)} {
-              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m "all"]
-           } elseif { $Option(all) && $Option(logs) && !$Option(nb)} {
-              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m "all" -l "1"]
-           } elseif { !$Option(all) && $Option(logs) && $Option(nb)} {
-              set cmd [list expclean -e ${_exp_path} -t $Size -m $Hostname -l "1"]
-           } elseif { !$Option(all) && $Option(logs) && !$Option(nb)} {
-              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m $Hostname -l "1"]
-           } elseif { $Option(all) && !$Option(logs) && $Option(nb)} {
-              set cmd [list expclean -e ${_exp_path} -t $Size -m "all" ]
-           } elseif { !$Option(all) && $Option(logs) && $Option(nb)} {
-              set cmd [list expclean  -e ${_exp_path} -t $Size -m $Hostname -l "1"]
-           } elseif { !$Option(all) && !$Option(logs) && $Option(nb)} {
-              set cmd [list expclean -e ${_exp_path} -t $Size -m $Hostname ]
+           if {$hostnameIndex >= "0" && $Option(logs) && ${Del} == "del2"} { 
+              set cmd [list expclean -e ${_exp_path} -t $Size -m [lindex $ll_host $hostnameIndex 1] -l "1"]
+            } elseif { $hostnameIndex >= "0" && !$Option(logs) && ${Del} == "del2"} {
+              set cmd [list expclean -e ${_exp_path} -t $Size -m [lindex $ll_host $hostnameIndex 1] ]
+           } elseif { $hostnameIndex >= "0" && !$Option(logs) && ${Del} == "del1"} {
+              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m [lindex $ll_host $hostnameIndex 1]]
+           } elseif { $hostnameIndex >= "0" && $Option(logs) && ${Del} == "del1"} {
+              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m [lindex $ll_host $hostnameIndex 1] -l "1"]
+          
            } else {
               set cmd [list expclean -e ${_exp_path} -d $Datestamp -m $Hostname]
            } 
@@ -355,12 +370,19 @@ namespace eval ::trashSel {
      # Get a sorted lower-case list of all the font families defined on
     # the system.  A canonicalisation of [font families]
     proc 'list_hostnames {{exp_path ""}} {
+        variable ll_host
+        
+        set ll_host {}
         set result {}
+        set result all
+        lappend ll_host {ALL all}
         set files [glob -nocomplain -type d ${exp_path}/listings/*]
         if { [llength $files] > 0 } {
           foreach f [lsort $files] {
              if {![string match "*latest*" $f]} {
-               lappend result [lindex  [split [file tail [lindex $f 0]] "_"] 0]
+               set     value   [lindex  [split [file tail [lindex $f 0]] "_"] 0]
+               lappend result  $value
+               lappend ll_host [list [string toupper [string range $value 0 end]] ${value}]
              }
           }
         }
@@ -417,11 +439,8 @@ namespace eval ::trashSel {
 	}
         set exp_path   $options(-exp)
         set datestamps $options(-datestamps)
-        foreach item {all logs nb} {
-           if {$item == "all" || $item == "logs"} { 
-	     set Option($item) 1
-           }
-	}
+       
+        set Option(logs) 1
 	'make_UI $w ${exp_path}
 	bind $w <Return>  [namespace code {set Done 0}]
 	bind $w <Escape>  [namespace code {set Done 1}]
@@ -433,39 +452,16 @@ namespace eval ::trashSel {
         set datestamp $options(-datestamps)
 	
 	set Datestamp $datestamp
-	set datestampIndex [lsearch -exact ['list_datestamp ${exp_path}] $datestamp]
-	if {$datestampIndex<0} {
-	    wm withdraw $w
-	    tk_messageBox -type ok -icon warning -title "Bad Datestamp" \
-		    -message "datestamp \"$datestamp\" is unknown.  Guessing..."
-	    set datestamp $datestamp 
-	    set datestampIndex [lsearch -exact ['list_datestamp ${exp_path}] \
-		    [string tolower $datestamp]]
-	    if {$datestampIndex<0} {
-		return -code error "unknown datestamp fallback \"$datestamp\""
-	    }
-	    wm deiconify $w
-	}
-	$w.datestamp selection set $datestampIndex
-	$w.datestamp see $datestampIndex
-	set hostname $env(HOST)
-	set Hostname $hostname
-	set hostnameIndex [lsearch -exact ['list_hostnames ${exp_path}] $hostname]
-	if {$hostnameIndex<0} {
-	    wm withdraw $w
-	    tk_messageBox -type ok -icon warning -title "Bad Hostname" \
-		    -message "\"$hostname\" is unknown.  Guessing..."
-	    set hostname      $hostname
-	    set hostnameIndex [lsearch -exact ['list_hostnames ${exp_path}] \
-		    [string tolower $hostname]]
-	    if {$hostnameIndex<0} {
-		return -code error "unknown hostname fallback \"$hostname\""
-	    }
-	    wm deiconify $w
-	}
-	$w.hostname selection set $hostnameIndex
-	$w.hostname see $hostnameIndex
+        if {[llength ['list_datestamp ${exp_path}]]} { 
+           $w.datestamp selection set 0
+	   $w.datestamp see 0
+        }
+        if {[llength ['list_hostnames ${exp_path}]]} { 
+	  $w.hostname selection set 0
+	  $w.hostname see 0
+        }
 	set Size 1
+        set Del  "del1"
         set cmd {}
 
 	'set_listcln ${exp_path}

@@ -17,7 +17,7 @@ proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command titl
    catch {[exec rm -f ${tmpfile}]}
 }
 
-proc Sequencer_runSubmit { exp_path datestamp parent_top command title position run_remote {Id "null"} {list_item "null"} args } {
+proc Sequencer_runSubmit { exp_path datestamp parent_top command title position run_remote  args {Id "null"} {list_item "null"}} {
    global env SUBMIT_POPUP POPUP_ACTIVATION_COUNTER 
   
    regsub -all " " [file tail $command] _ tmpfile
@@ -28,6 +28,7 @@ proc Sequencer_runSubmit { exp_path datestamp parent_top command title position 
    set id [clock seconds]
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
+
    Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote} ${list_item}
    ::log::log notice "${command} [join ${args}]"
    Utils_logFileContent notice ${tmpfile}
@@ -58,7 +59,6 @@ proc Sequencer_runCommand { exp_path datestamp out_file command run_remote {list
    }
 
    set remote_host [ SharedData_getMiscData REMOTE_HOST ]
-
    if { $remote_host != "" && ${run_remote} > 0 } {
       # Send command through ssh pipe
       set remote_user [ SharedData_getMiscData REMOTE_USER ]

@@ -207,7 +207,7 @@ proc xflow_createToolbar { exp_path datestamp parent } {
    image create photo ${parent}.close -file ${imageDir}/cancel.gif
    image create photo ${parent}.color_legend_img -file ${imageDir}/color_legend.gif
    image create photo ${parent}.trash -file ${imageDir}/trash.gif
-   image create photo ${parent}.dkfont -file ${imageDir}/font.png
+   image create photo ${parent}.dkfont -file ${imageDir}/font.gif
    #image create photo ${parent}.ignore_dep_false -file ${imageDir}/dep_off.ppm
    image create photo ${parent}.shell_img -file ${imageDir}/terminal.ppm
 
@@ -2534,6 +2534,7 @@ proc xflow_batchCallback { exp_path datestamp node extension canvas {full_loop 0
 # - local_ignore should be set to "dep_off" for local dependencies to be ignored.
 proc xflow_submitCallback { exp_path datestamp node extension canvas flow {local_ignore_dep dep_on} } {
    global SESSION_TMPDIR
+
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return

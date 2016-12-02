@@ -62,20 +62,14 @@
 ! are meant to edit there.
 *TRASHChoose.Entry.background:	white
 
-! Emboldened style toggle.  The accelerator focusses and invokes.
-*TRASHChoose.optionAllhost.text:	All Host
-*TRASHChoose.optionAllhost.underline:	0
-*TRASHChoose.optionAllhost.accelerator:	Control-t
-
 ! Italicised style toggle.  The accelerator focusses and invokes.
 *TRASHChoose.optionLogs.text:	Delete Logs
 *TRASHChoose.optionLogs.underline:	0
 *TRASHChoose.optionLogs.accelerator:	Control-l
 
 ! Italicised style toggle.  The accelerator focusses and invokes.
-*TRASHChoose.optionNb.text:	        Use Real-Time
-*TRASHChoose.optionNb.underline:	0
-*TRASHChoose.optionNb.accelerator:	Control-l
+*TRASHChoose.optiondel1.text:	Delete by datestamp
+*TRASHChoose.optiondel2.text:	Delete by file age
 
 ! What the buttons look like.  Note that for the buttons to look right
 ! on Unix, you must either make all the buttons have their default
