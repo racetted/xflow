@@ -55,7 +55,7 @@ namespace eval ::dkfFontSel {
       set errorMsg ""
       set f [SharedData_getMiscData RC_FILE]
       if {![file writable ${f}]} {
-        set errorMsg "$f \n read only"  
+        set errorMsg "$f \n permission denied"  
       } 
       set f.new $env(HOME)/.maestrorc.new
       if { [file exists ${f}] } {
