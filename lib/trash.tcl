@@ -14,6 +14,24 @@ namespace eval ::trashSel {
     if {![catch {package present tile}]} {
 	namespace import ::ttk::*
     }
+    
+    #Jobs will be activated only if occupation is enabled
+    proc `Activate_listdate {w opt_item} {
+       if { $opt_item == "del1" } {
+          $w.datestamp configure -state normal
+          for {set i 1} {$i < 7} {incr i} { 
+            $w.size$i configure -state disable
+          }
+          $w.sizeEntry configure -state disable
+	} else {
+          $w.datestamp configure -state disable
+          for {set i 1} {$i < 7} {incr i} { 
+            $w.size$i configure -state normal
+          }
+          $w.sizeEntry configure -state normal
+	}
+    }
+
     proc `Datestamp_Refresh {w} {
         global EXP_PATH
 
@@ -211,7 +229,11 @@ namespace eval ::trashSel {
 	    set b $w.option$opt_item
             if { $opt_item != "Logs" } {
                radiobutton $b -variable [namespace current]::Del -value $lcitem \
-		    -command [namespace code 'set_listcln]
+		    -command [namespace code 'set_listcln ]
+               bind $b <Button-1> [namespace code [list `Activate_listdate $w $opt_item]]
+               if {$opt_item == "del1"} {
+                 `Activate_listdate $w $opt_item
+               }
             } else {
 	       checkbutton $b -variable [namespace current]::Option($lcitem)
             } 
@@ -331,7 +353,7 @@ namespace eval ::trashSel {
     # Set the font on the editor window based on the information in
     # the namespace variables.  Returns a 1 if the operation was a
     # failure and 0 if it iwas a success.
-    proc 'set_listcln { {_exp_path ""}} {
+    proc 'set_listcln {{_exp_path ""}} {
         variable Option
 	variable Datestamp
 	variable Hostname
@@ -342,6 +364,7 @@ namespace eval ::trashSel {
         variable ll_host
       
         set hostnameIndex [lsearch $ll_host $Hostname*]
+
         set cmd  {}
 	if {[catch {
            if {$hostnameIndex >= "0" && $Option(logs) && ${Del} == "del2"} { 

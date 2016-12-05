@@ -3441,7 +3441,7 @@ proc Overview_createToolbar { _toplevelW } {
    image create photo ${toolbarW}.msg_center_img -file ${imageDir}/open_mail_sh.gif
    image create photo ${toolbarW}.msg_center_new_img -file ${imageDir}/open_mail_new.gif
    image create photo ${toolbarW}.color_legend_img -file ${imageDir}/color_legend.gif
-   image create photo ${toolbarW}.font_img -file ${imageDir}/font.png
+   image create photo ${toolbarW}.font_img -file ${imageDir}/font.gif
 
    button ${mesgCenterW} -image ${toolbarW}.msg_center_img -command [list MsgCenter_show true] -relief flat
 
