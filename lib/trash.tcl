@@ -123,7 +123,6 @@ namespace eval ::trashSel {
     variable datestamps
     variable Hostname ""
     variable cmd {}
-    variable ll_host {}
     variable Option 
     array set Option {
         logs  0
@@ -360,22 +359,17 @@ namespace eval ::trashSel {
 	variable Size
         variable Del
         variable cmd
-	variable Win
-        variable ll_host
       
-        set hostnameIndex [lsearch $ll_host $Hostname*]
-
         set cmd  {}
 	if {[catch {
-           if {$hostnameIndex >= "0" && $Option(logs) && ${Del} == "del2"} { 
-              set cmd [list expclean -e ${_exp_path} -t $Size -m [lindex $ll_host $hostnameIndex 1] -l "1"]
-            } elseif { $hostnameIndex >= "0" && !$Option(logs) && ${Del} == "del2"} {
-              set cmd [list expclean -e ${_exp_path} -t $Size -m [lindex $ll_host $hostnameIndex 1] ]
-           } elseif { $hostnameIndex >= "0" && !$Option(logs) && ${Del} == "del1"} {
-              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m [lindex $ll_host $hostnameIndex 1]]
-           } elseif { $hostnameIndex >= "0" && $Option(logs) && ${Del} == "del1"} {
-              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m [lindex $ll_host $hostnameIndex 1] -l "1"]
-          
+           if { $Option(logs) && ${Del} == "del2"} { 
+              set cmd [list expclean -e ${_exp_path} -t $Size -m $Hostname -l 1]
+           } elseif { $Option(logs) && ${Del} == "del1"} {
+              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m $Hostname -l 1]
+           } elseif { !$Option(logs) && ${Del} == "del2"} {
+              set cmd [list expclean -e ${_exp_path} -t $Size -m $Hostname]
+           } elseif { !$Option(logs) && ${Del} == "del1"} {
+              set cmd [list expclean -e ${_exp_path} -d $Datestamp -m $Hostname]
            } else {
               set cmd [list expclean -e ${_exp_path} -d $Datestamp -m $Hostname]
            } 
@@ -400,19 +394,15 @@ namespace eval ::trashSel {
      # Get a sorted lower-case list of all the font families defined on
     # the system.  A canonicalisation of [font families]
     proc 'list_hostnames {{exp_path ""}} {
-        variable ll_host
-        
-        set ll_host {}
         set result {}
         set result all
-        lappend ll_host {all all}
+
         set files [glob -nocomplain -type d ${exp_path}/listings/*]
         if { [llength $files] > 0 } {
           foreach f [lsort $files] {
              if {![string match "*latest*" $f]} {
                set     value   [lindex  [split [file tail [lindex $f 0]] "_"] 0]
                lappend result  $value
-               lappend ll_host [list [string range $value 0 end] ${value}]
              }
           }
         }
@@ -486,6 +476,7 @@ namespace eval ::trashSel {
            $w.datestamp selection set 0
 	   $w.datestamp see 0
         }
+        set Hostname "all"
         if {[llength ['list_hostnames ${exp_path}]]} { 
 	  $w.hostname selection set 0
 	  $w.hostname see 0
