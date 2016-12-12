@@ -1565,7 +1565,7 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
    ${infoMenu} add command -label "Node Full Config" -command [list xflow_fullConfigCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w}]
    ${infoMenu} add command -label "Loop Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node ${extension} $canvas 1]
    ${infoMenu} add command -label "Member Node Batch" -command [list xflow_batchCallback ${exp_path} ${datestamp} $node ${extension} $canvas 0]
-   ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} ]
+   ${infoMenu} add command -label "Node Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "info" ]
  
    ${editMenu} add command -label "Loop Config"   -command [list xflow_configCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "edit"]
    ${editMenu} add command -label "Loop Resource" -command [list xflow_resourceCallback ${exp_path} ${datestamp} $node $canvas ${popmenu_w} "edit"]
