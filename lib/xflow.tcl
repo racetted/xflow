@@ -949,20 +949,17 @@ proc xflow_getNodeDisplayPrefText { exp_path datestamp node member } {
 
       default {
          if { ${displayPref} == "catchup" || [string match "*task" [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]] } {
-            # set attrValue "[SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} ${attrName}]"
             set seq_node [SharedFlowNode_getSequencerNode $exp_path $node $datestamp]
-            set attrValue "[TsvInfo_getNodeInfo $seq_node resources.$attrName]"
+            set attrValue "[TsvInfo_getNodeInfo  ${exp_path} $seq_node ${datestamp} resources.$attrName]"
             if { ${displayPref} == "machine_queue" } {
-               # set queue [SharedFlowNode_getQueue ${exp_path} ${node} ${datestamp}]
-               set queue [TsvInfo_getNodeInfo $seq_node resources.queue]
+               set queue [TsvInfo_getNodeInfo  ${exp_path} $seq_node ${datestamp} resources.queue]
                if { ${queue} != "null" } {
                   set attrValue "${attrValue}:${queue}"
                }
             }
             set attrValue "(${attrValue})"
             if { ${displayPref} == "cpu" } {
-               # set cpuMult [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} cpu_multiplier]
-               set cpuMult [TsvInfo_getNodeInfo $seq_node resources.cpu_multiplier]
+               set cpuMult [TsvInfo_getNodeInfo ${exp_path} $seq_node ${datestamp} resources.cpu_multiplier]
                if { ${cpuMult} != "1" } {
                   set attrValue "${attrValue}x(${cpuMult})"
                }
