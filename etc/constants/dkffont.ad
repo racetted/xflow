@@ -62,7 +62,7 @@
 
 ! Extra details of the font family chooser.  The bindings are too
 ! complex to be specified here though...
-*DKFChooseFont.family.height:		1
+*DKFChooseFont.family.height:		5
 *DKFChooseFont.family.width:		20
 *DKFChooseFont.familyX.orient:		horizontal
 *DKFChooseFont.familyY.orient:		vertical

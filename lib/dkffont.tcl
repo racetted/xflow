@@ -282,9 +282,9 @@ namespace eval ::dkfFontSel {
 	foreach {subname row col cols padx pady focusWin} {
 	    Family 0 0 1 2m     2m family
 	    Style  0 1 1 {0 2m} 2m styleBold
-	    Size   1 0 3 2m     0  size8
-	    Sample 2 0 3 2m     2m sample.text
-            Applyon 3 0 3 2m     2m task
+	    Size   1 0 2 2m     0  size8
+	    Sample 2 0 2 2m     2m sample.text
+            Applyon 3 0 2 2m     2m task
 	} {
 	    set l [labelframe $w.lbl$subname]
 	    grid $l -row $row -column $col -columnspan $cols -sticky nsew \
@@ -405,7 +405,7 @@ namespace eval ::dkfFontSel {
         grid columnconfigure $w.lblApplyon 3 -weight 1
 	# OK, Cancel and (partially) Apply.  See also 'configure_apply
 	frame $w.butnframe
-	grid $w.butnframe -row 0 -column 2 -sticky nsew -pady 2m -padx {0 2m}
+	grid $w.butnframe -row 4 -column 0 -sticky nsew -pady 0 -padx {2m 2m}
 	foreach {but code dir target} {
 	    ok  0  Down can
 	    can 1  Up   ok
@@ -413,7 +413,7 @@ namespace eval ::dkfFontSel {
 	    set b $w.butnframe.$but
 	    button $b -command [namespace code [list set Done $code]]
 	    'set_accel $b $w [list $b invoke]
-	    pack $b -side top -fill x -padx 0 -pady "2m 0"
+	    pack $b -side left -fill x -padx {0 2m}
 	    bind $b <$dir> [list focus $w.butnframe.$target]
 	}
 	button $w.butnframe.apl
@@ -470,7 +470,7 @@ namespace eval ::dkfFontSel {
 
 	    array set packinfo [pack info $w.butnframe.ok]
 	    $b configure -command [namespace code [list 'do_apply $w $script]]
-	    pack $b -side top -fill x -padx $packinfo(-padx) \
+	    pack $b -side left -fill x -padx $packinfo(-padx) \
 		    -pady $packinfo(-pady)
 
 	    bind $w.butnframe.can <Down> [list focus $w.butnframe.apl]
