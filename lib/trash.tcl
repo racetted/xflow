@@ -248,7 +248,7 @@ namespace eval ::trashSel {
 
 	# OK, Cancel and (partially) Apply.  See also 'configure_apply
 	frame $w.butnframe
-	grid $w.butnframe -row 4 -column 0 -columnspan 2 -sticky nsew 
+	grid $w.butnframe -row 4 -column 0 -sticky nsew -pady 0 -padx {2m 2m} 
 	foreach {but code dir target} {
 	    can 0  Down cln
 	    cln 1  Up   can
@@ -256,7 +256,7 @@ namespace eval ::trashSel {
 	    set b $w.butnframe.$but
 	    button $b -command [namespace code [list set Done $code]]
 	    'set_accel $b $w [list $b invoke]
-	    pack $b  -side left -fill both -padx 0 -pady "2m 0"
+	    pack $b  -side left -fill x -padx {0 2m} 
 	    bind $b <$dir> [list focus $w.butnframe.$target]
 	}
 
@@ -339,7 +339,7 @@ namespace eval ::trashSel {
 
 	    array set packinfo [pack info $w.butnframe.can]
 	    $b configure -command [namespace code [list 'do_Clnexp $w $script ${_exp_path}]]
-	    pack $b -side left -fill both -padx $packinfo(-padx) \
+	    pack $b -side left -fill x -padx $packinfo(-padx) \
 		    -pady $packinfo(-pady) 
 
 	    bind $w.butnframe.can <Down> [list focus $w.butnframe.cln]
