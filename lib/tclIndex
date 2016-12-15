@@ -517,7 +517,6 @@ set auto_index(SharedFlowNode_getNodeExtension) [list source [file join $dir Sha
 set auto_index(SharedFlowNode_getExtDisplay) [list source [file join $dir SharedFlowNode.tcl]]
 set auto_index(SharedFlowNode_getParentLoopExt) [list source [file join $dir SharedFlowNode.tcl]]
 set auto_index(SharedFlowNode_getIndexValue) [list source [file join $dir SharedFlowNode.tcl]]
-set auto_index(SharedFlowNode_getLoopInfo) [list source [file join $dir SharedFlowNode.tcl]]
 set auto_index(SharedFlowNode_getNodeFromDisplayFormat) [list source [file join $dir SharedFlowNode.tcl]]
 set auto_index(SharedFlowNode_getExtFromDisplayFormat) [list source [file join $dir SharedFlowNode.tcl]]
 set auto_index(SharedFlowNode_getLoopTooltip) [list source [file join $dir SharedFlowNode.tcl]]

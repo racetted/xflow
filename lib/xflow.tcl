@@ -1197,7 +1197,6 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
          ${indexListW} configure -modifycmd [list xflow_indexedNodeSelectionCallback ${exp_path} ${node} ${datestamp} ${canvas} ${indexListW}]
       }
       "loop" {
-         # set text "${text}\n[SharedFlowNode_getLoopInfo ${exp_path} ${node} ${datestamp}]"
          set text "${text}\n[TsvInfo_getLoopInfo $exp_path $node $datestamp]"
          ::DrawUtils::drawOval ${exp_path} ${datestamp} $canvas $tx1 $ty1 $text $text $normalTxtFill $outline $normalFill $node $drawshadow $shadowColor
          set helpText "[SharedFlowNode_getLoopTooltip  ${exp_path} ${node} ${datestamp}]"
@@ -2558,6 +2557,7 @@ proc xflow_submitCallback { exp_path datestamp node extension canvas flow {local
 # same as previous but for loop node
 proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {local_ignore_dep dep_on}} {
    set ignoreDepFlag ""
+   set tmpExpression ""
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node submit" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -2571,12 +2571,14 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
    if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      set tmpExpression [SharedFlowNode_getGenericAttribute $exp_path $node $datestamp expression]
+      if { [TsvInfo_haskey ${exp_path} $node ${datestamp} loop.expression] } { 
+         set tmpExpression [TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.expression]
+      }
       if { $tmpExpression == "" } {
-         set loopStart [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp start])]
-         set loopEnd [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp end])]
-         set loopStep [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp step])]
-         set loopSet [expr abs([SharedFlowNode_getGenericAttribute $exp_path $node $datestamp set])]
+         set loopStart [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.start])]
+         set loopStep [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.step])]
+         set loopSet [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.set])]
+         set loopEnd [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.end])]
          if { $loopSet == 0 } {
             set loopSet 1
          }
