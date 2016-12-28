@@ -1,19 +1,19 @@
 #!/bin/ksh
 
 [[ "$1" = --help || "$1" = -h ]] && set -h
+# check tcl/tk installation: 
+[[ -z ${SEQ_MAESTRO_DOMAIN} ]] && echo "SEQ_MAESTRO_DOMAIN not set, maestro installation incomplete" && exit 1 
 
-arch=`uname -s`
-if [[ "$arch" = "Linux" ]]; then
-   #TCLSH=/home/binops/afsi/ssm/domain2/tcl-tk_8.5.11_linux26-i686/bin/wish8.5
-   TCLSH=$(which maestro_wish8.5)
-   if [[ "${TCLSH}" == "" ]] ; then
-      echo "\nERROR: executable \"maestro_wish8.5\" not found! Cannot start application..."
-      exit 1
-   fi
-else
-   echo xflow is only supported on Linux platforms >&2
-   exit
-fi
+if ! [[ -f ${SEQ_MAESTRO_DOMAIN}/tcl-tk_8.5.11_${ORDENV_PLAT}/bin/maestro_wish8.5 ]] ; then 
+    echo "Installation incomplete. tcl/tk package must be installed within $SEQ_MAESTRO_DOMAIN." 
+    exit 1 
+fi 
+
+export PATH=${PATH}:${SEQ_MAESTRO_DOMAIN}/tcl-tk_8.5.11_${ORDENV_PLAT}/bin
+export TCL_LIBRARY=${TCL_LIBRARY}:${SEQ_MAESTRO_DOMAIN}/tcl-tk_8.5.11_${ORDENV_PLAT}/lib/tcl8.5
+export TK_LIBRARY=${TK_LIBRARY}:${SEQ_MAESTRO_DOMAIN}/tcl-tk_8.5.11_${ORDENV_PLAT}/lib/tk8.5
+
+TCLSH=$(which maestro_wish8.5)
 
 if [[ "${SEQ_XFLOW_BIN}" == "" ]] ; then
    echo "SEQ_XFLOW_BIN environment variable not defined! Exiting..." >&2
