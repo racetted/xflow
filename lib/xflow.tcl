@@ -3168,7 +3168,8 @@ proc xflow_diffListing { exp_path datestamp listw } {
     }
     
     if { [catch { exec which xxdiff } errmsg] } {
-       exec ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff [lindex $outputList 0] [lindex $outputList 1] &
+       set tkdiff_location [ exec which tkdiff ] 
+       exec ${tclsh} $tkdiff_location [lindex $outputList 0] [lindex $outputList 1] &
     } else {
        exec xxdiff [lindex $outputList 0] [lindex $outputList 1] --text &
     }
@@ -3255,7 +3256,8 @@ proc xflow_diffLatestListings { exp_path datestamp node extension canvas {full_l
       Sequencer_runCommand ${exp_path} ${datestamp} ${abortOutputfile} ${abortSeqCmd} 1
 
       if { [catch { exec which xxdiff } errmsg] } {
-         exec ${tclsh} $::env(SEQ_XFLOW_BIN)/tkdiff $successOutputfile $abortOutputfile &
+         set tkdiff_location [ exec which tkdiff ] 
+         exec ${tclsh} $tkdiff_location $successOutputfile $abortOutputfile &
       } else {
          exec xxdiff $successOutputfile $abortOutputfile --text &
       }
