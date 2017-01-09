@@ -258,6 +258,7 @@ proc SharedFlowNode_findNodes { exp_path node datestamp search_value match_case 
 # returns a list of all extensions belonging to the
 # current loop node
 proc SharedFlowNode_getLoopExtensions { exp_path node datestamp } {
+   # puts SharedFlowNode_getLoopExtensions ${exp_path} ${node} ${datestamp}
    set extensions {}
    switch [SharedFlowNode_getGenericAttribute ${exp_path} ${node} ${datestamp} loop_type]] {
       loopset -
@@ -1398,35 +1399,6 @@ proc SharedFlowNode_getIndexValue { value } {
       catch { set returnValue [string range $value 1 end] }
    }
    return $returnValue
-}
-
-proc SharedFlowNode_getLoopInfo { exp_path loop_node datestamp } {
-   set txt [TsvInfo_getLoopInfo ${exp_path} ${loop_node} ${datestamp}]
-
-   proc out {} {
-   switch [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} loop_type] {
-      default {
-         set tmpExpression [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} expression]
-         if { $tmpExpression == "" } {
-            set start [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} start]
-            set step [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} step]
-            set setValue [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} set]
-            set end [SharedFlowNode_getGenericAttribute ${exp_path} ${loop_node} ${datestamp} end]
-            set txt "\[${start},${end},${step},${setValue}\]"
-         } else {
-            set txt "\[$tmpExpression\]"
-            #set tmptxt [split $txt ","]
-            #set txt ""
-            #foreach def $tmptxt {
-            #   append txt $def "\n"
-            #}
-            #string range $txt 0 end-2
-         }
-      }
-   }
-   }
-
-   return $txt
 }
 
 # input: /a/b/c+12+1 or /a/b/c.+12+1
