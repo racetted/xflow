@@ -2860,7 +2860,7 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
    set tmpdir $env(TMPDIR)
    set tmpfile "${tmpdir}/test$id"
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
-
+ 
    set listerPath nodelister
    Utils_busyCursor [winfo toplevel ${canvas}]
 
@@ -2979,19 +2979,19 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
                 set splittedArgs [split $tmpLine]
                 set listingName  [file tail $splittedArgs]
                 set listingFile "$nodepath/$listingName"
-                $subf1.list insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
+                $subf1.list insert end "[lindex $splittedArgs end-5] [lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              } elseif { [string first "abort" $line] > 1 } {
                 set tmpLine "[string trim $line "\n"] $mach"
                 set splittedArgs [split $tmpLine]
                 set listingName  [file tail $splittedArgs]
                 set listingFile "$nodepath/$listingName"
-                $subf2.list2 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
+                $subf2.list2 insert end "[lindex $splittedArgs end-5] [lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              } else {
                 set tmpLine "[string trim $line "\n"] $mach"
                 set splittedArgs [split $tmpLine]
                 set listingName  [file tail $splittedArgs]
                 set listingFile "$nodepath/$listingName"
-                $subf4.list4 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
+                $subf4.list4 insert end "[lindex $splittedArgs end-5] [lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              }
           }
      }
