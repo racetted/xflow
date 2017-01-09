@@ -2978,22 +2978,22 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
           } else {
              if { [string first "success" $line] > 1 } {
                 set tmpLine "[string trim $line "\n"] ${mach}"
-                set splittedArgs [split $tmpLine]
+                set splittedArgs [regexp -all -inline {\S+} $tmpLine]
                 set listingName  [file tail $splittedArgs]
                 set listingFile "$nodepath/$listingName"
-                $subf1.list insert end "[lindex $splittedArgs end-5] [lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
+                $subf1.list insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              } elseif { [string first "abort" $line] > 1 } {
                 set tmpLine "[string trim $line "\n"] $mach"
-                set splittedArgs [split $tmpLine]
+                set splittedArgs [regexp -all -inline {\S+} $tmpLine]
                 set listingName  [file tail $splittedArgs]
                 set listingFile "$nodepath/$listingName"
-                $subf2.list2 insert end "[lindex $splittedArgs end-5] [lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
+                $subf2.list2 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              } else {
                 set tmpLine "[string trim $line "\n"] $mach"
-                set splittedArgs [split $tmpLine]
+                set splittedArgs [regexp -all -inline {\S+} $tmpLine]
                 set listingName  [file tail $splittedArgs]
                 set listingFile "$nodepath/$listingName"
-                $subf4.list4 insert end "[lindex $splittedArgs end-5] [lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
+                $subf4.list4 insert end "[lindex $splittedArgs end-4] [lindex $splittedArgs end-3] [lindex $splittedArgs end-2] $listingFile"
              }
           }
      }
@@ -3572,7 +3572,12 @@ proc xflow_addExpSettingsImg { exp_path datestamp canvas } {
 
 # right click popup menu from exp settings icon
 proc xflow_addExpSettingsMenu { exp_path datestamp canvas x y } {
+   global CHECK_PERMISSION SUITE_PERMISSION
+
    set popMenu .pop_menu
+   set ViewMenu $popMenu.viewmenu
+   set EditMenu $popMenu.editmenu
+
    if { [winfo exists ${popMenu}] } {
       destroy ${popMenu}
    }
@@ -3582,12 +3587,27 @@ proc xflow_addExpSettingsMenu { exp_path datestamp canvas x y } {
    set expOptionsPath ${exp_path}/ExpOptions.xml
 
    menu .pop_menu -title "Exp Settings" -tearoff 0
-   ${popMenu} add command -label "Exp Config" -underline 4 \
+   ${popMenu} add cascade -label "View" -underline 0 -menu [menu ${ViewMenu}]
+   ${popMenu} add cascade -label "Edit" -underline 0 -menu [menu ${EditMenu}]
+   
+   ${ViewMenu} add command -label "Exp Config" -underline 4 \
       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expConfigPath}]
-   ${popMenu} add command -label "Exp Resource" -underline 4 \
+   ${ViewMenu} add command -label "Exp Resource" -underline 4 \
       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expResourcePath}]
-   ${popMenu} add command -label "Exp Options" -underline 4 \
+   ${ViewMenu} add command -label "Exp Options" -underline 4 \
       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expOptionsPath}]
+   ${EditMenu} add command -label "Exp Config" -underline 4 \
+      -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expConfigPath}]
+   ${EditMenu} add command -label "Exp Resource" -underline 4 \
+       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expResourcePath}]
+   ${EditMenu} add command -label "Exp Options" -underline 4 \
+       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expOptionsPath}]
+    
+    if {${SUITE_PERMISSION} == false } {
+       ${EditMenu}   entryconfigure "Exp Config"   -state disabled
+       ${EditMenu}   entryconfigure "Exp Resource" -state disabled
+       ${EditMenu}   entryconfigure "Exp Options"  -state disabled      
+    } 
    # $popMenu add separator
 
    tk_popup $popMenu ${x} ${y}
@@ -4394,7 +4414,7 @@ proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node 
    global SEQ_DATESTAMP CHECK_PERMISSION
    
    set CHECK_PERMISSION true
-   set SUITE_PERMISSION  true
+   set SUITE_PERMISSION true
    if {![file writable ${exp_path}/sequencing]} {
      set CHECK_PERMISSION false
    } 
