@@ -2716,7 +2716,7 @@ proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_pa
    set winTitle "View File Exp=${exp_path} File=[file tail ${file_path}]"
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
-   if { ${action} == "view" } { 
+   if { ${action} == "view" || ! [file exists ${file_path}] } { 
      set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
    } else {
      set outputfile  ${file_path}
@@ -3547,7 +3547,7 @@ proc xflow_drawflow { exp_path datestamp canvas {initial_display true} } {
 
 # add exp settings icon in flow canvas
 proc xflow_addExpSettingsImg { exp_path datestamp canvas } {
-   global CHECK_PERMISSION SUITE_PERMISSION
+   global CHECK_PERMISSION
 
    set expCfgImage ${canvas}.exp_cfg_image
    image create photo ${expCfgImage} -file [SharedData_getMiscData IMAGE_DIR]/config.png
@@ -3578,7 +3578,7 @@ proc xflow_addExpSettingsImg { exp_path datestamp canvas } {
 
 # right click popup menu from exp settings icon
 proc xflow_addExpSettingsMenu { exp_path datestamp canvas x y } {
-   global CHECK_PERMISSION SUITE_PERMISSION
+   global SUITE_PERMISSION
 
    set popMenu .pop_menu
    set ViewMenu $popMenu.viewmenu
