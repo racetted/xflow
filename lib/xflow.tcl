@@ -2707,7 +2707,7 @@ proc xflow_tailfCallback { exp_path datestamp node extension canvas {full_loop 0
    }
 }
 
-proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_path } {
+proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_path {action "view"}} {
    global SESSION_TMPDIR
    puts "exp_path:${exp_path} datestamp:${datestamp} file_path:${file_path}"
    set textViewer [SharedData_getMiscData TEXT_VIEWER]
@@ -2716,7 +2716,11 @@ proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_pa
    set winTitle "View File Exp=${exp_path} File=[file tail ${file_path}]"
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
-   set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+   if { ${action} == "view" } { 
+     set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
+   } else {
+     set outputfile  ${file_path}
+   } 
 
    if [ catch { set trueFile [file normalize ${file_path}] }  message ] {
       Utils_raiseError $canvas "Editor Error" "Unable to read file ${file_path}"
@@ -2724,7 +2728,9 @@ proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_pa
    }
 
    if { [file readable ${trueFile}] } {
-      file copy [exec true_path ${trueFile}] ${outputfile}
+      if { ${action} == "view" } { 
+        file copy [exec true_path ${trueFile}] ${outputfile}
+      }
    } else {
       set fileId [open ${outputfile} "w"] 
       if { ! [file exists ${file_path}] } {
@@ -3597,11 +3603,11 @@ proc xflow_addExpSettingsMenu { exp_path datestamp canvas x y } {
    ${ViewMenu} add command -label "Exp Options" -underline 4 \
       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expOptionsPath}]
    ${EditMenu} add command -label "Exp Config" -underline 4 \
-      -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expConfigPath}]
+      -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expConfigPath} "edit"]
    ${EditMenu} add command -label "Exp Resource" -underline 4 \
-       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expResourcePath}]
+       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expResourcePath} "edit"]
    ${EditMenu} add command -label "Exp Options" -underline 4 \
-       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expOptionsPath}]
+       -command [list xflow_genericEditorCallback ${exp_path} ${datestamp} ${canvas} ${popMenu} ${expOptionsPath} "edit"]
     
     if {${SUITE_PERMISSION} == false } {
        ${EditMenu}   entryconfigure "Exp Config"   -state disabled
