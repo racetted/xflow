@@ -2572,13 +2572,13 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       if { [TsvInfo_haskey ${exp_path} $node ${datestamp} loop.expression] } { 
-         set tmpExpression [TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.expression]
+         set tmpExpression [TsvInfo_getNodeInfo ${exp_path} ${seqNode} ${datestamp} loop.expression]
       }
       if { $tmpExpression == "" } {
-         set loopStart [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.start])]
-         set loopStep [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.step])]
-         set loopSet [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.set])]
-         set loopEnd [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${node} ${datestamp} loop.end])]
+         set loopStart [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${seqNode} ${datestamp} loop.start])]
+         set loopStep [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${seqNode} ${datestamp} loop.step])]
+         set loopSet [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${seqNode} ${datestamp} loop.set])]
+         set loopEnd [ expr abs([TsvInfo_getNodeInfo ${exp_path} ${seqNode} ${datestamp} loop.end])]
          if { $loopSet == 0 } {
             set loopSet 1
          }
