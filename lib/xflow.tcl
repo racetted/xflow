@@ -2571,7 +2571,7 @@ proc xflow_submitLoopCallback { exp_path datestamp node extension canvas flow {l
    if { $seqLoopArgs == "-1" && [SharedFlowNode_hasLoops ${exp_path} ${node} ${datestamp}] } {
       Utils_raiseError $canvas "loop submit" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      if { [TsvInfo_haskey ${exp_path} $node ${datestamp} loop.expression] } { 
+      if { [TsvInfo_haskey ${exp_path} ${seqNode} ${datestamp} loop.expression] } { 
          set tmpExpression [TsvInfo_getNodeInfo ${exp_path} ${seqNode} ${datestamp} loop.expression]
       }
       if { $tmpExpression == "" } {
