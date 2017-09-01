@@ -31,7 +31,7 @@ proc Sequencer_runSubmit { exp_path datestamp parent_top command title position 
 
    Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote} ${list_item}
    ::log::log notice "${command} [join ${args}]"
-   Utils_logFileContent notice ${tmpfile}
+   # Utils_logFileContent notice ${tmpfile}
    switch ${Id} {
         null      { if { ${SUBMIT_POPUP} != false} {
                      TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}

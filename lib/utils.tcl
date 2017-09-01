@@ -426,7 +426,7 @@ proc Utils_logFileContent { _level _filename } {
          }
          ::log::log ${_level} "------------------------------------"
       } else {
-         ::log::log warning "Utils_logFileContent(): Cannot open file: $_{filename}"
+         ::log::log warning "Utils_logFileContent(): Cannot open file: ${_filename}"
       }
    }
 }

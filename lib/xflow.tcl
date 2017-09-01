@@ -4409,6 +4409,7 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
    }
    ${expLabelFrame}.exp_label configure -text ${displayValue} -font [xflow_getExpLabelFont]
 }
+
 # this function is called to create an exp flow.
 # 1) in xflow standalone mode, this function is called at startup and when the user views the exp in
 # history mode.
@@ -4416,17 +4417,11 @@ proc xflow_setExpLabel { _exp_path _displayName _datestamp } {
 # datestamp or in history mode. Note that in overview mode, a thread is created for each exp and another tread is created
 # for each exp in history mode.
 proc xflow_displayFlow { exp_path datestamp {initial_display false} {focus_node ""} } {
-   global env PROGRESS_REPORT_TXT SUITE_PERMISSION
-   global SEQ_DATESTAMP CHECK_PERMISSION
-   
-   set CHECK_PERMISSION true
-   set SUITE_PERMISSION true
-   if {![file writable ${exp_path}/sequencing]} {
-     set CHECK_PERMISSION false
-   } 
-   if {![file writable ${exp_path}/modules]} {
-     set SUITE_PERMISSION false
-   } 
+   global env PROGRESS_REPORT_TXT
+   global SEQ_DATESTAMP
+  
+   xflow_checkExpPermission  ${exp_path}
+
    set SEQ_DATESTAMP $datestamp
    puts "xflow_displayFlow()  exp_path:${exp_path} datestamp:${datestamp} initial_display:${initial_display}"
 
@@ -4904,12 +4899,27 @@ proc xflow_getWarningFont {} {
    return ${fontName}
 }
 
+proc xflow_checkExpPermission { {exp_path ""} } {
+   global CHECK_PERMISSION SUITE_PERMISSION
+
+   set CHECK_PERMISSION true
+   set SUITE_PERMISSION true
+
+   if { ${exp_path} != "" } {
+      if {![file writable ${exp_path}/sequencing]} {
+        set CHECK_PERMISSION false
+      }
+      if {![file writable ${exp_path}/modules]} {
+        set SUITE_PERMISSION false
+      }
+   }
+}
+
 if { ! [info exists XFLOW_STANDALONE] || ${XFLOW_STANDALONE} == "1" } {
    if { ! [info exists env(SEQ_XFLOW_BIN) ] } {
       puts "SEQ_XFLOW_BIN must be defined!"
       exit
    }
-
    set lib_dir $env(SEQ_XFLOW_BIN)/../lib
    puts "lib_dir=$lib_dir"
    set auto_path [linsert $auto_path 0 $lib_dir ]
@@ -4918,4 +4928,5 @@ if { ! [info exists XFLOW_STANDALONE] || ${XFLOW_STANDALONE} == "1" } {
    package require DrawUtils
    ::DrawUtils::init
    xflow_parseCmdOptions
+   xflow_checkExpPermission
 }
