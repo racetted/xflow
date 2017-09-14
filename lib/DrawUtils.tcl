@@ -236,9 +236,11 @@ proc DrawUtils::drawTextBox { exp_path canvas tx1 ty1 text  textfill binder } {
   set l_txt [split $text "\n"]
   set size   6
   set color  "normal"
-  
+  set i      0
+ 
   if { ${NODE_DISPLAY_PREF} == "Relative Progress" } {
-    if {[string match *min* [lindex $l_txt end]]} {
+    set i [llength $l_txt]
+    if {$i > 1 && [string match *min* [lindex $l_txt end]]} {
       set color [lindex [lindex $l_txt end] end]
       set rpy [expr {$ty1 + $size}]
     }
@@ -274,11 +276,13 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    set l_txt [split $text "\n"]
    set size   6
    set color  "normal" 
-   
+   set i      0
+ 
    if { ${NODE_DISPLAY_PREF} == "Relative Progress" } {
-     if {[string match *min* [lindex $l_txt end]]} {
+     set i [llength $l_txt]
+     if {$i > 1 && [string match *min* [lindex $l_txt end]]} {
        set color [lindex [lindex $l_txt end] end]
-       set rpy   [expr {$newty1 + 2}]
+       set rpy   [expr {$newty1 + $i}]
      }
    }
 
@@ -398,11 +402,13 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
    set l_txt  [split $maxtext "\n"]
    set size   6
    set color  "normal"
-   
+   set i      0
+ 
    if { ${NODE_DISPLAY_PREF} == "Relative Progress" } {
-     if {[string match *min* [lindex $l_txt end]]} {
+     set i [llength $l_txt]
+     if {$i > 1 && [string match *min* [lindex $l_txt end]]} {
        set color [lindex [lindex $l_txt end] end]
-       set rpy   [expr {$newrpy + 2 }]
+       set rpy   [expr {$newrpy + $i }]
      }
    }
    if {[lsearch -exact $maxtext ${color}] != "-1"} {
