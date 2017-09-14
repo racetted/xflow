@@ -218,9 +218,9 @@ proc ::DrawUtils::drawFamily { node canvas } {
    ::log::log debug "drawFamily displayInfo:$displayInfo"
    if {  [$node cget -flow.type] == "family" } {
       set x1 [expr [lindex $displayInfo 1] - 10]
-      set x2 [expr [lindex $displayInfo 5] +10]
-      set y1 [expr [lindex $displayInfo 2] -5]
-      set y2 [expr [lindex $displayInfo 6] +5]
+      set x2 [expr [lindex $displayInfo 5] + 10]
+      set y1 [expr [lindex $displayInfo 2] - 5]
+      set y2 [expr [lindex $displayInfo 6] + 5]
       set color [getNextColor]
       #$canvas create rectangle $x1 $y1 $x2 $y2 \
       #   -dash . -outline "#9eacb3" -fill $color -width 2 -tags "box.$node"
@@ -241,6 +241,9 @@ proc DrawUtils::drawTextBox { exp_path canvas tx1 ty1 text  textfill binder } {
   while {$i < [llength $l_txt] && $ok == "false"} {
      if {[string match *min* [lindex $l_txt $i]]} {
         set color [lindex [lindex $l_txt $i] 2] 
+        if { $color == "" } {
+          set color  "normal"
+        }
         set rpy [expr {$ty1 + $size * $i }]
         set ok  true
      }
@@ -281,6 +284,9 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    while {$i < [llength $l_txt] && $ok == "false"} {
       if {[string match *min* [lindex $l_txt $i]]} {
          set color [lindex [lindex $l_txt $i] 2] 
+         if { $color == "" } {
+           set color  "normal"
+         }
          set rpy   [expr {$newty1 + $i}]
          set ok    true
       }
@@ -407,6 +413,9 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
    while {$i < [llength $l_txt] && $ok == "false"} {
      if {[string match *min* [lindex $l_txt $i]]} {
        set color [lindex [lindex $l_txt $i] 2] 
+       if { $color == "" } {
+          set color  "normal"
+       }
        set rpy   [expr {$newrpy + $i }]
        set ok    true 
      }
