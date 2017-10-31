@@ -269,6 +269,7 @@ proc SharedFlowNode_getLoopExtensions { exp_path node datestamp } {
             set tmpExpression [TsvInfo_getNodeInfo ${exp_path} ${seq_node} ${datestamp} loop.expression]
             set slowArray [split $tmpExpression ","]
             set firstFlag 1
+            set lastCount -1
             foreach slowEl $slowArray {
                set fastArray [split $slowEl ":"]
                set count [lindex $fastArray 0]
@@ -316,7 +317,7 @@ proc SharedFlowNode_getParentLoopExt { exp_path node datestamp } {
       if { ${loopNode} == ${node} } {
          break
       }
-      if { $current == "latest" } {
+      if { $currentExt == "latest" } {
          set parentExt latest
       } else {
          if { $count == 0 } {
@@ -764,6 +765,8 @@ proc SharedFlowNode_setStatInfo { exp_path node datestamp member stat_key timest
 	          foreach deleteIndex ${endIndexes} {
 	             set memberInfoList [lreplace  ${memberInfoList} ${deleteIndex} [expr ${deleteIndex} +1]]
 	          }
+                  # recalculate index
+                  set foundIndex [lsearch ${memberInfoList} ${stat_key}]
 	       }
 	       default {
 	       }
@@ -1799,6 +1802,7 @@ proc SharedFlowNode_setSwitchingItem { exp_path node datestamp switching_item } 
 
 proc SharedFlowNode_getSwitchingExtensions { exp_path node datestamp } {
    set extensions {}
+   set dummy_var ""
    if { [tsv::keylget SharedFlowNode_${exp_path}_${datestamp} ${node} switching_item dummy_var] != 0 } {
       lappend extensions ${dummy_var}
    }

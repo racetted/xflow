@@ -51,7 +51,7 @@ proc TsvInfo_haskey { exp_path nodeName datestamp subkey } {
 # 5:6:7:8
 ################################################################################
 proc TsvInfo_formatExpression { expression } {
-   set definitions [split $txt ","]
+   set definitions [split $expression","]
    set txt ""
    foreach def $definitions {
       append txt $def "\n"

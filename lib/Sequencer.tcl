@@ -127,8 +127,3 @@ proc Sequencer_runCommand { exp_path datestamp out_file command run_remote {list
      
 }
 
-proc getRemoteHome { exp_path remoteHome localHome } {
-
-
-   return $remoteExpHome
-}

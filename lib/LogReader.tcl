@@ -117,9 +117,9 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
    } message ] {
       set errMsg "Error Parsing flow.xml file ${exp_path}:\n$message\nInfo: $::errorInfo"
       puts stderr "ERROR: LogReader_startExpLogReader Parsing flow.xml file exp_path:${exp_path} datestamp:${datestamp}\n$message\n$::errorInfo"
-      ::log::log notice "ERROR: LogReader_startExpLogReader Parsing flow.xml file ${exp_path}:\n$message."
-      error ${message}
-      return
+      ::log::log notice "ERROR: LogReader_startExpLogReader Parsing flow.xml file ${exp_path}:\n$message$::errorInfo."
+      error ${message} $::errorInfo
+      return 
    }
 
    if { ${datestamp} != "" } {
@@ -159,8 +159,8 @@ proc LogReader_startExpLogReader { exp_path datestamp read_type {read_toplog fal
    }
 
    } message ] {
-      puts stderr "ERROR: LogReader_startExpLogReader exp_path:${exp_path} datestamp:${datestamp}\n$message"
-      ::log::log notice "ERROR: LogReader_startExpLogReader ${exp_path}:\n$message."
+      puts stderr "ERROR: LogReader_startExpLogReader exp_path:${exp_path} datestamp:${datestamp}\n$message\n$::errorInfo"
+      ::log::log notice "ERROR: LogReader_startExpLogReader ${exp_path}:\n$message.\n$::errorInfo"
       error ${message}
       return
    }
@@ -190,6 +190,7 @@ proc LogReader_readTsv { exp_path datestamp } {
    set pair 0
    set cmd ""
    set lines [exec logreader -e ${exp_path} -d ${datestamp}]
+   set last_read_offset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
    set lineCount 0
    foreach line [split $lines "\n"] {
       switch ${lineCount} {
@@ -466,8 +467,8 @@ proc LogReader_readFile { exp_path datestamp {read_type no_overview} {read_toplo
 	          }
                } message ] {
 	          ::log::log notice "ERROR: LogReader_readFile LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter}"
-	          ::log::log notice "ERROR: message: ${message}"
-	          puts stderr "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}"
+	          ::log::log notice "ERROR: message: ${message}\n$::errorInfo"
+	          puts stderr "ERROR: LogReader_processLine ${exp_path} ${datestamp} ${line} ${sendToOverview} ${sendToFlow} ${sendToMsgCenter} \nmessage: ${message}\n$::errorInfo"
 	       }
             }
          }

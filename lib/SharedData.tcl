@@ -593,7 +593,7 @@ proc SharedData_setExpDisplayNextY { _exp_path _datestamp _canvas _value } {
       array set canvasList [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
-   set canvasList($canvas) [lreplace $canvasInfo 0 0 $value]
+   set canvasList($_canvas) [lreplace $canvasInfo 0 0 $_value]
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} canvases [array get canvasList]
 }
 
@@ -604,7 +604,7 @@ proc SharedData_setExpDisplayRoot { _exp_path _datestamp _canvas _value } {
       array set canvasList [SharedData_getExpDatestampData ${_exp_path} ${_datestamp} canvases]
    }
    set canvasInfo $canvasList(${_canvas})
-   set canvasList($canvas) [lreplace $canvasInfo 1 1 $value]
+   set canvasList($_canvas) [lreplace $canvasInfo 1 1 $_value]
    SharedData_setExpDatestampData ${_exp_path} ${_datestamp} canvases [array get canvasList]
 }
 
@@ -809,7 +809,7 @@ proc SharedData_setPlugins { parent } {
 		    # output the error message
 		    if { [llength ${splittedList}] != 2 } {
 			# error "ERROR: While reading ${fileName}\nInvalid property syntax: ${line}"
-			set errorMsg "While reading ${plugin}\n\nInvalid property syntax: ${line}.\n"
+			set errorMsg "While reading ${fname}\n\nInvalid property syntax: ${line}.\n"
 		    } else {
 			set propertyName  [string trim [lindex $splittedList 0]] 
 			set propertyValue [string trim [lindex $splittedList 1]]
@@ -817,8 +817,8 @@ proc SharedData_setPlugins { parent } {
 		    }
 		}
 	    }
+	    catch { close ${fname} }
 	}
-	catch { close ${plugin} }
 	if { ${errorMsg} != "" } {
 	    puts "Warning: ${errorMsg}"
 	}

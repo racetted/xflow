@@ -660,35 +660,6 @@ proc ::DrawUtils::drawdashline { canvas x1 y1 x2 y2 arrow fill drawshadow shadow
    }
 }
 
-proc ::DrawUtils::drawX { canvas x1 y1 width fill } {
-    ::log::log debug "drawX canvas:$canvas x1:$x1 y1:$y1"
-
-    if { $x1 < $x2 } {
-      set x2 [expr $x2 - 3 ]
-
-      #set shadow values
-      set sx1 [expr $x1 + 2 ]
-      set sx2 $x2
-      set sy1 [expr $y1 + 2 ]
-      set sy2 $sy1
-    } else {
-      
-      #set shadow values
-      set sx1 [expr $x1 + 2]
-      set sx2 $sx1
-      set sy1 [expr $y1 + 2]
-      set sy2 $y2
-    }
-
-    if { $drawshadow == "on" } {
-      # draw shadow
-      $canvas create line ${sx1} ${sy1} ${sx2} ${sy2} -width 1.5 -arrow $arrow -fill $shadowColor -dash { 4 3 }
-    }
-
-    # draw line
-    $canvas create line ${x1} ${y1} ${x2} ${y2} -width 1.5 -arrow $arrow -fill $fill -dash { 4 3 }
-}
-
 proc ::DrawUtils::drawBoxSansOutline { exp_path datestamp canvas tx1 ty1 text maxtext textfill outline fill binder drawshadow shadowColor } {
    global FLOW_SCALE_${exp_path}_${datestamp}
    set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]

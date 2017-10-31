@@ -213,7 +213,7 @@ proc MsgCenter_submitNodes { table_widget {flow continue}} {
              set last_item true
          }
          set commandArgs "-d ${datestamp} -n ${node} -s submit ${seqLoopArgs} -f ${flow}"
-         ::log::log notice "${seqExec} ${commandArgs}"
+         # ::log::log notice "${seqExec} ${commandArgs}"
 	 Sequencer_runSubmit ${expPath} ${datestamp} [winfo toplevel ${table_widget}] $seqExec ${winTitle} top 1  ${commandArgs} $id ${last_item}
          update idletasks
 

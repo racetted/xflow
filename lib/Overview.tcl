@@ -2757,7 +2757,7 @@ proc Overview_GraphAddHourLine {canvas grid_count hour} {
 
    if { ${hour} == 24 } {
       set xLabel "00Z"
-   } {
+   } else {
       set xLabel "${hour}Z"
    }
 

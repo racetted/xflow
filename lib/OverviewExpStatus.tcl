@@ -208,7 +208,7 @@ proc OverviewExpStatus_reactivateDatestamp { _exp_path _datestamp } {
       set key ${_exp_path}_${_datestamp}
       if { [info exists datestamps_${_exp_path}(${_datestamp})] } {
          unset obsolete_datestamps($key)
-         ::log::log notice "OverviewExpStatus_reactivateObseleteDatestamps() reactivating exp_path:${exp_path} datestamp:${datestamp}"
+         ::log::log notice "OverviewExpStatus_reactivateObseleteDatestamps() reactivating exp_path:${_exp_path} datestamp:${_datestamp}"
       }
    }
 }
