@@ -218,9 +218,9 @@ proc ::DrawUtils::drawFamily { node canvas } {
    ::log::log debug "drawFamily displayInfo:$displayInfo"
    if {  [$node cget -flow.type] == "family" } {
       set x1 [expr [lindex $displayInfo 1] - 10]
-      set x2 [expr [lindex $displayInfo 5] +10]
-      set y1 [expr [lindex $displayInfo 2] -5]
-      set y2 [expr [lindex $displayInfo 6] +5]
+      set x2 [expr [lindex $displayInfo 5] + 10]
+      set y1 [expr [lindex $displayInfo 2] - 5]
+      set y2 [expr [lindex $displayInfo 6] + 5]
       set color [getNextColor]
       #$canvas create rectangle $x1 $y1 $x2 $y2 \
       #   -dash . -outline "#9eacb3" -fill $color -width 2 -tags "box.$node"
@@ -231,21 +231,21 @@ proc ::DrawUtils::drawFamily { node canvas } {
 }
 }
 proc DrawUtils::drawTextBox { exp_path canvas tx1 ty1 text  textfill binder } {
+  global NODE_DISPLAY_PREF
   ::log::log debug "DrawUtils::drawTextBox $exp_path $binder l_text:$text"
   set l_txt [split $text "\n"]
   set size   6
   set color  "normal"
   set i      0
-  set ok     false
-
-  while {$i < [llength $l_txt] && $ok == "false"} {
-     if {[string match *min* [lindex $l_txt $i]]} {
-        set color [lindex [lindex $l_txt $i] 2] 
-        set rpy [expr {$ty1 + $size * $i }]
-        set ok  true
-     }
-     incr i
+ 
+  if { ${NODE_DISPLAY_PREF} == "Relative Progress" } {
+    set i [llength $l_txt]
+    if {$i > 1 && [string match *min* [lindex $l_txt end]]} {
+      set color [lindex [lindex $l_txt end] end]
+      set rpy [expr {$ty1 + $size}]
+    }
   }
+
   if {[lsearch -exact $text ${color}] != "-1"} {
     switch ${color} {
           normal {set text [string map {" normal" ""} ${text}]}
@@ -256,13 +256,14 @@ proc DrawUtils::drawTextBox { exp_path canvas tx1 ty1 text  textfill binder } {
   
   $canvas create text ${tx1} ${ty1} -text $text -fill $textfill \
           -justify center -anchor w -font [::DrawUtils::getBoxLabelFont ${canvas}] -tags "flow_element $binder ${binder}.text"
-  if {$color != "normal"} {  
+  if { ${NODE_DISPLAY_PREF} == "Relative Progress" && $color != "normal"} {
      $canvas create rectangle [expr {${tx1}-2}] [expr {$rpy-2}] [expr {$tx1 + $size}] [expr {$rpy + $size}] -fill $color \
             -outline black -tags "flow_element $binder ${binder}.rect"
    }
 }
 proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill outline fill binder drawshadow shadowColor} {
-   global FLOW_SCALE_${exp_path}_${datestamp}
+   global FLOW_SCALE_${exp_path}_${datestamp} NODE_DISPLAY_PREF
+
    set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    variable constants
    if { ${flowScale} != "1" } {
@@ -276,16 +277,15 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    set size   6
    set color  "normal" 
    set i      0
-   set ok     false
-
-   while {$i < [llength $l_txt] && $ok == "false"} {
-      if {[string match *min* [lindex $l_txt $i]]} {
-         set color [lindex [lindex $l_txt $i] 2] 
-         set rpy   [expr {$newty1 + $i}]
-         set ok    true
-      }
-      incr i
+ 
+   if { ${NODE_DISPLAY_PREF} == "Relative Progress" } {
+     set i [llength $l_txt]
+     if {$i > 1 && [string match *min* [lindex $l_txt end]]} {
+       set color [lindex [lindex $l_txt end] end]
+       set rpy   [expr {$newty1 + $i}]
+     }
    }
+
    if {[lsearch -exact $text ${color}] != "-1"} {
        switch ${color} {
           normal {set text [string map {" normal" ""} ${text}]}
@@ -389,7 +389,8 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
 }
 
 proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textfill outline fill binder drawshadow shadowColor } {
-   global FLOW_SCALE_${exp_path}_${datestamp}
+   global FLOW_SCALE_${exp_path}_${datestamp} NODE_DISPLAY_PREF
+
    set flowScale [set FLOW_SCALE_${exp_path}_${datestamp}]
    variable constants
    ::log::log debug "drawOval canvas:$canvas txt:$txt textfill:$textfill fill:$fill binder:$binder"
@@ -402,15 +403,13 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
    set size   6
    set color  "normal"
    set i      0
-   set ok     false
-
-   while {$i < [llength $l_txt] && $ok == "false"} {
-     if {[string match *min* [lindex $l_txt $i]]} {
-       set color [lindex [lindex $l_txt $i] 2] 
+ 
+   if { ${NODE_DISPLAY_PREF} == "Relative Progress" } {
+     set i [llength $l_txt]
+     if {$i > 1 && [string match *min* [lindex $l_txt end]]} {
+       set color [lindex [lindex $l_txt end] end]
        set rpy   [expr {$newrpy + $i }]
-       set ok    true 
      }
-     incr i
    }
    if {[lsearch -exact $maxtext ${color}] != "-1"} {
        switch ${color} {
