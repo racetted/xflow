@@ -2015,6 +2015,7 @@ proc Overview_waitStartupDatestamps {} {
 # update the status of an experiment node in the overview panel.
 # See LogReader.tcl
 proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
+   # puts "Overview_updateExp $exp_thread_id $exp_path $datestamp $status $timestamp"
 
    global AUTO_LAUNCH LIST_TAG
    ::log::log debug "Overview_updateExp exp_thread_id:$exp_thread_id ${exp_path} datestamp:$datestamp status:$status timestamp:$timestamp "
@@ -2038,7 +2039,8 @@ proc Overview_updateExp { exp_thread_id exp_path datestamp status timestamp } {
       ::log::log debug "Overview_updateExp getStatusInfo $exp_path $datestamp status:beginx statusInfo:[OverviewExpStatus_getStatusInfo ${exp_path} ${datestamp} beginx]"
    }
 
-   if { [OverviewExpStatus_getLastStatusDateTime ${exp_path} ${datestamp}] >  [Overview_GraphGetXOriginDateTime] } {
+   if { [OverviewExpStatus_getLastStatusDateTime ${exp_path} ${datestamp}] >  [Overview_GraphGetXOriginDateTime] ||
+        ( $status == "beginx" && [clock scan "${dateValue} ${timeValue}"] > [Overview_GraphGetXOriginDateTime] ) } {
       if { [winfo exists $canvas] } {
          set isStartupDone [SharedData_getMiscData STARTUP_DONE]
          # update exp box status
@@ -4047,26 +4049,28 @@ set tcl_traceExec 1
 
 Overview_parseCmdOptions
 
+proc out {} {
 # for testing only
 # intercep clock commands to allow
 # testing with different time values
-# global env
-# source $env(SEQ_XFLOW_BIN)/../lib/ClockWrapper.tcl
-# package require ClockWrapper
-# interp alias {} ::clock {} ::ClockWrapper
-# ::ClockWrapper::setDelta "4 hour"
+global env
+source $env(SEQ_XFLOW_BIN)/../lib/ClockWrapper.tcl
+package require ClockWrapper
+interp alias {} ::clock {} ::ClockWrapper
+::ClockWrapper::setDelta "4 hour"
 # ::ClockWrapper::setDelta "-1 hour"
 # ::ClockWrapper::setDelta "0 second"
 # Overview_GridAdvanceHour 5
 # Overview_redrawGrid
-# set canvasW [Overview_getCanvas]
-# set displayGroups [ExpXmlReader_getGroups]
-# foreach displayGroup $displayGroups {
-#    set expList [$displayGroup cget -exp_list]
-#    foreach exp $expList {
-      # delete all exp boxes
-#       Overview_removeAllExpBoxes ${canvasW} ${exp}
+set canvasW [Overview_getCanvas]
+set displayGroups [ExpXmlReader_getGroups]
+ foreach displayGroup $displayGroups {
+    set expList [$displayGroup cget -exp_list]
+    foreach exp $expList {
+     # delete all exp boxes
+       Overview_removeAllExpBoxes ${canvasW} ${exp}
       # create default boxes
-#       Overview_addExpDefaultBoxes ${canvasW} ${exp}
-#    }
-# }
+       Overview_addExpDefaultBoxes ${canvasW} ${exp}
+    }
+ }
+}

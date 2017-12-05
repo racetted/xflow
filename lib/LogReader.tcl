@@ -538,7 +538,7 @@ proc LogReader_processCreaderLine { _exp_path _datestamp _line _toOverview _ToFl
    }
 
    if { ${_toOverview} == true } {
-      if { ${msgtype} != "info" && ${msgtype} != "event" } {
+      if { ![string match "info*" ${msgtype}] && ${msgtype} != "event" } {
          # abortx, endx, beginx type are used for signals we send to the parent containers nodes
          # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
          # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
@@ -637,7 +637,7 @@ proc LogReader_processLine { _exp_path _datestamp _line _toOverview _ToFlow _toM
          }
 
          if { ${_toOverview} == true } {
-            if { ${type} != "info" && ${type} != "event" } {
+            if { ![string match "info*" ${type}] && ${type} != "event" } {
                # abortx, endx, beginx type are used for signals we send to the parent containers nodes
                # as a ripple effect... However, in the case of abort messages we don't want these collateral signals
                # to appear in the message center... At this point, we can reset abortx to abort, endx to end and so forth
