@@ -6,7 +6,7 @@ proc LogMonitor_setLastCheckTime { _exp_path _time_in_seconds } {
    set expPathKey [SharedData_getExpData ${_exp_path} EXP_PATH_KEY]
    ::log::log debug "LogMonitor_setLastCheckTime touch ${SESSION_TMPDIR}/${expPathKey}.last_checked_file"
    set timeFormat [clock format ${_time_in_seconds} -format "%y%m%d%H%M.%S"]
-   exec touch ${SESSION_TMPDIR}/${expPathKey}.last_checked_file -t ${timeFormat}
+   exec -ignorestderr touch ${SESSION_TMPDIR}/${expPathKey}.last_checked_file -t ${timeFormat}
 }
 
 proc LogMonitor_getLastCheckFile { _exp_path } {
@@ -53,12 +53,12 @@ proc LogMonitor_checkGroupNewLogFiles { displayGroup } {
          set lastCheckedFile [LogMonitor_getLastCheckFile ${expPath}]
          set lastCheckedTime [file mtime ${lastCheckedFile}]
          set newLastChecked [clock seconds]
-         catch { exec ls ${checkDir} > /dev/null }
+         catch { exec -ignorestderr ls ${checkDir} > /dev/null }
 	 set modifiedFiles ""
 	 if { [ catch {
             # set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newerct [clock format ${lastCheckedTime}] -exec basename \{\} \;]
 	    # -newerct not available on 32 bits find version
-            set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
+            set modifiedFiles [exec  -ignorestderr find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
          } errMsg] } {
 	    ::log::log notice "ERROR: () LogMonitor_checkGroupNewLogFiles $errMsg"
 	    puts stderr "ERROR: LogMonitor_checkGroupNewLogFiles() $errMsg"
@@ -121,10 +121,10 @@ proc LogMonitor_checkOneExpNewLogFiles { _exp_path } {
       set lastCheckedFile [LogMonitor_getLastCheckFile ${_exp_path}]
       set lastCheckedTime [file mtime ${lastCheckedFile}]
       set newLastChecked [clock seconds]
-      catch { exec ls ${checkDir} > /dev/null }
+      catch { exec -ignorestderr ls ${checkDir} > /dev/null }
       set modifiedFiles ""
       if { [ catch {
-         set modifiedFiles [exec find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
+         set modifiedFiles [exec -ignorestderr find ${checkDir} -maxdepth 1 -type f -name "*_nodelog" -newer ${lastCheckedFile} -exec basename \{\} \;]
       } errMsg] } {
 	 ::log::log notice "ERROR: LogMonitor_checkOneExpNewLogFiles() $errMsg"
 	 puts stderr "ERROR: LogMonitor_checkOneExpNewLogFiles() $errMsg"
@@ -173,8 +173,7 @@ proc LogMonitor_getDatestamps { _exp_path _deltaTime } {
    set modifiedFiles {}
    if { [file readable ${checkDir}] } {
       #puts "LogMonitor_getDatestamps exec find ${checkDir} -maxdepth 1 -type f -name \"*_nodelog\" -newerct ${_deltaTime} -exec basename \{\} \;"
-      # set modifiedFiles [exec find ${checkDir} -maxdepth 1 -name "*\[0-9\]_nodelog" -newerct ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
-      set modifiedFiles [exec find ${checkDir} -maxdepth 1 -name "*\[0-9\]_nodelog" -mmin ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
+      set modifiedFiles [exec -ignorestderr  find ${checkDir} -maxdepth 1 -name "*\[0-9\]_nodelog" -mmin ${_deltaTime} -exec basename \{\} \; | cut -c 1-14]
    }
    return ${modifiedFiles}
 }
@@ -202,7 +201,7 @@ proc LogMonitor_getNewestDatestamp { _exp_path } {
    global env
    set newestFile ""
    #catch { set newestFile [eval exec ls -t [glob -tails -directory ${_exp_path}/logs *_nodelog] | head -1 | xargs basename | cut -c 1-14 ] }
-   catch { set newestFile [eval exec $env(SEQ_XFLOW_BIN)/../etc/getNewestDatestamp ${_exp_path}] }
+   catch { set newestFile [eval exec -ignorestderr $env(SEQ_XFLOW_BIN)/../etc/getNewestDatestamp ${_exp_path}] }
    return ${newestFile}
 }
 

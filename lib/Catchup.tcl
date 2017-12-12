@@ -68,7 +68,7 @@ proc Catchup_retrieve { _exp_path } {
    set catchupExec "expcatchup"
    set cmd "export SEQ_EXP_HOME=${_exp_path};${catchupExec} -g"
    set catchupValue ""
-   set catchupValue [exec ksh -c $cmd]
+   set catchupValue [exec -ignorestderr ksh -c $cmd]
    return ${catchupValue}
 }
 
@@ -78,7 +78,7 @@ proc Catchup_save { _exp_path _catchupIntValue } {
    set cmd "export SEQ_EXP_HOME=${_exp_path};${catchupExec} -s ${_catchupIntValue}"
    set catchupValue ""
    ::log::log notice ${cmd}
-   set catchupValue [exec ksh -c $cmd]
+   set catchupValue [exec -ignorestderr ksh -c $cmd]
    return ${catchupValue}
 }
 

@@ -49,7 +49,7 @@ namespace eval ::trashSel {
       #set PROGRESS_REPORT_TXT "Cleanup experiment"
       #set progressW [ProgressDlg $w.pcleanup -title "Cleanup experiment" -parent ${w} -textvariable PROGRESS_REPORT_TXT -type incremental -variable 5]
 
-      catch { eval [exec ksh -c $cmd&]}
+      catch { eval [exec -ignorestderr ksh -c $cmd&]}
       ::log::log debug "Exp_Clean ksh -c $cmd"
       `Datestamp_Refresh $w 
 

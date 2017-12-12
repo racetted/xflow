@@ -7,7 +7,7 @@ namespace import ::struct::record::*
 proc ExpXmlReader_readExperiments { xml_file } {
    global DISPLAY_GROUPS
    set xmlFile $xml_file
-   if [ catch { set xmlSrc [exec cat $xmlFile] } ] {
+   if [ catch { set xmlSrc [exec -ignorestderr cat $xmlFile] } ] {
       puts "XML Document Not Found: $xmlFile"
       return
    }

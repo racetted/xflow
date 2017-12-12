@@ -145,7 +145,7 @@ proc xflow_maestroCmds { parent } {
       # get the info 
       set infoFile $env(SEQ_XFLOW_BIN)/../etc/command_summary.txt
       if { [file readable ${infoFile}] } {
-         set infoTxt [exec cat ${infoFile}]
+         set infoTxt [exec -ignorestderr  cat ${infoFile}]
          ${txtW} insert end ${infoTxt}
       }
 
@@ -653,7 +653,7 @@ proc xflow_populateKillAllNodeListbox { exp_path datestamp listbox_w } {
    set killPath nodekill 
    set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -listall -d ${datestamp} > $tmpfile 2>&1"
    ::log::log debug "xflow_nodeKillDisplay ksh -c $cmd"
-   catch { eval [exec ksh -c $cmd ] }
+   catch { eval [exec -ignorestderr ksh -c $cmd ] }
 
    set resultingFile [open $tmpfile] 
 
@@ -678,7 +678,7 @@ proc xflow_populateKillAllNodeListbox { exp_path datestamp listbox_w } {
       }
    }
 
-   catch {[exec rm -f $tmpfile]}
+   catch {[exec -ignorestderr rm -f $tmpfile]}
 }
 
 # this function retrieves the selected entries from
@@ -2027,7 +2027,7 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
       ::log::log debug "$seqExecWork -n ${seqNode} -ext ${nodeExt}"
-      if [ catch { set workpath [split [exec ksh -c "export SEQ_EXP_HOME=${exp_path};export SEQ_DATE=${datestamp}; $seqExecWork -n ${seqNode} -ext ${nodeExt}"] ':'] } message ] {
+      if [ catch { set workpath [split [exec -ignorestderr ksh -c "export SEQ_EXP_HOME=${exp_path};export SEQ_DATE=${datestamp}; $seqExecWork -n ${seqNode} -ext ${nodeExt}"] ':'] } message ] {
          Utils_raiseError . "Retrieve node output" $message
          return 0
       }
@@ -2138,7 +2138,7 @@ proc xflow_populateKillNodeListbox { exp_path datestamp node seqLoopArgs listbox
 
    set cmd "export SEQ_EXP_HOME=${exp_path}; $killPath -n $seqNode ${seqLoopArgs} -list > $tmpfile 2>&1"
    ::log::log debug "xflow_populateKillNodeListbox ksh -c $cmd"
-   catch { eval [exec ksh -c $cmd ] }
+   catch { eval [exec -ignorestderr ksh -c $cmd ] }
 
    ${listbox_w} delete 0 end
    set resultingFile [open $tmpfile] 
@@ -2160,7 +2160,7 @@ proc xflow_populateKillNodeListbox { exp_path datestamp node seqLoopArgs listbox
       }
    }
 
-   catch {[exec rm -f $tmpfile]}
+   catch {[exec -ignorestderr rm -f $tmpfile]}
 }
 
 # forces and end signal to be sent to the maestro sequencer for the current node.
@@ -2261,8 +2261,9 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu action} {
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
    if {${action} == "edit"} {
-      set SEQ_EXP_HOME ${exp_path}
-      eval set outputfile [string trim [lindex [split [exec ksh -c  "nodeinfo -n ${seqNode} -f task"] "="] 1]]
+      # set SEQ_EXP_HOME ${exp_path}
+      # eval set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "eval `nodeinfo -n ${seqNode} -f task -e ${exp_path}`"] "="] 1]]
+      set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "eval nodeinfo -n ${seqNode} -f task -e ${exp_path}"] "="] 1]]
    } else {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
       set seqCmd "${seqExec} -n ${seqNode}"
@@ -2290,8 +2291,8 @@ proc xflow_configCallback { exp_path datestamp node canvas caller_menu action} {
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
    if {${action} == "edit"} {
-      set SEQ_EXP_HOME ${exp_path}
-      eval set outputfile [string trim [lindex [split [exec ksh -c  "nodeinfo -n ${seqNode} -f cfg"] "="] 1]]
+      # set SEQ_EXP_HOME ${exp_path}
+      eval set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "nodeinfo -n ${seqNode} -f cfg -e ${exp_path}"] "="] 1]]
    } else {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
       set seqCmd "${seqExec} -n ${seqNode}"
@@ -2313,7 +2314,7 @@ proc xflow_evalConfigCreateWidgets { exp_path datestamp node extension caller_w 
       set xflow_SubmitHostsVar ""
       set hostsFile $env(SEQ_XFLOW_BIN)/../etc/submit_hosts
       if { [file readable ${hostsFile}] } {
-         set xflow_SubmitHostsVar [exec cat ${hostsFile}]
+         set xflow_SubmitHostsVar [exec -ignorestderr cat ${hostsFile}]
       }
    }
 
@@ -2369,7 +2370,7 @@ proc xflow_evalConfigCreateWidgets { exp_path datestamp node extension caller_w 
    catch {
       set nodeInfoExec "nodeinfo"
       set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
-      set machine [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res | grep node.machine | sed -e 's:node.machine=::' 2> /dev/null "]
+      set machine [exec -ignorestderr ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res | grep node.machine | sed -e 's:node.machine=::' 2> /dev/null "]
    }
    if { ${machine} != "" } {
       ${machineEntry} configure -text ${machine}
@@ -2460,8 +2461,8 @@ proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu action}
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
    if {${action} == "edit"} {
-      set SEQ_EXP_HOME ${exp_path}
-      eval set outputfile [string trim [lindex [split [exec ksh -c  "nodeinfo -n ${seqNode} -f res_path"] "="] 1]]
+      # set SEQ_EXP_HOME ${exp_path}
+      eval set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "nodeinfo -n ${seqNode} -f res_path -e ${exp_path}"] "="] 1]]
     } else {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
       set seqCmd "${seqExec} -n ${seqNode}"
@@ -2692,7 +2693,7 @@ proc xflow_tailfCallback { exp_path datestamp node extension canvas {full_loop 0
             catch {
                set nodeInfoExec "nodeinfo"
                set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
-               set machine [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res | grep node.machine | sed -e 's:node.machine=::' 2> /dev/null "]
+               set machine [exec -ignorestderr ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res | grep node.machine | sed -e 's:node.machine=::' 2> /dev/null "]
             }
 	    set taskMonitorCmd "${taskMonitorCmd} ${outputFile} ${machine}"
          }
@@ -2729,7 +2730,7 @@ proc xflow_genericEditorCallback { exp_path datestamp canvas caller_menu file_pa
 
    if { [file readable ${trueFile}] } {
       if { ${action} == "view" } { 
-        file copy [exec true_path ${trueFile}] ${outputfile}
+        file copy [exec -ignorestderr true_path ${trueFile}] ${outputfile}
       }
    } else {
       set fileId [open ${outputfile} "w"] 
@@ -2770,7 +2771,7 @@ proc xflow_getOutputFile { exp_path datestamp node } {
    }
    set outputFile ""
    ::log::log debug "xflow_getOutputFile looking for ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout*"
-   catch { set outputFile [exec ksh -c "ls -rt1 ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] }
+   catch { set outputFile [exec -ignorestderr ksh -c "ls -rt1 ${exp_path}/sequencing/output${seqNode}${nodeExt}.${datestamp}.pgmout* | tail -n 1"] }
    ::log::log debug "xflow_getOutputFile outputFile:${outputFile}"
    return ${outputFile}
 }
@@ -2875,7 +2876,7 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
    set result [ catch {
       set cmd "export SEQ_EXP_HOME=${exp_path}; $listerPath -n ${seqNode} -list > $tmpfile"
       ::log::log debug  "xflow_allListingCallback ksh -c $cmd"
-      eval [exec ksh -c $cmd ]
+      eval [exec -ignorestderr ksh -c $cmd ]
       ::log::log debug  "xflow_allListingCallback DONE: $cmd"
       
       set nodepath  [string range [file dirname ${seqNode}] 1 end]
@@ -3003,7 +3004,7 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
              }
           }
      }
-     catch {[exec rm -f $tmpfile]}
+     catch {[exec -ignorestderr rm -f $tmpfile]}
 
       bind $subf1.list  <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf1.list success]
       bind $subf2.list2 <Double-Button-1> [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf2.list2 abort]
@@ -3151,7 +3152,7 @@ proc xflow_diffListing { exp_path datestamp listw } {
    ::log::log debug "xflow_diffListing listing 1: [$listw get 0] /// listing 2: [$listw get 1]"
    set selectedIndexes "0 1"
    set listingExec nodelister
-   set tclsh [ exec which maestro_wish8.5]
+   set tclsh [ exec -ignorestderr which maestro_wish8.5]
 
    if { [$listw size] == 2 } {
     foreach selectIndex $selectedIndexes {
@@ -3173,11 +3174,11 @@ proc xflow_diffListing { exp_path datestamp listw } {
 	}
     }
     
-    if { [catch { exec which xxdiff } errmsg] } {
-       set tkdiff_location [ exec which tkdiff ] 
-       exec ${tclsh} $tkdiff_location [lindex $outputList 0] [lindex $outputList 1] &
+    if { [catch { exec -ignorestderr which xxdiff } errmsg] } {
+       set tkdiff_location [ exec -ignorestderr which tkdiff ] 
+       exec -ignorestderr ${tclsh} $tkdiff_location [lindex $outputList 0] [lindex $outputList 1] &
     } else {
-       exec xxdiff [lindex $outputList 0] [lindex $outputList 1] --text &
+       exec -ignorestderr xxdiff [lindex $outputList 0] [lindex $outputList 1] --text &
     }
    }
 }
@@ -3221,7 +3222,7 @@ proc xflow_showAllListingItem { exp_path datestamp listw list_type} {
 proc xflow_diffLatestListings { exp_path datestamp node extension canvas {full_loop 0} } {
    global SESSION_TMPDIR
    ::log::log debug "xflow_diffLatestListings node:$node canvas:$canvas"
-   set tclsh [ exec which maestro_wish8.5]
+   set tclsh [ exec -ignorestderr which maestro_wish8.5]
    if { ${datestamp} == "" } {
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg DATESTAMP_REQUIRED]
       return
@@ -3261,11 +3262,11 @@ proc xflow_diffLatestListings { exp_path datestamp node extension canvas {full_l
       set abortSeqCmd "${listingExec} -n ${seqNode}${nodeExt} -type abort -d ${datestamp}"
       Sequencer_runCommand ${exp_path} ${datestamp} ${abortOutputfile} ${abortSeqCmd} 1
 
-      if { [catch { exec which xxdiff } errmsg] } {
-         set tkdiff_location [ exec which tkdiff ] 
-         exec ${tclsh} $tkdiff_location $successOutputfile $abortOutputfile &
+      if { [catch { exec -ignorestderr which xxdiff } errmsg] } {
+         set tkdiff_location [ exec -ignorestderr which tkdiff ] 
+         exec -ignorestderr ${tclsh} $tkdiff_location $successOutputfile $abortOutputfile &
       } else {
-         exec xxdiff $successOutputfile $abortOutputfile --text &
+         exec -ignorestderr xxdiff $successOutputfile $abortOutputfile --text &
       }
    }
 }
@@ -3719,13 +3720,13 @@ proc xflow_getNodeResources { exp_path node datestamp {is_recursive 0} } {
 
    # the line below transforms the output of nodeinfo into a call to SharedFlowNode_setGenericAttributef or every attribute
    # i.e. SharedFlowNode_setGenericAttribute ${exp_path} ${node} attr_name attr_value
-   set code [catch {set output [exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res |  sed -e 's:node.:SharedFlowNode_setGenericAttribute ${exp_path} ${node} \"${datestamp}\" :' -e 's:=: \":' -e 's/$/\"/'> ${outputFile} 2> /dev/null "]} message]
+   set code [catch {set output [exec -ignorestderr ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} -f res |  sed -e 's:node.:SharedFlowNode_setGenericAttribute ${exp_path} ${node} \"${datestamp}\" :' -e 's:=: \":' -e 's/$/\"/'> ${outputFile} 2> /dev/null "]} message]
 
    if { $code != 0 } {
       Utils_raiseError [xflow_getToplevel ${exp_path} ${datestamp}] "Get Node Resource" $message
       return 0
    }
-   if [ catch { eval [exec cat ${outputFile}] } message ] {
+   if [ catch { eval [exec -ignorestderr cat ${outputFile}] } message ] {
       ::log::log notice "\nERROR: xflow_getNodeResources() exp_path:${exp_path} node:${node} datestamp:${datestamp} $message"
    }
 
@@ -3789,7 +3790,7 @@ proc xflow_getLoopResources { node exp_path datestamp} {
    # node.specific.STEP=2
    # node.specific.TYPE=Default
    ::log::log debug "xflow_getLoopResources ${nodeInfoExec} -n ${seqNode} -d ${datestamp} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'"
-   if [ catch { exec ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'  > ${outputFile} 2> /dev/null" } message ] {
+   if [ catch { exec -ignorestderr ksh -c "export SEQ_EXP_HOME=${exp_path};${nodeInfoExec} -n ${seqNode} -d ${datestamp} | grep node.specific| sed -e 's:node.specific.::' -e 's:=: :'  > ${outputFile} 2> /dev/null" } message ] {
       if { [SharedData_getMiscData OVERVIEW_MODE] == true } {
          set parentW [xflow_getToplevel ${exp_path} ${datestamp}]
          if { ! [winfo exists ${parentW}] } {
@@ -3803,7 +3804,7 @@ proc xflow_getLoopResources { node exp_path datestamp} {
 
    ::log::log debug "xflow_getLoopResources cat ${outputFile}"
    array set valueList {}
-   if [ catch { array set valueList [exec cat ${outputFile}] } message ] {
+   if [ catch { array set valueList [exec -ignorestderr cat ${outputFile}] } message ] {
       ::log::log debug "\n$message"
    }
 
@@ -4550,7 +4551,7 @@ proc xflow_setTitle { top_w exp_path datestamp } {
       set current_time [clock format [clock seconds] -format "%H:%M" -gmt 1]
       set shortname [SharedData_getExpData ${exp_path} shortname]
       set hour      [Utils_getHourFromDatestamp ${datestamp}]
-      set winTitle "[file tail ${exp_path}] - Xflow - Exp=${exp_path} Datestamp=${datestamp} User=$env(USER) Host=[exec hostname] Time=${current_time} Shortname=$shortname-$hour"
+      set winTitle "[file tail ${exp_path}] - Xflow - Exp=${exp_path} Datestamp=${datestamp} User=$env(USER) Host=[exec -ignorestderr hostname] Time=${current_time} Shortname=$shortname-$hour"
       wm title [winfo toplevel ${top_w}] ${winTitle}
       # refresh title every minute
       set TITLE_AFTER_ID_${exp_path}_${datestamp} [after 60000 [list xflow_setTitle ${top_w} ${exp_path} ${datestamp}]]
@@ -4631,7 +4632,7 @@ proc xflow_parseCmdOptions {} {
       if { $params(logfile) != "" } {
          puts "xflow writing to log file: $params(logfile)"
          SharedData_setMiscData APP_LOG_FILE $params(logfile)
-         ::log::log notice "xflow Application startup user=$env(USER) host:[exec hostname]"
+         ::log::log notice "xflow Application startup user=$env(USER) host:[exec -ignorestderr hostname]"
       } 
 
       if { $params(debug) } {

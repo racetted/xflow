@@ -4,7 +4,7 @@ package require tdom
 package require log
 
 proc FlowXml_parse { xml_file exp_path datestamp parent_flow_node } {
-   if [ catch { set xmlSrc [exec cat $xml_file] } ] {
+   if [ catch { set xmlSrc [exec -ignorestderr cat $xml_file] } ] {
       error "FlowXml_parse XML Document Not Found: $xml_file"
       return
    }

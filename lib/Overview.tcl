@@ -193,7 +193,7 @@ proc Overview_redrawExp { exp_path } {
 # a configurable idle threshold value
 # 3) the current state is not "end" state
 proc Overview_checkExpIdle { { next_check_time 3600000 } } {
-   ::log::log debug "Overview_checkExpIdle [exec date]"
+   ::log::log debug "Overview_checkExpIdle [exec -ignorestderr date]"
    global CHECK_EXP_IDLE
    set displayGroups [ExpXmlReader_getGroups]
 
@@ -258,7 +258,7 @@ proc Overview_checkExpIdle { { next_check_time 3600000 } } {
 proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
    global CHECK_EXP_IDLE
 
-   # puts "Overview_checkExpSubmitLate date:[exec date]"
+   # puts "Overview_checkExpSubmitLate date:[exec -ignorestderr date]"
    if { ${CHECK_EXP_IDLE} == true } {
 
       set canvasW [Overview_getCanvas]
@@ -379,33 +379,34 @@ proc Overview_getScheduledInfo { exp_path datestamp_hour {start_time ""} {datest
    set myStartTimeX [Overview_getXCoordTime ${start_time}]
    scan ${start_time} %d:%d hourValue minuteValue
 
-   if {  (${datestamp_hour} > ${hourValue} && ${currentTimeX} > ${myStartTimeX} && ${myDatestampHourX} < ${today00ZX}) ||
-         (${myStartTimeX} <= ${today00ZX} && ${currentTimeX} > ${today00ZX}) } {
+   if {  (${datestamp_hour} > ${hourValue} && ${currentTimeX} >= ${myStartTimeX} && ${myDatestampHourX} <= ${today00ZX}) ||
+         (${myStartTimeX} <= ${today00ZX} && ${currentTimeX} >= ${today00ZX}) } {
         # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
+        # for example, g218 & e218 should land here
 	if { ${myStartTimeX}  >= ${today00ZX} } {
            set startReferenceTime [clock add ${dayValue} [expr ${hourValue}] hour ${minuteValue} minute]
 	} else {
            set startReferenceTime [clock add ${dayValue} [expr -24 + ${hourValue}] hour ${minuteValue} minute]
 	}
 	set deltaDay -1
-	::log::log debug "Overview_getScheduledInfo here 0 exp_path:$exp_path deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
+	::log::log debug "Overview_getScheduledInfo here 0 exp_path:$exp_path datestamp_hour:${datestamp_hour} deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
 
    } elseif { (${datestamp_hour} > ${hourValue} &&  ${myDatestampHourX} > ${today00ZX} && ${currentTimeX} > ${today00ZX}) } {
         set startReferenceTime [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
 	set deltaDay -1
-	::log::log debug "Overview_getScheduledInfo here 1 exp_path:$exp_path deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
+	::log::log debug "Overview_getScheduledInfo here 1 exp_path:$exp_path datestamp_hour:${datestamp_hour} deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
    } elseif { (${myStartTimeX} > ${today00ZX} && ${currentTimeX} < ${today00ZX}) } {
         # if both start time and datestamp hour is passed the 00Z, then it's for tomorrow
         set startReferenceTime [clock add ${dayValue} [expr 24 + ${hourValue}] hour ${minuteValue} minute]
         if { ${myDatestampHourX} > ${currentTimeX} && ${myDatestampHourX} >= ${today00ZX} } {
 	   set deltaDay 1
 	}
-	::log::log debug "Overview_getScheduledInfo here 2 exp_path:$exp_path deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
+	::log::log debug "Overview_getScheduledInfo here 2 exp_path:$exp_path datestamp_hour:${datestamp_hour} deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
    } else {
         # default is today
         set startReferenceTime [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
 	set deltaDay 0
-	::log::log debug "Overview_getScheduledInfo here 3 exp_path:$exp_path deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
+	::log::log debug "Overview_getScheduledInfo here 3 exp_path:$exp_path datestamp_hour:${datestamp_hour} deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
    }
 
    if { ${datestamp_or_time} == "datestamp" } {
@@ -414,6 +415,7 @@ proc Overview_getScheduledInfo { exp_path datestamp_hour {start_time ""} {datest
       set value ${startReferenceTime}
    }
 
+   ::log::log debug "Overview_getScheduledInfo here 4 exp_path:$exp_path datestamp_hour:${datestamp_hour} value:$value"
    return ${value}
 }
 
@@ -749,7 +751,7 @@ proc Overview_processSubmitStatus { canvas exp_path datestamp {status submit} } 
 # this function process the exp box logic when the root experiment node
 # is in begin state
 proc Overview_processBeginStatus { canvas exp_path datestamp {status begin} } {
-   ::log::log debug "Overview_processBeginStatus ${exp_path} ${datestamp} ${status}"
+    ::log::log debug "Overview_processBeginStatus ${exp_path} ${datestamp} ${status}"
    set startTime       [OverviewExpStatus_getStartTime ${exp_path} ${datestamp}]
    set xoriginDateTime [Overview_GraphGetXOriginDateTime]
    set currentTime     [Utils_getCurrentTime]
@@ -958,7 +960,7 @@ proc Overview_refreshBoxStatus { exp_path datestamp {status ""} } {
 #  the timings of the exp are off the left side grid...
 proc Overview_ExpCreateStartIcon { canvas exp_path datestamp timevalue {shift_day false} } {
    global graphStartX expEntryHeight startEndIconSize
-   ::log::log debug "Overview_ExpCreateStartIcon $exp_path $datestamp $timevalue shift_day:$shift_day"
+    ::log::log debug "Overview_ExpCreateStartIcon $exp_path $datestamp $timevalue shift_day:$shift_day"
    set displayGroup   [SharedData_getExpGroupDisplay ${exp_path}]
    set expGroupBoxTag [DisplayGrp_getGroupExpBoxTagName ${displayGroup}]
    
@@ -1358,6 +1360,7 @@ proc Overview_addExpDefaultBox { canvas exp_path datestamp } {
 }
 
 proc Overview_removeExpBox { canvas exp_path datestamp status } {
+   # ::log::log notice "Overview_removeExpBox ${exp_path} ${datestamp} ${status}"
 
    # puts "Overview_removeExpBox $canvas $exp_path datestamp:$datestamp status:$status"
    set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} ${status}]
@@ -1372,12 +1375,14 @@ proc Overview_removeExpBox { canvas exp_path datestamp status } {
    if { ! [string match "default*" ${datestamp}] } {
       set hour [Utils_getHourFromDatestamp ${datestamp}]
       set schedDatestamp [Overview_getScheduledInfo ${exp_path} ${hour}]
+      # ::log::log notice "Overview_removeExpBox ${exp_path} datestamp:${datestamp} schedDatestamp:$schedDatestamp"
       # delete the default box only if the datestamp matches the one that should be launched
       # for instance if I resubmit a run from yesterday's datestamp, the default one for today
       # should be untouched
       # The default box is also deleted if the exp does not use daily datestamp i.e. for exps
       # like geps reforecast & reforecast_stat
       if { ${datestamp} == ${schedDatestamp} || [SharedData_getExpIsDailyDatestamp ${exp_path}] == false } {
+         # ::log::log notice "Overview_removeExpBox ${exp_path} datestamp:${datestamp} schedDatestamp:$schedDatestamp deleting default"
          # try delete default_${hour} tag
          set expBoxTag [Overview_getExpBoxTag ${exp_path} ${datestamp} default]
          # puts "Overview_removeExpBox deleting ${expDefaultTag}"
@@ -2840,11 +2845,11 @@ proc Overview_readExperiments {} {
    set suiteList {}
    if { [file exists $suitesFile] } {
       puts "Overview_readExperiments from file: $suitesFile"
-      ::log::log debug "Overview_readExperiments date: [exec date]"
+      ::log::log debug "Overview_readExperiments date: [exec -ignorestderr date]"
       ExpXmlReader_readExperiments $suitesFile
       set suiteList [ExpXmlReader_getExpList]
       ::log::log debug "suiteList: $suiteList"
-      ::log::log debug "Overview_readExperiments DONE date: [exec date]"
+      ::log::log debug "Overview_readExperiments DONE date: [exec -ignorestderr -ignorestderr date]"
    } else {
       puts stderr "ERROR: file not found ${suitesFile}"
       Utils_fatalError . "Overview Startup Error" "${suitesFile} does not exists! Exiting..."
@@ -2874,7 +2879,7 @@ proc Overview_quit {} {
    ThreadPool_quit
 
    catch { 
-      exec rm -fr ${SESSION_TMPDIR}
+      exec -ignorestderr rm -fr ${SESSION_TMPDIR}
       puts "exec rm -fr ${SESSION_TMPDIR}"
    }
    
@@ -2958,7 +2963,7 @@ proc Overview_parseCmdOptions {} {
 	       exit 0
 	    }
 	    # log in given log directory
-            SharedData_setMiscData APP_LOG_FILE [SharedData_getMiscData APP_LOG_DIR]/xflow_overview_log.[exec hostname].[pid]
+            SharedData_setMiscData APP_LOG_FILE [SharedData_getMiscData APP_LOG_DIR]/xflow_overview_log.[exec -ignorestderr hostname].[pid]
          } else {
             SharedData_setMiscData APP_LOG_FILE $params(logfile)
 	 }
@@ -3670,7 +3675,7 @@ proc Overview_addCanvasImage { width height } {
 
 proc Overview_setTitle { top_w time_value } {
    global env
-   set winTitle "Xflow Overview - User=$env(USER) Host=[exec hostname] Time=${time_value}"
+   set winTitle "Xflow Overview - User=$env(USER) Host=[exec -ignorestderr hostname] Time=${time_value}"
    wm title [winfo toplevel ${top_w}] ${winTitle}
 }
 
@@ -3760,7 +3765,7 @@ proc Overview_removeHeartbeatDatestamp { thread_id exp_path datestamp } {
 }
 
 proc Overview_checkDatestampHeartbeats {} {
-   ::log::log debug "[exec date] Overview_checkDatestampHeartbeats..."
+   ::log::log debug "[exec -ignorestderr date] Overview_checkDatestampHeartbeats..."
    global HeartbeatDatestamps
    set currentTime [clock seconds]
    foreach { key data } [array get HeartbeatDatestamps] {
@@ -3788,7 +3793,7 @@ proc Overview_checkDatestampHeartbeats {} {
    # execute every minute
    after 60000 Overview_checkDatestampHeartbeats
 
-   ::log::log debug "[exec date] Overview_checkDatestampHeartbeats DONE"
+   ::log::log debug "[exec -ignorestderr date] Overview_checkDatestampHeartbeats DONE"
 }
 
 # get rid of an unreachable thread
@@ -3885,7 +3890,7 @@ proc Overview_main {} {
       vwait FileLoggerCreated
 
       puts "xflow_overview loggerThreadId:${loggerThreadId}"
-      ::log::log notice "xflow_overview Application startup user=$env(USER) real user:[SharedData_getMiscData REAL_USER] host:[exec hostname]"
+      ::log::log notice "xflow_overview Application startup user=$env(USER) real user:[SharedData_getMiscData REAL_USER] host:[exec -ignorestderr hostname]"
    }
 
    MsgCenter_init

@@ -189,7 +189,7 @@ proc LogReader_readTsv { exp_path datestamp } {
    set statsVar "SharedFlowNode_${exp_path}_${datestamp}_stats"
    set pair 0
    set cmd ""
-   set lines [exec logreader -e ${exp_path} -d ${datestamp}]
+   set lines [exec -ignorestderr logreader -e ${exp_path} -d ${datestamp}]
    set last_read_offset [LogReader_getEndOffset ${exp_path} ${datestamp} nodelog]
    set lineCount 0
    foreach line [split $lines "\n"] {
@@ -785,7 +785,7 @@ proc LogReader_updateNodes { exp_path datestamp node } {
 proc LogReader_getAvailableDates { exp_path } {
    set cmd "cd ${exp_path}/logs; ls *_nodelog | sed -e 's,_nodelog,,' | sort -r"
    set expLogs ""
-   if [ catch { set expLogs [exec ksh -c $cmd] } message ] {
+   if [ catch { set expLogs [exec -ignorestderr ksh -c $cmd] } message ] {
    }
    ::log::log debug "LogReader_getAvailableDates exp:${exp_path} logs: $expLogs"
    return $expLogs

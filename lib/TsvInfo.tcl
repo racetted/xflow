@@ -9,7 +9,7 @@ proc TsvInfo_loadData { exp_path datestamp } {
 
    # Launch the binary and collect it's output
    # Note: the datestamp will need to be used.
-   set data_list [exec tsvinfo -t stdout -e $exp_path -d $datestamp]
+   set data_list [exec -ignorestderr tsvinfo -t stdout -e $exp_path -d $datestamp]
 
    # Read the content of the file into a keyed list.
    tsv::keylset TsvNodeResourceVar_${exp_path}_${datestamp} the_keyed_list {*}$data_list

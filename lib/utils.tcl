@@ -28,8 +28,8 @@ proc Utils_Editor_Activation   {title tmpfile position parent_top} {
        if {[file exists  ${fichier}]} {
           TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
           set popup_activ true
-          catch { [exec rm -f ${tmpfile}_out]}
-          catch { [exec rm -f ${tmpfile}] }
+          catch { [exec -ignorestderr rm -f ${tmpfile}_out]}
+          catch { [exec -ignorestderr rm -f ${tmpfile}] }
        }
    } else {
       incr POPUP_ACTIVATION_COUNTER(${tmpfile})
@@ -342,7 +342,7 @@ proc Utils_launchShell { mach exp_path init_dir title {cmd ""} } {
 	set userCmd ""
     }
     puts "xterm -ls -T ${title} -e \"ssh -t -Y ${mach} 'cd ${init_dir}; export SEQ_EXP_HOME=${exp_path}; ${userCmd} bash --login -i'\""
-    exec ksh -c "xterm -ls -T ${title} -e \"ssh -t -Y ${mach} 'cd ${init_dir}; export SEQ_EXP_HOME=${exp_path}; ${userCmd} bash --login -i'\"" & 
+    exec -ignorestderr ksh -c "xterm -ls -T ${title} -e \"ssh -t -Y ${mach} 'cd ${init_dir}; export SEQ_EXP_HOME=${exp_path}; ${userCmd} bash --login -i'\"" & 
 }
 
 proc Utils_goBrowser { url } {
@@ -351,7 +351,7 @@ proc Utils_goBrowser { url } {
       set browser firefox
    }
    puts "Utils_goBrowser exec ${browser} ${url}"
-   exec ${browser} ${url} &
+   exec -ignorestderr ${browser} ${url} &
 }
 
 proc Utils_setDebugOn {} {
@@ -554,5 +554,5 @@ proc Utils_runPluginCommandCallback { pluginEnv command terminal } {
        set cmd_str "export SEQ_MAESTRO_RC=${SEQ_MAESTRO_RC}; export TMPDIR=${init_dir}; mkdir ${init_dir}; ${pluginEnv}${sep} cd ${init_dir}; ${userCmd} 2>&1"
    }
    puts $cmd_str
-   exec ksh -c $cmd_str &
+   exec -ignorestderr ksh -c $cmd_str &
 }

@@ -2,7 +2,7 @@ proc Sequencer_getExpRootNodeInfo { exp_path } {
    set seqExec "nodeinfo"
 
    set cmd "export SEQ_EXP_HOME=$exp_path; ${seqExec} -f root | cut -d \"=\" -f2"
-   set rootNode [exec ksh -c ${cmd}]
+   set rootNode [exec -ignorestderr ksh -c ${cmd}]
    return ${rootNode}
 }
 
@@ -14,7 +14,7 @@ proc Sequencer_runCommandWithWindow { exp_path datestamp parent_top command titl
    set tmpfile "${tmpdir}/${tmpfile}_${id}"
    Sequencer_runCommand ${exp_path} ${datestamp} ${tmpfile} "${command} [join ${args}]" ${run_remote}
    TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
-   catch {[exec rm -f ${tmpfile}]}
+   catch {[exec -ignorestderr rm -f ${tmpfile}]}
 }
 
 proc Sequencer_runSubmit { exp_path datestamp parent_top command title position run_remote  args {Id "null"} {list_item "null"}} {
@@ -35,7 +35,7 @@ proc Sequencer_runSubmit { exp_path datestamp parent_top command title position 
    switch ${Id} {
         null      { if { ${SUBMIT_POPUP} != false} {
                      TextEditor_createWindow "$title" ${tmpfile} ${position} ${parent_top}
-                     catch {[exec rm -f ${tmpfile}]}
+                     catch {[exec -ignorestderr rm -f ${tmpfile}]}
                     }
                 }
         default { if { ${SUBMIT_POPUP} != false && ${list_item} == "true"} {
@@ -95,30 +95,32 @@ proc Sequencer_runCommand { exp_path datestamp out_file command run_remote {list
     switch  ${list_item} {
         null    {  if { $remote_host != "" && ${run_remote} > 0} {
                    # Construct the remote command by echoing the command through an ssh pipe.
-                   set remote_cmd "echo \"${cmd}\" | ssh ${remote_host} ${remote_user} > ${out_file} 2>&1"
+                   # set remote_cmd "echo \"${cmd}\" | ssh ${remote_host} ${remote_user} > ${out_file} 2>&1"
+                   set remote_cmd "echo \"${cmd}" | ssh ${remote_host} ${remote_user} > ${out_file}"
                    puts "Running remote command $remote_cmd"
-                   catch { eval [exec ksh -c $remote_cmd] }
+                   catch { eval [exec -ignorestderr ksh -c $remote_cmd] }
                    ::log::log debug "Sequencer_runCommand ksh -c $remote_cmd"
                  } else {
                    # Send command on local shell
                    set prefix "$prefix;export SEQ_EXP_HOME=${exp_path}"
-                   set cmd "${prefix}; echo \"### ${command}\" > ${out_file}; $command >> $out_file 2>&1"
-                   catch { eval [exec ksh -c $cmd]}
+                   # set cmd "${prefix}; echo \"### ${command}\" > ${out_file}; $command >> $out_file 2>&1"
+                   set cmd "${prefix}; echo \"### ${command}\" > ${out_file}; $command >> $out_file"
+                   catch { eval [exec -ignorestderr ksh -c $cmd]}
                    ::log::log debug "Sequencer_runCommand ksh -c $cmd"
                  }
                }    
        default { if { $remote_host != "" && ${run_remote} > 0} {
-                   lappend LISTJOB_TO_SUB "`echo \"${cmd}\" | ssh ${remote_host} ${remote_user} >> ${out_file} 2>&1`"
+                   lappend LISTJOB_TO_SUB "`echo \"${cmd}\" | ssh ${remote_host} ${remote_user} >> ${out_file}`"
                    if {$list_item == "true"} {
-                      catch { eval [exec $env(SEQ_XFLOW_BIN)/submit_listcmd -l ${LISTJOB_TO_SUB} -o ${out_file} &]}
+                      catch { eval [exec -ignorestderr $env(SEQ_XFLOW_BIN)/submit_listcmd -l ${LISTJOB_TO_SUB} -o ${out_file} &]}
                       ::log::log debug "Sequencer_runCommand ksh -c $LISTJOB_TO_SUB"
                     }
                  } else {
                    # Send command on local shell
                    set prefix "$prefix;export SEQ_EXP_HOME=${exp_path}"
-                   lappend LISTJOB_TO_SUB "`${prefix}; echo \"### ${command}\" >> ${out_file}; $command >> $out_file 2>&1`"
+                   lappend LISTJOB_TO_SUB "`${prefix}; echo \"### ${command}\" >> ${out_file}; $command >> $out_file `"
                    if {$list_item == "true"} {
-                      catch { eval [exec $env(SEQ_XFLOW_BIN)/submit_listcmd -l ${LISTJOB_TO_SUB} -o ${out_file} &]}
+                      catch { eval [exec -ignorestderr $env(SEQ_XFLOW_BIN)/submit_listcmd -l ${LISTJOB_TO_SUB} -o ${out_file} &]}
                       ::log::log debug "Sequencer_runCommand ksh -c $LISTJOB_TO_SUB"
                    }
                  }
