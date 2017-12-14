@@ -154,6 +154,10 @@ proc ::DrawUtils::clearBranch { exp_path node datestamp canvas { cmd_list "" } }
    # puts "--------------------------------------------- ::DrawUtils::clearBranch end of node:$node ${evalCmdList}"
 }
 
+proc ::DrawUtils::getIndexWidgetTag { node } {
+   return index_widget_${node}
+}
+
 proc ::DrawUtils::getIndexWidgetName { node canvas } {
    set newNode [regsub -all "/" ${node} _]   
    set newNode [regsub -all {[\.]} ${newNode} _]
@@ -353,38 +357,29 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
    if {  [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "switch_case" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
-         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
+         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -text latest -width 7 \
             -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
          ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
          ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
       }
-      set listboxW [${indexListW} getlistbox]
-      set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
 
-      # only modify listbox value on the fly if the listbox is not currently mapped
-      # i.e. not being selected by the user
-      if { ! [winfo ismapped ${listboxW}] } {
-         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-            ${indexListW} configure -values {latest} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+      # only redraw/create index widget window if not already created
+      # avoids flickering in the display 
+      set indexWidgetTag [::DrawUtils::getIndexWidgetTag ${binder}]
+      if { [$canvas coords ${indexWidgetTag}] == "" } {
+         pack ${indexListW} -fill both
+         set barY [expr ${nextY} + 5]
+         set barX [expr (${nx1} + ${nx3}) / 2 ]
+         $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${indexWidgetTag}"
+
+         # update idletasks
+         if { [winfo height ${indexListW}] == "1" } {
+            set nextY [expr $barY + 10]
          } else {
-            set indexValue [SharedFlowNode_getIndexValue ${currentExt}] 
-            ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+            set nextY [expr $barY + [winfo height ${indexListW}]]
          }
-         ${indexListW} setvalue first
+         SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maximX} ${maximY}
       }
-
-      pack ${indexListW} -fill both
-      set barY [expr ${nextY} + 5]
-      set barX [expr (${nx1} + ${nx3}) / 2 ]
-      $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget"
-
-      # update idletasks
-      if { [winfo height ${indexListW}] == "1" } {
-         set nextY [expr $barY + 10]
-      } else {
-         set nextY [expr $barY + [winfo height ${indexListW}]]
-      }
-      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maximX} ${maximY}
    }
 }
 
@@ -464,39 +459,29 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
    if {  [SharedFlowNode_getNodeType ${exp_path} ${binder} ${datestamp}] == "loop" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
       if { ! [winfo exists ${indexListW}] } {
-         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
+         ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -text latest -values {latest} -width 7 \
             -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
          ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
          ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
 
       }
-      set listboxW [${indexListW} getlistbox]
-      set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
 
-      # only modify listbox value on the fly if the listbox is not currently mapped
-      # i.e. not being selected by the user
-      if { ! [winfo ismapped ${listboxW}] } {
-         if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-            ${indexListW} configure -values {latest} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+      # only redraw/create index widget window if not already created
+      # avoids flickering in the display 
+      set indexWidgetTag [::DrawUtils::getIndexWidgetTag ${binder}]
+      if { [$canvas coords ${indexWidgetTag}] == "" } {
+         pack ${indexListW} -fill both
+         set barY [expr ${maxY} + 15]
+         set barX [expr ($nx1 + $nx2)/2]
+         $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${indexWidgetTag}"
+         set maxY ${barY}
+         if { [winfo height ${indexListW}] == "1" } {
+            set nextY [expr $barY + 20]
          } else {
-            set indexValue [SharedFlowNode_getIndexValue ${currentExt}] 
-            ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+            set nextY [expr $barY + [winfo height ${indexListW}]]
          }
-         ${indexListW} setvalue first
+         SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
       }
-
-      pack ${indexListW} -fill both
-      set barY [expr ${maxY} + 15]
-      set barX [expr ($nx1 + $nx2)/2]
-      $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget"
-      set maxY ${barY}
-      # update idletasks
-      if { [winfo height ${indexListW}] == "1" } {
-         set nextY [expr $barY + 20]
-      } else {
-         set nextY [expr $barY + [winfo height ${indexListW}]]
-      }
-      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
    }
 }
 
@@ -795,39 +780,31 @@ proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext te
 
    set indexListW [::DrawUtils::getIndexWidgetName ${binder} ${canvas}]
    if { ! [winfo exists ${indexListW}] } {
-      ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -width 7 \
+      ComboBox ${indexListW} -bwlistbox 1 -hottrack 1 -values {latest} -text latest -width 7 \
          -postcommand [list ::DrawUtils::setIndexWidgetStatuses ${exp_path} ${binder} ${datestamp} ${indexListW}]
       ${indexListW} bind <4> [list ComboBox::_unmapliste ${indexListW}]
       ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
    }
-   set listboxW [${indexListW} getlistbox]
-   set currentExt [SharedFlowNode_getCurrentExt ${exp_path} ${binder} ${datestamp}]
 
-   # only modify listbox value on the fly if the listbox is not currently mapped
-   # i.e. not being selected by the user
-   if { ! [winfo ismapped ${listboxW}] } {
-      if {  ${currentExt} == "" || ${currentExt} == "latest" } {
-         ${indexListW} configure -values {latest} -width 7
+   # only redraw/create index widget window if not already created
+   # avoids flickering in the display 
+   set indexWidgetTag [::DrawUtils::getIndexWidgetTag ${binder}]
+   if { [$canvas coords ${indexWidgetTag}] == "" } {
+
+      pack ${indexListW} -fill both
+
+      set barY [expr ${maxY} + 15]
+      set barX ${nx1}
+      $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${indexWidgetTag}" -anchor w
+      set maxY ${barY}
+      # update idletasks
+      if { [winfo height ${indexListW}] == "1" } {
+         set nextY [expr $barY + 20]
       } else {
-         set indexValue [SharedFlowNode_getIndexValue ${currentExt}]
-         ${indexListW} configure -values  ${indexValue} -width [expr [SharedFlowNode_getMaxExtValue ${exp_path} ${binder} ${datestamp}] + 3]
+         set nextY [expr $barY + [winfo height ${indexListW}]]
       }
-      ${indexListW} setvalue first
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
    }
-   pack ${indexListW} -fill both
-
-   set barY [expr ${maxY} + 15]
-   set barX ${nx1}
-   $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${binder} ${binder}.index_widget" -anchor w
-   set maxY ${barY}
-   # update idletasks
-   if { [winfo height ${indexListW}] == "1" } {
-      set nextY [expr $barY + 20]
-   } else {
-      set nextY [expr $barY + [winfo height ${indexListW}]]
-   }
-   SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
-
 }
 
 # got from the web pasting it as is
@@ -1020,7 +997,8 @@ proc ::DrawUtils::getNodeDeltaX { exp_path node datestamp canvas } {
    if { [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}] == "npass_task" } {
       set indexListW [::DrawUtils::getIndexWidgetName ${node} ${canvas}]
       foreach { px1 py1 px2 py2 } [SharedFlowNode_getDisplayCoords ${exp_path} ${node} ${datestamp}] {break}
-      foreach { nx1 ny1 nx2 ny2 } [${canvas} bbox ${node}.index_widget] { break }
+      # foreach { nx1 ny1 nx2 ny2 } [${canvas} bbox ${node}.index_widget] { break }
+      foreach { nx1 ny1 nx2 ny2 } [${canvas} bbox index_widget_${node}] { break }
       if { ${nx2} > ${px2} } {
          set deltax [expr ${nx2} - ${px2}]
       }
