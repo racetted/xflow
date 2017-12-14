@@ -468,7 +468,7 @@ proc MsgCenter_createWidgets {} {
                         0 Suite ${defaultAlign} \
                         0 Unack ${defaultAlign}]
 
-      tablelist::tablelist ${tableW} -selectmode extended -columns ${columns} \
+      tablelist::tablelist ${tableW} -selecttype cell -selectmode extended -columns ${columns} \
          -arrowcolor white -spacing 1 -resizablecolumns 1 \
          -stretch all -relief flat -labelrelief flat -showseparators 0 -borderwidth 0 -listvariable  MSG_ACTIVE_TABLE \
          -bg ${normalBgColor} -fg ${rowFgColor} \
