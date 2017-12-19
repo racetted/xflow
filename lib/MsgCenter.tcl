@@ -1344,10 +1344,7 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
          Utils_normalCursor ${table_widget}
       }
       set flowNode [SharedData_getExpNodeMapping ${expPath} ${realDatestamp} ${nodeWithouthExt}]
-      set winx [expr [winfo rootx ${table_widget}] + ${x}]
-      set winy [expr [winfo rooty ${table_widget}] + ${y}]
       
-      # MsgCenter_nodeMenu ${expPath} ${nodeWithouthExt} ${extensionPart} ${realDatestamp} ${winx} ${winy}
       # everything here is to allow the same node menu as xflow to be called from msg center
       set xflowToplevel [xflow_getToplevel ${expPath} ${realDatestamp}]
       if { ! [winfo exists ${xflowToplevel} ] } {
@@ -1357,6 +1354,9 @@ proc MsgCenter_rightClickCallback { table_widget w x y } {
 
       # puts "MsgCenter_rightClickCallback calling xflow_modeMenu..."
       xflow_setWidgetNames
+
+      set winx [expr [winfo rootx ${w}] + ${x}]
+      set winy [expr [winfo rooty ${w}] + ${y}]
       xflow_nodeMenu ${expPath} ${realDatestamp} [MsgCenter_getToplevel] ${flowNode} ${extensionPart} ${winx} ${winy}
    }
 }
