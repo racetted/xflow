@@ -366,20 +366,26 @@ proc ::DrawUtils::drawLosange { exp_path datestamp canvas tx1 ty1 text textfill 
       # only redraw/create index widget window if not already created
       # avoids flickering in the display 
       set indexWidgetTag [::DrawUtils::getIndexWidgetTag ${binder}]
-      if { [$canvas coords ${indexWidgetTag}] == "" } {
-         pack ${indexListW} -fill both
-         set barY [expr ${nextY} + 5]
-         set barX [expr (${nx1} + ${nx3}) / 2 ]
-         $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${indexWidgetTag}"
+      set indexWidgetCoords  [$canvas coords ${indexWidgetTag}] 
+      set barY [expr ${nextY} + 5]
+      set barX [expr (${nx1} + ${nx3}) / 2 ]
 
-         # update idletasks
-         if { [winfo height ${indexListW}] == "1" } {
-            set nextY [expr $barY + 10]
-         } else {
-            set nextY [expr $barY + [winfo height ${indexListW}]]
-         }
-         SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maximX} ${maximY}
+      if { ${indexWidgetCoords} == "" } {
+         pack ${indexListW} -fill both
+         $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${indexWidgetTag}"
+      } else {
+         set xCoord [lindex ${indexWidgetCoords} 0]
+         set yCoord [lindex ${indexWidgetCoords} 1]
+         set deltaX [expr ${barX} - ${xCoord}]
+         set deltaY [expr ${barY} - ${yCoord}]
+         $canvas move $indexWidgetTag $deltaX $deltaY
       }
+      if { [winfo height ${indexListW}] == "1" } {
+         set nextY [expr $barY + 10]
+      } else {
+         set nextY [expr $barY + [winfo height ${indexListW}]]
+      }
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maximX} ${maximY}
    }
 }
 
@@ -466,22 +472,31 @@ proc ::DrawUtils::drawOval { exp_path datestamp canvas tx1 ty1 txt maxtext textf
 
       }
 
+      set indexWidgetTag [::DrawUtils::getIndexWidgetTag ${binder}]
+      set indexWidgetCoords  [$canvas coords ${indexWidgetTag}] 
+      set barY [expr ${maxY} + 15]
+      set barX [expr ($nx1 + $nx2)/2]
+      set maxY ${barY}
+
       # only redraw/create index widget window if not already created
       # avoids flickering in the display 
-      set indexWidgetTag [::DrawUtils::getIndexWidgetTag ${binder}]
-      if { [$canvas coords ${indexWidgetTag}] == "" } {
+      if { ${indexWidgetCoords} == "" } {
          pack ${indexListW} -fill both
-         set barY [expr ${maxY} + 15]
-         set barX [expr ($nx1 + $nx2)/2]
          $canvas create window $barX $barY -window ${indexListW} -tags "flow_element ${indexWidgetTag}"
-         set maxY ${barY}
-         if { [winfo height ${indexListW}] == "1" } {
-            set nextY [expr $barY + 20]
-         } else {
-            set nextY [expr $barY + [winfo height ${indexListW}]]
-         }
-         SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
+      } else {
+         set xCoord [lindex ${indexWidgetCoords} 0]
+         set yCoord [lindex ${indexWidgetCoords} 1]
+         set deltaX [expr ${barX} - ${xCoord}]
+         set deltaY [expr ${barY} - ${yCoord}]
+         $canvas move $indexWidgetTag $deltaX $deltaY
       }
+
+      if { [winfo height ${indexListW}] == "1" } {
+         set nextY [expr $barY + 20]
+      } else {
+         set nextY [expr $barY + [winfo height ${indexListW}]]
+      }
+      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
    }
 }
 
@@ -786,25 +801,31 @@ proc DrawUtils::drawRoundBox { exp_path datestamp canvas tx1 ty1 text maxtext te
       ${indexListW} bind <5> [list ComboBox::_mapliste ${indexListW}]
    }
 
+   set indexWidgetTag [::DrawUtils::getIndexWidgetTag ${binder}]
+   set indexWidgetCoords  [$canvas coords ${indexWidgetTag}] 
+   set barY [expr ${maxY} + 15]
+   set barX ${nx1}
+   set maxY ${barY}
+
    # only redraw/create index widget window if not already created
    # avoids flickering in the display 
-   set indexWidgetTag [::DrawUtils::getIndexWidgetTag ${binder}]
-   if { [$canvas coords ${indexWidgetTag}] == "" } {
-
+      if { ${indexWidgetCoords} == "" } {
       pack ${indexListW} -fill both
-
-      set barY [expr ${maxY} + 15]
-      set barX ${nx1}
       $canvas create window $barX $barY -window  ${indexListW} -tags "flow_element ${indexWidgetTag}" -anchor w
-      set maxY ${barY}
-      # update idletasks
-      if { [winfo height ${indexListW}] == "1" } {
-         set nextY [expr $barY + 20]
-      } else {
-         set nextY [expr $barY + [winfo height ${indexListW}]]
-      }
-      SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
+   } else {
+         set xCoord [lindex ${indexWidgetCoords} 0]
+         set yCoord [lindex ${indexWidgetCoords} 1]
+         set deltaX [expr ${barX} - ${xCoord}]
+         set deltaY [expr ${barY} - ${yCoord}]
+         $canvas move $indexWidgetTag $deltaX $deltaY
    }
+
+   if { [winfo height ${indexListW}] == "1" } {
+      set nextY [expr $barY + 20]
+   } else {
+      set nextY [expr $barY + [winfo height ${indexListW}]]
+   }
+   SharedData_setExpDisplayData ${exp_path} ${datestamp} ${canvas} ${nextY} ${maxX} ${maxY}
 }
 
 # got from the web pasting it as is
