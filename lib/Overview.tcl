@@ -69,15 +69,21 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
       }
 
       ::log::log debug "Overview_GridAdvanceHour sleeping for ${sleepTime} msecs before hour ${nextHour}"
-  } message ] {
-      ::log::log notice "ERROR in Overview_GridAdvanceHour message:${message}"
-  }
 
-  after ${sleepTime} [list Overview_GridAdvanceHour ${nextHour}]
+      after ${sleepTime} [list Overview_GridAdvanceHour ${nextHour}]
+   } message ] {
+      ::log::log notice "ERROR in Overview_GridAdvanceHour(1) message:${message}"
+      set errMsg "ERROR in proc Overview_GridAdvanceHour(1) :\n$message"
+      tk_messageBox -title "Application Error!" -type ok -icon error \
+        -message ${errMsg}
+      return
+   }  
 
    if { ${advanceGrid} == false } {
       return
    }
+
+   if [ catch {
 
    ::log::log debug "Overview_GridAdvanceHour advancing grid hour ${new_hour}"
 
@@ -160,6 +166,13 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    Overview_checkGridLimit 
    Overview_setCurrentTime ${canvasW}
    ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}] DONE"
+
+  } message ] {
+      ::log::log notice "ERROR in Overview_GridAdvanceHour(2) message:${message}"
+      set errMsg "ERROR in proc Overview_GridAdvanceHour(2) :\n$message"
+      tk_messageBox -title "Application Error!" -type ok -icon error \
+         -message ${errMsg}
+  }
 }
 
 # redraws the overview for an exp
