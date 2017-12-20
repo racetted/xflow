@@ -1458,8 +1458,7 @@ proc MsgCenter_init {} {
       bind [${tableW} bodytag] <Double-Button-1> [ list MsgCenter_doubleClickCallback ${tableW}]
 
       # active menu on right-click
-      # bind [${tableW} bodytag] <Button-3> [list MsgCenter_rightClickCallback ${tableW} %W %x %y]
-      bind [${tableW} bodypath] <Button-3> [list MsgCenter_rightClickCallback ${tableW} %W %x %y]
+      bind [${tableW} bodytag] <Button-3> [list MsgCenter_rightClickCallback ${tableW} %W %x %y]
       MsgCenter_setTitle ${topLevelW}
 
       # give full space to message table
