@@ -103,7 +103,9 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
    # insert new hour at the far-right
    Overview_GraphAddHourLine ${canvasW} 24 ${mostLeftHour}
 
-   set xoriginDateTime [Overview_GraphGetXOriginDateTime]
+   # set new timeline
+   Overview_setCurrentTime ${canvasW}
+
    # shift all the exp boxes in the canvas
    set displayGroups [ExpXmlReader_getGroups]
 
@@ -164,7 +166,7 @@ proc Overview_GridAdvanceHour { {new_hour ""} } {
 
    Overview_HighLightFindNode ${LIST_TAG}
    Overview_checkGridLimit 
-   Overview_setCurrentTime ${canvasW}
+   # Overview_setCurrentTime ${canvasW}
    ::log::log notice "Overview_GridAdvanceHour new_hour:${new_hour} [clock format ${currentClock}] DONE"
 
   } message ] {
@@ -365,6 +367,7 @@ proc Overview_checkExpSubmitLate { { next_check_time 900000 }} {
 # returned datestamp value is full i.e. 20160418160000
 # returned time format value is seconds...same as output of [clock seconds]
 proc Overview_getScheduledInfo { exp_path datestamp_hour {start_time ""} {datestamp_or_time datestamp}} {
+   # ::log::log debug "Overview_getScheduledInfo $exp_path $datestamp_hour start_time:$start_time $datestamp_or_time"
    global graphStartX
 
    set currentTimeX [Overview_getCurrentTimeX]
@@ -392,6 +395,7 @@ proc Overview_getScheduledInfo { exp_path datestamp_hour {start_time ""} {datest
    set myStartTimeX [Overview_getXCoordTime ${start_time}]
    scan ${start_time} %d:%d hourValue minuteValue
 
+   ::log::log debug "datestamp_hour:$datestamp_hour hourValue:$hourValue currentTimeX:$currentTimeX myStartTimeX:$myStartTimeX myDatestampHourX:$myDatestampHourX today00ZX:$today00ZX"
    if {  (${datestamp_hour} > ${hourValue} && ${currentTimeX} >= ${myStartTimeX} && ${myDatestampHourX} <= ${today00ZX}) ||
          (${myStartTimeX} <= ${today00ZX} && ${currentTimeX} >= ${today00ZX}) } {
         # if the current time is to the right of the 00Z and the starting time is to the left then its yesterday's datestamp
@@ -403,7 +407,6 @@ proc Overview_getScheduledInfo { exp_path datestamp_hour {start_time ""} {datest
 	}
 	set deltaDay -1
 	::log::log debug "Overview_getScheduledInfo here 0 exp_path:$exp_path datestamp_hour:${datestamp_hour} deltaDay:$deltaDay startReferenceTime:$startReferenceTime"
-
    } elseif { (${datestamp_hour} > ${hourValue} &&  ${myDatestampHourX} > ${today00ZX} && ${currentTimeX} > ${today00ZX}) } {
         set startReferenceTime [clock add ${dayValue} ${hourValue} hour ${minuteValue} minute]
 	set deltaDay -1
