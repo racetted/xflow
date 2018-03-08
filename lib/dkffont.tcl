@@ -163,6 +163,9 @@ namespace eval ::dkfFontSel {
                  Overview_getLevelFont  [lindex $litem 0]  [lindex $litem 1] [lindex $litem 2]
               }
               Overview_getBoxLabelFont
+              if { $font_label} {
+                xflow_getExpLabelFont
+              }
               set counter       0
               if { [llength ${LIST_EXP}] > 0} {
                 set ll [lsort -unique $LIST_EXP]
@@ -174,9 +177,6 @@ namespace eval ::dkfFontSel {
                      set canvas [xflow_getMainFlowCanvas ${exp_path} ${datestamp}]
                      set FLOW_SCALE_${exp_path}_${datestamp} [SharedData_getMiscData FLOW_SCALE]
                      ::DrawUtils::getBoxLabelFont $canvas
-                     if { $font_label} {
-                        xflow_getExpLabelFont
-                     }
                      if { $font_task } {
                        xflow_refreshFlow ${exp_path} ${datestamp} true
                      }
