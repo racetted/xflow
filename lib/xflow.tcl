@@ -2261,9 +2261,9 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu action} {
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
    if {${action} == "edit"} {
-      # set SEQ_EXP_HOME ${exp_path}
-      # eval set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "eval `nodeinfo -n ${seqNode} -f task -e ${exp_path}`"] "="] 1]]
-      set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "eval nodeinfo -n ${seqNode} -f task -e ${exp_path}"] "="] 1]]
+      set  SEQ_EXP_HOME ${exp_path}
+      eval set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "nodeinfo -n ${seqNode} -f task -e ${exp_path}"] "="] 1]]
+      #outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "eval nodeinfo -n ${seqNode} -f task -e ${exp_path}"] "="] 1]]
    } else {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
       set seqCmd "${seqExec} -n ${seqNode}"
@@ -2291,7 +2291,7 @@ proc xflow_configCallback { exp_path datestamp node canvas caller_menu action} {
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
    if {${action} == "edit"} {
-      # set SEQ_EXP_HOME ${exp_path}
+      set SEQ_EXP_HOME ${exp_path}
       eval set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "nodeinfo -n ${seqNode} -f cfg -e ${exp_path}"] "="] 1]]
    } else {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
@@ -2461,7 +2461,7 @@ proc xflow_resourceCallback { exp_path datestamp node canvas caller_menu action}
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
    if {${action} == "edit"} {
-      # set SEQ_EXP_HOME ${exp_path}
+      set SEQ_EXP_HOME ${exp_path}
       eval set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "nodeinfo -n ${seqNode} -f res_path -e ${exp_path}"] "="] 1]]
     } else {
       set outputfile "${SESSION_TMPDIR}/${tempfile}_[clock seconds]"
