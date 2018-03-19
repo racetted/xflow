@@ -42,6 +42,8 @@ proc xflow_addFileMenu { exp_path datestamp parent } {
 
 proc xflow_addViewMenu { exp_path datestamp parent } {
    global AUTO_MSG_DISPLAY SUBMIT_POPUP COLLAPSE_DISABLED_NODES FLOW_SCALE_${exp_path}_${datestamp}
+   global MSG_CENTER_FOCUS_GRAB
+
    if { $parent == "." } {
       set parent ""
    }
@@ -68,6 +70,10 @@ proc xflow_addViewMenu { exp_path datestamp parent } {
 
    $menuW add checkbutton -label "Show Shadow Status" -variable SHADOW_STATUS \
       -onvalue 1 -offvalue 0 -command [list xflow_redrawAllFlow ${exp_path} ${datestamp}]
+
+   $menuW add checkbutton -label "Focus grab" -variable MSG_CENTER_FOCUS_GRAB \
+      -command [list xflow_setMsgfocusgrab] \
+      -onvalue true -offvalue false 
 
    set displayMenu $menuW.displayMenu
 
@@ -576,6 +582,16 @@ proc xflow_setAutoMsgDisplay {} {
    global AUTO_MSG_DISPLAY
    ::log::log debug "xflow_setAutoMsgDisplay AUTO_MSG_DISPLAY new value: ${AUTO_MSG_DISPLAY}"
    SharedData_setMiscData AUTO_MSG_DISPLAY ${AUTO_MSG_DISPLAY}
+}
+
+# this function is only called in xflow standalone mode.
+# It propagates the Auto Message Display configuration. Alghouh this configuration
+# is already global for the xflow thread, it is also used by the message center so it needs to go through the
+# SharedData so that the msg center thread can fetch it.
+proc xflow_setMsgfocusgrab {} {
+   global MSG_CENTER_FOCUS_GRAB
+   ::log::log debug "xflow_setMsgfocusgrab MSG_FOCUS_GRAB new value: ${MSG_CENTER_FOCUS_GRAB}"
+   SharedData_setMiscData MSG_CENTER_FOCUS_GRAB ${MSG_CENTER_FOCUS_GRAB}
 }
 
 # this function is only called in xflow standalone mode.
@@ -2261,7 +2277,9 @@ proc xflow_sourceCallback { exp_path datestamp node canvas caller_menu action} {
    regsub -all " " ${winTitle} _ tempfile
    regsub -all "/" ${tempfile} _ tempfile
    if {${action} == "edit"} {
-      set  SEQ_EXP_HOME ${exp_path}
+      if {![info exists env(SEQ_EXP_HOME)]} {
+         set  SEQ_EXP_HOME ${exp_path}
+      }
       eval set outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "nodeinfo -n ${seqNode} -f task -e ${exp_path}"] "="] 1]]
       #outputfile [string trim [lindex [split [exec -ignorestderr ksh -c  "eval nodeinfo -n ${seqNode} -f task -e ${exp_path}"] "="] 1]]
    } else {
@@ -4824,7 +4842,7 @@ proc xflow_msgCenterThreadReady {} {
 proc xflow_init { {exp_path ""} } {
    global env DEBUG_TRACE
    global AUTO_MSG_DISPLAY NODE_DISPLAY_PREF SUBMIT_POPUP COLLAPSE_DISABLED_NODES
-   global SHADOW_STATUS
+   global SHADOW_STATUS MSG_CENTER_FOCUS_GRAB
    global SESSION_TMPDIR FLOW_SCALE
 
    set SHADOW_STATUS 0
@@ -4868,7 +4886,12 @@ proc xflow_init { {exp_path ""} } {
 
       MsgCenter_init
    }
-
+   if { ! [info exists MSG_CENTER_FOCUS_GRAB] } {
+         set  MSG_CENTER_FOCUS_GRAB [SharedData_getMiscData MSG_CENTER_FOCUS_GRAB]
+   } else {
+      ::log::log debug "xflow_init SharedData_setMiscData MSG_CENTER_FOCUS_GRAB ${MSG_CENTER_FOCUS_GRAB}"
+      SharedData_setMiscData MSG_CENTER_FOCUS_GRAB ${MSG_CENTER_FOCUS_GRAB}
+   }
    xflow_setWidgetNames 
    xflow_setErrorMessages
 

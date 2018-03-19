@@ -852,6 +852,7 @@ proc SharedData_init {} {
    SHOW_SYSINFO_TYPE true \
    MSG_CENTER_BELL_TRIGGER 15 \
    MSG_CENTER_USE_BELL true \
+   MSG_CENTER_FOCUS_GRAB true \
    FONT_BOLD "-*-*-bold-r-normal--11-*-*-*-p-*-iso8859-10" \
    FONT_SIZE 10 \
    FONT_NAME "" \

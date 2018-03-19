@@ -1143,8 +1143,10 @@ proc MsgCenter_show { {force false} } {
             wm deiconify ${topW}
          }
       }
-      if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
+      if { [SharedData_getMiscData STARTUP_DONE] == "true" && [SharedData_getMiscData MSG_CENTER_FOCUS_GRAB] == "true" } {
          raise ${topW}
+      } else {
+         lower ${topW}
       }
    } else {
       if { [SharedData_getMiscData STARTUP_DONE] == "true" } {
@@ -1154,7 +1156,11 @@ proc MsgCenter_show { {force false} } {
          # current desktop
          wm withdraw ${topW}
          wm deiconify ${topW}
-         raise ${topW}
+        if { [SharedData_getMiscData MSG_CENTER_FOCUS_GRAB] == "true" } {
+          raise ${topW}
+        } else { 
+          lower ${topW}
+        }   
       }
    }
 }
