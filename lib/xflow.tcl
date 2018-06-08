@@ -1358,7 +1358,8 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
       set currentExtension [SharedFlowNode_getNodeExtension ${exp_path} ${node} ${datestamp}]
       set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
 
-      ${listingMenu} add command -label "Latest Success Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+      ${listingMenu} add command -label "Latest Success Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
+         -foreground [::DrawUtils::getBgStatusColor end]
       ${listingMenu} add command -label "Latest Abort Listing" \
          -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
          -foreground [::DrawUtils::getBgStatusColor abort]
@@ -1368,16 +1369,19 @@ proc xflow_nodeMenu { exp_path datestamp canvas node extension x y } {
 
       switch ${status} {
          begin {
-	    ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
-	 }
+            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
+               -foreground [::DrawUtils::getBgStatusColor begin]
+         }
 
-	 wait {
+         wait {
             ${infoMenu} insert 0 command -label "Follow Current Dependency" -command [list xflow_followDependency ${exp_path} ${datestamp} $node ${extension} ]
-            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas]
-	 }
-	 default {
-            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas]
-	 }
+            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas] \
+               -foreground [::DrawUtils::getBgStatusColor begin]
+         }
+         default {
+            ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas] \
+               -foreground [::DrawUtils::getBgStatusColor begin]
+         }
       }
 
       # ${miscMenu} add command -label "New Window" -command [list xflow_newWindowCallback $node $canvas $popMenu]
@@ -1583,14 +1587,17 @@ proc xflow_addLoopNodeMenu { exp_path datestamp popmenu_w canvas node extension 
 
    switch ${status} {
       begin {
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
+            -foreground [::DrawUtils::getBgStatusColor begin]
       }
       wait {
          ${infoMenu} insert 0 command -label "Follow Current Dependency" -command [list xflow_followDependency ${exp_path} ${datestamp} $node ${extension} ]
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${extension} $canvas]
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile ${exp_path} ${datestamp} $node ${extension} $canvas] \
+            -foreground [::DrawUtils::getBgStatusColor begin]
       }
       default {
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas]
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas] \
+            -foreground [::DrawUtils::getBgStatusColor begin]
       }
    }
 
@@ -1651,7 +1658,8 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
    set status [SharedFlowNode_getMemberStatus ${exp_path} ${node} ${datestamp} ${currentExtension}]
 
 
-   ${listingMenu} add command -label "Latest Success Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+   ${listingMenu} add command -label "Latest Success Listing" -command [list xflow_listingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
+      -foreground [::DrawUtils::getBgStatusColor end]
    ${listingMenu} add command -label "Latest Abort Listing" \
       -command [list xflow_abortListingCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
       -foreground [::DrawUtils::getBgStatusColor abort]
@@ -1661,14 +1669,17 @@ proc xflow_addNptNodeMenu { exp_path datestamp popmenu_w canvas node extension} 
 
    switch ${status} {
       begin {
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node ${extension} $canvas ]
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_tailfCallback ${exp_path} ${datestamp} $node ${extension} $canvas ] \
+            -foreground [::DrawUtils::getBgStatusColor begin]
       }
       wait {
          ${infoMenu} insert 0 command -label "Follow Current Dependency" -command [list xflow_followDependency ${exp_path} ${datestamp} $node ${extension} ]
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas]
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas] \
+            -foreground [::DrawUtils::getBgStatusColor begin]
       }
       default {
-         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas]
+         ${listingMenu} add command -label "Monitor Listing" -command [list xflow_viewOutputFile  ${exp_path} ${datestamp} $node ${extension} $canvas] \
+            -foreground [::DrawUtils::getBgStatusColor begin]
       }
    }
 
@@ -2890,35 +2901,54 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       }
       toplevel ${listingW}
       wm geometry ${listingW} +[winfo pointerx ${caller_menu}]+[winfo pointery ${caller_menu}]
+      wm title  ${listingW} "All listings ${node} - Exp=${exp_path}"
+
+      #Images for the tabs
+      set successImg [image create photo -width 10]
+      set abortImg   [image create photo -width 10]
+      set submitImg  [image create photo -width 10]
+      $successImg put [::DrawUtils::getBgStatusColor end]      -to 0 0 10 10
+      $abortImg   put [::DrawUtils::getBgStatusColor abort]    -to 0 0 10 10
+      $submitImg  put [::DrawUtils::getBgStatusColor submit]   -to 0 0 10 10
+
+      #Notebook widget for the tabs
+      frame ${listingW}.nbframe
+      set listingNb ${listingW}.nbframe.nb
+      ttk::notebook ${listingNb}
+      ${listingNb} add [frame ${listingNb}.successFrame] -text "Success" -image ${successImg} -compound left
+      ${listingNb} add [frame ${listingNb}.abortFrame]   -text "Abort" -image ${abortImg} -compound left
+      ${listingNb} add [frame ${listingNb}.submitFrame]  -text "Submission" -image ${submitImg} -compound left
+      ${listingNb} select ${listingNb}.successFrame
+      ttk::notebook::enableTraversal ${listingNb}
       
       #Bottom menu bar
       frame $listingW.mbar -relief raised -bd 2
-      pack $listingW.mbar -side bottom -fill x
+      grid $listingW.mbar -column 1 -row 3 -sticky nsew
       button $listingW.mbar.quit -text Quit -command [list destroy ${listingW}]
       pack $listingW.mbar.quit -side right -pady .5m -padx 1m
-      wm title  ${listingW} "All listings ${node} - Exp=${exp_path}"
-      
+
       #Divide the window in 4 parts: success listings, abort listings, submission listings and compare listings
-      TitleFrame $listingW.successFrame -text "Success listings"
-      pack ${listingW}.successFrame -fill both -expand 1 -padx 5 -pady 10
-      set subf1 [${listingW}.successFrame getframe]
+      set subf1 ${listingNb}.successFrame
       frame $subf1.successButtons
       pack $subf1.successButtons -side bottom -fill x
-      TitleFrame $listingW.abortFrame -text "Abort listings"
-      pack ${listingW}.abortFrame -fill both -expand 1 -padx 5 -pady 10
-      set subf2 [${listingW}.abortFrame getframe]
+      set subf2 ${listingNb}.abortFrame
       frame $subf2.abortButtons
       pack $subf2.abortButtons -side bottom -fill x
-      TitleFrame $listingW.submitFrame -text "Submission listings"
-      pack ${listingW}.submitFrame -fill both -expand 1 -padx 5 -pady 10
-      set subf4 [${listingW}.submitFrame getframe]
+      set subf4 ${listingNb}.submitFrame
       frame $subf4.submitButtons
       pack $subf4.submitButtons -side bottom -fill x
+
+      grid ${listingW}.nbframe -column 1 -row 1 -sticky nsew
+      grid rowconfigure ${listingW} 1 -weight 1
+      pack ${listingNb} -padx 5 -fill x
+      
       TitleFrame $listingW.diffFrame -text "Compare listings"
-      pack ${listingW}.diffFrame -fill both -expand 1 -padx 5 -pady 10
+      grid ${listingW}.diffFrame -column 1 -row 2 -sticky nsew -pady 10
       set subf3 [${listingW}.diffFrame getframe]
       frame $subf3.diffButtons
       pack $subf3.diffButtons -side bottom -fill x
+
+      grid columnconfigure ${listingW} 1 -weight 1
    
       #Buttons and help balloons for each frame
       button $subf1.successButtons.successView -text "View selected" -command [list xflow_showAllListingItem ${exp_path} ${datestamp} $subf1.list success]
@@ -2941,14 +2971,14 @@ proc xflow_allListingCallback { exp_path datestamp node canvas caller_menu } {
       balloon $subf3.diffButtons.diff "Compare listings from the list above"
       button $subf3.diffButtons.removeDiff -text "Remove selected" -command [list xflow_removeDiff $subf3.list3 $subf1.list $subf2.list2 $subf4.list4]
       pack $subf3.diffButtons.removeDiff -side left -pady .5m -padx 1m
-      
+
       #Listboxes, where the listings are listed
       listbox $subf1.list -yscrollcommand "${subf1}.yscroll set" \
           -xscrollcommand "${subf1}.xscroll set" -selectbackground gray5 \
-          -height 10 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor
+          -height 10 -width 70 -selectmode multiple -bg $bgColor -fg [::DrawUtils::getBgStatusColor end]
       listbox $subf2.list2 -yscrollcommand "${subf2}.yscroll2 set" \
           -xscrollcommand "${subf2}.xscroll2 set" -selectbackground gray5 \
-          -height 10 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor
+          -height 10 -width 70 -selectmode multiple -bg $bgColor -fg [::DrawUtils::getBgStatusColor abort]
       listbox $subf4.list4 -yscrollcommand "${subf4}.yscroll4 set" \
           -xscrollcommand "${subf4}.xscroll4 set" -selectbackground gray5 \
           -height 10 -width 70 -selectmode multiple -bg $bgColor -fg $shadowColor
@@ -3094,14 +3124,14 @@ proc xflow_removeDiff { listw successlist abortlist submitlist } {
         set tmpSize [$successlist size]
 	for {set i 0} {$i < $tmpSize} {incr i} {
 	  if { $tmpLine == [$successlist get $i] } {
-	      $successlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+	      $successlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [::DrawUtils::getBgStatusColor end]
 	  }
 	}
       } elseif { [string first "abort" $tmpLine] > 1 } {
          set tmpSize [$abortlist size]
          for {set i 0} {$i < $tmpSize} {incr i} {
 	   if { $tmpLine == [$abortlist get $i] } {
-	      $abortlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+	      $abortlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [::DrawUtils::getBgStatusColor abort]
 	   }
          }
       } else {
@@ -3122,14 +3152,14 @@ proc xflow_removeDiff { listw successlist abortlist submitlist } {
 	  set tmpSize [$successlist size]
 	  for {set i 0} {$i < $tmpSize} {incr i} {
 	    if { $tmpLine == [$successlist get $i] } {
-		$successlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+		$successlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [::DrawUtils::getBgStatusColor end]
 	    }
 	  }
 	} elseif { [string first "abort" $tmpLine] > 1 } {
 	  set tmpSize [$abortlist size]
 	  for {set i 0} {$i < $tmpSize} {incr i} {
 	    if { $tmpLine == [$abortlist get $i] } {
-		$abortlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [SharedData_getColor SHADOW_COLOR]
+		$abortlist itemconfigure $i -bg [SharedData_getColor CANVAS_COLOR] -fg [::DrawUtils::getBgStatusColor abort]
 	    }
 	  }
 	} else {
@@ -3172,7 +3202,7 @@ proc xflow_diffListing { exp_path datestamp listw } {
 	  lappend outputList $outputfile
 	}
     }
-    
+
     if { [catch { exec which xxdiff } errmsg] } {
        set tkdiff_location [ exec which tkdiff ] 
        exec ${tclsh} $tkdiff_location [lindex $outputList 0] [lindex $outputList 1] &
