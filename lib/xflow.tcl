@@ -1263,24 +1263,65 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
 }
 
 proc xflow_MouseWheelCheck { canvas } {
+   set toplevel [winfo toplevel $canvas]
+
+   # vertical scrolling
    foreach { yviewLow yviewHigh } [${canvas} yview] {}
+   
    if { ${yviewLow} == "0.0" } {
       # reached the limit don't allow scrolling
-      bind ${canvas} <4> ""
+      bind ${canvas}   <4>      ""
+      bind ${toplevel} <Up>     ""
+      bind ${toplevel} <Prior>  ""
+      bind ${toplevel} <Home>   ""
    } else {
-      bind ${canvas} <4> [list xflow_canvasMouseWheelCallback ${canvas} -20] 
+      bind ${canvas}   <4>      [list xflow_canvasMouseWheelCallback ${canvas} -20 "units"]
+      bind ${toplevel} <Up>     [list xflow_canvasMouseWheelCallback ${canvas} -20 "units"]
+      bind ${toplevel} <Prior>  [list xflow_canvasMouseWheelCallback ${canvas} -1  "pages"]
+      bind ${toplevel} <Home>   [list xflow_canvasMouseWheelCallback ${canvas} 0   "home" ]
    }
+   
    if { ${yviewHigh} == "1.0" } {
       # reached the limit don't allow scrolling
-      bind ${canvas} <5> ""
+      bind ${canvas}   <5>      ""
+      bind ${toplevel} <Down>   ""
+      bind ${toplevel} <Next>   ""
+      bind ${toplevel} <End>    ""
    } else {
-      bind ${canvas} <5> [list xflow_canvasMouseWheelCallback ${canvas} 20] 
+      bind ${canvas}   <5>      [list xflow_canvasMouseWheelCallback ${canvas} 20 "units"]
+      bind ${toplevel} <Down>   [list xflow_canvasMouseWheelCallback ${canvas} 20 "units"]
+      bind ${toplevel} <Next>   [list xflow_canvasMouseWheelCallback ${canvas} 1  "pages"]
+      bind ${toplevel} <End>    [list xflow_canvasMouseWheelCallback ${canvas} 1  "end"  ]
+   }
+
+   # horizontal scrolling
+   foreach { xviewLow xviewHigh } [${canvas} xview] {}
+
+   if { ${xviewLow} == "0.0" } {
+      # reached the limit don't allow scrolling
+      bind ${toplevel} <Left> ""
+   } else {
+      bind ${toplevel} <Left> [list xflow_canvasMouseWheelCallback ${canvas} -20 "units" true]
+   }
+
+   if { ${xviewHigh} == "1.0" } {
+      # reached the limit don't allow scrolling
+      bind ${toplevel} <Right> ""
+   } else {
+      bind ${toplevel} <Right> [list xflow_canvasMouseWheelCallback ${canvas} 20 "units" true]
    }
 }
 
-proc xflow_canvasMouseWheelCallback { canvas units_value } {
-   ${canvas} yview scroll ${units_value} units
-
+proc xflow_canvasMouseWheelCallback { canvas units_value units {horizontal false} } {
+   if { ${horizontal} == false } {
+      if { ${units} == "home" || ${units} == "end" } {
+         ${canvas} yview moveto ${units_value}
+      } else {
+         ${canvas} yview scroll ${units_value} ${units}
+      }
+   } else {
+      ${canvas} xview scroll ${units_value} units
+   }
    xflow_MouseWheelCheck ${canvas}
 }
 
