@@ -1067,7 +1067,7 @@ proc xflow_findNode { exp_path datestamp real_node } {
 #   position: specifies the position of the node within its parent
 #   first_node: set to true only for the experiment root node.
 proc xflow_drawNode { exp_path datestamp canvas node position {first_node false} } {
-   global FLOW_SCALE_${exp_path}_${datestamp} COLLAPSE_DISABLED_NODES
+   global FLOW_SCALE_${exp_path}_${datestamp} COLLAPSE_DISABLED_NODES NODE_DISPLAY_PREF
    ::log::log debug "xflow_drawNode drawing sub node:$node position:$position "
    set nodeType [SharedFlowNode_getNodeType ${exp_path} ${node} ${datestamp}]
    if { [SharedFlowNode_isParentCollapsed ${exp_path} ${node} ${datestamp}] == 1 } {
@@ -1126,7 +1126,11 @@ proc xflow_drawNode { exp_path datestamp canvas node position {first_node false}
             # drawing at same position
             set nextY [SharedFlowNode_getDisplayY ${exp_path} ${node} ${datestamp}]
          } else {
-            set nextY [SharedData_getExpDisplayNextY ${exp_path} ${datestamp} $canvas]
+            if { ${NODE_DISPLAY_PREF} == "normal" } {
+              set nextY [expr [SharedData_getExpDisplayNextY ${exp_path} ${datestamp} $canvas] + 5]
+            } else {
+              set nextY [expr [SharedData_getExpDisplayNextY ${exp_path} ${datestamp} $canvas] + 15]
+            }
          }
          SharedFlowNode_setDisplayY  ${exp_path} ${node} ${datestamp} ${nextY}
 
