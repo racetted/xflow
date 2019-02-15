@@ -2053,16 +2053,16 @@ proc xflow_launchWorkCallback { exp_path datestamp node canvas {full_loop 0} } {
    set seqExecWork nodework
    set seqNode [SharedFlowNode_getSequencerNode ${exp_path} ${node} ${datestamp}]
    set nodeExt [SharedFlowNode_getListingNodeExtension ${exp_path} ${node} ${datestamp} ${full_loop}]
+   set seqLoopArgs [xflow_getSeqLoopArgs ${exp_path} ${datestamp} ${node} ${nodeExt} ${canvas} true]
 
-   if { $nodeExt == "-1" } {
+   if { $seqLoopArgs == "-1" } {
       Utils_raiseError $canvas "node listing" [xflow_getErroMsg NO_LOOP_SELECT]
    } else {
-      ::log::log debug "$seqExecWork -n ${seqNode} -ext ${nodeExt}"
-      if [ catch { set workpath [split [exec -ignorestderr ksh -c "export SEQ_EXP_HOME=${exp_path};export SEQ_DATE=${datestamp}; $seqExecWork -n ${seqNode} -ext ${nodeExt}"] ':'] } message ] {
+      ::log::log debug "$seqExecWork -n ${seqNode} ${seqLoopArgs}"
+      if [ catch { set workpath [split [exec -ignorestderr ksh -c "export SEQ_EXP_HOME=${exp_path};export SEQ_DATE=${datestamp}; $seqExecWork -n ${seqNode} ${seqLoopArgs}"] ':'] } message ] {
          Utils_raiseError . "Retrieve node output" $message
          return 0
       }
-      set taskBasedir "[lindex $workpath 1]${seqNode}${nodeExt}"
       Utils_launchShell [lindex $workpath 0] ${exp_path} [lindex $workpath 1] "TASK_BASEDIR=[lindex $workpath 1]"
    }
 }
