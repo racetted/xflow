@@ -639,17 +639,17 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
    set istoadd true 
    
    set isUnack 0
-   set is_exist [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_}]
-   if { [lsearch -glob ${MSG_TABLE} ${is_exist}* ] < 0 } {
+   set is_exist [lsearch -glob ${MSG_TABLE} [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_} *]]
+
+   if { ${is_exist} < 0 } {
      #incr MSG_COUNTER
      ::log::log debug "MsgCenter_newMessage node_:$node_ type_:$type_ msg_:$msg_"
      lappend MSG_TABLE [list ${timestamp_} ${datestamp_} ${type_} "" ${node_} ${msg_} ${exp_} ${isUnack}]
      set MSG_COUNTER   [llength ${MSG_TABLE}]
-     set isMsgActive   [MsgCenter_addActiveMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} ${isUnack} ${istoadd}]
+     set isMsgActive   [MsgCenter_addActiveMessage ${datestamp_} ${timestamp_} ${type_} ${node_} ${msg_} ${exp_} ${isUnack} ${istoadd} ${is_exist}]
 
      if { ${isMsgActive} == "true" } {
-        set isOverviewMode [SharedData_getMiscData OVERVIEW_MODE]
-        if { [SharedData_getMiscData STARTUP_DONE] == true || $isOverviewMode == true} {
+        if { [SharedData_getMiscData STARTUP_DONE] == true } {
           set notebookW [MsgCenter_getNoteBookWidget]
           set currentMsgTab [MsgCenter_getCurrentMessageTab]
      
@@ -670,7 +670,10 @@ proc MsgCenter_newMessage { table_w_ datestamp_ timestamp_ type_ node_ msg_ exp_
            }
         }
      }
-     MsgCenter_ModifText
+
+     if { [SharedData_getMiscData STARTUP_DONE] == true } {
+        MsgCenter_ModifText
+     }
   }
    
 }
@@ -710,7 +713,7 @@ proc MsgCenter_sendNotification {} {
    }
 }
 
-proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ isMsgack_ isadd_} {
+proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ isMsgack_ isadd_ {isExistMsgTable 1} } {
    global SHOW_ABORT_TYPE SHOW_INFO_TYPE SHOW_SYSINFO_TYPE SHOW_EVENT_TYPE
    global MSG_ACTIVE_TABLE MSG_ACTIVE_COUNTER
 
@@ -745,8 +748,13 @@ proc MsgCenter_addActiveMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ is
       set displayedTimestamp [join [split ${timestamp_} .] "  "]
       # show only first 10 digits of datestamp
       set displayedDatestamp [Utils_getVisibleDatestampValue ${datestamp_} [SharedData_getMiscData DATESTAMP_VISIBLE_LEN]]
-      set is_exist [lsearch -glob ${MSG_ACTIVE_TABLE} [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} *]]
-      #puts "OK ${is_exist}"
+
+      if { ${isExistMsgTable} < 0 } {
+         set is_exist "-1"
+      } else {
+         set is_exist [lsearch -glob ${MSG_ACTIVE_TABLE} [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} *]]
+      }
+
       if { ${is_exist} == "-1"} { 
         incr MSG_ACTIVE_COUNTER
         lappend MSG_ACTIVE_TABLE [list ${displayedTimestamp} ${displayedDatestamp} ${type_} "" ${displayedNodeText} ${msg_} ${exp_} ${isMsgack_}]
@@ -1220,7 +1228,11 @@ proc MsgCenter_processNewMessage { datestamp_ timestamp_ type_ node_ msg_ exp_ }
 # that application startup is done
 proc MsgCenter_startupDone {} {
    global MSG_COUNTER
+   
+   MsgCenter_refreshActiveMessages [MsgCenter_getTableWidget]
+   MsgCenter_ModifText
    MsgCenter_sendNotification
+   
    # sort the msg by timestamp ascending order
    MsgCenter_initialSort [MsgCenter_getTableWidget]
 
