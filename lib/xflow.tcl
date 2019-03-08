@@ -435,6 +435,7 @@ proc xflow_addDatestampWidget { exp_path datestamp parent_widget } {
    tooltip::tooltip ${dtFrame} "Current Datestamp"
 
    ttk::combobox ${dateEntryCombo}
+   bind ${dateEntryCombo} <Return> [list xflow_setDatestampCallback ${exp_path} ${datestamp} ${dtFrame}]
 
    set hiddenDate [xflow_getWidgetName ${exp_path} ${datestamp} exp_date_hidden]
    label ${hiddenDate}
